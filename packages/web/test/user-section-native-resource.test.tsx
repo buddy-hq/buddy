@@ -71,7 +71,7 @@ describe("user section native resources", () => {
     await act(async () => {
       root.render(
         <TooltipProvider>
-          <UserSection userMessage={message} providers={[]} />
+          <UserSection userMessage={message} providers={[]} onQuoteMessage={() => undefined} />
         </TooltipProvider>,
       )
     })
@@ -82,6 +82,7 @@ describe("user section native resources", () => {
       ),
     ).toHaveLength(1)
     expect(container.textContent).not.toContain("Attached native learning resource metadata")
+    expect(container.querySelector('[data-action="message-add-note"]')).toBeNull()
   })
 
   test("renders text files as chips while keeping their decoded contents out of the transcript", async () => {
@@ -146,5 +147,33 @@ describe("user section native resources", () => {
     expect(container.textContent).toContain("Summarize these files")
     expect(container.textContent).not.toContain("Private report body")
     expect(container.textContent).not.toContain("Private notes body")
+  })
+
+  test("does not offer annotation for a reference-only message", async () => {
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: MESSAGE_ID, sessionID: SESSION_ID }),
+      [
+        {
+          id: "prt_reference_only",
+          sessionID: SESSION_ID,
+          messageID: MESSAGE_ID,
+          type: "file",
+          mime: "text/plain",
+          filename: "README.md",
+          url: "file:///notebook/README.md",
+        },
+      ],
+    )
+
+    await act(async () => {
+      root.render(
+        <TooltipProvider>
+          <UserSection userMessage={message} providers={[]} onQuoteMessage={() => undefined} />
+        </TooltipProvider>,
+      )
+    })
+
+    expect(container.textContent).toContain("README.md")
+    expect(container.querySelector('[data-action="message-add-note"]')).toBeNull()
   })
 })

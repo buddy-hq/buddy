@@ -35,6 +35,7 @@ const MARKDOWN_PATH = `/${ENCODED_DIRECTORY}/markdown`
 const TEST_ORIGIN_URL = "http://localhost/"
 const FILE_TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/delayed.md",
   viewer: "markdown",
 } satisfies BenchTarget

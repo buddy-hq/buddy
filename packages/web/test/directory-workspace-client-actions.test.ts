@@ -30,6 +30,7 @@ const SESSION_ID = "session-client-actions"
 const OTHER_SESSION_ID = "session-other"
 const TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "notes.md",
   viewer: "markdown",
 } satisfies BenchTarget

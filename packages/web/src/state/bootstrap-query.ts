@@ -4,10 +4,12 @@ import {
   loadOpenProjectRecovery,
   bootstrapOpenProjects,
   loadNotebookHome,
+  loadNotesDirectory,
   loadOpenProjects,
   loadProviderCatalogSnapshot,
   preloadProjectSessions,
   type NotebookHomeState,
+  type NotesDirectoryState,
 } from "./chat-actions"
 
 const BOOTSTRAP_QUERY_SCOPE = "bootstrap" as const
@@ -16,6 +18,7 @@ const OPEN_PROJECTS_WITH_SESSIONS_QUERY_KEY = "open-projects-with-sessions" as c
 const OPEN_PROJECTS_RECOVERY_QUERY_KEY = "open-projects-recovery" as const
 const NOTEBOOK_HOME_QUERY_KEY = "notebook-home" as const
 const NOTEBOOK_HOME_ACCESS_QUERY_KEY = "notebook-home-access" as const
+const NOTES_DIRECTORY_QUERY_KEY = "notes-directory" as const
 const PROVIDER_SNAPSHOT_QUERY_KEY = "provider-snapshot" as const
 const PRELOADED_SESSIONS_QUERY_KEY = "preloaded-sessions" as const
 const GLOBAL_DIRECTORY_QUERY_KEY = "__global__" as const
@@ -34,6 +37,7 @@ export const bootstrapQueryKeys = {
   openProjectsRecovery: () => [BOOTSTRAP_QUERY_SCOPE, OPEN_PROJECTS_RECOVERY_QUERY_KEY] as const,
   notebookHome: () => [BOOTSTRAP_QUERY_SCOPE, NOTEBOOK_HOME_QUERY_KEY] as const,
   notebookHomeAccess: () => [BOOTSTRAP_QUERY_SCOPE, NOTEBOOK_HOME_ACCESS_QUERY_KEY] as const,
+  notesDirectory: () => [BOOTSTRAP_QUERY_SCOPE, NOTES_DIRECTORY_QUERY_KEY] as const,
   providerSnapshot: (directory?: string) =>
     [
       BOOTSTRAP_QUERY_SCOPE,
@@ -80,6 +84,13 @@ export function notebookHomeAccessQueryOptions() {
   return queryOptions({
     queryKey: bootstrapQueryKeys.notebookHomeAccess(),
     queryFn: () => loadNotebookHomeAccess(),
+  })
+}
+
+export function notesDirectoryQueryOptions() {
+  return queryOptions({
+    queryKey: bootstrapQueryKeys.notesDirectory(),
+    queryFn: () => loadNotesDirectory(),
   })
 }
 
@@ -137,4 +148,11 @@ export function setNotebookHomeQueryData(
   nextNotebookHome: NotebookHomeState,
 ) {
   queryClient.setQueryData(bootstrapQueryKeys.notebookHome(), nextNotebookHome)
+}
+
+export function setNotesDirectoryQueryData(
+  queryClient: QueryClient,
+  nextNotesDirectory: NotesDirectoryState,
+) {
+  queryClient.setQueryData(bootstrapQueryKeys.notesDirectory(), nextNotesDirectory)
 }

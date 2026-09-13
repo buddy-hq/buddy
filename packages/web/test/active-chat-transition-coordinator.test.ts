@@ -160,6 +160,7 @@ function registerBlockingWhiteboardWorkspace() {
     getRoute: () => WHITEBOARD_ROUTE,
     setActiveSessionContext: async () => undefined,
     persist: async () => undefined,
+    removeNotesBenchTargets: async () => undefined,
     isDisposed: () => controller.isDisposed(),
   })
 }
@@ -220,6 +221,7 @@ function registerRestoringWorkspace() {
       sessionContexts.push(sessionID)
     },
     persist: async () => undefined,
+    removeNotesBenchTargets: async () => undefined,
     isDisposed: () => controller.isDisposed(),
   })
   return {

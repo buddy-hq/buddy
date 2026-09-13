@@ -10,6 +10,7 @@ import {
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
+  BENCH_WORKSPACE_ROOT_NOTES,
   benchTargetKey,
   readBenchChatLayoutMode,
   readBenchTabTarget,
@@ -113,6 +114,7 @@ export type DirectoryWorkspacePersistenceStorage = {
   getItem(name: string): string | null | Promise<string | null>
   setItem(name: string, value: string): void | Promise<void>
   removeItem(name: string): void | Promise<void>
+  keys?(): readonly string[] | Promise<readonly string[]>
 }
 
 export type DirectoryWorkspacePersistenceReadResult =
@@ -300,6 +302,7 @@ export type DirectoryWorkspaceStoreState = DirectoryWorkspaceProjectionState & {
     sessionIDs: readonly string[]
     excludeChatKey?: WorkspaceChatKey
   }) => void
+  removeNotesTargets: () => void
 }
 
 export type DirectoryWorkspaceStore = StoreApi<DirectoryWorkspaceStoreState>
@@ -417,23 +420,78 @@ function discardStorageWriteResult<TResult>(result: TResult): void | Promise<voi
   return Promise.resolve(result).then(() => undefined)
 }
 
+type TPersistenceKeyReader = Pick<DirectoryWorkspacePersistenceStorage, "keys">
+
+function bindPersistenceKeys(
+  storage: TPersistenceKeyReader,
+): (() => readonly string[] | Promise<readonly string[]>) | undefined {
+  const readKeys = storage.keys
+  if (!readKeys) return undefined
+  return () => readKeys.call(storage)
+}
+
+function persistenceStorageKeys(
+  storage: DirectoryWorkspacePersistenceStorage,
+): Promise<readonly string[]> | readonly string[] {
+  const readKeys = storage.keys
+  return readKeys ? readKeys.call(storage) : []
+}
+
+function localStorageWorkspaceKeys(storage: Storage): string[] {
+  const keys: string[] = []
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index)
+    if (key?.startsWith(DIRECTORY_WORKSPACE_STORAGE_KEY_PREFIX)) keys.push(key)
+  }
+  return keys
+}
+
+function directoryFromWorkspaceStorageKey(key: string): string | undefined {
+  if (!key.startsWith(DIRECTORY_WORKSPACE_STORAGE_KEY_PREFIX)) return undefined
+  try {
+    const directory = decodeURIComponent(key.slice(DIRECTORY_WORKSPACE_STORAGE_KEY_PREFIX.length))
+    return directory.length > 0 ? directory : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function defaultDirectoryWorkspaceStorage(): DirectoryWorkspacePersistenceStorage {
   const platformStorage = getPlatform().storage?.(DIRECTORY_WORKSPACE_STORAGE_FILE)
   if (platformStorage) {
+    const keys = bindPersistenceKeys(platformStorage)
+    return Object.assign(
+      {
+        getItem(name: string) {
+          return platformStorage.getItem(name)
+        },
+        setItem(name: string, value: string) {
+          return discardStorageWriteResult(platformStorage.setItem(name, value))
+        },
+        removeItem(name: string) {
+          return discardStorageWriteResult(platformStorage.removeItem(name))
+        },
+      },
+      keys ? { keys } : undefined,
+    )
+  }
+  const localStorageNode = browserLocalStorage()
+  if (localStorageNode) {
     return {
       getItem(name) {
-        return platformStorage.getItem(name)
+        return localStorageNode.getItem(name)
       },
       setItem(name, value) {
-        return discardStorageWriteResult(platformStorage.setItem(name, value))
+        localStorageNode.setItem(name, value)
       },
       removeItem(name) {
-        return discardStorageWriteResult(platformStorage.removeItem(name))
+        localStorageNode.removeItem(name)
+      },
+      keys() {
+        return localStorageWorkspaceKeys(localStorageNode)
       },
     }
   }
-  const localStorageNode = browserLocalStorage()
-  if (localStorageNode) return localStorageNode
   return {
     getItem(name) {
       return memoryWorkspaceStorage.get(name) ?? null
@@ -443,6 +501,9 @@ function defaultDirectoryWorkspaceStorage(): DirectoryWorkspacePersistenceStorag
     },
     removeItem(name) {
       memoryWorkspaceStorage.delete(name)
+    },
+    keys() {
+      return [...memoryWorkspaceStorage.keys()]
     },
   }
 }
@@ -476,6 +537,12 @@ function enqueueDirectoryWorkspaceWrite(
 
 async function waitForDirectoryWorkspaceWrites(directory: string): Promise<void> {
   await directoryWorkspaceWriteQueue.get(persistenceQueueKey(directory))?.catch(() => undefined)
+}
+
+async function waitForAllDirectoryWorkspaceWrites(): Promise<void> {
+  await Promise.all(
+    [...directoryWorkspaceWriteQueue.values()].map((write) => write.catch(() => undefined)),
+  )
 }
 
 function readPersistedDirectoryWorkspaceState<TValue>(
@@ -734,6 +801,86 @@ export function removeSessionBenchTargetsFromSlots(input: {
     changed ||= nextSlot !== slot
   }
   return changed ? slots : input.slots
+}
+
+export function removeNotesBenchTargetsFromSlots(
+  slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>,
+): Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> {
+  let changed = false
+  const nextSlots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
+  for (const [key, slot] of Object.entries(slots)) {
+    if (!slot) continue
+    const chatKey = parseWorkspaceChatKey(key)
+    if (!chatKey) continue
+    const nextSlot = removeNotesBenchTargetsFromSlot(slot)
+    nextSlots[chatKey] = nextSlot
+    changed ||= nextSlot !== slot
+  }
+  return changed ? nextSlots : slots
+}
+
+export function removeNotesBenchTargetsFromSlot(
+  slot: WorkspacePresentationSlot,
+): WorkspacePresentationSlot {
+  const removedTabKeys = slot.tabs
+    .filter(
+      (tab) =>
+        tab.target.type === "workspace-file" &&
+        tab.target.root === BENCH_WORKSPACE_ROOT_NOTES,
+    )
+    .map((tab) => tab.key)
+  if (removedTabKeys.length === 0) return slot
+
+  let selection = {
+    tabs: slot.tabs,
+    activeTabKey:
+      slot.route.status === BENCH_ROUTE_STATUS_OPEN ? benchTabKey(slot.route.target) : null,
+  }
+  for (const tabKey of removedTabKeys) {
+    selection = closeBenchTab({ ...selection, tabKey })
+  }
+  const activeTab = selection.tabs.find((tab) => tab.key === selection.activeTabKey)
+  return {
+    ...slot,
+    route: activeTab
+      ? {
+          status: BENCH_ROUTE_STATUS_OPEN,
+          target: activeTab.target,
+          mode:
+            slot.route.status === BENCH_ROUTE_STATUS_OPEN
+              ? slot.route.mode
+              : BENCH_CHAT_LAYOUT_DOCKED,
+        }
+      : { status: BENCH_ROUTE_STATUS_CLOSED },
+    tabs: selection.tabs,
+    docked: activeTab ? slot.docked : createCollapsedWorkspaceState(),
+  }
+}
+
+export async function removePersistedNotesBenchTargets(input?: {
+  storage?: DirectoryWorkspacePersistenceStorage
+}): Promise<void> {
+  const storage = input?.storage ?? defaultDirectoryWorkspaceStorage()
+  await waitForAllDirectoryWorkspaceWrites()
+  const directories = new Set<string>()
+  for (const key of await persistenceStorageKeys(storage)) {
+    const directory = directoryFromWorkspaceStorageKey(key)
+    if (directory) directories.add(directory)
+  }
+  await Promise.all(
+    [...directories].map(async (directory) => {
+      const persisted = await readPersistedDirectoryWorkspace({ directory, storage })
+      if (persisted.status !== WORKSPACE_HYDRATION_READY || !persisted.state) return
+      const slots = removeNotesBenchTargetsFromSlots(persisted.state.slots)
+      if (slots === persisted.state.slots) return
+      const nextSlots: PersistedDirectoryWorkspaceState["slots"] = {}
+      for (const [chatKey, slot] of Object.entries(slots)) {
+        if (!slot || !isPersistedWorkspaceChatKey(chatKey)) continue
+        nextSlots[chatKey] = slot
+      }
+      await writePersistedDirectoryWorkspace({ directory, storage, state: { slots: nextSlots } })
+    }),
+  )
 }
 
 export function workspacePresentationSlotForChat(
@@ -1262,6 +1409,17 @@ export function createDirectoryWorkspaceStore(input: {
             excludeChatKey ? { excludeChatKey } : undefined,
           ),
         )
+        if (slots === state.slots) return state
+        const activeSlot = workspacePresentationSlotForChat(slots, state.activeChatKey)
+        return {
+          slots,
+          docked: activeSlot.docked,
+          lastDrawer: activeSlot.lastDrawer,
+        }
+      }),
+    removeNotesTargets: () =>
+      set((state) => {
+        const slots = removeNotesBenchTargetsFromSlots(state.slots)
         if (slots === state.slots) return state
         const activeSlot = workspacePresentationSlotForChat(slots, state.activeChatKey)
         return {

@@ -11,6 +11,7 @@ type BenchReadSurfaceContextOpenOutput = Pick<
   Partial<Pick<BenchReadContextOpenOutput, "drawer">>
 type BenchSurfaceContextEnrichment = {
   targetStatus: BenchContextTarget["status"]
+  target?: BenchContextTarget
   title?: string
   browser?: {
     url: string
@@ -248,18 +249,20 @@ function buildBenchSurfaceContextSnapshot(input: {
     context: {
       status: "open",
       targetKey: benchTargetKey(input.target),
-      target: benchContextTargetFromBenchTarget(
-        Object.assign(
-          {
-            target: input.target,
-            directory: input.directory,
-            route: input.route,
-            status: input.enrichment.targetStatus,
-          },
-          input.enrichment.title ? { title: input.enrichment.title } : undefined,
-          input.enrichment.browser ? { browser: input.enrichment.browser } : undefined,
+      target:
+        input.enrichment.target ??
+        benchContextTargetFromBenchTarget(
+          Object.assign(
+            {
+              target: input.target,
+              directory: input.directory,
+              route: input.route,
+              status: input.enrichment.targetStatus,
+            },
+            input.enrichment.title ? { title: input.enrichment.title } : undefined,
+            input.enrichment.browser ? { browser: input.enrichment.browser } : undefined,
+          ),
         ),
-      ),
       metadata: input.enrichment.metadata,
       content: input.enrichment.content,
       refs: input.enrichment.refs ?? benchContextRefsFromBenchTarget(input.target),

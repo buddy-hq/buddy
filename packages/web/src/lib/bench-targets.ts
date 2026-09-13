@@ -15,6 +15,12 @@ export const BENCH_AUTO_OPEN_POLICY_WHITEBOARD = "whiteboard"
 export const BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET = "fullscreen-html-widget"
 const BENCH_TARGET_KEY_PART_SEPARATOR = "\u0000"
 const BENCH_TARGET_KEY_NULL_PART = "\u2400"
+export const BENCH_WORKSPACE_ROOT_NOTEBOOK = "notebook" as const
+export const BENCH_WORKSPACE_ROOT_NOTES = "notes" as const
+
+export type BenchWorkspaceRoot =
+  | typeof BENCH_WORKSPACE_ROOT_NOTEBOOK
+  | typeof BENCH_WORKSPACE_ROOT_NOTES
 
 export type BenchObjectKind =
   | "resource"
@@ -39,6 +45,7 @@ export type BenchObjectRef = {
 export type BenchTarget =
   | {
       type: "workspace-file"
+      root: BenchWorkspaceRoot
       path: string
       viewer: "markdown" | "file"
       fragment?: string
@@ -113,6 +120,24 @@ function isBenchObjectKind(value: string): value is BenchObjectKind {
   )
 }
 
+function readBenchWorkspaceRoot<TValue>(value: TValue): BenchWorkspaceRoot | undefined {
+  if (value === BENCH_WORKSPACE_ROOT_NOTES) return BENCH_WORKSPACE_ROOT_NOTES
+  if (value === BENCH_WORKSPACE_ROOT_NOTEBOOK) return BENCH_WORKSPACE_ROOT_NOTEBOOK
+  if (value === undefined) return BENCH_WORKSPACE_ROOT_NOTEBOOK
+  return undefined
+}
+
+function createNotesBenchTarget(note: { relativePath: string }, fragment?: string): BenchTarget {
+  const target: BenchTarget = {
+    type: "workspace-file",
+    root: BENCH_WORKSPACE_ROOT_NOTES,
+    path: note.relativePath,
+    viewer: "markdown",
+  }
+  if (fragment) target.fragment = fragment
+  return target
+}
+
 function readNullableString<TValue>(value: TValue): string | null | undefined {
   if (value === null) return null
   return readNonEmptyString(value)
@@ -130,13 +155,22 @@ function readBenchTarget<TValue>(value: TValue): BenchTarget | undefined {
           ? ("file" as const)
           : undefined
     const fragment = record.fragment === undefined ? undefined : readNonEmptyString(record.fragment)
-    if (!path || !viewer || (record.fragment !== undefined && !fragment)) return undefined
+    const root = readBenchWorkspaceRoot(record.root)
+    if (
+      !path ||
+      !viewer ||
+      !root ||
+      (record.fragment !== undefined && !fragment)
+    ) {
+      return undefined
+    }
     return Object.assign(
       {
         type: "workspace-file" as const,
         path,
         viewer,
       },
+      { root },
       fragment ? { fragment } : undefined,
     )
   }
@@ -235,9 +269,12 @@ function benchTargetKey(target: BenchTabTarget): string {
   if (target.type === "workspace-file") {
     // This is the shared frontend/backend content identity. Route-only state such as a
     // Markdown fragment must not change the key used by Bench context acknowledgements.
-    return ["workspace-file", target.viewer, encodeURIComponent(target.path)].join(
-      BENCH_TARGET_KEY_PART_SEPARATOR,
-    )
+    return [
+      "workspace-file",
+      target.root,
+      target.viewer,
+      encodeURIComponent(target.path),
+    ].join(BENCH_TARGET_KEY_PART_SEPARATOR)
   }
 
   return [
@@ -265,10 +302,12 @@ function isBenchContentTarget(target: BenchTabTarget): target is BenchTarget {
 export {
   benchSurfaceKey,
   benchTargetKey,
+  createNotesBenchTarget,
   defaultBenchObjectViewID,
   isBenchContentTarget,
   isBenchObjectKind,
   isSameBenchTarget,
+  readBenchWorkspaceRoot,
   readBenchTabTarget,
   readBenchTarget,
   readBenchChatLayoutMode,

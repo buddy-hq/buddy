@@ -9,6 +9,7 @@ import {
   RESOURCE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
 import { requestPromptComposerFocus } from "@/components/prompt/prompt-composer-focus"
+import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer-live-draft"
 import { recordTranscriptPerfEvent } from "@/lib/directory-chat/transcript-performance-probe"
 import type { PromptComposerAttachment, PromptComposerPart } from "@/components/prompt/prompt-types"
 import {
@@ -76,10 +77,8 @@ import { teachingSessionStateQueryOptions } from "../../state/teaching-session-q
 import { invalidateObsidianWatcherCaches } from "../../state/obsidian-vault-query"
 import {
   clonePromptDraft,
-  getPromptDraft,
   getPromptScopeKey,
   normalizePromptDraft,
-  usePromptStore,
   type PromptDraftState,
 } from "../../state/prompt-store"
 import { useChatStore } from "../../state/chat-store"
@@ -108,6 +107,7 @@ import {
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   readBenchOpenPolicyStateFromLocation,
+  useOpenBench,
 } from "@/lib/bench-navigation"
 import {
   WORKSPACE_VISIBILITY_EXPANDED,
@@ -139,6 +139,7 @@ import {
   startActiveChatDraft,
   startActiveChatSession,
 } from "@/lib/active-chat-transition-coordinator"
+import { useNoteCaptureWorkflow } from "@/features/notes/use-note-capture-workflow"
 
 const SIDEBAR_MIN_WIDTH = 220
 // Over-fetched so filterIgnoredMentionFiles still leaves a full menu after
@@ -241,6 +242,7 @@ export function useDirectoryChatPageController(
     [navigate],
   )
   const openSettings = useOpenSettings()
+  const openBench = useOpenBench()
   const location = useLocation()
   const workspace = useDirectoryWorkspace()
   const closingDirectoryRef = useRef<string | undefined>(undefined)
@@ -379,10 +381,11 @@ export function useDirectoryChatPageController(
     [benchActionLedger],
   )
   const onAgentTurnComplete = useCallback(
-    () =>
-      workspace.lifecycle.synchronizeCurrentWorkspaceFile({
+    () => {
+      return workspace.lifecycle.synchronizeCurrentWorkspaceFile({
         reason: "turn-complete",
-      }),
+      })
+    },
     [workspace.lifecycle],
   )
   const onWorkspaceFileChanged = useCallback(
@@ -480,7 +483,7 @@ export function useDirectoryChatPageController(
   }
 
   function readPromptSnapshot() {
-    return createPromptSnapshot(getPromptDraft(usePromptStore.getState(), cs.promptKey))
+    return createPromptSnapshot(readPromptComposerLiveDraft(cs.promptKey))
   }
 
   function restorePromptSnapshot(snapshot: PromptSnapshot) {
@@ -1179,7 +1182,7 @@ export function useDirectoryChatPageController(
       if (result.outcome !== "committed" && result.outcome !== "noop") return false
       seedDraftModelSelection(decodedDirectory)
       const nextPromptKey = getPromptScopeKey(decodedDirectory)
-      const currentDraft = getPromptDraft(usePromptStore.getState(), nextPromptKey)
+      const currentDraft = readPromptComposerLiveDraft(nextPromptKey)
       cs.setPromptDraft(nextPromptKey, createGetStartedChatDraft(chat, currentDraft))
       requestPromptComposerFocus(decodedDirectory)
       return true
@@ -1553,6 +1556,20 @@ export function useDirectoryChatPageController(
     }
   }
 
+  /**
+   * Quoting is not saving: the message becomes a composer clip and the composer
+   * flips to note mode, so the note itself is typed in the one place notes are typed.
+   * Only one message quote at a time — a second replaces the first.
+   */
+  const { quoteMessage, saveComposerNote } = useNoteCaptureWorkflow({
+    directory: decodedDirectory,
+    sessionID: cs.sessionID,
+    setPromptDraft: cs.setPromptDraft,
+    workspaceController: workspace.controller,
+    workspaceLifecycle: workspace.lifecycle,
+    openBench,
+  })
+
   // Scroll handling is fully managed by useAutoScroll.
 
   if (!decodedDirectory) return { status: "invalid" }
@@ -1604,6 +1621,7 @@ export function useDirectoryChatPageController(
     onSubmit: (draft) => {
       void onSend(draft)
     },
+    onSaveNote: saveComposerNote,
   } satisfies DirectoryChatMainPaneProps["promptComposerProps"]
 
   const queuedFollowups = sessionID
@@ -1697,6 +1715,7 @@ export function useDirectoryChatPageController(
     onTranscriptScrollGeometryChange: autoScroll.handleScrollGeometryChange,
     markTranscriptProgrammaticScroll: autoScroll.markProgrammaticScroll,
     onOpenSession: handleOpenCurrentDirectorySession,
+    onQuoteMessage: quoteMessage,
     onRevertMessage: async ({ sessionID, messageID }) => {
       const result = await undoLastSessionMessage(decodedDirectory, { sessionID, messageID })
       const restoreDraft = buildPromptDraftFromUserMessage(result.message, decodedDirectory)

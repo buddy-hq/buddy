@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { benchContextTargetFromBenchTarget } from "../src/components/bench/bench-context-utils"
+import {
+  benchContextTargetFromBenchTarget,
+  buildBenchSurfaceContextSnapshot,
+  workspaceFileTarget,
+} from "../src/components/bench/bench-context-utils"
 import { absoluteWorkspaceFilePath } from "../src/lib/workspace-file-paths"
 
 describe("bench context utilities", () => {
@@ -46,5 +50,36 @@ describe("bench context utilities", () => {
         path: "/docs/design.md",
       }),
     ).toBe("C:\\Users\\me\\project\\docs\\design.md")
+  })
+
+  test("publishes a Notes-root document target", () => {
+    const publishedTarget = workspaceFileTarget({
+      directory: "/Users/me/Buddy/Notes",
+      path: "Research.md",
+      route: "/notebook/markdown?root=notes&path=Research.md",
+      status: "dirty",
+      title: "Research",
+    })
+    const snapshot = buildBenchSurfaceContextSnapshot({
+      target: {
+        type: "workspace-file",
+        root: "notes",
+        path: "Research.md",
+        viewer: "markdown",
+      },
+      directory: "/Users/me/Buddy/Notebook",
+      route: "/notebook/markdown?root=notes&path=Research.md",
+      semanticRevision: 1,
+      enrichment: {
+        targetStatus: "dirty",
+        target: publishedTarget,
+        metadata: [],
+        content: "Draft",
+      },
+    })
+
+    expect(snapshot.context.target).toEqual(publishedTarget)
+    expect(snapshot.context.targetKey).toContain("workspace-file")
+    expect(snapshot.context.targetKey).toContain("notes")
   })
 })

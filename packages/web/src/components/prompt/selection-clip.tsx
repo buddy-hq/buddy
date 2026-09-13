@@ -21,7 +21,7 @@ import { FileTypeIcon } from "@/components/files/file-type-icon"
  */
 export type SelectionClipData = {
   text: string
-  source?: "reading" | "markdown"
+  source?: "reading" | "markdown" | "message"
   path?: string
   headingPath?: string[]
   tocLabel?: string
@@ -30,6 +30,7 @@ export type SelectionClipData = {
 }
 
 function clipTitle(source: SelectionClipData["source"]): string {
+  if (source === "message") return language.t("chat.selection.messageTitle")
   return source === "markdown"
     ? language.t("chat.selection.documentTitle")
     : language.t("chat.selection.passageTitle")

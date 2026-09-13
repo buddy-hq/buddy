@@ -283,6 +283,7 @@ export function chatTranscriptEqual(
     prevProps.onOpenSession === nextProps.onOpenSession &&
     prevProps.onOpenResource === nextProps.onOpenResource &&
     prevProps.onForkMessage === nextProps.onForkMessage &&
+    prevProps.onQuoteMessage === nextProps.onQuoteMessage &&
     prevProps.onRevertMessage === nextProps.onRevertMessage &&
     prevProps.onRetryAction === nextProps.onRetryAction &&
     prevProps.onContinueTruncated === nextProps.onContinueTruncated

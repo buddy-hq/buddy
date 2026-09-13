@@ -40,11 +40,13 @@ const DIRECTORY = "/workspace/controller-test"
 const OTHER_DIRECTORY = "/workspace/controller-other"
 const FILE_TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/intro.md",
   viewer: "markdown",
 } satisfies BenchTarget
 const NEXT_FILE_TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/next.md",
   viewer: "markdown",
 } satisfies BenchTarget
@@ -82,7 +84,6 @@ const SESSION_TARGET = {
   type: "session",
   sessionID: "subagent-1",
 } satisfies BenchSessionTarget
-
 const CLOSED_ROUTE = { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot
 const CHAT_A_KEY = workspaceChatKeyForSession(undefined)
 const CHAT_B_KEY = workspaceChatKeyForSession("session-b")

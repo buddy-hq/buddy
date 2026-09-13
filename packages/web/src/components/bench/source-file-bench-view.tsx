@@ -19,7 +19,7 @@ import {
   workspaceTextEncoding,
 } from "@/lib/workspace-file-content"
 import { fileNameFromPath } from "@/lib/workspace-file-paths"
-import type { BenchTarget } from "@/lib/bench-navigation"
+import { BENCH_WORKSPACE_ROOT_NOTEBOOK, type BenchTarget } from "@/lib/bench-navigation"
 import {
   ProjectExplorerFileVersionConflictError,
   readProjectExplorerEditableFile,
@@ -46,7 +46,12 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
   const [existsOnDisk, setExistsOnDisk] = useState(true)
   const title = fileNameFromPath(props.path) || props.path
   const contextTarget = useMemo<BenchTarget>(
-    () => ({ type: "workspace-file", path: props.path, viewer: "file" }),
+    () => ({
+      type: "workspace-file",
+      root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+      path: props.path,
+      viewer: "file",
+    }),
     [props.path],
   )
   const updateExistsOnDisk = useCallback((nextExistsOnDisk: boolean) => {

@@ -87,11 +87,13 @@ const TEST_FLOATING_RECT = {
 }
 const TEST_ALPHA_MARKDOWN_TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "alpha-switch.md",
   viewer: "markdown",
 } satisfies BenchTarget
 const TEST_BETA_MARKDOWN_TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "beta-switch.md",
   viewer: "markdown",
 } satisfies BenchTarget

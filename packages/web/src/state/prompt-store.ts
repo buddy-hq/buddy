@@ -31,6 +31,7 @@ import {
   type PromptComposerAttachment,
   type PromptComposerPart,
   type PromptMarkdownSelectionContextPart,
+  type PromptMessageSelectionContextPart,
   type PromptReadingSelectionContextPart,
   type PromptReadingSelectionPart,
   isPromptModelAttachment,
@@ -300,6 +301,18 @@ function parsePromptComposerPart<TValue>(value: TValue): PromptComposerPart | un
         version !== undefined ? { version } : undefined,
         headingPath !== undefined ? { headingPath } : undefined,
       )
+      return part
+    }
+    if (record.source === "message") {
+      const quotedMessageID = parseStringValue(record.quotedMessageID)
+      if (quotedMessageID === undefined) return undefined
+      const part: PromptMessageSelectionContextPart = {
+        type: SELECTION_CONTEXT_PART_TYPE,
+        source: "message",
+        text,
+        selectionKey,
+        quotedMessageID,
+      }
       return part
     }
     if (record.source !== "reading") return undefined

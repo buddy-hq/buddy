@@ -1,6 +1,10 @@
 import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import { inAppBrowserFallbackTitle } from "@buddy/browser-contract"
-import { isSameBenchTarget, readBenchTabTarget, type BenchTabTarget } from "@/lib/bench-targets"
+import {
+  isSameBenchTarget,
+  readBenchTabTarget,
+  type BenchTabTarget,
+} from "@/lib/bench-targets"
 
 export type BenchTab = {
   key: string
@@ -22,7 +26,7 @@ export function benchTabKey(target: BenchTabTarget): string {
     return `browser:${encodeURIComponent(target.tabID)}`
   }
   if (target.type === "workspace-file") {
-    return `file:${target.viewer}:${encodeURIComponent(target.path)}`
+    return `file:${target.root}:${target.viewer}:${encodeURIComponent(target.path)}`
   }
 
   return `object:${target.ref.kind}:${encodeURIComponent(target.ref.objectID)}:${encodeURIComponent(target.viewID)}`

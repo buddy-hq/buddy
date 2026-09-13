@@ -9,6 +9,7 @@ import {
   GitBranch,
   GraduationCapIcon,
   LoaderCircleIcon,
+  NoteIcon,
   PlugIcon,
   Redo2Icon,
   RubiksCube,
@@ -28,6 +29,7 @@ import type { MentionOption } from "../mention-autocomplete"
 import {
   COMPACT_SLASH_COMMAND_NAME,
   FORK_SLASH_COMMAND_NAME,
+  NOTE_SLASH_COMMAND_NAME,
   QUIZ_SLASH_COMMAND_NAME,
   REDO_SLASH_COMMAND_NAME,
   UNDO_SLASH_COMMAND_NAME,
@@ -73,6 +75,7 @@ const SLASH_BUILTIN_ICONS = new Map<string, AppIcon>(
     mcp: PlugIcon,
     play: Gamepad2Icon,
     [COMPACT_SLASH_COMMAND_NAME]: Sigma,
+    [NOTE_SLASH_COMMAND_NAME]: NoteIcon,
     [FORK_SLASH_COMMAND_NAME]: GitBranch,
     [QUIZ_SLASH_COMMAND_NAME]: GraduationCapIcon,
     [UNDO_SLASH_COMMAND_NAME]: Undo2Icon,

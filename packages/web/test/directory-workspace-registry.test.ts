@@ -56,6 +56,7 @@ function createLiveHandle(directory = DIRECTORY) {
       ),
     setActiveSessionContext: async () => undefined,
     persist: async () => undefined,
+    removeNotesBenchTargets: async () => undefined,
     isDisposed: () => controller.isDisposed(),
   }
 }

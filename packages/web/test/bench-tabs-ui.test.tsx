@@ -8,11 +8,13 @@ import type { BenchTarget } from "../src/lib/bench-navigation"
 
 const FIRST_TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/first.md",
   viewer: "markdown",
 } satisfies BenchTarget
 const SECOND_TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "assets/second.png",
   viewer: "file",
 } satisfies BenchTarget

@@ -11,11 +11,13 @@ import { benchTargetKey, type BenchTarget } from "../src/lib/bench-navigation"
 
 const FIRST_TARGET: BenchTarget = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/first.md",
   viewer: "markdown",
 }
 const SECOND_TARGET: BenchTarget = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/second.md",
   viewer: "markdown",
 }

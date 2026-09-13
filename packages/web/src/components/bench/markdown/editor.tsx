@@ -39,7 +39,10 @@ import {
 } from "@/components/bench/markdown/document-theme"
 import { restoreObsidianCalloutsFromMdxEditor } from "@/components/bench/markdown/obsidian-callouts"
 import { resolveMarkdownBenchNoteTitle } from "@/components/bench/markdown/note-title"
-import type { ObsidianWikiLinkContext } from "@/components/bench/markdown/plugins/obsidian"
+import {
+  EXPLORER_EMBEDDED_MARKDOWN_LOADER,
+  type ObsidianWikiLinkContext,
+} from "@/components/bench/markdown/plugins/obsidian"
 import { findMarkdownBenchFragmentTarget } from "@/components/bench/markdown/editor-fragments"
 import {
   resolveMarkdownBenchSelectionSection,
@@ -123,7 +126,9 @@ type MarkdownBenchEditorProps = Pick<
   directory: string
   documentFormat: MarkdownBenchDocumentFormat
   path: string
+  title?: string
   placeholder?: ReactNode
+  readOnly?: boolean
   viewportKey?: string
   obsidianWikiLinkContext?: ObsidianWikiLinkContext
   onHistoryControlsChange?(controls: MarkdownBenchHistoryControlsState): void
@@ -198,7 +203,10 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     }, [props.contentTheme])
     const isPrintView = props.contentTheme?.mode === "print"
     const onRenameTitle = props.onRenameTitle
-    const noteTitle = useMemo(() => resolveMarkdownBenchNoteTitle(props.path), [props.path])
+    const noteTitle = useMemo(
+      () => props.title ?? resolveMarkdownBenchNoteTitle(props.path),
+      [props.path, props.title],
+    )
     const [noteTitleDraft, setNoteTitleDraft] = useState(noteTitle)
     const cancelTitleCommitRef = useRef(false)
     useEffect(() => {
@@ -250,6 +258,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         documentPath: props.path,
         compatible: false,
         resolutions: new Map(),
+        embeddedMarkdownLoader: EXPLORER_EMBEDDED_MARKDOWN_LOADER,
         openResolution() {},
       }),
       [props.directory, props.path],
@@ -443,7 +452,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
               aria-busy={props.renamingTitle ? "true" : undefined}
               data-component="markdown-bench-note-title-input"
               className={MARKDOWN_NOTE_TITLE_INPUT_CLASS_NAME}
-              readOnly={!onRenameTitle || props.renamingTitle || isPrintView}
+              readOnly={props.readOnly || !onRenameTitle || props.renamingTitle || isPrintView}
               spellCheck={false}
               value={noteTitleDraft}
               onBlur={commitNoteTitle}
@@ -463,7 +472,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
               )}
               markdown={editorMarkdown}
               plugins={plugins}
-              readOnly={isPrintView || props.renamingTitle}
+              readOnly={props.readOnly || isPrintView || props.renamingTitle}
               placeholder={props.placeholder}
               suppressHtmlProcessing={props.documentFormat === "mdx"}
               toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}

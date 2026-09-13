@@ -8,6 +8,7 @@ export type LiveDirectoryWorkspaceHandle = {
   getRoute: () => BenchRouteSnapshot
   setActiveSessionContext: (sessionID: string | undefined) => Promise<void>
   persist: () => Promise<void>
+  removeNotesBenchTargets: () => Promise<void>
   isDisposed: () => boolean
 }
 
@@ -52,6 +53,18 @@ export function getLiveDirectoryWorkspace(
     return undefined
   }
   return registration
+}
+
+export function listLiveDirectoryWorkspaces(): LiveDirectoryWorkspaceHandle[] {
+  const handles: LiveDirectoryWorkspaceHandle[] = []
+  for (const [directory, registration] of liveWorkspaceByDirectory) {
+    if (registration.isDisposed()) {
+      liveWorkspaceByDirectory.delete(directory)
+      continue
+    }
+    handles.push(registration)
+  }
+  return handles
 }
 
 export function resetLiveDirectoryWorkspaceRegistryForTests(): void {

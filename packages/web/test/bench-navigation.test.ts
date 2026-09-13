@@ -209,6 +209,7 @@ describe("bench navigation policy", () => {
     expect(
       resolveBenchLayoutProfile({
         type: "workspace-file",
+        root: "notebook",
         path: "resources/book.epub",
         viewer: "file",
       }),
@@ -216,6 +217,7 @@ describe("bench navigation policy", () => {
     expect(
       resolveBenchLayoutProfile({
         type: "workspace-file",
+        root: "notebook",
         path: "resources/paper.pdf",
         viewer: "file",
       }),
@@ -223,6 +225,7 @@ describe("bench navigation policy", () => {
     expect(
       resolveBenchLayoutProfile({
         type: "workspace-file",
+        root: "notebook",
         path: "AGENTS.md",
         viewer: "markdown",
       }),
@@ -230,6 +233,7 @@ describe("bench navigation policy", () => {
     expect(
       resolveBenchLayoutProfile({
         type: "workspace-file",
+        root: "notebook",
         path: "src/index.ts",
         viewer: "file",
       }),
@@ -237,6 +241,7 @@ describe("bench navigation policy", () => {
     expect(
       resolveBenchLayoutProfile({
         type: "workspace-file",
+        root: "notebook",
         path: "assets/diagram.svg",
         viewer: "file",
       }),
@@ -365,12 +370,18 @@ describe("bench navigation policy", () => {
   test("policy mode preserves current live mode while bench is already open", () => {
     const currentTarget = {
       type: "workspace-file",
+      root: "notebook",
       path: "notes.md",
       viewer: "markdown",
     } satisfies BenchTarget
     expect(
       resolveOpenPolicy({
-        request: openRequest({ type: "workspace-file", path: "diagram.png", viewer: "file" }),
+        request: openRequest({
+          type: "workspace-file",
+          root: "notebook",
+          path: "diagram.png",
+          viewer: "file",
+        }),
         current: {
           status: "open",
           directory: DIRECTORY,
@@ -389,6 +400,7 @@ describe("bench navigation policy", () => {
   test("fullscreen widget auto-open focuses the widget over a different active target", () => {
     const currentTarget = {
       type: "workspace-file",
+      root: "notebook",
       path: "notes.md",
       viewer: "markdown",
     } satisfies BenchTarget
@@ -421,6 +433,7 @@ describe("bench navigation policy", () => {
   test("whiteboard auto-open replaces a different active bench rail target", () => {
     const currentTarget = {
       type: "workspace-file",
+      root: "notebook",
       path: "notes.md",
       viewer: "markdown",
     } satisfies BenchTarget
@@ -743,6 +756,7 @@ describe("bench navigation policy", () => {
   test("round-trips Markdown fragments through Bench navigation", () => {
     const target = {
       type: "workspace-file",
+      root: "notebook",
       path: "Notes/Alpha.md",
       viewer: "markdown",
       fragment: "Details",

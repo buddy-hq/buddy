@@ -14,8 +14,9 @@ import {
   SelectValue,
   SquareIcon,
   XIcon,
+  cn,
 } from "@buddy/ui"
-import { ImageIcon } from "@/icons/app-icons"
+import { ImageIcon, NoteIcon } from "@/icons/app-icons"
 import { hasFunctionValue } from "@/state/parse-external"
 import type { RefObject } from "react"
 import * as React from "react"
@@ -46,6 +47,8 @@ type PromptComposerToolbarProps = {
   canSubmit?: boolean
   sendDisabledReason?: string
   onAttach?: () => void
+  noteMode?: boolean
+  onNoteModeChange?: (active: boolean) => void
   onAbort?: () => void
   attachLabel?: string
   attachAriaLabel?: string
@@ -102,7 +105,11 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
   ])
 
   const isNativeMode = props.selectorMode === "native"
-  const primaryButtonStopsRun = !!props.isBusy && !props.canSubmit
+  const primaryButtonStopsRun = !props.noteMode && !!props.isBusy && !props.canSubmit
+  const noteModeShowsStop = !!props.noteMode && !!props.isBusy
+  const noteModeLabel = props.noteMode
+    ? language.t("notes.composer.returnToChat")
+    : language.t("notes.composer.takeNote")
 
   return (
     <div className="bg-transparent px-2 py-2">
@@ -126,18 +133,44 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
 
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            data-action="prompt-attach"
-            className="inline-flex size-7 items-center justify-center rounded-full text-text-weaker transition-colors hover:bg-surface-weak/60 hover:text-text-base"
-            title={props.attachLabel}
-            aria-label={props.attachAriaLabel}
-            onClick={props.onAttach}
-          >
-            <PlusIcon className="size-3.5" />
-          </button>
+          {!props.noteMode ? (
+            <button
+              type="button"
+              data-action="prompt-attach"
+              className="inline-flex size-7 items-center justify-center rounded-full text-text-weaker transition-colors hover:bg-surface-weak/60 hover:text-text-base"
+              title={props.attachLabel}
+              aria-label={props.attachAriaLabel}
+              onClick={props.onAttach}
+            >
+              <PlusIcon className="size-3.5" />
+            </button>
+          ) : null}
 
-          {isNativeMode ? (
+          {props.onNoteModeChange ? (
+            <button
+              type="button"
+              data-action="prompt-note-mode"
+              aria-pressed={props.noteMode}
+              aria-label={noteModeLabel}
+              className={cn(
+                "inline-flex h-7 items-center justify-center rounded-full transition-colors",
+                // Idle it is a bare glyph, sized like the attach button beside
+                // it; only the active mode earns a labelled pill.
+                props.noteMode
+                  ? "gap-1.5 bg-surface-interactive-base px-2 text-xs text-text-on-interactive-base"
+                  : "size-7 text-text-weaker hover:bg-surface-weak/60 hover:text-text-base",
+              )}
+              title={noteModeLabel}
+              onClick={() => props.onNoteModeChange?.(!props.noteMode)}
+            >
+              <NoteIcon className="size-3.5" aria-hidden />
+              {props.noteMode ? language.t("notes.composer.mode") : null}
+            </button>
+          ) : null}
+
+          {!props.noteMode ? (
+            <>
+              {isNativeMode ? (
             <NativeSelect
               ref={props.modelNativeTriggerRef}
               value={props.selectedModel}
@@ -241,9 +274,9 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                 ))}
               </SelectContent>
             </Select>
-          )}
+              )}
 
-          {props.thinkingOptions.length <= 1 ? null : isNativeMode ? (
+              {props.thinkingOptions.length <= 1 ? null : isNativeMode ? (
             <NativeSelect
               value={props.selectedThinking}
               onChange={(event) => props.onThinkingChange(event.currentTarget.value)}
@@ -283,10 +316,24 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                 ))}
               </SelectContent>
             </Select>
-          )}
+              )}
+            </>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1">
+          {noteModeShowsStop ? (
+            <button
+              type="button"
+              data-action="prompt-stop"
+              className="inline-flex size-7 items-center justify-center rounded-full text-text-weaker transition-colors hover:bg-surface-weak/60 hover:text-text-base"
+              aria-label={props.stopAriaLabel}
+              title={props.stopLabel}
+              onClick={props.onAbort}
+            >
+              <SquareIcon className="size-3.5" />
+            </button>
+          ) : null}
           <button
             type={primaryButtonStopsRun ? "button" : "submit"}
             form="prompt-composer-form"

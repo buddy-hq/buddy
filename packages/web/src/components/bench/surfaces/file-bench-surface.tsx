@@ -28,7 +28,7 @@ import { isSupportedReadingResourcePath } from "@/state/resources-query"
 import { workspaceFileMetadataQueryOptions } from "@/state/bench-surface-query"
 import { benchSurfaceUiKey } from "@/state/bench-surface-ui-state"
 import { consumeWorkspaceFileLargeOpenApproval } from "@/state/workspace-file-open-dialog-store"
-import type { BenchTarget } from "@/lib/bench-navigation"
+import { BENCH_WORKSPACE_ROOT_NOTEBOOK, type BenchTarget } from "@/lib/bench-navigation"
 
 function ProjectFileBenchPending() {
   return (
@@ -80,6 +80,7 @@ export function FileBenchSurface(props: { directory: string; path: string; fragm
         target={Object.assign(
           {
             type: "workspace-file" as const,
+            root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
             path: props.path,
             viewer: "file" as const,
           },
@@ -164,7 +165,12 @@ function ProjectFileMediaView(props: {
     mimeType: props.metadata.mimeType,
   })
   const contextTarget = useMemo<BenchTarget>(
-    () => ({ type: "workspace-file", path: props.path, viewer: "file" }),
+    () => ({
+      type: "workspace-file",
+      root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+      path: props.path,
+      viewer: "file",
+    }),
     [props.path],
   )
   const contextProvider = useMemo(

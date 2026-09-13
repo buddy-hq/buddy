@@ -1,5 +1,5 @@
 import type { NotebookSearchResult } from "@/state/notebook-search"
-import type { BenchObjectKind } from "@/lib/bench-targets"
+import { BENCH_WORKSPACE_ROOT_NOTEBOOK, type BenchObjectKind } from "@/lib/bench-targets"
 import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import { describeObject, type ObjectDescriptorInput } from "./describe-object"
 import {
@@ -68,6 +68,7 @@ export function describeNotebookSearchResult(input: {
             ? createBenchObjectTarget(RESOURCE_OBJECT_KIND, result.target.objectID)
             : {
                 type: "workspace-file" as const,
+                root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
                 path: result.target.path,
                 viewer: "file" as const,
               },
@@ -82,6 +83,7 @@ export function describeNotebookSearchResult(input: {
         ? {
             target: {
               type: "workspace-file" as const,
+              root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
               path: result.target.path,
               viewer: result.target.viewer,
             },

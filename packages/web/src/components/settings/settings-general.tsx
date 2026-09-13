@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Button,
@@ -14,8 +15,13 @@ import { useForm } from "@tanstack/react-form"
 import { language } from "@/context/language"
 import { parseTString } from "@/components/chat/tools/types"
 import { pickProjectDirectory } from "@/lib/directory-picker"
-import { patchGlobalConfig, saveNotebookHome } from "@/state/chat-actions"
-import { notebookHomeQueryOptions, setNotebookHomeQueryData } from "@/state/bootstrap-query"
+import { patchGlobalConfig, saveNotebookHome, saveNotesDirectory } from "@/state/chat-actions"
+import {
+  notebookHomeQueryOptions,
+  notesDirectoryQueryOptions,
+  setNotebookHomeQueryData,
+  setNotesDirectoryQueryData,
+} from "@/state/bootstrap-query"
 import { globalConfigQueryOptions, setGlobalConfigQueryData } from "@/state/global-config-query"
 import { readPersonalization } from "@/state/project-config-readers"
 import { usePersonalizationSettingsAutosave } from "@/state/personalization-settings"
@@ -37,6 +43,9 @@ import {
 import { useGeneralSettings } from "@/state/general-settings"
 import { useGetStartedFlowStore } from "@/state/get-started-flow-store"
 import { useChatStore } from "@/state/chat-store"
+import { resetNotesQueries } from "@/features/notes/queries"
+import { invalidateNotesBenchTargets } from "@/lib/directory-workspace-notes"
+import { dropNotesBenchSettingsReturnTo } from "@/lib/settings-navigation"
 import {
   SettingsContent,
   SettingsListCard,
@@ -67,6 +76,8 @@ function isGamePromptPreference(value: string): value is TGamePromptPreference {
 }
 
 export function GeneralSettings() {
+  const navigate = useNavigate()
+  const { tab, returnTo } = useSearch({ from: "/settings" })
   const openProjects = useChatStore((state) => state.openProjects)
   const followupBehavior = useChatSettings((state) => state.followupBehavior)
   const setFollowupBehavior = useChatSettings((state) => state.setFollowupBehavior)
@@ -77,10 +88,13 @@ export function GeneralSettings() {
   const conciseResponses = useConciseResponseSettings()
   const queryClient = useQueryClient()
   const [changingBuddyHome, setChangingBuddyHome] = useState(false)
+  const [changingNotesDirectory, setChangingNotesDirectory] = useState(false)
   const [logLevelDraft, setLogLevelDraft] = useState<string>(DEFAULT_LOG_LEVEL_VALUE)
   const [logLevelBusy, setLogLevelBusy] = useState(false)
   const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
   const notebookHome = notebookHomeQuery.data
+  const notesDirectoryQuery = useQuery(notesDirectoryQueryOptions())
+  const notesDirectory = notesDirectoryQuery.data
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
   const personalizationForm = useForm({
     defaultValues: readPersonalization(globalConfigQuery.data ?? {}),
@@ -146,6 +160,40 @@ export function GeneralSettings() {
       )
     } finally {
       setChangingBuddyHome(false)
+    }
+  }
+
+  async function onChangeNotesDirectory() {
+    try {
+      const picked = await pickProjectDirectory()
+      if (!picked) return
+
+      setChangingNotesDirectory(true)
+      const nextNotesDirectory = await saveNotesDirectory(picked)
+      setNotesDirectoryQueryData(queryClient, nextNotesDirectory)
+      const nextReturnTo = dropNotesBenchSettingsReturnTo(returnTo)
+      const replaceSettingsReturn =
+        nextReturnTo === returnTo
+          ? Promise.resolve()
+          : navigate({
+              to: "/settings",
+              search: Object.assign({ tab }, nextReturnTo ? { returnTo: nextReturnTo } : undefined),
+              replace: true,
+            })
+      await Promise.all([
+        resetNotesQueries(queryClient),
+        invalidateNotesBenchTargets(),
+        replaceSettingsReturn,
+      ])
+      toast.success(language.t("settings.general.notesDirectorySaved"))
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : language.t("settings.general.notesDirectorySaveFailed"),
+      )
+    } finally {
+      setChangingNotesDirectory(false)
     }
   }
 
@@ -326,6 +374,26 @@ export function GeneralSettings() {
               {changingBuddyHome
                 ? language.t("settings.general.buddyHomeChanging")
                 : language.t("settings.general.buddyHomeChange")}
+            </Button>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.notesDirectoryTitle")}
+          description={
+            notesDirectory?.resolvedDirectory
+              ? `${language.t("settings.general.notesDirectoryDescription")} (${notesDirectory.resolvedDirectory})`
+              : language.t("settings.general.notesDirectoryDescription")
+          }
+          control={
+            <Button
+              data-action="settings-change-notes-directory"
+              type="button"
+              onClick={() => void onChangeNotesDirectory()}
+              disabled={changingNotesDirectory || notesDirectoryQuery.isPending}
+            >
+              {changingNotesDirectory
+                ? language.t("settings.general.notesDirectoryChanging")
+                : language.t("settings.general.notesDirectoryChange")}
             </Button>
           }
         />

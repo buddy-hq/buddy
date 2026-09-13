@@ -12,7 +12,7 @@ import {
   type ChatFilePart,
 } from "../utils/part-guards"
 import { isHiddenFromUserMessage } from "../utils/message-visibility"
-import { isVisibleUserTextPart } from "../utils/user-message-text"
+import { isVisibleUserTextPart, visibleMessageText } from "../utils/user-message-text"
 import {
   isUserAttachmentFilePart,
   projectUserMessageStackedContent,
@@ -98,6 +98,7 @@ export const UserSection = memo(function UserSection({
   userMessage,
   providers,
   onRevertMessage,
+  onQuoteMessage,
   animateEntrance,
 }: UserSectionProps) {
   const userParts = useMemo(() => userMessage?.parts ?? [], [userMessage?.parts])
@@ -172,6 +173,7 @@ export const UserSection = memo(function UserSection({
     () => Array.from(standaloneReferenceParts, (part) => getReferenceText(part)),
     [standaloneReferenceParts],
   )
+  const quoteText = userMessage ? visibleMessageText(userMessage.parts) : ""
   const hasVisibleContent =
     userAttachmentParts.length > 0 ||
     userNativeResourceParts.length > 0 ||
@@ -233,6 +235,16 @@ export const UserSection = memo(function UserSection({
             agents={userAgentParts}
             inlineReferences={inlineReferences}
             providers={providers}
+            onQuoteMessage={
+              onQuoteMessage && quoteText
+                ? () =>
+                    onQuoteMessage({
+                      sessionID: userMessage.info.sessionID,
+                      messageID: userMessage.info.id,
+                      text: quoteText,
+                    })
+                : undefined
+            }
             onRevertMessage={
               onRevertMessage
                 ? () =>

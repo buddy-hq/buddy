@@ -44,7 +44,12 @@ import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/di
 import { usePlatform } from "@/context/platform"
 import { useTheme } from "@/theme"
 import { workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
-import { BENCH_MODE_REQUEST_POLICY, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
+import {
+  BENCH_MODE_REQUEST_POLICY,
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
+  useOpenBench,
+  type BenchTarget,
+} from "@/lib/bench-navigation"
 import type { ProjectExplorerEditableFileState } from "@/state/chat-actions"
 import { benchSurfaceUiKey } from "@/state/bench-surface-ui-state"
 import {
@@ -170,6 +175,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       Object.assign(
         {
           type: "workspace-file" as const,
+          root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
           path: location.path,
           viewer: "markdown" as const,
         },
@@ -233,7 +239,9 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
 
   const openMarkdownLink = useCallback(
     (href: string) => {
-      const target = resolveMarkdownBenchLink(location.path, href)
+      const root =
+        benchDocument.target?.type === "workspace-file" ? benchDocument.target.root : undefined
+      const target = resolveMarkdownBenchLink(location.path, href, root)
       if (!target) return
       if (target.type === "external") {
         platform.openLink(target.url)
@@ -244,6 +252,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         target: Object.assign(
           {
             type: "workspace-file" as const,
+            root: target.root,
             path: target.path,
             viewer: isMarkdownBenchPath(target.path) ? ("markdown" as const) : ("file" as const),
           },
@@ -253,7 +262,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         autoOpen: null,
       })
     },
-    [location.path, openBenchRoute, platform, props.directory],
+    [benchDocument.target, location.path, openBenchRoute, platform, props.directory],
   )
 
   const isPrintView = contentThemeMode === "print"
@@ -351,6 +360,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             directory={location.directory}
             documentFormat={documentFormat}
             path={location.path}
+            title={benchDocument.title}
             viewportKey={benchSurfaceUiKey({
               directory: props.directory,
               target: contextTarget,

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, SquarePenIcon, toast } from "@buddy/ui"
 import { parseTBoolean, parseTJsonObject } from "@/components/chat/tools/types"
-import { PresentationIcon } from "@/icons/app-icons"
+import { NoteIcon, PresentationIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
@@ -71,6 +71,7 @@ type ChatLeftSidebarProps = {
     enableAutoExtract?: boolean,
   ) => void | Promise<void>
   onNewSession: (directory?: string) => void
+  onNewNote?: () => void
   /** Creates a board on the Bench of the chat that is already open. Absent where no chat is. */
   onNewBoard?: () => void
   /** Resolves false when the transition was blocked or failed and the active chat did not change. */
@@ -411,6 +412,18 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               />
               <span className="truncate">{language.t("sidebar.newChat")}</span>
             </button>
+            {props.onNewNote ? (
+              <button
+                type="button"
+                data-action="left-sidebar-new-note"
+                className={SIDEBAR_ACTION_ROW_CLASS}
+                style={SIDEBAR_ACTION_ROW_STYLE}
+                onClick={props.onNewNote}
+              >
+                <NoteIcon className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/sidebar-action:scale-110" />
+                <span className="truncate">{language.t("sidebar.newNote")}</span>
+              </button>
+            ) : null}
             {props.onNewBoard ? (
               <button
                 type="button"
