@@ -1,4 +1,5 @@
 import type { AgentSession, AgentSessionEvent } from "@earendil-works/pi-coding-agent"
+import { BUDDY_PROMPT_CUSTOM_TYPE } from "./contracts"
 import { publishPiEvent } from "./event-bus"
 import { finishedToolPart, partIDForIndex, runningToolPart } from "./mapper"
 import { serializePiTranscriptMessages, transcriptMessageID } from "./transcript"
@@ -203,6 +204,20 @@ export class PiSessionEventBridge {
     })
   }
 
+  private transcriptEntryID(message: PiAgentMessage, rawIndex: number) {
+    if (
+      message.role === "custom" &&
+      message.customType === BUDDY_PROMPT_CUSTOM_TYPE &&
+      isRecord(message.details) &&
+      typeof message.details.messageID === "string" &&
+      message.details.messageID.length > 0
+    ) {
+      return message.details.messageID
+    }
+
+    return transcriptMessageID(this.buddySessionID, rawIndex)
+  }
+
   private publishMessageUpdated(message: PiAgentMessage, rawIndex: number, completed: boolean) {
     const serialized = serializePiTranscriptMessages({
       sessionID: this.buddySessionID,
@@ -210,7 +225,7 @@ export class PiSessionEventBridge {
     })[0]
     if (!serialized) return
     const transcriptEntry: PiTranscriptEntry = {
-      id: transcriptMessageID(this.buddySessionID, rawIndex),
+      id: this.transcriptEntryID(message, rawIndex),
       sessionID: this.buddySessionID,
       message: serialized.message,
     }

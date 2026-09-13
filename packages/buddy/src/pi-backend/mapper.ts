@@ -21,7 +21,6 @@ const BUDDY_PI_VERSION = "pi"
 const DEFAULT_PROVIDER_ID = "pi"
 const DEFAULT_MODEL_ID = "unknown"
 const DEFAULT_SESSION_TITLE_PREFIX = "New session - "
-const NO_MESSAGES_PLACEHOLDER = "(no messages)"
 const MESSAGE_ID_PREFIX = "msg"
 const PART_ID_PREFIX = "prt"
 const PROJECT_ID_PREFIX = "pi"
@@ -103,9 +102,6 @@ function titleForSession(session: PiSessionInfoLike, metadata?: SessionMetadata)
 
   const piName = session.name?.trim()
   if (piName) return piName
-
-  const firstMessage = session.firstMessage.trim()
-  if (firstMessage && firstMessage !== NO_MESSAGES_PLACEHOLDER) return firstMessage
 
   return defaultTitle(session.created)
 }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent"
+import { BUDDY_PROMPT_CUSTOM_TYPE } from "../../src/pi-backend/contracts"
 import { piEventStream } from "../../src/pi-backend/event-bus"
 import { PiSessionEventBridge } from "../../src/pi-backend/session-event-bridge"
 import type { PiAgentMessage } from "../../src/pi-backend/types"
@@ -299,6 +300,67 @@ describe("PiSessionEventBridge", () => {
       )
 
       expect(completedPart?.text).toBe("hello world")
+    } finally {
+      await reader.cancel()
+    }
+  })
+
+  test("uses the client prompt message id for buddy-user-prompt transcript entries", async () => {
+    const directory = "/tmp/buddy-pi-bridge-prompt-id-test"
+    const stream = piEventStream(directory)
+    const reader = stream.body?.getReader()
+    if (!reader) throw new Error("Expected PI event stream body.")
+
+    try {
+      await readNextEvent(reader)
+
+      const bridge = new PiSessionEventBridge({
+        directory,
+        session: {
+          sessionId: "pi-session",
+          messages: [],
+          model: undefined,
+          thinkingLevel: "off",
+        },
+        onSessionUpdated: async () => undefined,
+      })
+
+      const clientMessageID = "msg_client_prompt_000001"
+      const promptMessage = {
+        role: "custom",
+        customType: BUDDY_PROMPT_CUSTOM_TYPE,
+        display: true,
+        content: "hello",
+        timestamp,
+        details: {
+          kind: BUDDY_PROMPT_CUSTOM_TYPE,
+          messageID: clientMessageID,
+          parts: [{ type: "text", text: "hello" }],
+        },
+      } satisfies PiAgentMessage
+
+      bridge.handle({
+        type: "message_start",
+        message: promptMessage,
+      } satisfies AgentSessionEvent)
+
+      const event = await readNextEvent(reader)
+      expect(isRecord(event)).toBe(true)
+      if (!isRecord(event)) return
+
+      const payload = event.payload
+      expect(isRecord(payload)).toBe(true)
+      if (!isRecord(payload)) return
+      expect(payload.type).toBe("message.updated")
+
+      const properties = payload.properties
+      expect(isRecord(properties)).toBe(true)
+      if (!isRecord(properties)) return
+
+      const message = properties.message
+      expect(isRecord(message)).toBe(true)
+      if (!isRecord(message)) return
+      expect(message.id).toBe(clientMessageID)
     } finally {
       await reader.cancel()
     }

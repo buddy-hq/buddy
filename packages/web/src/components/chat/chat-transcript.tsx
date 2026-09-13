@@ -125,6 +125,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   const stagedSessionRef = useRef<string | undefined>(sessionID)
   const stagedTurnsLengthRef = useRef(turns.length)
   const entryFadeSessionRef = useRef<string | undefined>(sessionID)
+  const entryFadePreviousSessionRef = useRef<string | undefined>(sessionID)
   const historyPrependFrameRef = useRef<number | undefined>(undefined)
   const historyPrependCooldownRef = useRef<number | undefined>(undefined)
   const historyPrependAnchorRef = useRef<{
@@ -167,9 +168,19 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   }, [sessionID, shouldStageEntry])
 
   useLayoutEffect(() => {
+    const isSessionChange = entryFadePreviousSessionRef.current !== sessionID
     entryFadeSessionRef.current = sessionID
+    entryFadePreviousSessionRef.current = sessionID
 
     if (!sessionID || !shouldStageEntry) {
+      setEntryFadeVisible(true)
+      return
+    }
+
+    // Only play the opacity 0→1 fade animation on session switch.
+    // When shouldStageEntry toggles mid-session (e.g. a new turn crossed
+    // the staging threshold), skip the blink and keep the transcript visible.
+    if (!isSessionChange) {
       setEntryFadeVisible(true)
       return
     }

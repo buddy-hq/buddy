@@ -93,7 +93,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           webkit-app-region exclusion prevents Col 1's drag region from intercepting toggle clicks
           when the sidebar is open. The actual button lives inside DesktopTitlebar's header. */}
       <div
-        className={`relative col-start-1 row-start-1 select-none [-webkit-app-region:drag] ${leftSidebarOpen ? "border-r border-border-weaker-base" : ""}`}
+        className={`relative z-10 col-start-1 row-start-1 select-none [-webkit-app-region:drag] ${leftSidebarOpen ? "border-r border-border-weaker-base" : ""}`}
       >
         <div
           style={{
@@ -108,7 +108,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
       </div>
 
       {/* Row 1, Col 2: Main titlebar */}
-      <div className="col-start-2 row-start-1 min-w-0">
+      <div className="relative z-10 col-start-2 row-start-1 min-w-0">
         <DesktopTitlebar
           placement="chat"
           chatTitle={chatTitle}
