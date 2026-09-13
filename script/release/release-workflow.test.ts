@@ -299,10 +299,17 @@ describe("release skill artifacts", () => {
       "./.github/workflows/publish-skill-artifacts.yml",
     )
     expect(Object.keys(artifactSecrets).toSorted()).toEqual([
+      "BUDDY_RELEASE_TOKEN",
       "BUDDY_SKILLS_REPOSITORY_TOKEN",
       "BUDDY_SKILL_SIGNING_PRIVATE_KEY",
       "BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD",
     ])
+    expect(
+      stringValue(
+        artifactSecrets.BUDDY_RELEASE_TOKEN,
+        "publish-skill-artifacts.secrets.BUDDY_RELEASE_TOKEN",
+      ),
+    ).toBe("${{ secrets.BUDDY_RELEASE_TOKEN }}")
     expect(artifactInputs.prevalidated).toBe(true)
     expect(stringValue(artifactInputs.publish, "publish-skill-artifacts.with.publish")).toBe(
       "${{ !inputs.dry_run }}",
@@ -349,6 +356,9 @@ describe("release skill artifacts", () => {
     expect(concurrency.group).toBe("publish-skill-artifacts")
     expect(concurrency["cancel-in-progress"]).toBe(false)
 
+    expect(objectValue(workflowCallSecrets.BUDDY_RELEASE_TOKEN, "release token").required).toBe(
+      true,
+    )
     expect(
       objectValue(workflowCallSecrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY, "signing key").required,
     ).toBe(true)
@@ -388,6 +398,9 @@ describe("release skill artifacts", () => {
         "publish step repository token",
       ),
     ).toBe("${{ secrets.BUDDY_SKILLS_REPOSITORY_TOKEN }}")
+    expect(stringValue(publishEnvironment.GH_TOKEN, "publish step GitHub token")).toBe(
+      "${{ secrets.BUDDY_RELEASE_TOKEN }}",
+    )
     expect(
       workflowJobs(document).some((job) =>
         workflowSteps(job).some(
