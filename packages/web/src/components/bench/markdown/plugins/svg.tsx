@@ -11,7 +11,7 @@ import { $isElementNode, DecoratorNode, type LexicalNode } from "lexical"
 import type { NodeKey, SerializedLexicalNode, Spread } from "lexical"
 import type { Nodes } from "mdast"
 import type { ReactElement } from "react"
-import { MarkdownBenchMdxIntrinsicPreview } from "@/components/bench/markdown-bench-mdx-intrinsic"
+import { MarkdownBenchMdxIntrinsicPreview } from "@/components/bench/markdown/mdx-intrinsic"
 
 type MarkdownSvgMdastNode = JsxEditorProps["mdastNode"]
 

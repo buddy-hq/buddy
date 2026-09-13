@@ -3,7 +3,7 @@ import { $getRoot, createEditor } from "lexical"
 import {
   BuddyChemistryNode,
   chemistryFormatFromFenceLanguage,
-} from "../src/components/bench/markdown-bench-chemistry-plugin"
+} from "../src/components/bench/markdown/plugins/chemistry"
 
 describe("Markdown Bench chemistry plugin", () => {
   test("recognizes every chemistry fence without changing its authored language", () => {

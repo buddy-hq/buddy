@@ -3,7 +3,7 @@ import {
   VersionedTextFileEditor,
   type VersionedTextFileEditorSurface,
 } from "@/components/editors/versioned-text-file-editor"
-import { MarkdownBenchEditor } from "@/components/bench/markdown-bench-editor"
+import { MarkdownBenchEditor } from "@/components/bench/markdown/editor"
 
 type MarkdownWysiwygFileEditorProps = {
   active?: boolean

@@ -4,7 +4,7 @@ import {
   isMarkdownBenchContentThemeMode,
   sanitizeMarkdownBenchThemeScopeID,
   type MarkdownBenchContentTheme,
-} from "../src/components/bench/markdown-bench-document-theme"
+} from "../src/components/bench/markdown/document-theme"
 import { createMermaidThemeConfig } from "../src/components/media/renderers/mermaid/lib/theme"
 import {
   MARKDOWN_PRINT_MAX_ATOMIC_BLOCK_HEIGHT,

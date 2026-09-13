@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client"
 import {
   BuddyChemistryPreview,
   MarkdownBenchChemistryViewProvider,
-} from "../src/components/bench/markdown-bench-chemistry-plugin"
+} from "../src/components/bench/markdown/plugins/chemistry"
 import { setBuddyTestGlobal, TEST_CHEMISTRY_RENDERER_KEY } from "./parse-test-values"
 
 const FIRST_CHEMISTRY_METADATA =

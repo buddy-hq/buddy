@@ -32,7 +32,7 @@ import {
 } from "react"
 import { cn } from "@buddy/ui"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
-import { MarkdownBenchImage } from "@/components/bench/markdown-bench-image"
+import { MarkdownBenchImage } from "@/components/bench/markdown/image"
 import { MarkdownHtmlSegment } from "@/components/markdown/markdown-html-segment"
 import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
 import { resolveAssetUrl } from "@/lib/resource-url"
