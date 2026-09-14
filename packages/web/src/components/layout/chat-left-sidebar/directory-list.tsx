@@ -5,7 +5,7 @@
 //   ScrollTextIcon,
 //   type AppIcon,
 // } from "@/icons/app-icons"
-import { SlidersHorizontalIcon, Trash2Icon } from "@/icons/app-icons"
+import { ClipboardCopyIcon, SlidersHorizontalIcon, Trash2Icon } from "@/icons/app-icons"
 import { useQuery } from "@tanstack/react-query"
 import {
   ArchiveIcon,
@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
   UnlinkIcon,
   XIcon,
+  toast,
   BotIcon,
   MessagesSquareIcon,
   BookIcon,
@@ -852,6 +853,18 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                 {language.t("sidebar.markAsUnread")}
               </>
             )}
+          </ContextMenuItem>
+          <ContextMenuItem
+            data-action="left-sidebar-thread-copy-id"
+            onSelect={() => {
+              void navigator.clipboard.writeText(props.session.id).then(
+                () => toast(language.t("sidebar.threadIDCopied")),
+                (error) => toast.error(error instanceof Error ? error.message : String(error)),
+              )
+            }}
+          >
+            <ClipboardCopyIcon className="mr-2 size-3.5" />
+            {language.t("sidebar.copyThreadIDAction")}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
