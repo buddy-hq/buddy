@@ -388,8 +388,8 @@ export function BenchTableRestyleEasel(props: { directory?: string }) {
             Bench tables · MDXEditor default vs three restyles
           </p>
           <p className="text-xs text-text-weak">
-            Shipped: B · Ruled is now the Bench table style, so every panel renders on top of it
-            and this page no longer shows the original comparison.
+            Shipped: B · Ruled is now the Bench table style, so every panel renders on top of it and
+            this page no longer shows the original comparison.
           </p>
         </div>
         <div className="flex items-center gap-2">

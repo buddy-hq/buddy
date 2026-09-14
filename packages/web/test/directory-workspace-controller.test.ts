@@ -591,7 +591,10 @@ describe("DirectoryWorkspaceController", () => {
       },
       DOCKED_NEXT_FILE_ROUTE,
     )
-    await harness.execute({ type: "focus-tab", tabKey: benchTabKey(FILE_TARGET) }, DOCKED_FILE_ROUTE)
+    await harness.execute(
+      { type: "focus-tab", tabKey: benchTabKey(FILE_TARGET) },
+      DOCKED_FILE_ROUTE,
+    )
     harness.store.getState().captureChatSlot({ chatKey: CHAT_B_KEY, route: DOCKED_FILE_ROUTE })
 
     const renamed = await harness.execute(
