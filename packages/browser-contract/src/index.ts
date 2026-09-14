@@ -11,6 +11,93 @@ export const IN_APP_BROWSER_FAVICON_DATA_URL_MAX_LENGTH = 8_192
 export const IN_APP_BROWSER_MESSAGE_CHANNEL = "inapp-browser-message"
 export const IN_APP_BROWSER_FAVICON_CHANNEL = "inapp-browser-favicon"
 
+type AppShortcutDefinition = {
+  readonly key: string
+  readonly code: string
+  readonly mod: true
+  readonly alt?: true
+  readonly shift?: true
+}
+
+/**
+ * Canonical application shortcuts shared by the renderer and Electron guest views.
+ * `mod` means Command on macOS and Control on Windows/Linux.
+ */
+export const APP_SHORTCUTS = {
+  "chat.new": { key: "n", code: "KeyN", mod: true },
+  "chat.previous": { key: "[", code: "BracketLeft", mod: true, shift: true },
+  "chat.next": { key: "]", code: "BracketRight", mod: true, shift: true },
+  "chat.jump.1": { key: "1", code: "Digit1", mod: true },
+  "chat.jump.2": { key: "2", code: "Digit2", mod: true },
+  "chat.jump.3": { key: "3", code: "Digit3", mod: true },
+  "chat.jump.4": { key: "4", code: "Digit4", mod: true },
+  "chat.jump.5": { key: "5", code: "Digit5", mod: true },
+  "chat.jump.6": { key: "6", code: "Digit6", mod: true },
+  "chat.jump.7": { key: "7", code: "Digit7", mod: true },
+  "chat.jump.8": { key: "8", code: "Digit8", mod: true },
+  "chat.jump.9": { key: "9", code: "Digit9", mod: true },
+  "composer.focus": { key: "l", code: "KeyL", mod: true },
+  "search.open": { key: "f", code: "KeyF", mod: true, shift: true },
+  "bench.toggle": { key: "b", code: "KeyB", mod: true, alt: true },
+  "browser.newTab": { key: "t", code: "KeyT", mod: true },
+  "sidebar.toggle": { key: "b", code: "KeyB", mod: true },
+} as const satisfies Record<string, AppShortcutDefinition>
+
+/** Stable identifier for a canonical application shortcut. */
+export type AppShortcutID = keyof typeof APP_SHORTCUTS
+
+/** Operating-system convention used to resolve the shortcut's primary modifier. */
+export type AppShortcutPlatform = "macos" | "windows" | "linux"
+
+/** Keyboard input fields shared by DOM and Electron input events. */
+export type AppShortcutInput = {
+  readonly type: string
+  readonly key: string
+  readonly code: string
+  readonly isAutoRepeat: boolean
+  readonly isComposing: boolean
+  readonly shift: boolean
+  readonly control: boolean
+  readonly alt: boolean
+  readonly meta: boolean
+}
+
+function appShortcutEntries() {
+  // SAFETY: Object.entries preserves the keys and corresponding values of this closed const object.
+  return Object.entries(APP_SHORTCUTS) as [AppShortcutID, AppShortcutDefinition][]
+}
+
+function appShortcutKeyMatches(
+  input: Pick<AppShortcutInput, "key" | "code">,
+  shortcut: AppShortcutDefinition,
+): boolean {
+  const keyMatches =
+    input.key.length === 1 &&
+    shortcut.key.length === 1 &&
+    input.key.toLowerCase() === shortcut.key.toLowerCase()
+  return keyMatches || input.code === shortcut.code
+}
+
+/**
+ * Resolve an Electron guest keydown into an app shortcut. Repeats and IME composition stay with
+ * the guest page, matching the renderer's keyboard policy.
+ */
+export function resolveAppShortcutID(
+  input: AppShortcutInput,
+  platform: AppShortcutPlatform,
+): AppShortcutID | undefined {
+  if (input.type !== "keyDown" || input.isAutoRepeat || input.isComposing) return undefined
+
+  const primaryIsMeta = platform === "macos"
+  if (input.meta !== primaryIsMeta || input.control === primaryIsMeta) return undefined
+
+  for (const [id, shortcut] of appShortcutEntries()) {
+    if (input.shift !== !!shortcut.shift || input.alt !== !!shortcut.alt) continue
+    if (appShortcutKeyMatches(input, shortcut)) return id
+  }
+  return undefined
+}
+
 export type InAppBrowserFavicon = {
   dataUrl: string
   pageUrl: string

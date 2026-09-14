@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  APP_SHORTCUTS,
   inAppBrowserFallbackTitle,
   inAppBrowserDisplayUrl,
   IN_APP_BROWSER_BLANK_URL,
@@ -10,7 +11,48 @@ import {
   isInAppBrowserTargetUrl,
   normalizeInAppBrowserTitle,
   normalizeInAppBrowserUrl,
+  resolveAppShortcutID,
+  type AppShortcutInput,
 } from "./index"
+
+function shortcutInput(overrides: Partial<AppShortcutInput> = {}): AppShortcutInput {
+  return {
+    type: "keyDown",
+    key: "n",
+    code: "KeyN",
+    isAutoRepeat: false,
+    isComposing: false,
+    shift: false,
+    control: false,
+    alt: false,
+    meta: true,
+    ...overrides,
+  }
+}
+
+describe("application shortcut contract", () => {
+  test("resolves the platform primary modifier and physical-key fallbacks", () => {
+    expect(resolveAppShortcutID(shortcutInput(), "macos")).toBe("chat.new")
+    expect(resolveAppShortcutID(shortcutInput({ control: true, meta: false }), "windows")).toBe(
+      "chat.new",
+    )
+    expect(
+      resolveAppShortcutID(shortcutInput({ key: "∫", code: "KeyB", alt: true }), "macos"),
+    ).toBe("bench.toggle")
+    expect(
+      resolveAppShortcutID(shortcutInput({ key: "}", code: "BracketRight", shift: true }), "macos"),
+    ).toBe("chat.next")
+    expect(APP_SHORTCUTS["chat.jump.9"].code).toBe("Digit9")
+  })
+
+  test("leaves repeats, composition, keyup, and extra modifiers with the guest page", () => {
+    expect(resolveAppShortcutID(shortcutInput({ isAutoRepeat: true }), "macos")).toBeUndefined()
+    expect(resolveAppShortcutID(shortcutInput({ isComposing: true }), "macos")).toBeUndefined()
+    expect(resolveAppShortcutID(shortcutInput({ type: "keyUp" }), "macos")).toBeUndefined()
+    expect(resolveAppShortcutID(shortcutInput({ shift: true }), "macos")).toBeUndefined()
+    expect(resolveAppShortcutID(shortcutInput({ control: true }), "macos")).toBeUndefined()
+  })
+})
 
 describe("normalizeInAppBrowserUrl", () => {
   test("defaults public addresses to HTTPS", () => {

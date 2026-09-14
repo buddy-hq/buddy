@@ -131,10 +131,12 @@ describe("in-app Browser guest wiring", () => {
     let popupHandler: Parameters<InAppBrowserGuestBoundary["setWindowOpenHandler"]>[0] | undefined
     let navigateHandler: Parameters<InAppBrowserGuestBoundary["onWillNavigate"]>[0] | undefined
     let redirectHandler: Parameters<InAppBrowserGuestBoundary["onWillRedirect"]>[0] | undefined
+    let inputHandler: Parameters<InAppBrowserGuestBoundary["onBeforeInputEvent"]>[0] | undefined
     let destroyedHandler: Parameters<InAppBrowserGuestBoundary["onDestroyed"]>[0] | undefined
     const disposals: string[] = []
     const loadedUrls: string[] = []
     const messages: string[] = []
+    const shortcuts: string[] = []
     const host: InAppBrowserHostBoundary = {
       onWillAttachWebview(handler) {
         willAttach = handler
@@ -161,13 +163,20 @@ describe("in-app Browser guest wiring", () => {
         redirectHandler = handler
         return () => disposals.push("redirect")
       },
+      onBeforeInputEvent(handler) {
+        inputHandler = handler
+        return () => disposals.push("before-input")
+      },
       onDestroyed(handler) {
         destroyedHandler = handler
         return () => disposals.push("destroyed")
       },
     }
 
-    const dispose = wireInAppBrowserHostBoundary(host)
+    const dispose = wireInAppBrowserHostBoundary(host, {
+      platform: "macos",
+      onShortcut: (shortcutID) => shortcuts.push(shortcutID),
+    })
     const installedWillAttach = requireInstalledHandler(willAttach, "Will-attach")
     const installedDidAttach = requireInstalledHandler(didAttach, "Did-attach")
     const preferences = { preload: "/tmp/preload.js" }
@@ -183,6 +192,7 @@ describe("in-app Browser guest wiring", () => {
     const installedPopupHandler = requireInstalledHandler(popupHandler, "Popup")
     const installedNavigateHandler = requireInstalledHandler(navigateHandler, "Navigate")
     const installedRedirectHandler = requireInstalledHandler(redirectHandler, "Redirect")
+    const installedInputHandler = requireInstalledHandler(inputHandler, "Before-input")
     const installedDestroyedHandler = requireInstalledHandler(destroyedHandler, "Destroyed")
 
     expect(installedPopupHandler("https://hibuddy.in/popup")).toEqual({ action: "deny" })
@@ -208,9 +218,51 @@ describe("in-app Browser guest wiring", () => {
       IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE,
     ])
 
+    let preventedShortcut = false
+    installedInputHandler(
+      { preventDefault: () => (preventedShortcut = true) },
+      {
+        type: "keyDown",
+        key: "n",
+        code: "KeyN",
+        isAutoRepeat: false,
+        isComposing: false,
+        shift: false,
+        control: false,
+        alt: false,
+        meta: true,
+      },
+    )
+    expect(preventedShortcut).toBe(true)
+    expect(shortcuts).toEqual(["chat.new"])
+
+    let preventedPageKey = false
+    installedInputHandler(
+      { preventDefault: () => (preventedPageKey = true) },
+      {
+        type: "keyDown",
+        key: "a",
+        code: "KeyA",
+        isAutoRepeat: false,
+        isComposing: false,
+        shift: false,
+        control: false,
+        alt: false,
+        meta: false,
+      },
+    )
+    expect(preventedPageKey).toBe(false)
+
     installedDestroyedHandler()
-    expect(disposals).toEqual(["navigate", "redirect", "destroyed"])
+    expect(disposals).toEqual(["navigate", "redirect", "before-input", "destroyed"])
     dispose()
-    expect(disposals).toEqual(["navigate", "redirect", "destroyed", "will-attach", "did-attach"])
+    expect(disposals).toEqual([
+      "navigate",
+      "redirect",
+      "before-input",
+      "destroyed",
+      "will-attach",
+      "did-attach",
+    ])
   })
 })

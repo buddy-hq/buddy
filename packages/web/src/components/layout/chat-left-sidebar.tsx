@@ -1,9 +1,10 @@
 import type { ComponentProps, ReactNode } from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, SquarePenIcon, toast } from "@buddy/ui"
 import { parseTBoolean, parseTJsonObject } from "@/components/chat/tools/types"
-import { NoteIcon, PresentationIcon } from "@/icons/app-icons"
+import { Globe, NoteIcon, PresentationIcon } from "@/icons/app-icons"
+import { useChatJumpShortcuts, useShortcutCommand } from "@/lib/use-shortcut-command"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
@@ -28,8 +29,13 @@ import {
   ObsidianVaultConnectionDialog,
 } from "./chat-left-sidebar/dialogs"
 import { DESKTOP_TITLEBAR_HEIGHT_PX } from "./desktop-titlebar-inset"
-import { ChatLeftSidebarDirectoryList } from "./chat-left-sidebar/directory-list"
-import { ChatLeftSidebarPinnedList } from "./chat-left-sidebar/pinned-list"
+import {
+  ChatLeftSidebarDirectoryList,
+  visibleDirectorySessions,
+} from "./chat-left-sidebar/directory-list"
+import { ChatLeftSidebarPinnedList, collectPinnedSessions } from "./chat-left-sidebar/pinned-list"
+import { stepSidebarChat, type SidebarChat } from "./chat-left-sidebar/chat-navigation"
+import { findRootSessionID } from "./chat-left-sidebar/thread-helpers"
 import {
   SIDEBAR_ROW_LEADING_GAP_PX,
   SIDEBAR_ROW_PADDING_LEFT_PX,
@@ -70,10 +76,12 @@ type ChatLeftSidebarProps = {
     enableLearnerMemory?: boolean,
     enableAutoExtract?: boolean,
   ) => void | Promise<void>
-  onNewSession: (directory?: string) => void
+  onNewSession: (directory?: string) => void | Promise<void>
   onNewNote?: () => void
   /** Creates a board on the Bench of the chat that is already open. Absent where no chat is. */
   onNewBoard?: () => void
+  /** Opens a blank browser tab on this notebook's Bench. Absent where there is no in-app browser. */
+  onNewBrowserTab?: () => void
   /** Resolves false when the transition was blocked or failed and the active chat did not change. */
   onSelectSession: (directory: string, sessionID?: string) => Promise<boolean>
   onPrefetchSession?: (directory: string, sessionID: string) => void
@@ -262,6 +270,82 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     return inboxGroup ? [inboxGroup, ...notebookGroups] : notebookGroups
   }, [directoryGroups])
 
+  // Chat shortcuts follow the lists top to bottom: pinned chats, then each notebook's rows. Rows in a
+  // collapsed notebook or behind "show more" keep their place but are stepped over.
+  const sidebarChats = useMemo((): SidebarChat[] => {
+    if (props.children) return []
+    const chats: SidebarChat[] = collectPinnedSessions({
+      directories: props.directories,
+      sessionsByDirectory: props.sessionsByDirectory,
+      pinnedByDirectory: props.pinnedByDirectory,
+    }).map((entry) => ({ directory: entry.directory, sessionID: entry.session.id, visible: true }))
+    for (const group of orderedDirectoryGroups) {
+      const shownSessions = collapsedDirectories[group.directory]
+        ? []
+        : visibleDirectorySessions(group, !!expandedDirectories[group.directory])
+      const shownIDs = new Set(shownSessions.map((session) => session.id))
+      for (const session of group.sessions) {
+        chats.push({
+          directory: group.directory,
+          sessionID: session.id,
+          visible: shownIDs.has(session.id),
+        })
+      }
+    }
+    return chats
+  }, [
+    collapsedDirectories,
+    expandedDirectories,
+    orderedDirectoryGroups,
+    props.children,
+    props.directories,
+    props.pinnedByDirectory,
+    props.sessionsByDirectory,
+  ])
+
+  const visibleChats = useMemo(() => sidebarChats.filter((chat) => chat.visible), [sidebarChats])
+  // Where no chat rows are shown (the settings sidebar, no chats yet), the keys stay with the page.
+  const chatShortcutsEnabled = visibleChats.length > 0
+
+  const selectSidebarSession = props.onSelectSession
+  const openChat = useCallback(
+    (chat: SidebarChat | undefined) => {
+      if (chat) void selectSidebarSession(chat.directory, chat.sessionID)
+    },
+    [selectSidebarSession],
+  )
+  const openChatAt = useCallback(
+    (index: number) => openChat(visibleChats[index]),
+    [openChat, visibleChats],
+  )
+  const stepChat = useCallback(
+    (step: 1 | -1) => {
+      const currentSessions = props.sessionsByDirectory[props.currentDirectory] ?? []
+      openChat(
+        stepSidebarChat({
+          chats: sidebarChats,
+          directory: props.currentDirectory,
+          activeSessionID: props.activeSessionID,
+          activeRootSessionID: findRootSessionID(currentSessions, props.activeSessionID),
+          step,
+        }),
+      )
+    },
+    [
+      openChat,
+      props.activeSessionID,
+      props.currentDirectory,
+      props.sessionsByDirectory,
+      sidebarChats,
+    ],
+  )
+  const openPreviousChat = useCallback(() => stepChat(-1), [stepChat])
+  const openNextChat = useCallback(() => stepChat(1), [stepChat])
+  useShortcutCommand("chat.new", () => props.onNewSession())
+  useShortcutCommand("chat.previous", openPreviousChat, { enabled: chatShortcutsEnabled })
+  useShortcutCommand("chat.next", openNextChat, { enabled: chatShortcutsEnabled })
+  useChatJumpShortcuts(openChatAt, { count: visibleChats.length })
+
   const {
     draggedDirectory,
     dragOverDirectory,
@@ -434,6 +518,18 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               >
                 <PresentationIcon className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/sidebar-action:scale-110" />
                 <span className="truncate">{language.t("sidebar.newBoard")}</span>
+              </button>
+            ) : null}
+            {props.onNewBrowserTab ? (
+              <button
+                type="button"
+                data-action="left-sidebar-new-browser-tab"
+                className={SIDEBAR_ACTION_ROW_CLASS}
+                style={SIDEBAR_ACTION_ROW_STYLE}
+                onClick={props.onNewBrowserTab}
+              >
+                <Globe className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/sidebar-action:scale-110" />
+                <span className="truncate">{language.t("sidebar.newBrowserTab")}</span>
               </button>
             ) : null}
           </div>

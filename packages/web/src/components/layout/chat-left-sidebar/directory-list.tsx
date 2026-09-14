@@ -165,6 +165,15 @@ function isInboxDirectory(directory: string) {
   return getFilename(directory).toLowerCase() === "inbox"
 }
 
+/** The chats a notebook section lists: every chat when expanded, otherwise the first few. */
+export function visibleDirectorySessions(group: DirectoryGroup, expanded: boolean) {
+  if (expanded) return group.sessions
+  const collapsedCount = isInboxDirectory(group.directory)
+    ? QUICK_CHAT_COLLAPSED_COUNT
+    : COLLAPSED_COUNT
+  return group.sessions.slice(0, collapsedCount)
+}
+
 function getSubagentToneClass(agent: string) {
   let hash = 0
 
@@ -281,9 +290,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   })
   const isObsidianVault = obsidianProfileQuery.data?.connected === true
   const collapsedCount = isQuickChatGroup ? QUICK_CHAT_COLLAPSED_COUNT : COLLAPSED_COUNT
-  const visibleSessions = props.expanded
-    ? props.group.sessions
-    : props.group.sessions.slice(0, collapsedCount)
+  const visibleSessions = visibleDirectorySessions(props.group, props.expanded)
   const hasMore = props.group.sessions.length > collapsedCount
   const canDrag = props.organizeMode === "project"
   const isCurrentDirectory = props.group.directory === props.currentDirectory
