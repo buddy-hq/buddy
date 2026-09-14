@@ -1,3 +1,5 @@
+import type { BuddyNoteMetadata } from "./note-file"
+
 export const BUDDY_NOTE_TYPES = ["buddy-note", "buddy-session-note"] as const
 
 export type BuddyNoteType = (typeof BUDDY_NOTE_TYPES)[number]
@@ -51,6 +53,8 @@ export type NoteDocument = {
   note: NoteSummary
   content: string
   version: string
+  /** Frontmatter of a stamped note, which `content` omits. */
+  properties?: BuddyNoteMetadata
 }
 
 export type NotesLibraryView = {

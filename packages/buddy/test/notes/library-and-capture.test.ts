@@ -96,6 +96,27 @@ describe("Notes library and chat capture", () => {
     }
   })
 
+  test("returns stamped frontmatter as properties outside the editable body", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+    try {
+      const note = await createStandaloneNote({ directory: notebook.path })
+      const initial = await readNote(note.relativePath)
+      expect(initial.content).not.toContain("buddy-id")
+      expect(initial.properties).toMatchObject({ type: "buddy-note", "buddy-id": note.id })
+
+      const saved = await updateNote({
+        path: note.relativePath,
+        content: "# Edited note\n",
+        expectedVersion: initial.version,
+      })
+      expect(saved.properties).toEqual(initial.properties)
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
   test("keeps notebook identity across a rename without repairing frontmatter on read", async () => {
     await using home = await tmpdir()
     await using notebooks = await tmpdir()

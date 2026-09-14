@@ -79,6 +79,7 @@ const BuddyNoteDocumentSchema = z
     note: BuddyNoteSummarySchema,
     content: z.string(),
     version: z.string(),
+    properties: z.record(z.string(), z.unknown()).optional(),
   })
   .strict()
 const BuddyNotesLibrarySchema = z

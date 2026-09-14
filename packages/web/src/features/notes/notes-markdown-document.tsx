@@ -5,6 +5,7 @@ import { BenchSurfacePending } from "@/components/bench/bench-surface-pending"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import type { ObsidianWikiLinkContext } from "@/components/bench/markdown/plugins/obsidian"
 import { MarkdownBenchPage } from "@/components/bench/markdown/page"
+import { parseMarkdownBenchProperties } from "@/components/bench/markdown/property-values"
 import type { MarkdownBenchDocumentIO } from "@/components/bench/markdown/use-file"
 import { AlertCircleIcon, RefreshCwIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
@@ -156,6 +157,7 @@ export function NotesMarkdownDocument(props: {
         initialFile,
         target,
         title: note.title,
+        properties: parseMarkdownBenchProperties(noteQuery.data.properties),
         io: documentIO,
         createWikiLinkContext: createObsidianWikiLinkContext,
         async renameTitle({ title, expectedVersion }) {
