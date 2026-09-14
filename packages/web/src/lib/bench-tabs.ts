@@ -118,6 +118,24 @@ export function upsertBenchTab(
   }
 }
 
+export function replaceBenchTab(
+  tabs: readonly BenchTab[],
+  previous: BenchTabTarget,
+  target: BenchTabTarget,
+): BenchTabSelection {
+  const previousKey = benchTabKey(previous)
+  if (!tabs.some((tab) => tab.key === previousKey)) return upsertBenchTab(tabs, target)
+
+  const key = benchTabKey(target)
+  return {
+    tabs: tabs.flatMap((tab): BenchTab[] => {
+      if (tab.key === previousKey) return [{ key, target }]
+      return tab.key === key ? [] : [tab]
+    }),
+    activeTabKey: key,
+  }
+}
+
 export function closeBenchTab(input: {
   tabs: readonly BenchTab[]
   activeTabKey: string | null

@@ -118,7 +118,7 @@ Missing `root` on previously persisted targets is interpreted as `notebook`.
 
 Notes targets contain real library-relative paths. There is no synthetic path and no ID lookup while opening a tab. Root participates in Bench target and tab identity, so a notebook file and a Notes file with the same relative path remain distinct.
 
-Renaming changes a path-addressed target. The editor navigates to the renamed target; the former path and the new path are distinct Bench identities, matching ordinary notebook-file behavior.
+Renaming changes a path-addressed target. After the file move succeeds, Buddy replaces the former target with the renamed target in place across every saved chat slot that references it. The current tab keeps its position, inactive chats do not retain the deleted path, and blocked or failed navigation leaves their slots unchanged.
 
 Both roots use the shared MDX editor through an explicit `MarkdownBenchDocument` description.
 
