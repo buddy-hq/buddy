@@ -139,16 +139,90 @@ describe("Notes library and chat capture", () => {
     try {
       const first = await createStandaloneNote({ directory: notebook.path, title: "Idea" })
       const second = await createStandaloneNote({ directory: notebook.path, title: "Idea" })
+      const third = await createStandaloneNote({ directory: notebook.path, title: "Idea" })
+      const reserved = await createStandaloneNote({ directory: notebook.path, title: "NUL" })
+      const legacyID = "01K00000000000000000000000"
+      await fsp.writeFile(
+        path.join(home.path, "Notes", `Legacy — ${legacyID}.md`),
+        [
+          "---",
+          "type: buddy-note",
+          `buddy-id: ${legacyID}`,
+          "buddy-notebook-id: notebook-test",
+          "notebook: Research",
+          "---",
+          "",
+        ].join("\n"),
+      )
+      const afterLegacy = await createStandaloneNote({
+        directory: notebook.path,
+        title: "Legacy",
+      })
       await fsp.writeFile(path.join(home.path, "Notes", "index.md"), "# Index\n")
       const library = await listNotes(notebook.path)
 
       expect(first.id).toBeDefined()
       expect(first.id).not.toBe(second.id)
-      expect(first.relativePath).toBe(`Idea — ${first.id}.md`)
+      expect(first.relativePath).toBe("Idea.md")
+      expect(second.relativePath).toBe("Idea 1.md")
+      expect(third.relativePath).toBe("Idea 2.md")
+      expect(reserved.relativePath).toBe("NUL 1.md")
+      expect(afterLegacy.relativePath).toBe("Legacy 1.md")
+      expect((await readNote(first.relativePath)).content).toBe("")
       expect(library.notes.find((note) => note.relativePath === "index.md")).toMatchObject({
         kind: "plain",
         title: "index",
       })
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("renames stamped notes to their bare title without rewriting the body", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+
+    try {
+      const draft = await createStandaloneNote({ directory: notebook.path, title: "Draft" })
+      await createStandaloneNote({ directory: notebook.path, title: "Final" })
+      const document = await readNote(draft.relativePath)
+
+      await expect(
+        renameNote({ path: draft.relativePath, title: "Final", expectedVersion: document.version }),
+      ).rejects.toMatchObject({ status: 409 })
+      const renamed = await renameNote({
+        path: draft.relativePath,
+        title: "Published",
+        expectedVersion: document.version,
+      })
+      expect(renamed).toMatchObject({
+        relativePath: "Published.md",
+        title: "Published",
+        id: draft.id,
+      })
+      expect((await readNote("Published.md")).content).toBe("")
+
+      const legacyID = "01K00000000000000000000000"
+      const legacyPath = `Legacy — ${legacyID}.md`
+      await fsp.writeFile(
+        path.join(home.path, "Notes", legacyPath),
+        [
+          "---",
+          "type: buddy-note",
+          `buddy-id: ${legacyID}`,
+          "buddy-notebook-id: notebook-test",
+          "notebook: Research",
+          "---",
+          "# Kept heading",
+          "",
+        ].join("\n"),
+      )
+      expect((await readNote(legacyPath)).note.title).toBe("Legacy")
+      expect((await renameNote({ path: legacyPath, title: "Legacy" })).relativePath).toBe(
+        "Legacy.md",
+      )
+      expect((await readNote("Legacy.md")).content).toBe("# Kept heading\n")
     } finally {
       await Config.replaceGlobal(previous)
     }
@@ -259,11 +333,13 @@ describe("Notes library and chat capture", () => {
         await fsp.readFile(path.join(home.path, "Notes", first.note.relativePath), "utf8"),
       )
 
+      expect(first.note.relativePath).toBe("Research chat.md")
       expect(second.note.relativePath).toBe(first.note.relativePath)
       // The UI announces a new note but stays quiet for an append, so only the
       // first capture may report `created`.
       expect(first.created).toBe(true)
       expect(second.created).toBe(false)
+      expect(document.content).toMatch(/^## Note — /u)
       expect(document.content).toContain("First capture")
       expect(document.content).toContain("Second capture")
       expect(parsed?.metadata).toMatchObject({
