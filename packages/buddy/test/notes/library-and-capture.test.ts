@@ -404,7 +404,9 @@ describe("Notes library and chat capture", () => {
         ],
       })
       const document = await readNote(capture.note.relativePath)
-      const imagePath = /!\[Screenshot\.png\]\((Attachments\/\w+\.png)\)/.exec(document.content)?.[1]
+      const imagePath = /!\[Screenshot\.png\]\((Attachments\/\w+\.png)\)/.exec(
+        document.content,
+      )?.[1]
 
       expect(imagePath).toBeDefined()
       expect(await fsp.readFile(path.join(home.path, "Notes", imagePath ?? ""))).toEqual(imageBytes)

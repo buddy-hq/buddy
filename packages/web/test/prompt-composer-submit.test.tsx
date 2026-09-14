@@ -339,7 +339,9 @@ describe("prompt composer submit", () => {
 
   test("accepts images and exposes an image-only picker in Note mode for a text-only model", async () => {
     const attachmentsApiRef = createRef<PromptComposerAttachmentsApi>()
-    let savedImages: Parameters<NonNullable<Parameters<typeof PromptComposer>[0]["onSaveNote"]>>[0]["images"]
+    let savedImages: Parameters<
+      NonNullable<Parameters<typeof PromptComposer>[0]["onSaveNote"]>
+    >[0]["images"]
 
     await act(async () => {
       root.render(

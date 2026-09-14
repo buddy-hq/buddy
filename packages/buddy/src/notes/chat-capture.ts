@@ -90,9 +90,7 @@ function renderSessionNoteEntry(entry: SessionNoteEntry) {
   if (entry.kind === "note") {
     return [`## Note — ${timestamp}`, ...body].join("\n\n")
   }
-  return [`## Annotation — ${timestamp}`, quoteMarkdown(entry.quotedMessage), ...body].join(
-    "\n\n",
-  )
+  return [`## Annotation — ${timestamp}`, quoteMarkdown(entry.quotedMessage), ...body].join("\n\n")
 }
 
 function imageLink(saved: SavedCaptureImage, noteDirectory: string) {
