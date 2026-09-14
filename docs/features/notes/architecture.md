@@ -135,7 +135,7 @@ Composer Note mode or message annotation
 ## Identity and boundaries
 
 - A note is addressed by its path relative to the Notes library.
-- A Buddy-created note also has a ULID in its filename and frontmatter for portable identity.
+- A Buddy-created note also has a ULID in its frontmatter for portable identity; its filename is only the readable title.
 - `buddy-notebook-id` records notebook membership; the readable notebook name is display data.
 - Every in-memory Bench workspace-file target has an explicit `root` of `notebook` or `notes`.
 - Only persisted-state and URL parsers translate a missing legacy root to `notebook`.

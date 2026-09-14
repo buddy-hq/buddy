@@ -11,7 +11,7 @@ Run on macOS and Windows when Notes storage, permissions, Bench routing, or sett
 5. Rename it from the title field.
 6. Close and reopen it from the drawer.
 
-Pass: the body persists, the filename keeps its ULID, the Notes URL declares `root=notes`, and no duplicate editor or tab appears during the rename navigation.
+Pass: the body persists, the filename becomes the new title with no ULID, the body gains no title heading, the Notes URL declares `root=notes`, and no duplicate editor or tab appears during the rename navigation.
 
 ## 2. Plain Markdown discovery
 
@@ -74,6 +74,6 @@ Pass:
 
 - both are valid Markdown;
 - Buddy-created types are only `buddy-note` or `buddy-session-note`;
-- Buddy-created filenames contain a readable title and ULID;
+- Buddy-created filenames are the readable title, with no ULID;
 - links use ordinary Markdown or Obsidian wikilink syntax;
 - no manifest, sidecar database, synthetic Bench path, or Buddy-only URL is required.

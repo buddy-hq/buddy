@@ -19,7 +19,6 @@ import { ensureNotebookIdentity } from "./notebook-identity"
 import type { SessionNoteCaptureResult } from "./types"
 
 const DEFAULT_SESSION_TITLE = "Chat notes" as const
-const SESSION_NOTE_HEADING = "Notes" as const
 
 type SessionCaptureInput = {
   directory: string
@@ -141,7 +140,6 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
       return createNoteFile({
         root,
         title,
-        id,
         metadata: {
           type: "buddy-session-note",
           "buddy-id": id,
@@ -149,7 +147,7 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
           notebook: notebook.name,
           "buddy-session-id": input.sessionID,
         },
-        content: `# ${title} — ${SESSION_NOTE_HEADING}\n\n${entry}\n`,
+        content: `${entry}\n`,
       })
     }
 

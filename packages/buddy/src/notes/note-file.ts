@@ -13,7 +13,6 @@ const CONTROL_CHARACTER_MAX_CODE_POINT = 31
 const TRAILING_FILENAME_CHARACTER = /[. ]+$/u
 const WINDOWS_RESERVED_NOTE_TITLE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/iu
 const WHITESPACE = /\s+/gu
-const MARKDOWN_HEADING = /^#\s+.*$/u
 const ULID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{26}$/u
 const YAML_FRONTMATTER_OPEN = /^---(?:yaml|yml)?[ \t]*\r?\n/u
 const YAML_FRONTMATTER_CLOSE = /^---[ \t]*(?:\r?\n|$)/mu
@@ -61,10 +60,7 @@ export function isWindowsReservedNoteTitle(title: string): boolean {
   return WINDOWS_RESERVED_NOTE_TITLE.test(title)
 }
 
-export function noteFilename(title: string, id: string) {
-  return `${title}${NOTE_FILENAME_SEPARATOR}${id}${MARKDOWN_EXTENSION}`
-}
-
+// Older Buddy notes end their filename in ` — <ID>`; strip it so they keep a clean title.
 export function noteTitleFromFilename(filename: string, id: string) {
   const extensionless = filename.endsWith(MARKDOWN_EXTENSION)
     ? filename.slice(0, -MARKDOWN_EXTENSION.length)
@@ -98,16 +94,6 @@ export function parseNoteSource(source: string) {
 export function renderNoteSource(content: string, metadata: BuddyNoteMetadata) {
   // Serialize only the stamp: the body is opaque Markdown and must round-trip exactly.
   return `${FRONTMATTER_DELIMITER}\n${stringifyYaml(metadata)}${FRONTMATTER_DELIMITER}\n${content}`
-}
-
-export function replaceFirstHeading(content: string, title: string) {
-  const lines = content.split("\n")
-  const firstContentLine = lines.findIndex((line) => line.trim().length > 0)
-  if (firstContentLine >= 0 && MARKDOWN_HEADING.test(lines[firstContentLine] ?? "")) {
-    lines[firstContentLine] = `# ${title}`
-    return lines.join("\n")
-  }
-  return `# ${title}\n\n${content.trimStart()}`
 }
 
 export function toPosixRelativePath(root: string, filepath: string) {
