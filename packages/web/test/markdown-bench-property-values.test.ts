@@ -38,9 +38,7 @@ describe("Markdown Bench property values", () => {
     const due = properties.find((property) => property.name === "due")
     const reviewed = properties.find((property) => property.name === "reviewed")
     expect(due?.kind === "date" ? due.text : undefined).not.toBe("2026-09-14")
-    expect(reviewed?.kind === "datetime" ? reviewed.text : undefined).not.toBe(
-      "2026-09-14T10:30",
-    )
+    expect(reviewed?.kind === "datetime" ? reviewed.text : undefined).not.toBe("2026-09-14T10:30")
   })
 
   test("formats Obsidian datetimes with spaces and leaves impossible dates as text", () => {
@@ -61,9 +59,7 @@ describe("Markdown Bench property values", () => {
       { name: "invalid", kind: "text", text: "2026-13-45" },
     ])
     const scheduled = properties.find((property) => property.name === "scheduled")
-    expect(scheduled?.kind === "datetime" ? scheduled.text : undefined).not.toBe(
-      "2026-09-14 10:30",
-    )
+    expect(scheduled?.kind === "datetime" ? scheduled.text : undefined).not.toBe("2026-09-14 10:30")
   })
 
   test("shows no properties when a note has no frontmatter", () => {
