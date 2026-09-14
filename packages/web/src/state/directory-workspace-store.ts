@@ -4,6 +4,7 @@ import {
   benchTabKey,
   closeBenchTab,
   readBenchTab,
+  replaceBenchTab,
   upsertBenchTab,
   type BenchTab,
 } from "@/lib/bench-tabs"
@@ -217,7 +218,13 @@ type DirectoryWorkspaceInitialState = Partial<DirectoryWorkspaceProjectionState>
 }
 
 export type DirectoryWorkspaceCommand =
-  | { type: "present"; directory: string; target: BenchTabTarget; mode: BenchModeRequest }
+  | {
+      type: "present"
+      directory: string
+      target: BenchTabTarget
+      mode: BenchModeRequest
+      replacesTarget?: BenchTabTarget
+    }
   | { type: "close" }
   | { type: "focus-tab"; tabKey: string }
   | {
@@ -298,6 +305,8 @@ export type DirectoryWorkspaceStoreState = DirectoryWorkspaceProjectionState & {
     target: BenchTabTarget
     mode: BenchMode
   }) => void
+  /** Replaces a renamed target in every chat slot that still references its previous path. */
+  replaceTabTarget: (input: { previous: BenchTabTarget; target: BenchTabTarget }) => void
   removeSessionTargets: (input: {
     sessionIDs: readonly string[]
     excludeChatKey?: WorkspaceChatKey
@@ -731,6 +740,48 @@ function withoutTransientBrowserTabs(
 function tabsForRoute(tabs: readonly BenchTab[], route: BenchRouteSnapshot): BenchTab[] {
   if (route.status === BENCH_ROUTE_STATUS_CLOSED) return []
   return upsertBenchTab(tabs, route.target).tabs
+}
+
+function replaceBenchTabTargetInSlot(input: {
+  slot: WorkspacePresentationSlot
+  previous: BenchTabTarget
+  target: BenchTabTarget
+}): WorkspacePresentationSlot {
+  const previousKey = benchTabKey(input.previous)
+  if (!input.slot.tabs.some((tab) => tab.key === previousKey)) return input.slot
+
+  const route =
+    input.slot.route.status === BENCH_ROUTE_STATUS_OPEN &&
+    benchTabKey(input.slot.route.target) === previousKey
+      ? { ...input.slot.route, target: input.target }
+      : input.slot.route
+  return {
+    ...input.slot,
+    route,
+    tabs: replaceBenchTab(input.slot.tabs, input.previous, input.target).tabs,
+  }
+}
+
+function replaceBenchTabTargetInSlots(input: {
+  slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
+  previous: BenchTabTarget
+  target: BenchTabTarget
+}): Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> {
+  let changed = false
+  const slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
+  for (const [key, slot] of Object.entries(input.slots)) {
+    if (!slot) continue
+    const chatKey = parseWorkspaceChatKey(key)
+    if (!chatKey) continue
+    const nextSlot = replaceBenchTabTargetInSlot({
+      slot,
+      previous: input.previous,
+      target: input.target,
+    })
+    slots[chatKey] = nextSlot
+    changed ||= nextSlot !== slot
+  }
+  return changed ? slots : input.slots
 }
 
 export function removeSessionBenchTargetsFromSlot(input: {
@@ -1394,6 +1445,11 @@ export function createDirectoryWorkspaceStore(input: {
             protectedChatKeys: [state.activeChatKey],
           }),
         }
+      }),
+    replaceTabTarget: ({ previous, target }) =>
+      set((state) => {
+        const slots = replaceBenchTabTargetInSlots({ slots: state.slots, previous, target })
+        return slots === state.slots ? state : { slots }
       }),
     removeSessionTargets: ({ sessionIDs, excludeChatKey }) =>
       set((state) => {

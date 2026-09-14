@@ -56,6 +56,7 @@ import {
   MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME,
   MARKDOWN_BENCH_PAPER_PLAIN_CLASS_NAME,
   MARKDOWN_BENCH_SELECTION_EDGE_WIDTH_PX,
+  MARKDOWN_BENCH_TABLE_CSS,
   MARKDOWN_CONTENT_BASE_CLASS_NAME,
   MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME,
   MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME,
@@ -498,6 +499,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       <div
         ref={editorRootRef}
         data-component="markdown-bench-editor"
+        data-appearance={appearance}
         data-dirty={props.dirty ? "true" : "false"}
         data-saving={props.saving ? "true" : "false"}
         data-conflict={props.conflict ? "true" : "false"}
@@ -509,7 +511,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           "markdown-bench-editor relative h-full min-h-0 overflow-y-auto text-text-base",
           isPlainAppearance
             ? "bg-background-base"
-            : cn("bg-background-weak pb-48", MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS),
+            : cn("bg-background-base pb-48", MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS),
           props.className,
         )}
         onPointerUp={notifySelectionChange}
@@ -545,6 +547,9 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         ) : null}
         <style data-markdown-bench-mdx-popup-layer-style data-markdown-export-ignore>
           {MARKDOWN_BENCH_MDX_POPUP_LAYER_CSS}
+        </style>
+        <style data-markdown-bench-table-style data-markdown-export-ignore>
+          {MARKDOWN_BENCH_TABLE_CSS}
         </style>
         <MarkdownBenchChemistryViewProvider value={chemistryViewOptions}>
           {mermaidViewOptions ? (

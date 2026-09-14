@@ -20,6 +20,7 @@ import {
   closeBenchTab,
   closeBenchTabsToRight,
   closeOtherBenchTabs,
+  replaceBenchTab,
   upsertBenchTab,
   type BenchTab,
   type BenchTabSelection,
@@ -629,6 +630,7 @@ export class DirectoryWorkspaceController {
           target: command.target,
           mode: command.mode,
           autoOpen: options.autoOpen ?? null,
+          ...(command.replacesTarget ? { replacesTarget: command.replacesTarget } : undefined),
         },
         options,
       )
@@ -815,6 +817,7 @@ export class DirectoryWorkspaceController {
           directory: request.directory,
           target: request.target,
           mode: request.mode,
+          ...(request.replacesTarget ? { replacesTarget: request.replacesTarget } : undefined),
         },
         {
           ...options,
@@ -1214,6 +1217,17 @@ export class DirectoryWorkspaceController {
     })
 
     if (decision.action === "ignore") {
+      const previousSlots = this.#store.getState().slots
+      if (
+        decision.policyID === "already-open" &&
+        command.directory === this.#directory &&
+        command.replacesTarget
+      ) {
+        this.#store.getState().replaceTabTarget({
+          previous: command.replacesTarget,
+          target: command.target,
+        })
+      }
       if (
         decision.policyID === "already-open" &&
         currentRoute.status === BENCH_ROUTE_STATUS_OPEN &&
@@ -1226,7 +1240,10 @@ export class DirectoryWorkspaceController {
         )
       }
 
-      const result = committedProjectionResult({ changed: false, projection: currentProjection })
+      const result = committedProjectionResult({
+        changed: this.#store.getState().slots !== previousSlots,
+        projection: this.#currentProjection(),
+      })
       logBenchToggleStep("workspace-controller-present-ignore-result", {
         directory: this.#directory,
         commandID,
@@ -1250,34 +1267,46 @@ export class DirectoryWorkspaceController {
       target: decision.target,
       mode: decision.mode,
     }
-    return openExecutionResult(
-      decision,
-      await this.#executeNavigationCommand(
-        Object.assign(
-          {
-            commandID,
-            expectedDirectory: decision.directory,
-            expectedRoute,
-            workspaceCommit:
-              decision.mode === BENCH_CHAT_LAYOUT_DOCKED
-                ? createExpandedWorkspaceState(null)
-                : createCollapsedWorkspaceState(),
-            navigateOptions: {
-              ...buildBenchNavigation({
-                directory: decision.directory,
-                target: decision.target,
-                mode: decision.mode,
-              }),
-              replace: currentRoute.status === BENCH_ROUTE_STATUS_OPEN,
-            },
-            origin: options.origin,
+    const execution = await this.#executeNavigationCommand(
+      Object.assign(
+        {
+          commandID,
+          expectedDirectory: decision.directory,
+          expectedRoute,
+          workspaceCommit:
+            decision.mode === BENCH_CHAT_LAYOUT_DOCKED
+              ? createExpandedWorkspaceState(null)
+              : createCollapsedWorkspaceState(),
+          navigateOptions: {
+            ...buildBenchNavigation({
+              directory: decision.directory,
+              target: decision.target,
+              mode: decision.mode,
+            }),
+            replace: currentRoute.status === BENCH_ROUTE_STATUS_OPEN,
           },
-          decision.directory === this.#directory
-            ? { tabs: upsertBenchTab(currentTabs, decision.target).tabs }
-            : undefined,
-        ),
+          origin: options.origin,
+        },
+        decision.directory === this.#directory
+          ? {
+              tabs: command.replacesTarget
+                ? replaceBenchTab(currentTabs, command.replacesTarget, decision.target).tabs
+                : upsertBenchTab(currentTabs, decision.target).tabs,
+            }
+          : undefined,
       ),
     )
+    if (
+      execution.outcome === "committed" &&
+      decision.directory === this.#directory &&
+      command.replacesTarget
+    ) {
+      this.#store.getState().replaceTabTarget({
+        previous: command.replacesTarget,
+        target: decision.target,
+      })
+    }
+    return openExecutionResult(decision, execution)
   }
 
   async #executeCloseCommand(

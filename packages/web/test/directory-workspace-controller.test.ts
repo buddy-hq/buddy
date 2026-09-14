@@ -565,6 +565,96 @@ describe("DirectoryWorkspaceController", () => {
     ])
   })
 
+  test("replaces a renamed file's tab in place instead of appending a new tab", async () => {
+    const renamedTarget = { ...FILE_TARGET, path: "docs/renamed-intro.md" } satisfies BenchTarget
+    const renamedRoute = {
+      status: BENCH_ROUTE_STATUS_OPEN,
+      target: renamedTarget,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    } satisfies BenchRouteSnapshot
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: NEXT_FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_NEXT_FILE_ROUTE,
+    )
+    await harness.execute(
+      { type: "focus-tab", tabKey: benchTabKey(FILE_TARGET) },
+      DOCKED_FILE_ROUTE,
+    )
+    harness.store.getState().captureChatSlot({ chatKey: CHAT_B_KEY, route: DOCKED_FILE_ROUTE })
+
+    const renamed = await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: renamedTarget,
+        replacesTarget: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      renamedRoute,
+    )
+
+    expect(renamed).toMatchObject({
+      outcome: "committed",
+      projection: { route: renamedRoute },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([
+      { key: benchTabKey(renamedTarget), target: renamedTarget },
+      { key: benchTabKey(NEXT_FILE_TARGET), target: NEXT_FILE_TARGET },
+    ])
+    expect(harness.store.getState().slots[CHAT_B_KEY]).toMatchObject({
+      route: renamedRoute,
+      tabs: [{ key: benchTabKey(renamedTarget), target: renamedTarget }],
+    })
+  })
+
+  test("removes the replaced tab when its destination is already active", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_NEXT_FILE_ROUTE,
+      initialExpanded: true,
+    })
+    const state = harness.store.getState()
+    state.captureChatSlot({ chatKey: state.activeChatKey, route: DOCKED_FILE_ROUTE })
+    state.presentBackground({
+      chatKey: state.activeChatKey,
+      target: NEXT_FILE_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+    state.captureChatSlot({ chatKey: state.activeChatKey, route: DOCKED_NEXT_FILE_ROUTE })
+
+    const result = await harness.controller.execute({
+      type: "present",
+      directory: DIRECTORY,
+      target: NEXT_FILE_TARGET,
+      replacesTarget: FILE_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+
+    expect(result).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      decision: { action: "ignore", policyID: "already-open" },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([
+      { key: benchTabKey(NEXT_FILE_TARGET), target: NEXT_FILE_TARGET },
+    ])
+    expect(harness.readNavigationEvents()).toEqual([])
+  })
+
   test("removes a deleted subagent tab and restores the nearest surviving target", async () => {
     const harness = createHarness()
     await harness.execute(
