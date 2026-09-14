@@ -79,7 +79,14 @@ function patchFile(relativePath: string, type: "add" | "update" | "delete") {
   }
 }
 
-function applyPatchPart(): MessagePart {
+function applyPatchPart(status: "completed" | "running" = "completed"): MessagePart {
+  const metadata = {
+    files: [
+      patchFile("notes/tracker.md", "update"),
+      patchFile("model.py", "add"),
+      patchFile("old.py", "delete"),
+    ],
+  }
   return {
     id: "part_patch",
     sessionID: "ses_bench",
@@ -89,8 +96,8 @@ function applyPatchPart(): MessagePart {
     callID: "call_patch",
     metadata: presentationMetadata(
       activityPresentation({
-        phase: "completed",
-        action: "Applied edits",
+        phase: status,
+        action: status === "completed" ? "Applied edits" : "Applying edits",
         detail: "3 files",
         category: "edit-files",
         summary: "Edited files",
@@ -98,21 +105,18 @@ function applyPatchPart(): MessagePart {
         renderer: "edit",
       }),
     ),
-    state: {
-      status: "completed",
-      input: {},
-      output: "Done",
-      title: "3 files",
-      metadata: {
-        files: [
-          patchFile("notes/tracker.md", "update"),
-          patchFile("model.py", "add"),
-          patchFile("old.py", "delete"),
-        ],
-      },
-      attachments: [],
-      time: { start: 1, end: 2 },
-    },
+    state:
+      status === "completed"
+        ? {
+            status,
+            input: {},
+            output: "Done",
+            title: "3 files",
+            metadata,
+            attachments: [],
+            time: { start: 1, end: 2 },
+          }
+        : { status, input: {}, metadata, time: { start: 1 } },
   }
 }
 
@@ -224,5 +228,20 @@ describe("opening changed files on the Bench from their names", () => {
 
     await act(async () => buttonNamed("model.py")?.click())
     expect(detailsShown()).toBe(1)
+  })
+
+  test("leaves multi-file names plain while the patch is running", async () => {
+    await act(async () =>
+      root.render(
+        <ActivityFileChangeDetails
+          entry={toolEntry(applyPatchPart("running"))}
+          directory={directory}
+        />,
+      ),
+    )
+
+    expect(buttonNamed("Open tracker.md on Bench")).toBeUndefined()
+    expect(buttonNamed("Open model.py on Bench")).toBeUndefined()
+    expect(detailsShown()).toBe(2)
   })
 })

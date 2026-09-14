@@ -857,10 +857,12 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
           <ContextMenuItem
             data-action="left-sidebar-thread-copy-id"
             onSelect={() => {
-              void navigator.clipboard.writeText(props.session.id).then(
-                () => toast(language.t("sidebar.threadIDCopied")),
-                (error) => toast.error(error instanceof Error ? error.message : String(error)),
-              )
+              void Promise.resolve()
+                .then(() => navigator.clipboard.writeText(props.session.id))
+                .then(
+                  () => toast(language.t("sidebar.threadIDCopied")),
+                  (error) => toast.error(error instanceof Error ? error.message : String(error)),
+                )
             }}
           >
             <ClipboardCopyIcon className="mr-2 size-3.5" />

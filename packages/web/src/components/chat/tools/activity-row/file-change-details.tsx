@@ -333,9 +333,17 @@ export function ActivityFileNameLink(props: {
   )
 }
 
-function ActivityPatchFile({ file, directory }: { file: FilePatch; directory?: string }) {
+function ActivityPatchFile({
+  file,
+  directory,
+  fileOpeningEnabled,
+}: {
+  file: FilePatch
+  directory?: string
+  fileOpeningEnabled: boolean
+}) {
   const [open, setOpen] = useState(file.type !== "delete")
-  const openFile = useBenchFileOpener(directory, file.absolutePath)
+  const openFile = useBenchFileOpener(directory, fileOpeningEnabled ? file.absolutePath : undefined)
   const fileDirectory = dirname(file.path)
   const filename = basename(file.path)
 
@@ -410,7 +418,12 @@ export function ActivityFileChangeDetails({
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col">
       {details.files.map((file) => (
-        <ActivityPatchFile key={file.path} file={file} directory={directory} />
+        <ActivityPatchFile
+          key={file.path}
+          file={file}
+          directory={directory}
+          fileOpeningEnabled={entry.state.status === "completed"}
+        />
       ))}
     </div>
   )

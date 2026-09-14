@@ -33,19 +33,27 @@ export function absoluteWorkspaceFilePath(input: { directory: string; path: stri
 // The inverse of `absoluteWorkspaceFilePath`: the notebook-relative path of an absolute path, or
 // undefined when the path is not inside the notebook.
 export function workspaceRelativeFilePath(input: { directory: string; path: string }) {
-  const windows =
-    /^[A-Za-z]:[\\/]/u.test(input.directory) || input.directory.includes(WINDOWS_PATH_SEPARATOR)
-  const directory = input.directory
-    .replace(/[\\/]+$/u, "")
-    .replaceAll(WINDOWS_PATH_SEPARATOR, POSIX_PATH_SEPARATOR)
-  const path = input.path.replaceAll(WINDOWS_PATH_SEPARATOR, POSIX_PATH_SEPARATOR)
+  const windows = /^[A-Za-z]:[\\/]/u.test(input.directory) || /^\\\\[^\\]+\\/u.test(input.directory)
+  const directory = windows
+    ? input.directory
+        .replace(/[\\/]+$/u, "")
+        .replaceAll(WINDOWS_PATH_SEPARATOR, POSIX_PATH_SEPARATOR)
+    : input.directory.replace(/\/+$/u, "")
+  const path = windows
+    ? input.path.replaceAll(WINDOWS_PATH_SEPARATOR, POSIX_PATH_SEPARATOR)
+    : input.path
   const prefix = `${directory}${POSIX_PATH_SEPARATOR}`
   const inside = windows
     ? path.toLowerCase().startsWith(prefix.toLowerCase())
     : path.startsWith(prefix)
   if (!inside) return undefined
 
-  const relativePath = normalizeRelativePath(path.slice(prefix.length))
+  const relativePath = windows
+    ? normalizeRelativePath(path.slice(prefix.length))
+    : path
+        .slice(prefix.length)
+        .trim()
+        .replace(/^\/+|\/+$/gu, "")
   if (!relativePath || relativePath.split(POSIX_PATH_SEPARATOR).includes("..")) return undefined
   return relativePath
 }

@@ -40,6 +40,15 @@ describe("workspaceRelativeFilePath", () => {
     ).toBe("src/model.py")
   })
 
+  test("preserves backslashes in POSIX filenames", () => {
+    expect(
+      workspaceRelativeFilePath({
+        directory: "/notebooks/llm",
+        path: "/notebooks/llm/a\\b.md",
+      }),
+    ).toBe("a\\b.md")
+  })
+
   test("inverts absoluteWorkspaceFilePath", () => {
     for (const directory of ["/notebooks/llm", "D:\\Notebooks\\LLM"]) {
       const path = absoluteWorkspaceFilePath({ directory, path: "src/model.py" })
