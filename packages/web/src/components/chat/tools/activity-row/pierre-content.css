@@ -29,9 +29,9 @@
   margin-top: -1px;
 }
 
-.activity-patch-file-trigger {
+.activity-patch-file-header {
+  position: relative;
   display: flex;
-  width: 100%;
   height: 32px;
   padding: 8px 12px;
   align-items: center;
@@ -39,7 +39,6 @@
   gap: 20px;
   overflow: clip;
   border: 1px solid var(--border-weak-base);
-  border-radius: 0;
   background-color: var(--background-stronger);
   color: var(--text-strong);
   font-family: var(--buddy-font-family-sans);
@@ -49,16 +48,22 @@
   transition: background-color 0.15s ease;
 }
 
-.activity-patch-file-trigger:hover {
+.activity-patch-file-header:hover {
   background-color: var(--surface-base-hover);
 }
 
-.activity-patch-file:first-child .activity-patch-file-trigger {
+/* The trigger covers the row so the file name can sit above it as its own control. */
+.activity-patch-file-trigger {
+  position: absolute;
+  inset: 0;
+}
+
+.activity-patch-file:first-child .activity-patch-file-header {
   border-top-left-radius: 0.25rem;
   border-top-right-radius: 0.25rem;
 }
 
-.activity-patch-file:last-child[data-state="closed"] .activity-patch-file-trigger,
+.activity-patch-file:last-child[data-state="closed"] .activity-patch-file-header,
 .activity-patch-file:last-child .pierre-content-viewer--embedded {
   border-bottom-left-radius: 0.25rem;
   border-bottom-right-radius: 0.25rem;

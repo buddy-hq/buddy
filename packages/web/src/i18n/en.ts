@@ -1120,6 +1120,8 @@ export const dict = {
   "sidebar.create": "Create",
   "sidebar.createNotebook": "Create notebook",
   "sidebar.closeNotebook": "Close notebook",
+  "sidebar.copyThreadIDAction": "Copy chat ID",
+  "sidebar.threadIDCopied": "Chat ID copied",
   "sidebar.delete": "Delete",
   "sidebar.deleteThreadAction": "Delete chat",
   "sidebar.deleteThreadFallback":
@@ -1528,6 +1530,7 @@ export const dict = {
   "chatTools.patch.created": "Created",
   "chatTools.patch.deleted": "Deleted",
   "chatTools.patch.moved": "Moved",
+  "chatTools.patch.openFileOnBench": "Open {{name}} on Bench",
   "chatTools.repairedLabel.one": "repaired {{attempts}} time",
   "chatTools.repairedLabel.other": "repaired {{attempts}} times",
   "chatTools.answeredCount": "{{count}} answered",

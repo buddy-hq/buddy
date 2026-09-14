@@ -30,6 +30,34 @@ export function absoluteWorkspaceFilePath(input: { directory: string; path: stri
   return `${normalizedDirectory}${separator}${normalizedPath.replace(/[\\/]+/gu, separator)}`
 }
 
+// The inverse of `absoluteWorkspaceFilePath`: the notebook-relative path of an absolute path, or
+// undefined when the path is not inside the notebook.
+export function workspaceRelativeFilePath(input: { directory: string; path: string }) {
+  const windows = /^[A-Za-z]:[\\/]/u.test(input.directory) || /^\\\\[^\\]+\\/u.test(input.directory)
+  const directory = windows
+    ? input.directory
+        .replace(/[\\/]+$/u, "")
+        .replaceAll(WINDOWS_PATH_SEPARATOR, POSIX_PATH_SEPARATOR)
+    : input.directory.replace(/\/+$/u, "")
+  const path = windows
+    ? input.path.replaceAll(WINDOWS_PATH_SEPARATOR, POSIX_PATH_SEPARATOR)
+    : input.path
+  const prefix = `${directory}${POSIX_PATH_SEPARATOR}`
+  const inside = windows
+    ? path.toLowerCase().startsWith(prefix.toLowerCase())
+    : path.startsWith(prefix)
+  if (!inside) return undefined
+
+  const relativePath = windows
+    ? normalizeRelativePath(path.slice(prefix.length))
+    : path
+        .slice(prefix.length)
+        .trim()
+        .replace(/^\/+|\/+$/gu, "")
+  if (!relativePath || relativePath.split(POSIX_PATH_SEPARATOR).includes("..")) return undefined
+  return relativePath
+}
+
 export function workspaceFileInstanceKey(input: { directory: string; path: string }) {
   return `${input.directory}${WORKSPACE_FILE_INSTANCE_KEY_SEPARATOR}${input.path}`
 }

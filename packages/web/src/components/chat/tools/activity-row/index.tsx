@@ -24,7 +24,13 @@ import {
   type ActivityHeader,
   type ToolActivityEntry,
 } from "./entries"
-import { ActivityFileChangeDetails, hasActivityFileChangeDetails } from "./file-change-details"
+import {
+  ActivityFileChangeDetails,
+  ActivityFileNameLink,
+  activityEntryFilePath,
+  hasActivityFileChangeDetails,
+  useBenchFileOpener,
+} from "./file-change-details"
 
 const EXPAND_TRANSITION = { duration: 0.35, ease: [0.4, 0, 0.2, 1] } as const
 const HEADER_STATUS_TRANSITION = {
@@ -170,7 +176,13 @@ function ActivityContentFrame({ stable, children }: { stable: boolean; children:
   )
 }
 
-function ActivityToolDetails({ entry }: { entry: ToolActivityEntry }) {
+function ActivityToolDetails({
+  entry,
+  directory,
+}: {
+  entry: ToolActivityEntry
+  directory?: string
+}) {
   const hasFileChangeDetails = hasActivityFileChangeDetails(entry)
   const text = toolText(entry)
   const { attachments } = entry.state
@@ -178,7 +190,9 @@ function ActivityToolDetails({ entry }: { entry: ToolActivityEntry }) {
 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2">
-      {hasFileChangeDetails ? <ActivityFileChangeDetails entry={entry} /> : null}
+      {hasFileChangeDetails ? (
+        <ActivityFileChangeDetails entry={entry} directory={directory} />
+      ) : null}
       {text && (!hasFileChangeDetails || failure) ? (
         failure ? (
           <ToolErrorPanel error={text} />
@@ -214,7 +228,7 @@ function ActivityItemContent({
   interrupted,
   streaming,
 }: ActivityItemProps) {
-  if (entry.kind === "tool") return <ActivityToolDetails entry={entry} />
+  if (entry.kind === "tool") return <ActivityToolDetails entry={entry} directory={directory} />
 
   return (
     <AssistantPartRenderer
@@ -236,6 +250,11 @@ function ActivityItemRow(props: ActivityItemProps) {
   const isOpen = props.open ?? localOpen
   const hasDetails = activityEntryHasDetails(entry)
   const stableStreamingDetails = activityEntryHasStreamingReasoning(entry, props.streaming)
+  const openFile = useBenchFileOpener(
+    props.directory,
+    entry.kind === "tool" ? activityEntryFilePath(entry) : undefined,
+  )
+  const fileName = entry.kind === "tool" ? entry.presentation.detail : undefined
   const setIsOpen = (value: boolean) => {
     if (props.onOpenChange) {
       props.onOpenChange(value)
@@ -243,34 +262,52 @@ function ActivityItemRow(props: ActivityItemProps) {
     }
     setLocalOpen(value)
   }
+  const toggle = () => {
+    if (hasDetails) setIsOpen(!isOpen)
+  }
+  const rowClassName = cn(
+    "group flex w-full cursor-default items-center gap-2 rounded-md px-1 py-1.5 text-xs text-text-weaker transition-colors",
+    hasDetails && "hover:bg-surface-weak/50 hover:text-text-weak",
+  )
+  const icon = <span className="shrink-0">{entry.icon("h-3.5 w-3.5 shrink-0")}</span>
+  const chevron = hasDetails ? (
+    <motion.div
+      animate={{ rotate: isOpen ? 90 : 0 }}
+      transition={MOTION_SNAPPY}
+      className={cn(
+        "shrink-0 transition-opacity",
+        isOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+      )}
+    >
+      <ChevronRightIcon className="h-3.5 w-3.5" />
+    </motion.div>
+  ) : null
 
   return (
     <div data-activity-entry={entry.kind}>
-      <button
-        type="button"
-        onClick={() => {
-          if (hasDetails) setIsOpen(!isOpen)
-        }}
-        className={cn(
-          "group flex w-full cursor-default items-center gap-2 rounded-md px-1 py-1.5 text-xs text-text-weaker transition-colors",
-          hasDetails && "hover:bg-surface-weak/50 hover:text-text-weak",
-        )}
-      >
-        <span className="shrink-0">{entry.icon("h-3.5 w-3.5 shrink-0")}</span>
-        <span className="flex-1 truncate text-left">{activityEntryLabel(entry)}</span>
-        {hasDetails ? (
-          <motion.div
-            animate={{ rotate: isOpen ? 90 : 0 }}
-            transition={MOTION_SNAPPY}
-            className={cn(
-              "shrink-0 transition-opacity",
-              isOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-            )}
-          >
-            <ChevronRightIcon className="h-3.5 w-3.5" />
-          </motion.div>
-        ) : null}
-      </button>
+      {entry.kind === "tool" && openFile && fileName ? (
+        // The toggle covers the row so the file name can be its own control on top of it.
+        <div className={cn(rowClassName, "relative")}>
+          <button
+            type="button"
+            aria-label={activityEntryLabel(entry)}
+            onClick={toggle}
+            className="absolute inset-0 cursor-default rounded-md"
+          />
+          {icon}
+          <span className="flex-1 truncate text-left">
+            <span aria-hidden>{entry.presentation.action} </span>
+            <ActivityFileNameLink name={fileName} onOpen={openFile} />
+          </span>
+          {chevron}
+        </div>
+      ) : (
+        <button type="button" onClick={toggle} className={rowClassName}>
+          {icon}
+          <span className="flex-1 truncate text-left">{activityEntryLabel(entry)}</span>
+          {chevron}
+        </button>
+      )}
 
       <AnimatePresence initial={false}>
         {hasDetails && isOpen ? (
