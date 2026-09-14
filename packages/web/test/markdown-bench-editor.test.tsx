@@ -204,7 +204,13 @@ describe("MarkdownBenchEditor", () => {
       '[data-component="markdown-bench-document-content"]',
     )
     expect(documentContent?.className).toContain("px-[clamp")
-    expect(noteTitle?.parentElement).toBe(documentContent)
+    expect(noteTitle?.parentElement?.getAttribute("data-component")).toBe(
+      "markdown-bench-note-title-row",
+    )
+    expect(noteTitle?.parentElement?.parentElement).toBe(documentContent)
+    expect(
+      container.querySelector('[data-component="markdown-bench-properties-toggle"]'),
+    ).toBeNull()
     expect(documentContent?.contains(editable ?? null)).toBe(true)
 
     const noteTitleInput = container.querySelector<HTMLInputElement>(
@@ -221,6 +227,59 @@ describe("MarkdownBenchEditor", () => {
     expect(themeStyle?.textContent).toContain("color-scheme: light")
     expect(themeStyle?.textContent).toContain("--markdown-bench-document-font-scale: 1.15")
     expect(themeStyle?.textContent).toContain("--markdown-text: #111827;")
+  })
+
+  test("reveals note properties from the title info control", async () => {
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            markdown="Document body."
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-dir"
+            documentFormat="markdown"
+            path="test.md"
+            properties={[
+              { name: "buddy-id", kind: "text", text: "01K4Z7Q9M2C8V3N5B6X1R0T2YH" },
+              { name: "done", kind: "checkbox", checked: false },
+            ]}
+            onChange={() => {}}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-component="markdown-bench-properties"]')).toBeNull()
+    const toggle = container.querySelector<HTMLButtonElement>(
+      '[data-component="markdown-bench-properties-toggle"]',
+    )
+    expect(toggle?.getAttribute("aria-label")).toBe("Show properties")
+    expect(toggle?.getAttribute("aria-pressed")).toBe("false")
+    expect(toggle?.hasAttribute("data-markdown-export-ignore")).toBe(true)
+
+    await act(async () => {
+      toggle?.click()
+      await flushEffects()
+    })
+
+    const properties = container.querySelector<HTMLElement>(
+      '[data-component="markdown-bench-properties"]',
+    )
+    const table = properties?.querySelector('table[aria-label="Properties"]')
+    const rows = Array.from(table?.querySelectorAll("tr") ?? []).map((row) =>
+      Array.from(row.children).map((cell) => cell.textContent),
+    )
+    expect(properties?.hasAttribute("data-markdown-export-ignore")).toBe(true)
+    expect(toggle?.getAttribute("aria-label")).toBe("Hide properties")
+    expect(toggle?.getAttribute("aria-pressed")).toBe("true")
+    expect(rows).toEqual([
+      ["buddy-id", "01K4Z7Q9M2C8V3N5B6X1R0T2YH"],
+      ["done", "No"],
+    ])
   })
 
   test("commits an edited inline note title on blur", async () => {
