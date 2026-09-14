@@ -13,6 +13,7 @@ import { WORKSPACE_DRAWER_NOTES } from "@/state/directory-workspace-store"
 import {
   annotateChatMessage,
   captureComposerNote,
+  type NoteCaptureImage,
   type NoteSummary,
   type SessionNoteCapture,
 } from "./api"
@@ -32,6 +33,7 @@ type NoteCaptureWorkflowInput = {
 type SaveComposerNoteInput = {
   text: string
   messageID?: string
+  images?: NoteCaptureImage[]
 }
 
 type QuoteMessageInput = {
@@ -95,7 +97,7 @@ export function useNoteCaptureWorkflow(input: NoteCaptureWorkflowInput) {
   )
 
   const saveComposerNote = useCallback(
-    async ({ text, messageID }: SaveComposerNoteInput) => {
+    async ({ text, messageID, images }: SaveComposerNoteInput) => {
       let targetSessionID = sessionID
       if (!targetSessionID) {
         const result = await startActiveChatSession({ directory })
@@ -112,11 +114,13 @@ export function useNoteCaptureWorkflow(input: NoteCaptureWorkflowInput) {
             sessionID: targetSessionID,
             messageID,
             text,
+            images,
           })
         : await captureComposerNote({
             directory,
             sessionID: targetSessionID,
             text,
+            images,
           })
       handleCaptureSuccess(capture)
       return { sessionID: targetSessionID }

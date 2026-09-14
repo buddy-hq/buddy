@@ -21,10 +21,8 @@ import {
 import {
   isWindowsReservedNoteTitle,
   normalizeNoteTitle,
-  noteFilename,
   readNoteFile,
   renderNoteSource,
-  replaceFirstHeading,
   type BuddyNoteMetadata,
 } from "./note-file"
 import {
@@ -38,10 +36,23 @@ import type { NoteDocument, NoteSummary, NotesLibraryView, BuddyNoteType } from 
 
 const DEFAULT_NOTE_TITLE = "Untitled note" as const
 const NOTE_FILE_EXTENSION = ".md" as const
+/** Obsidian-style numbering bound: `Title.md`, then `Title 1.md`, up to this many copies. */
+const MAX_NOTE_FILENAME_COPIES = 1_000
 const NODE_ERROR_NOT_FOUND = "ENOENT" as const
+const NODE_ERROR_EXISTS = "EEXIST" as const
 const NOTES_RESERVED_ATTACHMENTS_PATH_ERROR =
   "Note path is reserved by the Attachments directory" as const
 export const createNoteID = monotonicFactory()
+
+async function legacyNoteTitlesAtLibraryRoot(root: string): Promise<ReadonlySet<string>> {
+  const titles = new Set<string>()
+  for (const note of await scanNotes(root)) {
+    if (note.summary.kind !== "buddy" || path.dirname(note.filepath) !== root) continue
+    const filenameTitle = path.basename(note.filepath, NOTE_FILE_EXTENSION)
+    if (filenameTitle !== note.summary.title) titles.add(note.summary.title)
+  }
+  return titles
+}
 
 function normalizeNotePath(input: string) {
   const normalized = input.trim().replaceAll("\\", "/")
@@ -120,19 +131,33 @@ function noteMetadata(input: {
   return metadata
 }
 
+/** Creates a uniquely named stamped note and reads its parsed representation. */
 export async function createNoteFile(input: {
   root: string
   title: string
-  id: string
   metadata: BuddyNoteMetadata
   content: string
+  /** Runs after the new note is written, before its fallible readback. */
+  onCommitted?: (filepath: string) => void
 }) {
   await ensureNotesDirectories(input.root)
-  const filepath = path.join(input.root, noteFilename(input.title, input.id))
+  const legacyTitles = await legacyNoteTitlesAtLibraryRoot(input.root)
   const source = renderNoteSource(input.content, input.metadata)
-  await fsp.writeFile(filepath, source, { encoding: "utf8", flag: "wx" })
-  invalidateIndexedPath(input.root, filepath)
-  return readNoteFile(input.root, filepath)
+  for (let copy = 0; copy < MAX_NOTE_FILENAME_COPIES; copy += 1) {
+    const stem = copy === 0 ? input.title : `${input.title} ${copy}`
+    if (legacyTitles.has(stem) || isWindowsReservedNoteTitle(stem)) continue
+    const filepath = path.join(input.root, `${stem}${NOTE_FILE_EXTENSION}`)
+    try {
+      await fsp.writeFile(filepath, source, { encoding: "utf8", flag: "wx" })
+    } catch (error) {
+      if (parseNodeErrorCode(error) === NODE_ERROR_EXISTS) continue
+      throw error
+    }
+    input.onCommitted?.(filepath)
+    invalidateIndexedPath(input.root, filepath)
+    return readNoteFile(input.root, filepath)
+  }
+  throw new NotesError(409, "Too many notes already use this title")
 }
 
 function applyNotebookContext(
@@ -176,9 +201,8 @@ export async function createStandaloneNote(input: { directory: string; title?: s
   const created = await createNoteFile({
     root,
     title,
-    id,
     metadata: noteMetadata({ type: "buddy-note", id, notebook }),
-    content: `# ${title}\n\n`,
+    content: "",
   })
   return created.summary
 }
@@ -235,13 +259,10 @@ export async function renameNote(input: {
   const sourcePath = await resolveExistingNotePath(root, normalizedPath)
   const initial = await readNoteFile(root, sourcePath)
   const title = normalizeNoteTitle(input.title, initial.summary.title)
-  const nextFilename = initial.summary.id
-    ? noteFilename(title, initial.summary.id)
-    : `${title}${NOTE_FILE_EXTENSION}`
-  if (!initial.summary.id && isWindowsReservedNoteTitle(title)) {
+  if (isWindowsReservedNoteTitle(title)) {
     throw new NotesError(400, "Note title is reserved by Windows")
   }
-  const nextPath = path.join(path.dirname(sourcePath), nextFilename)
+  const nextPath = path.join(path.dirname(sourcePath), `${title}${NOTE_FILE_EXTENSION}`)
   assertNotesLibraryContainment(root, nextPath)
   if (sourcePath === nextPath) return initial.summary
 
@@ -253,14 +274,10 @@ export async function renameNote(input: {
       if (input.expectedVersion !== undefined && input.expectedVersion !== currentVersion) {
         throw new NotesError(409, "Note changed on disk. Reload or overwrite to continue")
       }
-      const nextSource = current.metadata
-        ? renderNoteSource(replaceFirstHeading(current.content, title), current.metadata)
-        : current.source
       let moved = false
       try {
         await renameFileWithoutOverwrite(sourcePath, nextPath)
         moved = true
-        if (nextSource !== current.source) await writeTextFileAtomic(nextPath, nextSource)
         invalidateIndexedPath(root, sourcePath)
         invalidateIndexedPath(root, nextPath)
         return (await readNoteFile(root, nextPath)).summary

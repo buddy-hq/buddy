@@ -2,13 +2,29 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
+import { readBoundedRequestBody, replayRequestBody } from "../http/bounded-request-body"
 import { annotateChatMessage, captureComposerNote } from "../notes/chat-capture"
 import { mapNotesError } from "../notes/errors"
 import { createStandaloneNote, listNotes, readNote, renameNote, updateNote } from "../notes/library"
-import { BUDDY_NOTE_TYPES } from "../notes/types"
+import {
+  BUDDY_NOTE_TYPES,
+  NOTE_CAPTURE_IMAGE_MIME_TYPES,
+  NOTE_CAPTURE_MAX_IMAGE_BASE64_CHARACTERS,
+  NOTE_CAPTURE_MAX_IMAGE_FILENAME_CHARACTERS,
+  NOTE_CAPTURE_MAX_IMAGES,
+} from "../notes/types"
 
 const MAX_NOTE_CONTENT_CHARACTERS = 5_000_000
 const MAX_CAPTURE_CHARACTERS = 100_000
+const JSON_STRING_MAX_BYTES_PER_CHARACTER = 6
+const CAPTURE_REQUEST_FIXED_BYTES = 4 * 1024
+const MAX_CAPTURE_REQUEST_BODY_BYTES =
+  NOTE_CAPTURE_MAX_IMAGES *
+    (NOTE_CAPTURE_MAX_IMAGE_BASE64_CHARACTERS +
+      NOTE_CAPTURE_MAX_IMAGE_FILENAME_CHARACTERS * JSON_STRING_MAX_BYTES_PER_CHARACTER) +
+  MAX_CAPTURE_CHARACTERS * JSON_STRING_MAX_BYTES_PER_CHARACTER +
+  CAPTURE_REQUEST_FIXED_BYTES
+const CAPTURE_REQUEST_TOO_LARGE_ERROR = "Note capture exceeds the request size limit."
 
 const NoteDocumentQuerySchema = z.object({
   path: z.string().trim().min(1),
@@ -30,8 +46,18 @@ const RenameNoteBodySchema = z
     expectedVersion: z.string().nullable().optional(),
   })
   .strict()
+const CaptureNoteImageSchema = z
+  .object({
+    filename: z.string().max(NOTE_CAPTURE_MAX_IMAGE_FILENAME_CHARACTERS),
+    mime: z.enum(NOTE_CAPTURE_IMAGE_MIME_TYPES),
+    data: z.string().min(1).max(NOTE_CAPTURE_MAX_IMAGE_BASE64_CHARACTERS),
+  })
+  .strict()
 const CaptureNoteBodySchema = z
-  .object({ text: z.string().trim().min(1).max(MAX_CAPTURE_CHARACTERS) })
+  .object({
+    text: z.string().trim().max(MAX_CAPTURE_CHARACTERS),
+    images: z.array(CaptureNoteImageSchema).max(NOTE_CAPTURE_MAX_IMAGES).optional(),
+  })
   .strict()
 
 const BuddyNoteSummarySchema = z
@@ -197,11 +223,19 @@ export const NotesRoutes = new Hono()
           description: "Saved session capture",
           content: { "application/json": { schema: resolver(BuddySessionCaptureResultSchema) } },
         },
-        ...routeErrors(400, 403, 404, 409),
+        ...routeErrors(400, 403, 404, 409, 413),
       },
     }),
     validator("query", directoryQuerySchema),
     validator("param", NoteSessionIDParamSchema),
+    async (c, next) => {
+      const result = await readBoundedRequestBody(c.req.raw, MAX_CAPTURE_REQUEST_BODY_BYTES)
+      if (result.status === "too_large") {
+        return c.json({ error: CAPTURE_REQUEST_TOO_LARGE_ERROR }, 413)
+      }
+      c.req.raw = replayRequestBody(c.req.raw, result.body)
+      await next()
+    },
     validator("json", CaptureNoteBodySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
@@ -211,6 +245,7 @@ export const NotesRoutes = new Hono()
               directory: context.directory,
               sessionID: c.req.valid("param").sessionID,
               text: c.req.valid("json").text,
+              images: c.req.valid("json").images,
             }),
           ),
         ),
@@ -226,11 +261,19 @@ export const NotesRoutes = new Hono()
           description: "Saved message annotation",
           content: { "application/json": { schema: resolver(BuddySessionCaptureResultSchema) } },
         },
-        ...routeErrors(400, 403, 404, 409),
+        ...routeErrors(400, 403, 404, 409, 413),
       },
     }),
     validator("query", directoryQuerySchema),
     validator("param", NoteMessageParamSchema),
+    async (c, next) => {
+      const result = await readBoundedRequestBody(c.req.raw, MAX_CAPTURE_REQUEST_BODY_BYTES)
+      if (result.status === "too_large") {
+        return c.json({ error: CAPTURE_REQUEST_TOO_LARGE_ERROR }, 413)
+      }
+      c.req.raw = replayRequestBody(c.req.raw, result.body)
+      await next()
+    },
     validator("json", CaptureNoteBodySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
@@ -242,6 +285,7 @@ export const NotesRoutes = new Hono()
               sessionID: params.sessionID,
               messageID: params.messageID,
               text: c.req.valid("json").text,
+              images: c.req.valid("json").images,
             }),
           )
         }),

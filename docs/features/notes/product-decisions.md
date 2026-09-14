@@ -56,11 +56,16 @@ buddy-session-id: ses_...
 ---
 ```
 
-The stable ULID belongs in both frontmatter and the Buddy-created filename:
+The stable ULID lives only in frontmatter. A Buddy-created filename is the readable title, numbered the way Obsidian numbers duplicates when that name is taken:
 
 ```text
-Readable title — 01K....md
+Readable title.md
+Readable title 1.md
 ```
+
+The filename is the note's only title. Buddy does not write the title into the body as a heading, and renaming changes only the filename. Older notes whose filenames end in ` — <ULID>` keep their title and lose the suffix when renamed. Until then, their displayed title reserves the equivalent bare filename, so a new note uses the next available numbered title instead of creating two identically named rows.
+
+Windows-reserved device names are never written on any platform. Creation advances to the first safe numbered title (`NUL` becomes `NUL 1.md`); an explicit rename to a reserved title is rejected so Buddy does not silently substitute a different name during a rename.
 
 The ULID preserves portable identity. It is not the Notes API or Bench address. Plain notes need no ULID, so all files use library-relative paths for opening, reading, updating, and renaming.
 
