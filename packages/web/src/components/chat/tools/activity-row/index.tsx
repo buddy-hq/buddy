@@ -176,7 +176,13 @@ function ActivityContentFrame({ stable, children }: { stable: boolean; children:
   )
 }
 
-function ActivityToolDetails({ entry, directory }: { entry: ToolActivityEntry; directory?: string }) {
+function ActivityToolDetails({
+  entry,
+  directory,
+}: {
+  entry: ToolActivityEntry
+  directory?: string
+}) {
   const hasFileChangeDetails = hasActivityFileChangeDetails(entry)
   const text = toolText(entry)
   const { attachments } = entry.state
