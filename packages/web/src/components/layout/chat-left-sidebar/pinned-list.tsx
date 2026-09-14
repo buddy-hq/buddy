@@ -40,33 +40,60 @@ type PinnedEntry = {
   context: PinnedDirectoryContext
 }
 
+type PinnedSession = {
+  directory: string
+  session: SessionInfo
+}
+
 function getSortTimestamp(session: SessionInfo) {
   return session.time.updated ?? session.time.created
 }
 
-function collectPinnedEntries(props: ChatLeftSidebarPinnedListProps): PinnedEntry[] {
-  const entries: PinnedEntry[] = []
+/**
+ * Pinned chats across notebooks, newest first: the order the Pinned section renders. Builds no
+ * per-row context, for callers that only need the order.
+ */
+export function collectPinnedSessions(
+  input: Pick<
+    ChatLeftSidebarPinnedListProps,
+    "directories" | "sessionsByDirectory" | "pinnedByDirectory"
+  >,
+): PinnedSession[] {
+  const pinned: PinnedSession[] = []
 
-  for (const directory of props.directories) {
-    const pinnedIDs = props.pinnedByDirectory[directory] ?? []
+  for (const directory of input.directories) {
+    const pinnedIDs = input.pinnedByDirectory[directory] ?? []
     if (pinnedIDs.length === 0) continue
+
+    const sessions = input.sessionsByDirectory[directory] ?? []
+    const sessionsByID = new Map(sessions.map((session) => [session.id, session]))
+    for (const sessionID of pinnedIDs) {
+      const session = sessionsByID.get(sessionID)
+      if (session) pinned.push({ directory, session })
+    }
+  }
+
+  return pinned.toSorted((a, b) => getSortTimestamp(b.session) - getSortTimestamp(a.session))
+}
+
+function collectPinnedEntries(props: ChatLeftSidebarPinnedListProps): PinnedEntry[] {
+  const contexts = new Map<string, PinnedDirectoryContext>()
+
+  return collectPinnedSessions(props).map(({ directory, session }) => {
+    const existing = contexts.get(directory)
+    if (existing) return { directory, session, context: existing }
 
     const allSessions = props.sessionsByDirectory[directory] ?? []
     const context: PinnedDirectoryContext = {
       childrenByParent: buildSessionChildrenByParent(allSessions),
-      sessionsByID: new Map(allSessions.map((session) => [session.id, session])),
-      pinnedSet: new Set(pinnedIDs),
+      sessionsByID: new Map(allSessions.map((entry) => [entry.id, entry])),
+      pinnedSet: new Set(props.pinnedByDirectory[directory] ?? []),
       unreadMap: props.unreadByDirectory[directory] ?? {},
       sessionStatusByID: props.sessionStatusByDirectory[directory] ?? {},
     }
-
-    for (const sessionID of pinnedIDs) {
-      const session = context.sessionsByID.get(sessionID)
-      if (session) entries.push({ directory, session, context })
-    }
-  }
-
-  return entries.toSorted((a, b) => getSortTimestamp(b.session) - getSortTimestamp(a.session))
+    contexts.set(directory, context)
+    return { directory, session, context }
+  })
 }
 
 export function ChatLeftSidebarPinnedList(props: ChatLeftSidebarPinnedListProps) {

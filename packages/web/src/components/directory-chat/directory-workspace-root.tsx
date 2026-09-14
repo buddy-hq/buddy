@@ -41,9 +41,13 @@ import { DirectoryChatRightWorkspace } from "@/components/directory-chat/directo
 import { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { useDirectoryWorkspace } from "@/components/directory-chat/directory-workspace-context"
+import { IN_APP_BROWSER_BLANK_URL } from "@buddy/browser-contract"
 import { useRightWorkspaceOpen } from "@/components/directory-chat/right-workspace-open"
 import { language } from "@/context/language"
+import { usePlatform } from "@/context/platform"
 import { useCreateBoard } from "@/lib/use-create-board"
+import { BENCH_EDITOR_SELECTOR } from "@/lib/shortcuts"
+import { useShortcutCommand } from "@/lib/use-shortcut-command"
 import type { DirectoryChatPageControllerState } from "@/lib/directory-chat/use-directory-chat-page-controller"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
@@ -51,6 +55,7 @@ import {
   BENCH_DOCK_FLOATING_CHAT_EVENT,
   BENCH_LAYOUT_PROFILE_DOCUMENT,
   BENCH_LAYOUT_PROFILE_VISUAL,
+  BENCH_MODE_REQUEST_POLICY,
   benchTargetKey as exactBenchTargetKey,
   isBenchContentTarget,
   readBenchOpenPolicyStateFromLocation,
@@ -625,6 +630,62 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const handleNewSession = useCallback(async () => {
     await controller.leftSidebarProps.onNewSession(currentDirectory)
   }, [controller.leftSidebarProps, currentDirectory])
+  // Same as the rail's search button, which expands the Bench if needed and autofocuses the field
+  // on mount. An already open search drawer stays open and gets its field focused again.
+  const handleOpenSearch = useCallback(() => {
+    if (presentation.selector === "search") {
+      document
+        .querySelector<HTMLInputElement>('[data-component="right-workspace-drawer"] input[type="search"]')
+        ?.focus()
+      return
+    }
+    void workspace.controller.execute({ type: "open-drawer", drawer: "search" })
+  }, [presentation.selector, workspace.controller])
+  useShortcutCommand("search.open", handleOpenSearch)
+  // Same as the titlebar button: a transient Bench closes instead of toggling the Bench behind it.
+  const handleBenchToggle = useCallback(() => {
+    if (transientBenchSurface) {
+      closeActiveTransientBenchSurface(transientBenchSurface)
+      return
+    }
+    handleRightWorkspaceToggle()
+  }, [closeActiveTransientBenchSurface, handleRightWorkspaceToggle, transientBenchSurface])
+  useShortcutCommand("bench.toggle", handleBenchToggle)
+  // Same as the titlebar button: with a docked Bench, the toggle decides between pinning and overlay.
+  // A floating Bench hides the sidebar and shows no toggle, so the key does nothing there either.
+  const handleSidebarShortcut = useCallback(() => {
+    if (presentation.mode === BENCH_CHAT_LAYOUT_FLOATING) return
+    if (presentation.dockedBenchVisible) {
+      handleLeftSidebarToggle()
+      return
+    }
+    chatState.setLeftSidebarOpen(!dockedLeftSidebarVisible)
+  }, [
+    chatState,
+    dockedLeftSidebarVisible,
+    handleLeftSidebarToggle,
+    presentation.dockedBenchVisible,
+    presentation.mode,
+  ])
+  useShortcutCommand("sidebar.toggle", handleSidebarShortcut, {
+    ignoreWithin: BENCH_EDITOR_SELECTOR,
+  })
+  const handleFocusComposer = useCallback(() => {
+    requestPromptComposerFocus(currentDirectory)
+  }, [currentDirectory])
+  useShortcutCommand("composer.focus", handleFocusComposer)
+  // The Bench's own "New tab" request, so an immersive Bench stays immersive.
+  const browserAvailable = usePlatform().inAppBrowser !== undefined
+  const openBenchTab = useRightWorkspaceOpen({ mode: BENCH_MODE_REQUEST_POLICY })
+  const handleNewBrowserTab = useCallback(() => {
+    void openBenchTab({
+      type: "object",
+      directory: currentDirectory,
+      target: { type: "browser", tabID: crypto.randomUUID(), url: IN_APP_BROWSER_BLANK_URL },
+    })
+  }, [currentDirectory, openBenchTab])
+  // Without the in-app browser (the web build), Mod+T is left to the browser itself.
+  useShortcutCommand("browser.newTab", handleNewBrowserTab, { enabled: browserAvailable })
 
   // A chat is always open here, so a new board needs no chat of its own: it is
   // created in this one and opened on its Bench, expanding the workspace if the
@@ -895,6 +956,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
             onSelectSession={handleSidebarSelectSession}
             onNewNote={handleNewNote}
             onNewBoard={handleNewBoard}
+            onNewBrowserTab={browserAvailable ? handleNewBrowserTab : undefined}
           />
         }
         contentLayout={
@@ -993,15 +1055,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         leftSidebarOverlayOpen={leftSidebarOverlayOpen}
         onLeftSidebarOverlayOpenChange={setLeftSidebarOverlayOpen}
         onLeftSidebarToggle={presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined}
-        onRightWorkspaceToggle={
-          transientBenchActive
-            ? () => {
-                if (transientBenchSurface) {
-                  closeActiveTransientBenchSurface(transientBenchSurface)
-                }
-              }
-            : handleRightWorkspaceToggle
-        }
+        onRightWorkspaceToggle={handleBenchToggle}
         chatTitle={controller.mainPaneProps.chatState.sessionTitle}
         titlebarVariant="chat"
         rightWorkspaceOpen={effectiveWorkspaceHostOpen}

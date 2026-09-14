@@ -645,10 +645,12 @@ function wireMenu() {
 
   createMenu({
     updaterEnabled,
-    trigger: (id) => {
-      if (mainWindow) {
-        sendMenuCommand(mainWindow, id)
-      }
+    trigger: (id, sourceWindow) => {
+      const targetWindow =
+        sourceWindow instanceof BrowserWindow && !sourceWindow.isDestroyed()
+          ? sourceWindow
+          : (BrowserWindow.getFocusedWindow() ?? mainWindow)
+      if (targetWindow && !targetWindow.isDestroyed()) sendMenuCommand(targetWindow, id)
     },
     installCli: () => {
       void installCli().catch((error) => {

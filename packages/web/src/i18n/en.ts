@@ -1146,6 +1146,7 @@ export const dict = {
   "sidebar.markAsUnread": "Mark as unread",
   "sidebar.minimizePopOutChat": "Minimize pop-out chat",
   "sidebar.newBoard": "New board",
+  "sidebar.newBrowserTab": "New tab",
   "sidebar.newChat": "New chat",
   "sidebar.newNote": "New note",
   "sidebar.newNotebook": "New notebook",
