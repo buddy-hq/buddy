@@ -635,7 +635,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const handleOpenSearch = useCallback(() => {
     if (presentation.selector === "search") {
       document
-        .querySelector<HTMLInputElement>('[data-component="right-workspace-drawer"] input[type="search"]')
+        .querySelector<HTMLInputElement>(
+          '[data-component="right-workspace-drawer"] input[type="search"]',
+        )
         ?.focus()
       return
     }

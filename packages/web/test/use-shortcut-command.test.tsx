@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import {
-  useChatJumpShortcuts,
-  useShortcutCommand,
-} from "../src/lib/use-shortcut-command"
+import { useChatJumpShortcuts, useShortcutCommand } from "../src/lib/use-shortcut-command"
 
 function dispatchMenuCommand(id: string): void {
   window.dispatchEvent(new CustomEvent("buddy:menu-command", { detail: { id } }))
@@ -35,9 +32,12 @@ describe("shortcut command hooks", () => {
       useShortcutCommand("chat.new", () => {
         newChatCount += 1
       })
-      useChatJumpShortcuts((index) => {
-        openedIndexes.push(index)
-      }, { count: 3 })
+      useChatJumpShortcuts(
+        (index) => {
+          openedIndexes.push(index)
+        },
+        { count: 3 },
+      )
       return null
     }
 

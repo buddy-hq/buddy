@@ -33,20 +33,14 @@ function shortcutInput(overrides: Partial<AppShortcutInput> = {}): AppShortcutIn
 describe("application shortcut contract", () => {
   test("resolves the platform primary modifier and physical-key fallbacks", () => {
     expect(resolveAppShortcutID(shortcutInput(), "macos")).toBe("chat.new")
+    expect(resolveAppShortcutID(shortcutInput({ control: true, meta: false }), "windows")).toBe(
+      "chat.new",
+    )
     expect(
-      resolveAppShortcutID(shortcutInput({ control: true, meta: false }), "windows"),
-    ).toBe("chat.new")
-    expect(
-      resolveAppShortcutID(
-        shortcutInput({ key: "∫", code: "KeyB", alt: true }),
-        "macos",
-      ),
+      resolveAppShortcutID(shortcutInput({ key: "∫", code: "KeyB", alt: true }), "macos"),
     ).toBe("bench.toggle")
     expect(
-      resolveAppShortcutID(
-        shortcutInput({ key: "}", code: "BracketRight", shift: true }),
-        "macos",
-      ),
+      resolveAppShortcutID(shortcutInput({ key: "}", code: "BracketRight", shift: true }), "macos"),
     ).toBe("chat.next")
     expect(APP_SHORTCUTS["chat.jump.9"].code).toBe("Digit9")
   })

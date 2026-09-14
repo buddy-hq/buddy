@@ -45,9 +45,7 @@ export type InAppBrowserGuestBoundary = {
   setWindowOpenHandler(handler: (url: string) => { action: "deny" }): void
   onWillNavigate(handler: (event: PreventableEvent, url: string) => void): Dispose
   onWillRedirect(handler: (event: PreventableEvent, url: string) => void): Dispose
-  onBeforeInputEvent(
-    handler: (event: PreventableEvent, input: AppShortcutInput) => void,
-  ): Dispose
+  onBeforeInputEvent(handler: (event: PreventableEvent, input: AppShortcutInput) => void): Dispose
   onDestroyed(handler: () => void): Dispose
 }
 

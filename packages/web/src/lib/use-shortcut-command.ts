@@ -106,11 +106,7 @@ export function useChatJumpShortcuts(
       callback: (event: KeyboardEvent) => {
         if (event.repeat || !shouldRunShortcut(event)) return
         event.preventDefault()
-        invokeShortcutHandler(
-          shortcut.command,
-          () => handlerRef.current(index),
-          onErrorRef.current,
-        )
+        invokeShortcutHandler(shortcut.command, () => handlerRef.current(index), onErrorRef.current)
       },
       options: { enabled: index < options.count },
     })),
