@@ -1,9 +1,10 @@
 import { app, BrowserWindow, Menu, shell } from "electron"
+import type { BaseWindow } from "electron"
 import { createMainWindow } from "./windows"
 
 type MenuDeps = {
   updaterEnabled: boolean
-  trigger: (id: string) => void
+  trigger: (id: string, sourceWindow: BaseWindow | undefined) => void
   installCli: () => void
   checkForUpdates: () => void
   reload: () => void
@@ -48,14 +49,15 @@ export function createMenu(deps: MenuDeps) {
       label: "File",
       submenu: [
         {
-          label: "New Session",
-          accelerator: "Shift+Cmd+S",
-          click: () => deps.trigger("session.new"),
+          // No accelerator: on macOS a menu accelerator takes the key before the page sees it
+          // (`registerAccelerator: false` is ignored there). The page owns Cmd+N on every platform.
+          label: "New Chat",
+          click: (_menuItem, browserWindow) => deps.trigger("chat.new", browserWindow),
         },
         {
           label: "Open Project...",
           accelerator: "Cmd+O",
-          click: () => deps.trigger("project.open"),
+          click: (_menuItem, browserWindow) => deps.trigger("project.open", browserWindow),
         },
         {
           label: "New Window",
@@ -83,18 +85,24 @@ export function createMenu(deps: MenuDeps) {
       label: "View",
       submenu: [
         {
+          // No accelerator, as with New Chat: the page owns Cmd+B so Bench editors keep it for bold.
           label: "Toggle Sidebar",
-          accelerator: "Cmd+B",
-          click: () => deps.trigger("sidebar.toggle"),
+          click: (_menuItem, browserWindow) => deps.trigger("sidebar.toggle", browserWindow),
         },
         {
           label: "Toggle Terminal",
           accelerator: "Ctrl+`",
-          click: () => deps.trigger("terminal.toggle"),
+          click: (_menuItem, browserWindow) => deps.trigger("terminal.toggle", browserWindow),
         },
         { type: "separator" },
-        { label: "Back", click: () => deps.trigger("common.goBack") },
-        { label: "Forward", click: () => deps.trigger("common.goForward") },
+        {
+          label: "Back",
+          click: (_menuItem, browserWindow) => deps.trigger("common.goBack", browserWindow),
+        },
+        {
+          label: "Forward",
+          click: (_menuItem, browserWindow) => deps.trigger("common.goForward", browserWindow),
+        },
         { type: "separator" },
         {
           label: "Toggle Developer Tools",

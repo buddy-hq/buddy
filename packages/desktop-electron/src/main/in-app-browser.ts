@@ -3,6 +3,7 @@ import {
   IN_APP_BROWSER_FAVICON_CHANNEL,
   IN_APP_BROWSER_MESSAGE_CHANNEL,
   IN_APP_BROWSER_PARTITION,
+  type AppShortcutPlatform,
   type InAppBrowserFaviconMessage,
   type InAppBrowserHostMessage,
 } from "@buddy/browser-contract"
@@ -12,6 +13,7 @@ import {
   type BrowserWindow,
   type DownloadItem,
   type Event as ElectronEvent,
+  type Input,
   type Session,
   type WebContents,
   type WebPreferences,
@@ -31,6 +33,12 @@ import {
 const IN_APP_BROWSER_FAVICON_EDGE_PX = 32
 const IN_APP_BROWSER_FAVICON_MAX_SOURCE_PIXELS = 1_048_576
 const configuredSessions = new WeakSet<Session>()
+
+function currentShortcutPlatform(): AppShortcutPlatform {
+  if (process.platform === "darwin") return "macos"
+  if (process.platform === "win32") return "windows"
+  return "linux"
+}
 
 function sendBrowserMessage(webContents: WebContents, message: string): void {
   const host = webContents.hostWebContents
@@ -211,6 +219,11 @@ function browserGuestBoundary(webContents: WebContents): InAppBrowserGuestBounda
       webContents.on("will-redirect", handler)
       return () => webContents.removeListener("will-redirect", handler)
     },
+    onBeforeInputEvent(handler) {
+      const listener = (event: ElectronEvent, input: Input) => handler(event, input)
+      webContents.on("before-input-event", listener)
+      return () => webContents.removeListener("before-input-event", listener)
+    },
     onDestroyed(handler) {
       webContents.once("destroyed", handler)
       return () => webContents.removeListener("destroyed", handler)
@@ -229,24 +242,32 @@ export function wireInAppBrowser(window: BrowserWindow): () => void {
     faviconDisposals.add(disposeFavicon)
   }
   hostWebContents.on("did-attach-webview", faviconAttachListener)
-  const disposeBoundary = wireInAppBrowserHostBoundary({
-    onWillAttachWebview(handler) {
-      const listener = (
-        event: ElectronEvent,
-        webPreferences: WebPreferences,
-        params: Record<string, string>,
-      ) => handler(event, webPreferences, params)
-      hostWebContents.on("will-attach-webview", listener)
-      return () => hostWebContents.removeListener("will-attach-webview", listener)
+  const disposeBoundary = wireInAppBrowserHostBoundary(
+    {
+      onWillAttachWebview(handler) {
+        const listener = (
+          event: ElectronEvent,
+          webPreferences: WebPreferences,
+          params: Record<string, string>,
+        ) => handler(event, webPreferences, params)
+        hostWebContents.on("will-attach-webview", listener)
+        return () => hostWebContents.removeListener("will-attach-webview", listener)
+      },
+      onDidAttachWebview(handler) {
+        const listener = (_event: ElectronEvent, webContents: WebContents) => {
+          handler(browserGuestBoundary(webContents))
+        }
+        hostWebContents.on("did-attach-webview", listener)
+        return () => hostWebContents.removeListener("did-attach-webview", listener)
+      },
     },
-    onDidAttachWebview(handler) {
-      const listener = (_event: ElectronEvent, webContents: WebContents) => {
-        handler(browserGuestBoundary(webContents))
-      }
-      hostWebContents.on("did-attach-webview", listener)
-      return () => hostWebContents.removeListener("did-attach-webview", listener)
+    {
+      platform: currentShortcutPlatform(),
+      onShortcut: (shortcutID) => {
+        if (!hostWebContents.isDestroyed()) hostWebContents.send("menu-command", shortcutID)
+      },
     },
-  })
+  )
   return () => {
     disposeBoundary()
     hostWebContents.removeListener("did-attach-webview", faviconAttachListener)

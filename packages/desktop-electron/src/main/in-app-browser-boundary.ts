@@ -1,9 +1,13 @@
 import {
+  resolveAppShortcutID,
   IN_APP_BROWSER_DOWNLOAD_BLOCKED_MESSAGE,
   IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE,
   IN_APP_BROWSER_PARTITION,
   isAllowedInAppBrowserUrl,
   isInAppBrowserTargetUrl,
+  type AppShortcutID,
+  type AppShortcutInput,
+  type AppShortcutPlatform,
 } from "@buddy/browser-contract"
 import { guardInAppBrowserNavigation } from "./in-app-browser-navigation"
 
@@ -41,7 +45,16 @@ export type InAppBrowserGuestBoundary = {
   setWindowOpenHandler(handler: (url: string) => { action: "deny" }): void
   onWillNavigate(handler: (event: PreventableEvent, url: string) => void): Dispose
   onWillRedirect(handler: (event: PreventableEvent, url: string) => void): Dispose
+  onBeforeInputEvent(
+    handler: (event: PreventableEvent, input: AppShortcutInput) => void,
+  ): Dispose
   onDestroyed(handler: () => void): Dispose
+}
+
+/** Delivers recognized app shortcuts from an embedded browser guest to its host renderer. */
+export type InAppBrowserShortcutBoundary = {
+  platform: AppShortcutPlatform
+  onShortcut(id: AppShortcutID): void
 }
 
 export type InAppBrowserHostBoundary = {
@@ -103,7 +116,10 @@ export function applyInAppBrowserWebviewAttachmentPolicy(input: {
   return true
 }
 
-export function attachInAppBrowserGuestBoundary(guest: InAppBrowserGuestBoundary): Dispose {
+export function attachInAppBrowserGuestBoundary(
+  guest: InAppBrowserGuestBoundary,
+  shortcuts: InAppBrowserShortcutBoundary,
+): Dispose {
   guest.setWindowOpenHandler((url) => {
     if (isAllowedInAppBrowserUrl(url)) {
       void guest.loadURL(url).catch(() => undefined)
@@ -121,19 +137,29 @@ export function attachInAppBrowserGuestBoundary(guest: InAppBrowserGuestBoundary
   }
   const disposeNavigate = guest.onWillNavigate(guardNavigation)
   const disposeRedirect = guest.onWillRedirect(guardNavigation)
+  const disposeInput = guest.onBeforeInputEvent((event, input) => {
+    const shortcutID = resolveAppShortcutID(input, shortcuts.platform)
+    if (!shortcutID) return
+    event.preventDefault()
+    shortcuts.onShortcut(shortcutID)
+  })
   return () => {
     disposeNavigate()
     disposeRedirect()
+    disposeInput()
   }
 }
 
-export function wireInAppBrowserHostBoundary(host: InAppBrowserHostBoundary): Dispose {
+export function wireInAppBrowserHostBoundary(
+  host: InAppBrowserHostBoundary,
+  shortcuts: InAppBrowserShortcutBoundary,
+): Dispose {
   const guestDisposals = new Set<Dispose>()
   const disposeAttach = host.onWillAttachWebview((event, webPreferences, params) => {
     applyInAppBrowserWebviewAttachmentPolicy({ event, webPreferences, params })
   })
   const disposeDidAttach = host.onDidAttachWebview((guest) => {
-    const disposeGuest = attachInAppBrowserGuestBoundary(guest)
+    const disposeGuest = attachInAppBrowserGuestBoundary(guest, shortcuts)
     let disposed = false
     let disposeDestroyed: Dispose = NOOP_DISPOSE
     const dispose = () => {

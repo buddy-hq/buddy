@@ -45,7 +45,7 @@
     "@pierre/diffs": "catalog:",
     "@shikijs/stream": "^4.2.0",
     "@tanstack/react-form": "^1.29.1",
-    "@tanstack/react-hotkeys": "^0.9.1",
+    "@tanstack/react-hotkeys": "^0.10.0",
     "@tanstack/react-query": "^5.99.0",
     "@tanstack/react-query-devtools": "^5.99.0",
     "@tanstack/react-router": "^1.168.22",
