@@ -59,6 +59,7 @@ import { ErrorSystemRedesignEasel } from "./easel/error-system-redesign"
 import { ErrorCardPreviewEasel } from "./easel/error-card-preview"
 import { TokenCounterMeterEasel } from "./easel/token-counter-meter"
 import { ObjectRowLanguageEasel } from "./easel/object-row-language"
+import { BenchTableRestyleEasel } from "./easel/bench-table-restyle"
 import { SidebarAlignmentRedesignEasel } from "./easel/sidebar-alignment-redesign"
 import { SkillIconAtlasEasel } from "./easel/skill-icon-atlas"
 import { NotebookDialogRedesignEasel } from "./easel/notebook-dialog-redesign"
@@ -89,6 +90,7 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "bench-table-restyle"
   | "select-dropdown-variants"
   | "settings-updates-and-mode"
   | "segmented-active-state"
@@ -129,6 +131,12 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "bench-table-restyle",
+    label: "Bench tables · three restyles (Ruled shipped)",
+    subtitle:
+      "The Bench table is MDXEditor's stock table editor · ten ghosted controls, a boxed grid and a handle gutter on a 3 × 4 table · the real editor side by side with Calm grid, Ruled and Framed, each a CSS-only override",
+  },
   {
     id: "select-dropdown-variants",
     label: "Select · dropdown variants & states",
@@ -1207,7 +1215,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("segmented-active-state")
+  const [prototype, setPrototype] = useState<EaselPrototype>("bench-table-restyle")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1393,7 +1401,8 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             prototype === "error-card-preview" ||
             prototype === "token-counter-meter" ||
             prototype === "sidebar-alignment-redesign" ||
-            prototype === "object-row-language"
+            prototype === "object-row-language" ||
+            prototype === "bench-table-restyle"
             ? "items-stretch justify-stretch bg-background-base p-0"
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
@@ -1721,6 +1730,14 @@ export function DevToolsEaselTab(props: { directory?: string }) {
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
               <ObjectRowLanguageEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "bench-table-restyle" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <BenchTableRestyleEasel directory={props.directory} />
             </div>
           </div>
         ) : null}
