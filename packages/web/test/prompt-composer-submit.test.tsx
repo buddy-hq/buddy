@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { act } from "react"
+import { act, createRef, type RefObject } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import {
   resolveComposerAccessoryLayout,
   resolveComposerReplacementHeight,
 } from "../src/components/prompt/composer-accessory-layout"
-import { PromptComposer } from "../src/components/prompt/prompt-composer"
+import {
+  PromptComposer,
+  type PromptComposerAttachmentsApi,
+} from "../src/components/prompt/prompt-composer"
 import { readPromptComposerLiveDraft } from "../src/components/prompt/prompt-composer-live-draft"
 import { SELECTION_CONTEXT_PART_TYPE } from "../src/components/prompt/prompt-types"
 import { createBrowserPlatform, setRuntimePlatform } from "../src/context/platform"
@@ -61,7 +64,10 @@ function renderPromptComposer(input: {
   accessoryLayout?: Parameters<typeof PromptComposer>[0]["accessoryLayout"]
   isBusy?: boolean
   onAbort?: Parameters<typeof PromptComposer>[0]["onAbort"]
+  selectedModelAcceptsImages?: boolean
+  attachmentsApiRef?: RefObject<PromptComposerAttachmentsApi | null>
 }) {
+  const selectedModelAcceptsImages = input.selectedModelAcceptsImages ?? true
   return (
     <TestQueryClientProvider queryClient={queryClient}>
       <PromptComposer
@@ -79,10 +85,10 @@ function renderPromptComposer(input: {
           {
             key: "openai/gpt-5",
             label: "GPT-5",
-            acceptsImages: true,
+            acceptsImages: selectedModelAcceptsImages,
           },
         ]}
-        selectedModelAcceptsImages
+        selectedModelAcceptsImages={selectedModelAcceptsImages}
         selectedPersona="buddy"
         selectedModel="openai/gpt-5"
         thinkingOptions={[{ key: "default", label: "Default" }]}
@@ -97,6 +103,7 @@ function renderPromptComposer(input: {
         onNewSession={() => undefined}
         compact={input.compact}
         accessoryLayout={input.accessoryLayout}
+        attachmentsApiRef={input.attachmentsApiRef}
         sessionContextUsage={<span data-testid="session-context" />}
       />
     </TestQueryClientProvider>
@@ -328,6 +335,98 @@ describe("prompt composer submit", () => {
     expect(getPromptDraft(usePromptStore.getState(), promptKey).value).toBe("")
     expect(getPromptDraft(usePromptStore.getState(), targetPromptKey).value).toBe("")
     expect(noteButton?.getAttribute("aria-pressed")).toBe("false")
+  })
+
+  test("accepts images and exposes an image-only picker in Note mode for a text-only model", async () => {
+    const attachmentsApiRef = createRef<PromptComposerAttachmentsApi>()
+    let savedImages: Parameters<NonNullable<Parameters<typeof PromptComposer>[0]["onSaveNote"]>>[0]["images"]
+
+    await act(async () => {
+      root.render(
+        renderPromptComposer({
+          attachmentsApiRef,
+          selectedModelAcceptsImages: false,
+          onSubmit: () => undefined,
+          onSaveNote: (input) => {
+            savedImages = input.images
+            return Promise.resolve({ sessionID: "ses_note" })
+          },
+        }),
+      )
+      await flushEffects()
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-action="prompt-note-mode"]')?.click()
+      await flushEffects()
+    })
+    await act(async () => {
+      await attachmentsApiRef.current?.addAttachments([
+        new File([new Uint8Array([137, 80, 78, 71])], "Screenshot.png", {
+          type: "image/png",
+        }),
+      ])
+      await flushEffects()
+    })
+
+    const attachButton = container.querySelector<HTMLButtonElement>('[data-action="prompt-attach"]')
+    const fileInput = container.querySelector<HTMLInputElement>('[data-action="prompt-file-input"]')
+    const saveButton = container.querySelector<HTMLButtonElement>('[data-action="prompt-submit"]')
+    expect(attachButton?.title).toBe("Attach images")
+    expect(fileInput?.accept).toBe("image/png,image/jpeg,image/gif,image/webp")
+    expect(container.querySelector('[data-filename="Screenshot.png"]')).not.toBeNull()
+    expect(saveButton?.disabled).toBe(false)
+
+    await act(async () => {
+      container
+        .querySelector("#prompt-composer-form")
+        ?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+      await flushEffects()
+    })
+
+    expect(savedImages).toEqual([
+      {
+        filename: "Screenshot.png",
+        mime: "image/png",
+        data: "iVBORw==",
+      },
+    ])
+  })
+
+  test("explains why Save is disabled for a non-image note attachment", async () => {
+    const promptKey = getPromptScopeKey(TEST_DIRECTORY)
+    usePromptStore.getState().replaceDraft(promptKey, {
+      ...createTextPromptDraft(TEST_PROMPT),
+      attachments: [
+        {
+          id: "attachment-text",
+          filename: "notes.txt",
+          mime: "text/plain",
+          dataUrl: "data:text/plain;base64,aGVsbG8=",
+          kind: "file",
+        },
+      ],
+    })
+
+    await act(async () => {
+      root.render(
+        renderPromptComposer({
+          onSubmit: () => undefined,
+          onSaveNote: () => Promise.resolve({ sessionID: "ses_note" }),
+        }),
+      )
+      await flushEffects()
+    })
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-action="prompt-note-mode"]')?.click()
+      await flushEffects()
+    })
+
+    const saveButton = container.querySelector<HTMLButtonElement>('[data-action="prompt-submit"]')
+    expect(saveButton?.disabled).toBe(true)
+    expect(saveButton?.title).toBe(
+      "Only images can be saved in a note. Remove other attachments first.",
+    )
   })
 
   test("enters Note mode from the /note command", async () => {

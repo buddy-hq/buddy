@@ -133,7 +133,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
 
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          {!props.noteMode ? (
+          {props.onAttach ? (
             <button
               type="button"
               data-action="prompt-attach"

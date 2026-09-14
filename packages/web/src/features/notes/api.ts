@@ -1,5 +1,6 @@
 import type {
   NotesAnnotateMessageResponses,
+  NotesCaptureData,
   NotesCaptureResponses,
   NotesCreateResponses,
   NotesListResponses,
@@ -14,6 +15,7 @@ export type NotesLibrary = NotesListResponses[200]
 export type NoteSummary = NotesLibrary["notes"][number]
 export type NoteDocument = NotesReadResponses[200]
 export type SessionNoteCapture = NotesCaptureResponses[200]
+export type NoteCaptureImage = NonNullable<NonNullable<NotesCaptureData["body"]>["images"]>[number]
 
 export async function listNotes(directory: string) {
   return requireBuddyData<NotesLibrary>(await getBuddyClient(directory).notes.list())
@@ -80,11 +82,13 @@ export async function captureComposerNote(input: {
   directory: string
   sessionID: string
   text: string
+  images?: NoteCaptureImage[]
 }) {
   return requireBuddyData<SessionNoteCapture>(
     await getBuddyClient(input.directory).notes.capture({
       sessionID: input.sessionID,
       text: input.text,
+      images: input.images,
     }),
   )
 }
@@ -94,12 +98,14 @@ export async function annotateChatMessage(input: {
   sessionID: string
   messageID: string
   text: string
+  images?: NoteCaptureImage[]
 }) {
   return requireBuddyData<NotesAnnotateMessageResponses[200]>(
     await getBuddyClient(input.directory).notes.annotateMessage({
       sessionID: input.sessionID,
       messageID: input.messageID,
       text: input.text,
+      images: input.images,
     }),
   )
 }

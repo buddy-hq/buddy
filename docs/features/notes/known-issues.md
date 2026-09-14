@@ -47,6 +47,21 @@ A future general solution could react to `document.initialFile.version`, but it 
 through `synchronize`; assigning content directly is unsafe. That is intentionally excluded from
 the readability refactor because it changes editor synchronization behavior.
 
+## Note images may not render on the Bench outside the default Buddy Home
+
+Status: Suspected from code; not reproduced.
+
+Composer notes and message annotations save image attachments to `Attachments/` and link them
+with relative Markdown image paths. The Bench loads those paths through `/api/file/raw` with the
+Notes library as the directory, and that route only serves directories inside the backend's
+allowed roots. The desktop app allows only the default Buddy Home, so a Notes library elsewhere,
+such as a folder inside an Obsidian vault, would show a broken image on the Bench even though the
+file and link are correct on disk and render in Obsidian.
+
+Suggested future fix: serve note images through a Notes route that resolves paths against the
+active Notes library and reads only inside `Attachments/`, and use it from
+`notes-markdown-document.tsx`.
+
 ## Accepted trade-offs
 
 These are decisions, not defects.
@@ -57,5 +72,6 @@ These are decisions, not defects.
 - **`buddy-session-id` has no portable counterpart.** The field references a Buddy conversation.
   The annotation's quoted text is what survives outside Buddy; the ID is retained as the join
   point for a future explicit export.
-- **`Attachments/` is created but unused.** The directory is provisioned with the library, but no
-  V1 flow writes to it.
+- **Captured images stay after their link is removed.** Composer notes and message annotations
+  write images to `Attachments/` under generated names. Deleting an image link from a note does
+  not delete the image file.
