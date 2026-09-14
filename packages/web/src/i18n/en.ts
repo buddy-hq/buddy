@@ -1120,6 +1120,8 @@ export const dict = {
   "sidebar.create": "Create",
   "sidebar.createNotebook": "Create notebook",
   "sidebar.closeNotebook": "Close notebook",
+  "sidebar.copyThreadIDAction": "Copy chat ID",
+  "sidebar.threadIDCopied": "Chat ID copied",
   "sidebar.delete": "Delete",
   "sidebar.deleteThreadAction": "Delete chat",
   "sidebar.deleteThreadFallback":
