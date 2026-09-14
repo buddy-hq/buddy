@@ -161,10 +161,175 @@ export const MARKDOWN_NOTE_TITLE_INPUT_CLASS_NAME =
   "block w-full min-w-0 appearance-none border-0 bg-transparent p-0 text-inherit outline-none [font:inherit] [letter-spacing:inherit]"
 
 export const MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME =
-  "mx-auto w-full max-w-3xl min-h-full overflow-hidden rounded-lg border border-border-weak-base bg-background-base shadow-sm"
+  "mx-auto w-full max-w-3xl min-h-full bg-background-base"
 
 export const MARKDOWN_BENCH_PAPER_PLAIN_CLASS_NAME = "w-full min-h-full bg-background-base"
 
 export const MARKDOWN_BENCH_SELECTION_EDGE_WIDTH_PX = 3
 export const MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS =
   "px-[clamp(0px,calc((100%_-_28rem)/8),1.5rem)] pt-[clamp(0px,calc((100%_-_28rem)/8),1.5rem)]"
+
+/**
+ * Ruled tables over MDXEditor's table editor, picked in
+ * components/debug/easel/bench-table-restyle.tsx. MDXEditor boxes every cell and
+ * keeps its column menus, row gutter and add strips on screen at 15% opacity;
+ * here rows are divided by rules and the controls appear while the pointer or
+ * caret is in the table.
+ *
+ * MDXEditor's CSS-module class names carry a build hash, so they are matched by
+ * substring, as markdown-print-theme.ts does. Its own rules use multi-class
+ * selectors and `opacity: 1 !important`, hence the !important here. Print view
+ * keeps the print theme's table; PDF export drops this style element.
+ */
+function buildMarkdownBenchTableCss() {
+  const tableClass = '[class*="_tableEditor_"]'
+  const table = `.markdown-bench-editor:not([data-content-theme="print"]) .${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} ${tableClass}`
+  const paperTable = `.markdown-bench-editor[data-appearance="paper"]:not([data-content-theme="print"]) .${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} ${tableClass}`
+  const row = `${table} > tbody > tr`
+  // In edit mode each row starts with a row-menu tool cell; the first row also ends with the add-column one.
+  const toolCell = '[data-tool-cell="true"]'
+  const cell = `:not(${toolCell})`
+  const firstCell = `> ${cell}:is(:first-child, ${toolCell} + *)`
+  const lastCell = `> ${cell}:is(:last-child, :has(+ ${toolCell}))`
+  const trigger = '[class*="_tableColumnEditorTrigger_"]'
+  const addRow = '[class*="_addRowButton_"]'
+  const addColumn = '[class*="_addColumnButton_"]'
+  const deleteTable = 'thead [class*="_iconButton_"]'
+  const adders = `:is(${addRow}, ${addColumn})`
+  const secondaryControl = `:is(${addRow}, ${addColumn}, ${deleteTable})`
+  const control = `:is(${trigger}, ${addRow}, ${addColumn}, ${deleteTable})`
+  const revealed = `:is(${table}:hover, ${table}:focus-within)`
+  const gutter = "1.5rem"
+  const controlRow = "20px"
+  const bleed = "0.75rem"
+  /**
+   * Paper margin left of a text column 100% wide: MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS
+   * and MARKDOWN_DOCUMENT_PAPER_INSET_CLASS_NAME each work out to (100% - 28rem) / 4
+   * until they cap, and past their caps the margin is wider than anything hung into it.
+   */
+  const paperRoom = "max(0px, (100% - 28rem) / 2)"
+  const readHang = `min(${bleed}, ${paperRoom})`
+  const editHang = `min(${gutter} + ${bleed}, ${paperRoom})`
+
+  return `
+/* Prose rules every body row and the top of tfoot; the cells draw their own. */
+${row},
+${table} > tfoot {
+  border: 0 !important;
+}
+
+${row} > ${cell} {
+  border: 0 !important;
+  border-bottom: 1px solid var(--border-weaker-base) !important;
+  padding: 0.5em 1.25em 0.5em 0 !important;
+}
+
+${row} ${lastCell} {
+  padding-right: ${bleed} !important;
+}
+
+${row}:first-child > ${cell} {
+  border-bottom-color: var(--border-base) !important;
+  font-weight: 600;
+}
+
+${row}:last-child:not(:first-child) > ${cell} {
+  border-bottom-color: transparent !important;
+}
+
+${row} > [data-active="true"] {
+  outline: none !important;
+  box-shadow: inset 0 -2px 0 var(--border-interactive-base);
+}
+
+/*
+ * Replaces prose's 2em table margin. In edit mode the column-menu row above the
+ * header and the add-row strip below the last row are pinned to one height and
+ * cancelled by negative margins, so the visible rows sit where a paragraph would.
+ */
+${table} {
+  margin-block: 0 !important;
+}
+
+${table}:has(> thead) {
+  margin-block: -${controlRow} !important;
+}
+
+${table} > thead,
+${table} > thead > tr > th,
+${table} > tfoot > tr > th {
+  border: 0 !important;
+  padding: 0 !important;
+}
+
+${table} :is([class*="_tableToolsColumn_"], [class*="_toolCell_"]) {
+  width: ${gutter} !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+${table} ${control} {
+  padding: 2px !important;
+  opacity: 0 !important;
+  transition: opacity 120ms ease;
+}
+
+${table} :is(${trigger}, ${deleteTable}) {
+  display: block;
+}
+
+${table} > thead :is(${trigger}, [class*="_iconButton_"]) {
+  margin-left: auto;
+}
+
+${table} ${control} svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+${table} ${adders} {
+  justify-content: center;
+  border-radius: var(--radius-base);
+  background: transparent !important;
+  color: var(--icon-weak) !important;
+}
+
+${table} ${adders}:hover {
+  background: var(--surface-base-hover) !important;
+  color: var(--icon-base) !important;
+}
+
+/* Only the row and column under the pointer get a menu; add and delete stay faint. */
+${revealed} ${secondaryControl} {
+  opacity: 0.5 !important;
+}
+
+${revealed} ${secondaryControl}:hover,
+${table} ${trigger}[data-active="true"] {
+  opacity: 1 !important;
+}
+
+/*
+ * On paper the rules also run past the text on the left and the row gutter hangs
+ * in the margin, so cell text lines up with paragraphs. The hang never exceeds the
+ * margin, so the row menus are not clipped when the Bench is narrow.
+ */
+${paperTable} {
+  width: calc(100% + ${readHang}) !important;
+  max-width: none !important;
+  margin-left: calc(-1 * ${readHang}) !important;
+}
+
+${paperTable}:has(> thead) {
+  width: calc(100% + ${editHang}) !important;
+  margin-left: calc(-1 * ${editHang}) !important;
+}
+
+${paperTable} > tbody > tr ${firstCell} {
+  padding-left: ${bleed} !important;
+}
+`
+}
+
+export const MARKDOWN_BENCH_TABLE_CSS = buildMarkdownBenchTableCss()
