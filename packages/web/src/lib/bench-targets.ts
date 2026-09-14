@@ -84,6 +84,8 @@ export type BenchOpenRequest = {
   target: BenchTabTarget
   mode: BenchModeRequest
   autoOpen: BenchAutoOpenIdentity | null
+  /** An open tab to swap for `target` in place, such as a renamed file's previous path. */
+  replacesTarget?: BenchTabTarget
 }
 
 export type BenchLayoutProfileID =

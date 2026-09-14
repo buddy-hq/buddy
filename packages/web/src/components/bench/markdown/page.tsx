@@ -137,10 +137,25 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const changeMarkdown = useStore(store, (state) => state.changeMarkdown)
   const applyProcessingResult = useStore(store, (state) => state.applyProcessingResult)
 
+  const contextTarget = useMemo<BenchTarget>(
+    () =>
+      benchDocument.target ??
+      Object.assign(
+        {
+          type: "workspace-file" as const,
+          root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+          path: location.path,
+          viewer: "markdown" as const,
+        },
+        props.fragment ? { fragment: props.fragment } : undefined,
+      ),
+    [benchDocument.target, location.path, props.fragment],
+  )
   const renameTitle = useMarkdownBenchRename({
     directory: props.directory,
     location,
     file,
+    target: contextTarget,
     renameTitle: benchDocument.renameTitle,
     setRenaming: setRenamingTitle,
   })
@@ -169,20 +184,6 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const resetContentFontScale = useMarkdownBenchPreferences((state) => state.resetContentFontScale)
   const setContentThemeMode = useMarkdownBenchPreferences((state) => state.setContentThemeMode)
 
-  const contextTarget = useMemo<BenchTarget>(
-    () =>
-      benchDocument.target ??
-      Object.assign(
-        {
-          type: "workspace-file" as const,
-          root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
-          path: location.path,
-          viewer: "markdown" as const,
-        },
-        props.fragment ? { fragment: props.fragment } : undefined,
-      ),
-    [benchDocument.target, location.path, props.fragment],
-  )
   useMarkdownBenchContext({
     file,
     location,

@@ -25,11 +25,12 @@ export function useMarkdownBenchRename(input: {
   directory: string
   location: MarkdownBenchFileLocation
   file: MarkdownBenchFileController
+  target: BenchTarget
   renameTitle: MarkdownBenchRenameTitle | undefined
   setRenaming(renaming: boolean): void
 }): (nextTitle: string) => Promise<void> {
   const { directory: storageDirectory, path } = input.location
-  const { file, renameTitle: onRenameTitle } = input
+  const { file, renameTitle: onRenameTitle, target: currentTarget } = input
   const openBenchRoute = useOpenBench()
   const { setRenaming } = input
 
@@ -91,6 +92,7 @@ export function useMarkdownBenchRename(input: {
         const openResult = await openBenchRoute({
           directory: input.directory,
           target: renamed.target,
+          replacesTarget: currentTarget,
           mode: BENCH_MODE_REQUEST_POLICY,
           autoOpen: null,
         })
@@ -104,7 +106,16 @@ export function useMarkdownBenchRename(input: {
         setRenaming(false)
       }
     },
-    [file, input.directory, onRenameTitle, openBenchRoute, path, setRenaming, storageDirectory],
+    [
+      currentTarget,
+      file,
+      input.directory,
+      onRenameTitle,
+      openBenchRoute,
+      path,
+      setRenaming,
+      storageDirectory,
+    ],
   )
 
   return renameTitle

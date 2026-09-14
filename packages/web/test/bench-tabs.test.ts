@@ -4,6 +4,7 @@ import {
   closeBenchTab,
   closeBenchTabsToRight,
   closeOtherBenchTabs,
+  replaceBenchTab,
   resolveBenchTabTitle,
   upsertBenchTab,
 } from "../src/lib/bench-tabs"
@@ -115,6 +116,26 @@ describe("Bench tabs", () => {
     expect(isSameBenchTarget(original, renamed)).toBe(false)
     expect(updated.tabs).toHaveLength(2)
     expect(resolveBenchTabTitle(tab, new Map())).toBe("Research — note-1.md")
+  })
+
+  test("replaces a renamed note's tab in place", () => {
+    const original = createNotesBenchTarget({ relativePath: "Untitled — note-1.md" })
+    const renamed = createNotesBenchTarget({ relativePath: "Research — note-1.md" })
+    const opened = upsertBenchTab(upsertBenchTab([], original).tabs, SECOND_FILE)
+    const replaced = replaceBenchTab(opened.tabs, original, renamed)
+
+    expect(replaced.tabs).toEqual([
+      { key: benchTabKey(renamed), target: renamed },
+      { key: benchTabKey(SECOND_FILE), target: SECOND_FILE },
+    ])
+    expect(replaced.activeTabKey).toBe(benchTabKey(renamed))
+
+    const unopened = replaceBenchTab(opened.tabs, THIRD_FILE, renamed)
+    expect(unopened.tabs.map((tab) => tab.key)).toEqual([
+      benchTabKey(original),
+      benchTabKey(SECOND_FILE),
+      benchTabKey(renamed),
+    ])
   })
 
   test("uses stored object titles and falls back only when one is unavailable", () => {
