@@ -104,6 +104,7 @@ import {
 } from "./prompt-types"
 import {
   ACCEPTED_FILE_TYPES,
+  ACCEPTED_IMAGE_TYPES,
   ACCEPTED_NON_IMAGE_FILE_TYPES,
   attachmentRequiresVisionInput,
   cloneAttachments,
@@ -114,7 +115,11 @@ import { SelectionClip, type SelectionClipData } from "./selection-clip"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
 import { usePromptEditorSync } from "./use-prompt-editor-sync"
-import { useComposerNoteMode, type SaveComposerNote } from "@/features/notes/use-composer-note-mode"
+import {
+  parseComposerNoteImages,
+  useComposerNoteMode,
+  type SaveComposerNote,
+} from "@/features/notes/use-composer-note-mode"
 import {
   resolveComposerAccessoryPresentation,
   resolveComposerReplacementHeight,
@@ -480,10 +485,11 @@ export function PromptComposer(props: PromptComposerProps) {
   const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
   const unsupportedImageAttachments = useMemo(
     () =>
-      props.selectedModelAcceptsImages
+      // Notes store images without sending them to a model.
+      props.selectedModelAcceptsImages || noteMode.active
         ? []
         : draft.attachments.filter((attachment) => attachmentRequiresVisionInput(attachment.mime)),
-    [draft.attachments, props.selectedModelAcceptsImages],
+    [draft.attachments, noteMode.active, props.selectedModelAcceptsImages],
   )
   const unsupportedImageAttachmentIds = useMemo(
     () => new Set(unsupportedImageAttachments.map((attachment) => attachment.id)),
@@ -517,8 +523,16 @@ export function PromptComposer(props: PromptComposerProps) {
       hasUnreadyNativeResources,
     ],
   )
+  const parsedNoteImages = useMemo(
+    () => (noteMode.active ? parseComposerNoteImages(draft.attachments) : undefined),
+    [draft.attachments, noteMode.active],
+  )
   const canSaveNote =
-    draftEditorValue.trim().length > 0 && draft.attachments.length === 0 && !noteMode.saving
+    (draftEditorValue.trim().length > 0 || draft.attachments.length > 0) &&
+    parsedNoteImages?.status === "ok" &&
+    !noteMode.saving
+  const noteSaveDisabledReason =
+    parsedNoteImages?.status === "error" ? parsedNoteImages.message : undefined
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
   // Live editor snapshot that drives @/ autocomplete matching. Updated
   // synchronously on every keystroke/cursor move so the menu never lags behind
@@ -827,12 +841,16 @@ export function PromptComposer(props: PromptComposerProps) {
     setDraftAttachments: setDraftAttachmentsFromComposer,
     discardTransientAttachments,
     resetHistoryNavigation,
-    acceptsImages: props.selectedModelAcceptsImages,
+    acceptsImages: props.selectedModelAcceptsImages || noteMode.active,
     onUnsupportedImages: () => {
       toast.error("This model cannot accept image attachments.")
     },
     onUnsupportedFiles: () => {
-      toast.error("This file type is not supported.")
+      toast.error(
+        noteMode.active
+          ? language.t("notes.composer.attachmentsUnsupported")
+          : "This file type is not supported.",
+      )
     },
     onNativeResourceLimitExceeded: () => {
       toast.error(`You can attach up to ${NATIVE_RESOURCE_ATTACHMENT_MAX_COUNT} documents at once.`)
@@ -1482,7 +1500,7 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   async function completeSketchInput() {
-    if (!props.selectedModelAcceptsImages) return
+    if (!props.selectedModelAcceptsImages && !noteMode.active) return
     const attachment = (await flushSketchAttachmentRef.current?.()) ?? sketchAttachmentRef.current
     if (!attachment) {
       toast.error("Could not prepare the sketch.")
@@ -1499,7 +1517,7 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   async function handleSubmit() {
-    if (hasUnsupportedImageAttachments || hasUnreadyNativeResources) return
+    if (!noteMode.active && (hasUnsupportedImageAttachments || hasUnreadyNativeResources)) return
 
     const currentDraft = readEditorDraft()
 
@@ -1663,7 +1681,7 @@ export function PromptComposer(props: PromptComposerProps) {
               >
                 <SketchDock
                   className="composer-surface-floating composer-grain w-full"
-                  acceptsImages={props.selectedModelAcceptsImages}
+                  acceptsImages={props.selectedModelAcceptsImages || noteMode.active}
                   benchHost={null}
                   height={composerReplacementHeight}
                   imageModelOptions={sketchImageModelOptions}
@@ -1971,9 +1989,11 @@ export function PromptComposer(props: PromptComposerProps) {
                       data-action="prompt-file-input"
                       type="file"
                       multiple
-                      accept={(props.selectedModelAcceptsImages
-                        ? ACCEPTED_FILE_TYPES
-                        : ACCEPTED_NON_IMAGE_FILE_TYPES
+                      accept={(noteMode.active
+                        ? ACCEPTED_IMAGE_TYPES
+                        : props.selectedModelAcceptsImages
+                          ? ACCEPTED_FILE_TYPES
+                          : ACCEPTED_NON_IMAGE_FILE_TYPES
                       ).join(",")}
                       className="hidden"
                       onChange={(event) => {
@@ -2002,13 +2022,23 @@ export function PromptComposer(props: PromptComposerProps) {
                   onThinkingChange={props.onThinkingChange}
                   isBusy={props.isBusy}
                   canSubmit={noteMode.active ? canSaveNote : canSubmit}
-                  sendDisabledReason={nativeResourceSendDisabledReason}
+                  sendDisabledReason={
+                    noteMode.active ? noteSaveDisabledReason : nativeResourceSendDisabledReason
+                  }
                   onAttach={() => fileInputRef.current?.click()}
                   noteMode={noteMode.active}
                   {...(props.onSaveNote ? { onNoteModeChange: noteMode.changeActive } : {})}
                   onAbort={props.onAbort}
-                  attachLabel={language.t("prompt.composer.attachFilesTitle")}
-                  attachAriaLabel={language.t("prompt.composer.attachFilesAria")}
+                  attachLabel={
+                    noteMode.active
+                      ? language.t("notes.composer.attachImages")
+                      : language.t("prompt.composer.attachFilesTitle")
+                  }
+                  attachAriaLabel={
+                    noteMode.active
+                      ? language.t("notes.composer.attachImages")
+                      : language.t("prompt.composer.attachFilesAria")
+                  }
                   sendLabel={
                     noteMode.active
                       ? language.t("notes.action.save")

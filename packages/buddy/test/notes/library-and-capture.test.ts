@@ -368,15 +368,150 @@ describe("Notes library and chat capture", () => {
         sessionID: chat.sessionID,
         messageID: chat.userMessageID,
         text: "Remember this",
+        images: [
+          {
+            filename: "Diagram.png",
+            mime: "image/png",
+            data: Buffer.from("diagram bytes").toString("base64"),
+          },
+        ],
       })
       const document = await readNote(capture.note.relativePath)
 
       expect(document.content).toContain("> Visible question")
       expect(document.content).toContain("Remember this")
+      expect(document.content).toMatch(/!\[Diagram\.png\]\(Attachments\/\w+\.png\)/u)
       expect(document.content).not.toContain("Hidden synthetic context")
     } finally {
       await Config.replaceGlobal(previous)
     }
+  })
+
+  test("saves an image-only capture into Attachments and rejects an empty capture", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+
+    try {
+      const chat = await seedReadableChat(notebook.path)
+      const imageBytes = Buffer.from("screenshot bytes")
+      const capture = await captureComposerNote({
+        directory: notebook.path,
+        sessionID: chat.sessionID,
+        text: "",
+        images: [
+          { filename: "Screenshot.png", mime: "image/png", data: imageBytes.toString("base64") },
+        ],
+      })
+      const document = await readNote(capture.note.relativePath)
+      const imagePath = /!\[Screenshot\.png\]\((Attachments\/\w+\.png)\)/.exec(document.content)?.[1]
+
+      expect(imagePath).toBeDefined()
+      expect(await fsp.readFile(path.join(home.path, "Notes", imagePath ?? ""))).toEqual(imageBytes)
+      const attachmentsDirectory = path.join(home.path, "Notes", "Attachments")
+      const attachmentsBeforeFailure = await fsp.readdir(attachmentsDirectory)
+      await expect(
+        captureComposerNote({
+          directory: notebook.path,
+          sessionID: chat.sessionID,
+          text: "",
+          images: [
+            {
+              filename: "Temporary.png",
+              mime: "image/png",
+              data: Buffer.from("temporary bytes").toString("base64"),
+            },
+            { filename: "Empty.png", mime: "image/png", data: "" },
+          ],
+        }),
+      ).rejects.toMatchObject({ status: 400 })
+      expect(await fsp.readdir(attachmentsDirectory)).toEqual(attachmentsBeforeFailure)
+      await expect(
+        captureComposerNote({ directory: notebook.path, sessionID: chat.sessionID, text: " " }),
+      ).rejects.toMatchObject({ status: 400 })
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("links new capture images relative to a session note in a subfolder", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+
+    try {
+      const chat = await seedReadableChat(notebook.path)
+      const first = await captureComposerNote({
+        directory: notebook.path,
+        sessionID: chat.sessionID,
+        text: "First capture",
+      })
+      const notesRoot = path.join(home.path, "Notes")
+      const archiveDirectory = path.join(notesRoot, "Archive")
+      await fsp.mkdir(archiveDirectory)
+      await fsp.rename(
+        path.join(notesRoot, first.note.relativePath),
+        path.join(archiveDirectory, first.note.relativePath),
+      )
+
+      const appended = await captureComposerNote({
+        directory: notebook.path,
+        sessionID: chat.sessionID,
+        text: "",
+        images: [
+          {
+            filename: "Nested.png",
+            mime: "image/png",
+            data: Buffer.from("nested image").toString("base64"),
+          },
+        ],
+      })
+      const document = await readNote(appended.note.relativePath)
+
+      expect(appended.note.relativePath).toBe(`Archive/${first.note.relativePath}`)
+      expect(document.content).toMatch(/!\[Nested\.png\]\(\.\.\/Attachments\/\w+\.png\)/u)
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("rejects invalid and oversized capture request bodies before mutation", async () => {
+    await using notebook = await tmpdir()
+    const route = `/api/notes/session/session-test/capture?directory=${encodeURIComponent(notebook.path)}`
+    const invalidBodies = [
+      {
+        text: "",
+        images: [{ filename: "vector.svg", mime: "image/svg+xml", data: "PHN2Zz4=" }],
+      },
+      {
+        text: "",
+        images: Array.from({ length: 11 }, (_, index) => ({
+          filename: `image-${index}.png`,
+          mime: "image/png",
+          data: "YQ==",
+        })),
+      },
+      { text: "", images: [{ filename: "empty.png", mime: "image/png", data: "" }] },
+    ]
+
+    for (const body of invalidBodies) {
+      const response = await app.request(route, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      expect(response.status).toBe(400)
+    }
+
+    const oversized = await app.request(route, {
+      method: "POST",
+      headers: { "content-type": "application/json", "content-length": "1000000000" },
+      body: "{}",
+    })
+    expect(oversized.status).toBe(413)
+    expect(await oversized.json()).toEqual({
+      error: "Note capture exceeds the request size limit.",
+    })
   })
 
   test("rejects stale writes and paths outside the library", async () => {

@@ -137,6 +137,8 @@ export async function createNoteFile(input: {
   title: string
   metadata: BuddyNoteMetadata
   content: string
+  /** Runs after the new note is written, before its fallible readback. */
+  onCommitted?: (filepath: string) => void
 }) {
   await ensureNotesDirectories(input.root)
   const legacyTitles = await legacyNoteTitlesAtLibraryRoot(input.root)
@@ -151,6 +153,7 @@ export async function createNoteFile(input: {
       if (parseNodeErrorCode(error) === NODE_ERROR_EXISTS) continue
       throw error
     }
+    input.onCommitted?.(filepath)
     invalidateIndexedPath(input.root, filepath)
     return readNoteFile(input.root, filepath)
   }
