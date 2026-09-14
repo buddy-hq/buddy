@@ -75,6 +75,11 @@ import {
 } from "@/components/bench/markdown/plugins/editor-runtime"
 import { MarkdownBenchToolbarContainerContext } from "@/components/bench/markdown/editor-toolbar-portal"
 import { useMarkdownBenchEditorPlugins } from "@/components/bench/markdown/use-editor-plugins"
+import {
+  MarkdownBenchPropertiesToggle,
+  MarkdownBenchPropertiesView,
+} from "@/components/bench/markdown/properties"
+import type { MarkdownBenchProperty } from "@/components/bench/markdown/property-values"
 
 export type { MarkdownBenchHistoryControlsState }
 
@@ -129,6 +134,8 @@ type MarkdownBenchEditorProps = Pick<
   path: string
   title?: string
   placeholder?: ReactNode
+  /** Frontmatter revealed by the info control on the title. */
+  properties?: readonly MarkdownBenchProperty[]
   readOnly?: boolean
   viewportKey?: string
   obsidianWikiLinkContext?: ObsidianWikiLinkContext
@@ -209,10 +216,15 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       [props.path, props.title],
     )
     const [noteTitleDraft, setNoteTitleDraft] = useState(noteTitle)
+    const [propertiesOpen, setPropertiesOpen] = useState(false)
+    const hasProperties = (props.properties?.length ?? 0) > 0
     const cancelTitleCommitRef = useRef(false)
     useEffect(() => {
       setNoteTitleDraft(noteTitle)
     }, [noteTitle])
+    useEffect(() => {
+      setPropertiesOpen(false)
+    }, [props.path])
     const commitNoteTitle = useCallback(
       async (event: ReactFocusEvent<HTMLInputElement>) => {
         if (cancelTitleCommitRef.current) {
@@ -436,31 +448,46 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           )}
         >
           <div
-            role="heading"
-            aria-level={1}
-            data-component="markdown-bench-note-title"
-            data-markdown-export-ignore
+            data-component="markdown-bench-note-title-row"
             className={cn(
-              MARKDOWN_NOTE_TITLE_BASE_CLASS_NAME,
+              "flex items-center gap-3",
+              propertiesOpen ? "pb-[0.5em]" : "pb-[2em]",
               isPlainAppearance
                 ? MARKDOWN_NOTE_TITLE_PLAIN_LAYOUT_CLASS_NAME
                 : MARKDOWN_NOTE_TITLE_PAPER_LAYOUT_CLASS_NAME,
             )}
           >
-            <input
-              type="text"
-              aria-label="Note title"
-              aria-busy={props.renamingTitle ? "true" : undefined}
-              data-component="markdown-bench-note-title-input"
-              className={MARKDOWN_NOTE_TITLE_INPUT_CLASS_NAME}
-              readOnly={props.readOnly || !onRenameTitle || props.renamingTitle || isPrintView}
-              spellCheck={false}
-              value={noteTitleDraft}
-              onBlur={commitNoteTitle}
-              onChange={(event) => setNoteTitleDraft(event.currentTarget.value)}
-              onKeyDown={handleNoteTitleKeyDown}
-            />
+            <div
+              role="heading"
+              aria-level={1}
+              data-component="markdown-bench-note-title"
+              data-markdown-export-ignore
+              className={cn(MARKDOWN_NOTE_TITLE_BASE_CLASS_NAME, "mb-0 min-w-0 flex-1")}
+            >
+              <input
+                type="text"
+                aria-label="Note title"
+                aria-busy={props.renamingTitle ? "true" : undefined}
+                data-component="markdown-bench-note-title-input"
+                className={MARKDOWN_NOTE_TITLE_INPUT_CLASS_NAME}
+                readOnly={props.readOnly || !onRenameTitle || props.renamingTitle || isPrintView}
+                spellCheck={false}
+                value={noteTitleDraft}
+                onBlur={commitNoteTitle}
+                onChange={(event) => setNoteTitleDraft(event.currentTarget.value)}
+                onKeyDown={handleNoteTitleKeyDown}
+              />
+            </div>
+            {hasProperties && !isPrintView ? (
+              <MarkdownBenchPropertiesToggle
+                open={propertiesOpen}
+                onOpenChange={setPropertiesOpen}
+              />
+            ) : null}
           </div>
+          {hasProperties && propertiesOpen && !isPrintView && props.properties ? (
+            <MarkdownBenchPropertiesView properties={props.properties} />
+          ) : null}
           <MarkdownBenchToolbarContainerContext.Provider
             value={props.advancedToolbarContainer ?? null}
           >

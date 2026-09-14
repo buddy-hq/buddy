@@ -24,6 +24,7 @@ import {
   readNoteFile,
   renderNoteSource,
   type BuddyNoteMetadata,
+  type ParsedNoteFile,
 } from "./note-file"
 import {
   ensureNotebookIdentity,
@@ -213,14 +214,19 @@ async function readNoteAtPath(root: string, relativePath: string) {
   return readNoteFile(root, filepath)
 }
 
-export async function readNote(relativePath: string): Promise<NoteDocument> {
-  const root = await activateNotesLibraryRoot()
-  const note = await readNoteAtPath(root, relativePath)
-  return {
+function noteDocument(note: ParsedNoteFile): NoteDocument {
+  const document: NoteDocument = {
     note: note.summary,
     content: note.content,
     version: textContentVersion(note.source) ?? "",
   }
+  if (note.metadata) document.properties = note.metadata
+  return document
+}
+
+export async function readNote(relativePath: string): Promise<NoteDocument> {
+  const root = await activateNotesLibraryRoot()
+  return noteDocument(await readNoteAtPath(root, relativePath))
 }
 
 export async function updateNote(input: {
@@ -240,12 +246,7 @@ export async function updateNote(input: {
     const source = note.metadata ? renderNoteSource(input.content, note.metadata) : input.content
     await writeTextFileAtomic(filepath, source)
     invalidateIndexedPath(root, filepath)
-    const updated = await readNoteFile(root, filepath)
-    return {
-      note: updated.summary,
-      content: updated.content,
-      version: textContentVersion(updated.source) ?? "",
-    }
+    return noteDocument(await readNoteFile(root, filepath))
   })
 }
 

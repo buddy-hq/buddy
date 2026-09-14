@@ -25,6 +25,7 @@ import {
   MarkdownBenchMissingFile,
   MarkdownBenchSaveError,
 } from "@/components/bench/markdown/panels"
+import type { MarkdownBenchProperty } from "@/components/bench/markdown/property-values"
 import { MarkdownBenchToolbar } from "@/components/bench/markdown/toolbar"
 import { useMarkdownBenchActions } from "@/components/bench/markdown/use-actions"
 import { useMarkdownBenchContext } from "@/components/bench/markdown/use-bench-context"
@@ -68,6 +69,7 @@ export type MarkdownBenchDocument = {
   title?: string
   io?: MarkdownBenchDocumentIO
   placeholder?: ReactNode
+  properties?: readonly MarkdownBenchProperty[]
   createWikiLinkContext?(markdown: string): ObsidianWikiLinkContext
   renameTitle?: MarkdownBenchRenameTitle
 }
@@ -367,6 +369,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
               target: contextTarget,
             })}
             placeholder={benchDocument.placeholder}
+            properties={benchDocument.properties}
             obsidianWikiLinkContext={wikiLinkContext}
             onChange={changeMarkdown}
             onHistoryControlsChange={setHistoryControls}
