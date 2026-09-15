@@ -162,12 +162,10 @@ function applyChatTextTokens(tokens: ResolvedTheme, isDark: boolean): void {
   tokens["chat-text-strong"] = strong
   if (!isDark) return
 
-  const backgrounds = ["background-base", "surface-raised-stronger-non-alpha"].flatMap(
-    (key) => {
-      const background = hexToken(tokens, key)
-      return background ? ([[background]] as const) : []
-    },
-  )
+  const backgrounds = ["background-base", "surface-raised-stronger-non-alpha"].flatMap((key) => {
+    const background = hexToken(tokens, key)
+    return background ? ([[background]] as const) : []
+  })
   if (backgrounds.length === 0) return
 
   tokens["chat-text-base"] = constrainTextContrast(

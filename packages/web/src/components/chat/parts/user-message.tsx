@@ -145,7 +145,9 @@ export const UserMessagePart = memo(function UserMessagePart({
                 animateHeight &&
                   "transition-[max-height] duration-300 ease-out motion-reduce:transition-none",
               )}
-              style={maxHeight === null ? CHAT_BODY_TEXT_STYLE : { ...CHAT_BODY_TEXT_STYLE, maxHeight }}
+              style={
+                maxHeight === null ? CHAT_BODY_TEXT_STYLE : { ...CHAT_BODY_TEXT_STYLE, maxHeight }
+              }
             >
               <HighlightedText
                 text={text}
