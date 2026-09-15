@@ -16,6 +16,7 @@ export const SHORTCUTS = {
   "chat.previous": APP_SHORTCUTS["chat.previous"],
   "chat.next": APP_SHORTCUTS["chat.next"],
   "composer.focus": APP_SHORTCUTS["composer.focus"],
+  "composer.note.toggle": { key: "Enter", mod: true, shift: true },
   "search.open": APP_SHORTCUTS["search.open"],
   "bench.toggle": APP_SHORTCUTS["bench.toggle"],
   "browser.newTab": APP_SHORTCUTS["browser.newTab"],
