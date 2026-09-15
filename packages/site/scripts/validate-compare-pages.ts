@@ -13,7 +13,7 @@ import {
 } from "../src/lib/parse-values"
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
-const DIST_ROOT = join(PACKAGE_ROOT, "dist")
+const DIST_ROOT = join(PACKAGE_ROOT, "dist", "client")
 const COMPARE_OUTPUT_ROOT = join(DIST_ROOT, "compare")
 const MINIMUM_STATIC_SECTION_TEXT_LENGTH = 1_000
 const MINIMUM_SECTION_COUNT = 3

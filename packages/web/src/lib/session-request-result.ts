@@ -5,7 +5,7 @@ const HTTP_STATUS_NOT_FOUND = 404
 
 type SessionRequestResult = {
   error: unknown
-  response: Response | undefined
+  response?: Response
 }
 
 export function isSessionNotFoundResult(result: SessionRequestResult): boolean {

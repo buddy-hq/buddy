@@ -68,6 +68,7 @@ packages/desktop-electron/resources/icons/
 packages/desktop-electron/*.tsbuildinfo
 packages/desktop-electron/*.log
 packages/desktop-electron/.electron-builder/
+packages/site/.wrangler/
 packages/sdk/.buddy-runtime/
 packages/web/.tanstack/
 packages/web/e2e/test-results/

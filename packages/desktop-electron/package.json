@@ -65,13 +65,13 @@
     "@types/react-dom": "^18.2.0",
     "@typescript/native-preview": "catalog:",
     "@vitejs/plugin-react": "^4.2.0",
-    "electron": "41.9.0",
+    "electron": "41.10.7",
     "electron-builder": "26.15.2",
     "electron-vite": "^5.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwindcss": "^4.0.0",
     "typescript": "catalog:",
-    "vite": "7.1.4"
+    "vite": "7.3.6"
   }
 }
