@@ -76,6 +76,7 @@ import {
   JusticeScale01Icon as JusticeScale01IconData,
   KanbanIcon as KanbanIconData,
   Key01Icon as Key01IconData,
+  KeyboardIcon as KeyboardIconData,
   LaptopIcon as LaptopIconData,
   Layers01Icon as Layers01IconData,
   Layers02Icon as Layers02IconData,
@@ -366,6 +367,7 @@ export const Info = createIcon(InformationCircleIconData, "Info")
 export const InfoIcon = createIcon(InformationCircleIconData, "InfoIcon")
 export const ItalicIcon = createIcon(TextItalicIconData, "ItalicIcon")
 export const KeyRound = createIcon(Key01IconData, "KeyRound")
+export const KeyboardIcon = createIcon(KeyboardIconData, "KeyboardIcon")
 export const LaptopIcon = createIcon(LaptopIconData, "LaptopIcon")
 export const Kanban = createIcon(KanbanIconData, "Kanban")
 export const Layers = createIcon(Layers01IconData, "Layers")
