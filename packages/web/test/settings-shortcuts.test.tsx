@@ -3,11 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ShortcutsSettings } from "../src/components/settings/settings-shortcuts"
-import {
-  createBrowserPlatform,
-  PlatformProvider,
-  type Platform,
-} from "../src/context/platform"
+import { createBrowserPlatform, PlatformProvider, type Platform } from "../src/context/platform"
 
 function desktopPlatform(os: "macos" | "windows" | "linux"): Platform {
   return {

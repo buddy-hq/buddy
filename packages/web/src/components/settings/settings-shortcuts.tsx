@@ -4,11 +4,7 @@ import { detectPlatform, formatForDisplay } from "@tanstack/react-hotkeys"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { SHORTCUTS } from "@/lib/shortcuts"
-import {
-  SettingsContent,
-  SettingsRow,
-  SettingsSection,
-} from "./settings-primitives"
+import { SettingsContent, SettingsRow, SettingsSection } from "./settings-primitives"
 
 const SHORTCUT_GROUPS = [
   { id: "chats", titleKey: "settings.shortcuts.chatsSection" },
@@ -312,11 +308,7 @@ export function ShortcutsSettings() {
                 title={title}
                 description={row.descriptionKey ? language.t(row.descriptionKey) : undefined}
                 control={
-                  <ShortcutKeys
-                    action={title}
-                    commands={row.commands}
-                    platform={displayPlatform}
-                  />
+                  <ShortcutKeys action={title} commands={row.commands} platform={displayPlatform} />
                 }
               />
             )
