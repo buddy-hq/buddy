@@ -58,6 +58,18 @@ describe("app shortcuts", () => {
     expect(matches("composer.focus", { key: "l", code: "KeyL", metaKey: true })).toBe(true)
   })
 
+  test("Cmd+Shift+Enter toggles Note mode", () => {
+    expect(
+      matches("composer.note.toggle", {
+        key: "Enter",
+        code: "Enter",
+        metaKey: true,
+        shiftKey: true,
+      }),
+    ).toBe(true)
+    expect(matches("composer.note.toggle", { key: "Enter", metaKey: true })).toBe(false)
+  })
+
   test("Cmd+Shift+[ and ] move between chats although Shift types a brace", () => {
     const bracket = { metaKey: true, shiftKey: true }
     expect(matches("chat.previous", { key: "{", code: "BracketLeft", ...bracket })).toBe(true)

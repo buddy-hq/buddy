@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act, createRef, type RefObject } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import { detectPlatform } from "@tanstack/react-hotkeys"
 import {
   resolveComposerAccessoryLayout,
   resolveComposerReplacementHeight,
@@ -460,6 +461,49 @@ describe("prompt composer submit", () => {
     expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe(
       "",
     )
+  })
+
+  test("toggles Note mode with the composer-scoped shortcut", async () => {
+    await act(async () => {
+      root.render(
+        renderPromptComposer({
+          onSubmit: () => undefined,
+          onSaveNote: () => Promise.resolve({ sessionID: "ses_note" }),
+        }),
+      )
+      await flushEffects()
+    })
+
+    const editor = container.querySelector<HTMLElement>('[data-component="prompt-editor"]')
+    const noteButton = container.querySelector<HTMLButtonElement>(
+      '[data-action="prompt-note-mode"]',
+    )
+    const platform = detectPlatform()
+    const primaryModifier = platform === "mac" ? { metaKey: true } : { ctrlKey: true }
+    const toggleNoteMode = () =>
+      editor?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          ...primaryModifier,
+          bubbles: true,
+          cancelable: true,
+          code: "Enter",
+          key: "Enter",
+          shiftKey: true,
+        }),
+      )
+
+    await act(async () => {
+      editor?.focus()
+      toggleNoteMode()
+      await flushEffects()
+    })
+    expect(noteButton?.getAttribute("aria-pressed")).toBe("true")
+
+    await act(async () => {
+      toggleNoteMode()
+      await flushEffects()
+    })
+    expect(noteButton?.getAttribute("aria-pressed")).toBe("false")
   })
 
   test("omits the /note command when the composer cannot save notes", async () => {

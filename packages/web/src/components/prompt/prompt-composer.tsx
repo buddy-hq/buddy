@@ -30,8 +30,10 @@ import {
   useRef,
   useState,
 } from "react"
+import type { KeyboardEvent as ReactKeyboardEvent } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { readerTextAnchorKey } from "@buddy/reader-contract"
+import { matchesKeyboardEvent, normalizeRegisterableHotkey } from "@tanstack/react-hotkeys"
 import { language } from "@/context/language"
 import { GameDock } from "../game/game-dock"
 import { GameBall } from "../game/game-ball"
@@ -138,6 +140,7 @@ import {
   subscribePromptComposerFocusRequests,
 } from "./prompt-composer-focus"
 import { registerPromptComposerLiveDraftReader } from "./prompt-composer-live-draft"
+import { SHORTCUTS } from "@/lib/shortcuts"
 import type { PromptSelectMode } from "./prompt-select-performance"
 import {
   getPromptDraft,
@@ -482,6 +485,21 @@ export function PromptComposer(props: PromptComposerProps) {
       }
     },
   })
+  function handleComposerShortcut(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!props.onSaveNote || event.defaultPrevented || event.repeat) return
+    if (event.nativeEvent.isComposing) return
+    if (!(event.target instanceof Node) || !editorRef.current?.contains(event.target)) return
+    if (
+      !matchesKeyboardEvent(
+        event.nativeEvent,
+        normalizeRegisterableHotkey(SHORTCUTS["composer.note.toggle"]),
+      )
+    ) {
+      return
+    }
+    event.preventDefault()
+    noteMode.changeActive(!noteMode.active)
+  }
   const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
   const unsupportedImageAttachments = useMemo(
     () =>
@@ -1573,7 +1591,11 @@ export function PromptComposer(props: PromptComposerProps) {
   const surfaceTransition = resolveSurfaceRevealTransition(reduceMotion)
 
   return (
-    <div ref={composerRootRef} className={cn("relative", props.className ?? "mx-4 mb-4")}>
+    <div
+      ref={composerRootRef}
+      className={cn("relative", props.className ?? "mx-4 mb-4")}
+      onKeyDown={handleComposerShortcut}
+    >
       <AnimatePresence initial={false}>
         {showAccessoryHost ? (
           <ComposerAccessoryMotionHost hostRef={accessoryHostRef}>
