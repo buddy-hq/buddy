@@ -56,7 +56,7 @@ skills:
 - task: "working on redirects or route guards that use beforeLoad and redirect, such as the /skills route"
   load: "node_modules/.bun/@tanstack+router-core@1.168.6/node_modules/@tanstack/router-core/skills/router-core/auth-and-guards/SKILL.md"
 - task: "changing validated search params or URL-backed settings state, such as the /settings tab search param"
-  load: "node_modules/.bun/@tanstack+router-core@1.168.6/node_modules/@tanstack/router-core/skills/router-core/search-params/SKILL.md"
+  load: "node_modules/.bun/@tanstack+router-core@1.168.15/node_modules/@tanstack/router-core/skills/router-core/search-params/SKILL.md"
 - task: "changing TanStack Router navigation flows, useNavigate behavior, or route preloading"
   load: "node_modules/.bun/@tanstack+router-core@1.168.6/node_modules/@tanstack/router-core/skills/router-core/navigation/SKILL.md"
 - task: "changing TanStack Router Vite plugin setup, route generation, or automatic code splitting in packages/web/vite.config.ts"
