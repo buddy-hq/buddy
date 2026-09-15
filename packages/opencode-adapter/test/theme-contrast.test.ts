@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test"
 
 import {
   CONTRAST_TARGET,
+  CHAT_TEXT_CONTRAST_TARGET,
   compositeLayerStack,
+  constrainTextContrast,
   contrastRatio,
   defaultThemes,
   ensureTextContrast,
@@ -38,6 +40,45 @@ describe("theme contrast", () => {
 
     expect(Math.abs(preferredHue - resultHue)).toBeLessThan(1)
     expect(contrastRatio(result, "#f8f8f8")).toBeGreaterThanOrEqual(CONTRAST_TARGET.normalText)
+  })
+
+  test("constrains excessive text contrast without changing its hue", () => {
+    const preferred = "#f8f8f8"
+    const background = "#151720"
+    const result = constrainTextContrast(preferred, [[background]], 7, 11.5)
+
+    expect(contrastRatio(result, background)).toBeGreaterThanOrEqual(7)
+    expect(contrastRatio(result, background)).toBeLessThanOrEqual(11.5)
+    expect(Math.abs(hexToOklch(preferred).h - hexToOklch(result).h)).toBeLessThan(1)
+  })
+
+  test("caps only dark chat text across every bundled theme", () => {
+    for (const theme of Object.values(defaultThemes)) {
+      const light = resolveThemeVariant(theme.light, false)
+      expect(light["chat-text-base"], `${theme.id}/light body`).toBe(light["text-base"])
+      expect(light["chat-text-strong"], `${theme.id}/light strong`).toBe(light["text-strong"])
+
+      const dark = resolveThemeVariant(theme.dark, true)
+      const backgrounds = [
+        readHex(dark, "background-base"),
+        readHex(dark, "surface-raised-stronger-non-alpha"),
+      ]
+
+      for (const [token, maximum] of [
+        ["chat-text-base", CHAT_TEXT_CONTRAST_TARGET.bodyMaximum],
+        ["chat-text-strong", CHAT_TEXT_CONTRAST_TARGET.strongMaximum],
+      ] as const) {
+        const foreground = readHex(dark, token)
+        const ratios = backgrounds.map((background) => contrastRatio(foreground, background))
+
+        expect(Math.min(...ratios), `${theme.id}/dark ${token} minimum`).toBeGreaterThanOrEqual(
+          CHAT_TEXT_CONTRAST_TARGET.minimum,
+        )
+        expect(Math.max(...ratios), `${theme.id}/dark ${token} maximum`).toBeLessThanOrEqual(
+          maximum,
+        )
+      }
+    }
   })
 
   test("normalizes semantic component states across every bundled theme", () => {

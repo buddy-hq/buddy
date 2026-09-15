@@ -1,5 +1,4 @@
 import { useMemo } from "react"
-import { cn } from "@buddy/ui"
 import { parseTJsonObject, parseTNumber } from "./tools/types"
 import { FileTypeIcon } from "../files/file-type-icon"
 import { SkillIconMark } from "../skills/skill-icon-mark"
@@ -196,7 +195,7 @@ export function HighlightedText({
         ) : segment.type === "command" ? (
           <InlineCommandReference key={key} text={segment.text} />
         ) : (
-          <span key={key} className={cn(segment.type === "agent" && "text-text-base font-medium")}>
+          <span key={key} className={segment.type === "agent" ? "font-medium" : undefined}>
             {segment.text}
           </span>
         ),

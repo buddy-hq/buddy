@@ -75,9 +75,9 @@ const markdownClassName = [
   // Base prose: sm size, min-w-0 for flex truncation, break-words for unbroken model output.
   "prose prose-sm min-w-0 max-w-full break-words",
   // Wire prose color vars to our design tokens
-  "[--tw-prose-body:var(--color-text-base)]",
-  "[--tw-prose-headings:var(--color-text-strong)]",
-  "[--tw-prose-bold:var(--color-text-strong)]",
+  "[--tw-prose-body:var(--chat-markdown-text-base,var(--color-text-base))]",
+  "[--tw-prose-headings:var(--chat-markdown-text-strong,var(--color-text-strong))]",
+  "[--tw-prose-bold:var(--chat-markdown-text-strong,var(--color-text-strong))]",
   "[--tw-prose-links:var(--color-text-interactive-base)]",
   "[--tw-prose-code:var(--color-syntax-string)]",
   "[--tw-prose-quotes:var(--color-text-weak)]",

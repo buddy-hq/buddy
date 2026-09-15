@@ -7,6 +7,7 @@ import { Undo2Icon } from "@/icons/app-icons"
 import type { MessageInfo, ProviderInfo } from "@/state/chat-types"
 import type { ChatAgentPart, ChatFilePart, ChatTextPart } from "../utils/part-guards"
 import { MessageNoteAction } from "@/features/notes/message-note-action"
+import { CHAT_BODY_TEXT_STYLE } from "../chat-text-styles"
 
 // Collapsed height cap for a long sent message. Anything taller gets clamped
 // behind a fade with a "Show more" toggle instead of running full-length.
@@ -144,7 +145,7 @@ export const UserMessagePart = memo(function UserMessagePart({
                 animateHeight &&
                   "transition-[max-height] duration-300 ease-out motion-reduce:transition-none",
               )}
-              style={maxHeight === null ? undefined : { maxHeight }}
+              style={maxHeight === null ? CHAT_BODY_TEXT_STYLE : { ...CHAT_BODY_TEXT_STYLE, maxHeight }}
             >
               <HighlightedText
                 text={text}

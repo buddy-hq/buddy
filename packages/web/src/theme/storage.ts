@@ -9,7 +9,7 @@ export const STORAGE_KEYS = {
 export const THEME_STYLE_ID = "oc-theme"
 export const PRELOAD_STYLE_ID = "oc-theme-preload"
 // Bump when the CSS generation format changes to force client cache invalidation.
-export const THEME_CACHE_VERSION = "5"
+export const THEME_CACHE_VERSION = "6"
 export const DEFAULT_THEME_ID = "dracula"
 
 /** Legacy or brand-hidden theme ids remapped to the product default. */

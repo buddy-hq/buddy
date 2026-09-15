@@ -50,11 +50,13 @@ export {
   layeredContrastRatio,
   ensureLayerContrast,
   ensureTextContrast,
+  constrainTextContrast,
   shiftLightness,
   CONTRAST_TARGET,
 } from "./theme-contrast"
 import {
   CONTRAST_TARGET,
+  constrainTextContrast,
   ensureLayerContrast,
   ensureTextContrast,
   shiftLightness,
@@ -65,6 +67,13 @@ const SUBTLE_STATUS_SURFACE_ALPHA = 0.15
 const CONTROL_OVERLAY_TINT: HexColor = "#ffffff"
 const CONTROL_OVERLAY_ALPHA = 0.05
 const CONTROL_OVERLAY_HOVER_ALPHA = 0.09
+
+/** Accessible contrast band used by dark-mode transcript text. */
+export const CHAT_TEXT_CONTRAST_TARGET = {
+  minimum: 7,
+  bodyMaximum: 11.5,
+  strongMaximum: 14,
+} as const
 
 type ThemeIdentityColors = {
   primary: HexColor
@@ -142,6 +151,37 @@ function overlayTint(tint: HexColor, alpha: number): HexColor {
 function applyDarkControlOverlay(tokens: ResolvedTheme): void {
   tokens["input-base"] = overlayTint(CONTROL_OVERLAY_TINT, CONTROL_OVERLAY_ALPHA)
   tokens["input-hover"] = overlayTint(CONTROL_OVERLAY_TINT, CONTROL_OVERLAY_HOVER_ALPHA)
+}
+
+function applyChatTextTokens(tokens: ResolvedTheme, isDark: boolean): void {
+  const body = hexToken(tokens, "text-base")
+  const strong = hexToken(tokens, "text-strong")
+  if (!body || !strong) return
+
+  tokens["chat-text-base"] = body
+  tokens["chat-text-strong"] = strong
+  if (!isDark) return
+
+  const backgrounds = ["background-base", "surface-raised-stronger-non-alpha"].flatMap(
+    (key) => {
+      const background = hexToken(tokens, key)
+      return background ? ([[background]] as const) : []
+    },
+  )
+  if (backgrounds.length === 0) return
+
+  tokens["chat-text-base"] = constrainTextContrast(
+    body,
+    backgrounds,
+    CHAT_TEXT_CONTRAST_TARGET.minimum,
+    CHAT_TEXT_CONTRAST_TARGET.bodyMaximum,
+  )
+  tokens["chat-text-strong"] = constrainTextContrast(
+    strong,
+    backgrounds,
+    CHAT_TEXT_CONTRAST_TARGET.minimum,
+    CHAT_TEXT_CONTRAST_TARGET.strongMaximum,
+  )
 }
 
 function normalizeBuddyTokens(
@@ -365,6 +405,10 @@ function normalizeBuddyTokens(
   setAlias(next, "surface-stronger", next["surface-raised-stronger"])
 
   setAlias(next, "syntax-unknown", next["syntax-diff-unknown"])
+
+  // Derive chat aliases last so light mode exactly follows the normalized
+  // global text tokens while dark mode caps those final colors for reading.
+  applyChatTextTokens(next, isDark)
 
   return next
 }
