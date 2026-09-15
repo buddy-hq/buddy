@@ -13,6 +13,7 @@ export const CONTRAST_TARGET = {
 } as const
 
 const SEARCH_STEPS = 100
+const RANGE_SEARCH_STEPS = 1_000
 const OPAQUE_ALPHA = 1
 const BYTE_MAX = 255
 const BLACK = "#000000" satisfies HexColor
@@ -106,6 +107,15 @@ function minimumTextRatio(
   )
 }
 
+function maximumTextRatio(
+  foreground: HexColor,
+  backgroundStacks: readonly (readonly [HexColor, ...HexColor[]])[],
+): number {
+  return Math.max(
+    ...backgroundStacks.map((background) => layeredContrastRatio(foreground, background)),
+  )
+}
+
 function minimumLayerRatio(
   foregroundLayer: HexColor,
   parentStacks: readonly (readonly [HexColor, ...HexColor[]])[],
@@ -122,13 +132,14 @@ function minimumLayerRatio(
 function nearestPassingCandidate(
   preferred: HexColor,
   passes: (candidate: HexColor) => boolean,
+  searchSteps: number = SEARCH_STEPS,
 ): HexColor | undefined {
   const preferredLightness = hexToOklch(preferred).l
   const candidates: HexColor[] = []
 
   for (const target of [0, 1] as const) {
-    for (let step = 1; step <= SEARCH_STEPS; step += 1) {
-      const candidate = lightnessCandidate(preferred, target, step / SEARCH_STEPS)
+    for (let step = 1; step <= searchSteps; step += 1) {
+      const candidate = lightnessCandidate(preferred, target, step / searchSteps)
       if (!passes(candidate)) continue
       candidates.push(candidate)
       break
@@ -146,6 +157,31 @@ function nearestPassingCandidate(
   }
 
   return nearest
+}
+
+/**
+ * Keeps text inside a contrast band while changing only its OKLCH lightness.
+ * If no color can satisfy both bounds across every surface, the accessible
+ * preferred color is preserved instead of weakening it.
+ */
+export function constrainTextContrast(
+  preferred: HexColor,
+  backgroundStacks: readonly (readonly [HexColor, ...HexColor[]])[],
+  minimum: number,
+  maximum: number,
+): HexColor {
+  const withinRange = (candidate: HexColor) =>
+    minimumTextRatio(candidate, backgroundStacks) >= minimum &&
+    maximumTextRatio(candidate, backgroundStacks) <= maximum
+
+  if (withinRange(preferred)) return preferred
+
+  const candidate = nearestPassingCandidate(opaque(preferred), withinRange, RANGE_SEARCH_STEPS)
+  if (candidate) return candidate
+
+  return minimumTextRatio(preferred, backgroundStacks) >= minimum
+    ? preferred
+    : ensureTextContrast(preferred, backgroundStacks, minimum)
 }
 
 export function ensureTextContrast(

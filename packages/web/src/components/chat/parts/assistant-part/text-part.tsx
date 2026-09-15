@@ -12,6 +12,7 @@ import { useTranscriptMessage } from "@/state/transcript-repository"
 import type { ChatTextPart } from "../../utils/part-guards"
 import { isSvgAutoRepairAssistantMessage } from "../../utils/message-visibility"
 import { MessageNoteAction } from "@/features/notes/message-note-action"
+import { CHAT_MARKDOWN_TEXT_STYLE } from "../../chat-text-styles"
 
 type AssistantTextPartProps = {
   part: ChatTextPart
@@ -145,7 +146,10 @@ export const AssistantTextPart = memo(function AssistantTextPart({
 
   return (
     <div className="group/text-part min-w-0 w-full max-w-full">
-      <div className="min-w-0 w-full max-w-full transition-opacity duration-75 ease-out">
+      <div
+        className="min-w-0 w-full max-w-full transition-opacity duration-75 ease-out"
+        style={CHAT_MARKDOWN_TEXT_STYLE}
+      >
         <Markdown
           text={displayedText}
           cacheKey={part.id}
