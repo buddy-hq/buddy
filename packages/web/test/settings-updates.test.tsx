@@ -123,6 +123,15 @@ describe("settings updates", () => {
     )
   })
 
+  test("registers Shortcuts immediately before About", () => {
+    const coreTabIds = SETTINGS_TABS.filter(isCoreSettingsTab).map((tab) => tab.id)
+    expect(coreTabIds.slice(-2)).toEqual(["shortcuts", "about"])
+    expect(resolveSettingsTab("shortcuts")).toBe("shortcuts")
+    expect(SETTINGS_TABS.find((tab) => tab.id === "shortcuts")?.navLabelKey).toBe(
+      "routes.settings.nav.shortcuts",
+    )
+  })
+
   test("registers standards and memory as independently revealed tabs", () => {
     const revealed = SETTINGS_TABS.filter((tab) => !isCoreSettingsTab(tab))
     expect(revealed.map((tab) => tab.id)).toEqual(["standards", "memory"])

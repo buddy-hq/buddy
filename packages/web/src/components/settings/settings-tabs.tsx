@@ -6,6 +6,7 @@ import {
   BoxesIcon,
   BrainIcon,
   InfoIcon,
+  KeyboardIcon,
   PaintbrushIcon,
   CpuSettingsIcon,
   UserRoundIcon,
@@ -24,6 +25,7 @@ import { PackagesSettings } from "./settings-packages"
 import { StandardsSettings } from "./settings-standards"
 import { MemorySettings } from "./settings-memory"
 import { AboutSettings } from "./settings-about"
+import { ShortcutsSettings } from "./settings-shortcuts"
 import {
   EXPERIMENTAL_FEATURE_ID,
   type ExperimentalFeatureID,
@@ -39,6 +41,7 @@ export type SettingsTab =
   | "skills"
   | "mcps"
   | "packages"
+  | "shortcuts"
   | "standards"
   | "memory"
   | "about"
@@ -149,6 +152,13 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: CpuSettingsIcon,
     layout: "standard",
     render: () => <PackagesSettings />,
+  },
+  {
+    id: "shortcuts",
+    navLabelKey: "routes.settings.nav.shortcuts",
+    icon: KeyboardIcon,
+    layout: "standard",
+    render: () => <ShortcutsSettings />,
   },
   {
     id: "about",
