@@ -814,6 +814,7 @@ export const dict = {
   "settings.appearance.documentFontSizeAria": "Document font size",
   "settings.appearance.documentsSection": "Documents",
   "settings.appearance.fontDefaultBadge": "default",
+  "settings.appearance.fontSearchAria": "Search fonts",
   "settings.appearance.fontSearchEmpty": "No fonts found",
   "settings.appearance.fontSearchPlaceholder": "Search fonts…",
   "settings.appearance.fontSizeCustomOption": "Custom",

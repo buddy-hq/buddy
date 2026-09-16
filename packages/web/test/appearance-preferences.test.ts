@@ -146,6 +146,22 @@ describe("appearance preferences", () => {
     ).toBe("normal")
   })
 
+  test("migration clamps saved sizes to the supported range", () => {
+    const migrated = migrateAppearancePreferences({
+      uiFontSize: 100,
+      codeFontSize: 2,
+      chatFontSize: 100,
+      documentFontSize: 100,
+      chatLineHeightPercent: 400,
+    })
+
+    expect(migrated.uiFontSize).toBe(MAX_APPEARANCE_FONT_SIZE)
+    expect(migrated.codeFontSize).toBe(MIN_APPEARANCE_FONT_SIZE)
+    expect(migrated.chatFontSize).toBe(MAX_APPEARANCE_FONT_SIZE)
+    expect(migrated.documentFontSize).toBe(MAX_APPEARANCE_FONT_SIZE)
+    expect(migrated.chatLineHeightPercent).toBe(MAX_CHAT_LINE_HEIGHT_PERCENT)
+  })
+
   test("store actions normalize persisted values", () => {
     useAppearancePreferences.getState().setUiFont("  Aptos  ")
     useAppearancePreferences.getState().setCodeFont("  SF Mono  ")

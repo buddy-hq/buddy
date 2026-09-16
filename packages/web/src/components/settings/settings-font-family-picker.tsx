@@ -156,6 +156,7 @@ export function FontFamilyPicker(props: {
       <ComboboxContent align="end" className="w-72">
         <ComboboxInput
           showTrigger={false}
+          aria-label={language.t("settings.appearance.fontSearchAria")}
           placeholder={language.t("settings.appearance.fontSearchPlaceholder")}
         >
           <InputGroupAddon>

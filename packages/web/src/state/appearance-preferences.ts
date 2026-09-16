@@ -226,7 +226,10 @@ export function migrateAppearancePreferences<TValue>(
   persistedState: TValue,
 ): AppearancePreferences {
   const state = parseBuddyConfigObject(persistedState) ?? {}
-  const uiFontSize = parseFiniteNumber(state.uiFontSize) ?? DEFAULT_UI_FONT_SIZE
+  const uiFontSize = normalizeAppearanceFontSize(
+    parseFiniteNumber(state.uiFontSize) ?? DEFAULT_UI_FONT_SIZE,
+    DEFAULT_UI_FONT_SIZE,
+  )
   const chatLineSpacing = parseStringValue(state.chatLineSpacing)
   return {
     uiFont: parseStringValue(state.uiFont) ?? "",
@@ -234,20 +237,26 @@ export function migrateAppearancePreferences<TValue>(
     chatFont: parseStringValue(state.chatFont) ?? "",
     documentFont: parseStringValue(state.documentFont) ?? "",
     uiFontSize,
-    codeFontSize: parseFiniteNumber(state.codeFontSize) ?? DEFAULT_CODE_FONT_SIZE,
-    chatFontSize: parseFiniteNumber(state.chatFontSize) ?? uiFontSize,
-    documentFontSize:
+    codeFontSize: normalizeAppearanceFontSize(
+      parseFiniteNumber(state.codeFontSize) ?? DEFAULT_CODE_FONT_SIZE,
+      DEFAULT_CODE_FONT_SIZE,
+    ),
+    chatFontSize: normalizeAppearanceFontSize(
+      parseFiniteNumber(state.chatFontSize) ?? uiFontSize,
+      uiFontSize,
+    ),
+    documentFontSize: normalizeAppearanceFontSize(
       parseFiniteNumber(state.documentFontSize) ??
-      normalizeAppearanceFontSize(
         (uiFontSize * DEFAULT_DOCUMENT_FONT_SIZE) / DEFAULT_UI_FONT_SIZE,
-        DEFAULT_DOCUMENT_FONT_SIZE,
-      ),
+      DEFAULT_DOCUMENT_FONT_SIZE,
+    ),
     chatLineSpacing:
       chatLineSpacing !== undefined && isChatLineSpacing(chatLineSpacing)
         ? chatLineSpacing
         : DEFAULT_APPEARANCE_PREFERENCES.chatLineSpacing,
-    chatLineHeightPercent:
+    chatLineHeightPercent: normalizeChatLineHeightPercent(
       parseFiniteNumber(state.chatLineHeightPercent) ?? DEFAULT_CHAT_LINE_HEIGHT_PERCENT,
+    ),
   }
 }
 
