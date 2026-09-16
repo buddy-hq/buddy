@@ -64,7 +64,7 @@ const MARKDOWN_BENCH_DIRECTIVE_LABEL_CLASS_NAME =
   "mb-2 flex min-h-4 items-center text-xs font-semibold leading-none"
 
 const MARKDOWN_BENCH_DIRECTIVE_CONTENT_CLASS_NAME = [
-  "min-w-0 text-sm leading-6",
+  "min-w-0 text-[0.875em] leading-[1.7142857]",
   "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
   "[&_[contenteditable]>*:first-child]:mt-0 [&_[contenteditable]>*:last-child]:mb-0",
 ].join(" ")

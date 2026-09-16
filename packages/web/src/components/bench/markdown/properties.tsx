@@ -57,7 +57,7 @@ export function MarkdownBenchPropertiesView(props: {
     <div
       data-component="markdown-bench-properties"
       data-markdown-export-ignore
-      className="pb-[1.25em] leading-[1.5] [font-size:calc(var(--buddy-font-size-base)*var(--markdown-bench-document-font-scale))]"
+      className="pb-[1.25em] leading-[1.5] [font-family:var(--buddy-document-font-family)] [font-size:calc(var(--buddy-document-font-size)*var(--markdown-bench-document-font-scale))]"
     >
       <table
         aria-label="Properties"

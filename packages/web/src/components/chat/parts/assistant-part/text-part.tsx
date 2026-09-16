@@ -147,6 +147,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   return (
     <div className="group/text-part min-w-0 w-full max-w-full">
       <div
+        data-chat-typography
         className="min-w-0 w-full max-w-full transition-opacity duration-75 ease-out"
         style={CHAT_MARKDOWN_TEXT_STYLE}
       >

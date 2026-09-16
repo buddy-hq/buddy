@@ -2,7 +2,7 @@ import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { FontSizeInput } from "../src/components/settings/settings-appearance"
+import { SettingsNumberInput } from "../src/components/settings/settings-appearance"
 
 function enterInputValue(input: HTMLInputElement, value: string): void {
   const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
@@ -10,7 +10,7 @@ function enterInputValue(input: HTMLInputElement, value: string): void {
   input.dispatchEvent(new Event("input", { bubbles: true }))
 }
 
-describe("settings font size input", () => {
+describe("settings number input", () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -33,8 +33,12 @@ describe("settings font size input", () => {
     const changes: number[] = []
     await act(async () => {
       root.render(
-        <FontSizeInput
+        <SettingsNumberInput
           value={14}
+          min={10}
+          max={24}
+          step="any"
+          unit="px"
           ariaLabel="UI font size"
           dataAction="settings-ui-font-size"
           onChange={(value) => changes.push(value)}
@@ -60,5 +64,12 @@ describe("settings font size input", () => {
 
     expect(input?.value).toBe("24")
     expect(changes).toEqual([24])
+
+    await act(async () => {
+      if (!input) return
+      enterInputValue(input, "13.5")
+    })
+
+    expect(changes).toEqual([24, 13.5])
   })
 })

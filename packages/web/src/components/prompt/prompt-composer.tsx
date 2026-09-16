@@ -1788,7 +1788,8 @@ export function PromptComposer(props: PromptComposerProps) {
 
                     {placeholderVisible ? (
                       <div
-                        className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-text-weaker transition-opacity duration-250 ease-out"
+                        data-chat-typography
+                        className="pointer-events-none absolute left-3 top-3 right-20 text-text-weaker transition-opacity duration-250 ease-out"
                         style={{ opacity: viewState.placeholderOpacity }}
                       >
                         {noteMode.active
@@ -1800,12 +1801,13 @@ export function PromptComposer(props: PromptComposerProps) {
                     <div
                       ref={editorRef}
                       data-component="prompt-editor"
+                      data-chat-typography
                       contentEditable
                       suppressContentEditableWarning
                       role="textbox"
                       aria-multiline="true"
                       className={cn(
-                        "composer-scroll w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 text-sm leading-6 text-text-base focus:outline-none",
+                        "composer-scroll w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 text-text-base focus:outline-none",
                         props.compact
                           ? PROMPT_EDITOR_COMPACT_SIZE_CLASS
                           : PROMPT_EDITOR_REGULAR_SIZE_CLASS,

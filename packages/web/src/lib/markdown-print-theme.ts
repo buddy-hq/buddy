@@ -97,6 +97,7 @@ export function buildMarkdownPrintCssVariables(): string {
     --markdown-pdf-text-weaker: ${MARKDOWN_PRINT_PALETTE.textWeaker};
     --markdown-pdf-link: ${MARKDOWN_PRINT_PALETTE.link};
     --markdown-pdf-code: ${MARKDOWN_PRINT_PALETTE.code};
+    --buddy-document-font-size: ${MARKDOWN_PRINT_TYPE.bodyFontSize};
     --background-base: var(--markdown-pdf-page);
     --background-strong: var(--markdown-pdf-page);
     --background-stronger: var(--markdown-pdf-page);
