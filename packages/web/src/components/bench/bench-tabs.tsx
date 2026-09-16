@@ -32,6 +32,7 @@ import {
   FileTextIcon,
   Globe,
   ImageIcon,
+  PanelsTopLeftIcon,
   PresentationIcon,
   StudyLampIcon,
   WorkflowIcon,
@@ -102,7 +103,7 @@ function objectTabIcon(kind: BenchObjectKind): ComponentType<{ className?: strin
     case "mermaid":
       return WorkflowIcon
     case "html-widget":
-      return Globe
+      return PanelsTopLeftIcon
     case "figure":
     case "freeform-figure":
       return ImageIcon
@@ -325,6 +326,19 @@ export function BenchTabs(props: BenchTabsProps) {
     }
     return titles
   }, [objectsQuery.data?.objects])
+  const untitledObjectIDs = objectsQuery.isSuccess
+    ? props.tabs
+        .flatMap((tab) =>
+          tab.target.type === "object" && !objectTitles.has(tab.target.ref.objectID)
+            ? [tab.target.ref.objectID]
+            : [],
+        )
+        .join("\n")
+    : ""
+  const refetchObjects = objectsQuery.refetch
+  useEffect(() => {
+    if (untitledObjectIDs) void refetchObjects()
+  }, [refetchObjects, untitledObjectIDs])
   const sessionTitles = useMemo(() => {
     const titles = new Map<string, string>()
     for (const session of sessions ?? []) {

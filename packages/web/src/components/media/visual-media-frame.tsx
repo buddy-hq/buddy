@@ -10,6 +10,7 @@ export function VisualMediaFrame<T>(props: {
   actions?: MediaAction[]
   chromeLabel?: ReactNode
   actionPosition?: "bottom" | "top"
+  actionBackdrop?: boolean
   className?: string
   style?: CSSProperties
   fit?: "content" | "fill"
@@ -61,7 +62,13 @@ export function VisualMediaFrame<T>(props: {
             ) : null}
           </div>
           {hasReadyActions ? (
-            <div className="pointer-events-auto">
+            <div
+              className={cn(
+                "pointer-events-auto",
+                props.actionBackdrop &&
+                  "rounded-full bg-background-base/72 p-0.5 shadow-sm backdrop-blur-md",
+              )}
+            >
               <MediaActions actions={readyActions} minimal />
             </div>
           ) : null}
