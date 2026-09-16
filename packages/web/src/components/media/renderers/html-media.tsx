@@ -45,6 +45,7 @@ export function HtmlMediaRenderer(props: MediaRendererProps<HtmlMediaItem>) {
     <VisualMediaFrame
       state={state}
       actions={props.actions}
+      actionBackdrop
       fit={props.fit}
       className={cn("min-h-0", props.className)}
     >
