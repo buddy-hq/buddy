@@ -19,7 +19,7 @@ export const ReasoningPart = memo(function ReasoningPart({
 
   return (
     <div className="min-w-0 w-full max-w-full opacity-60">
-      <div className="min-w-0 w-full max-w-full px-4">
+      <div data-chat-typography className="min-w-0 w-full max-w-full px-4">
         <Markdown text={text} cacheKey={part.id} isStreaming={isStreaming} />
       </div>
     </div>

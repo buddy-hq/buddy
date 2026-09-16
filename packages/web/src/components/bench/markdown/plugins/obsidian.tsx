@@ -462,10 +462,10 @@ function ObsidianEmbeddedNote(props: {
             text={preview}
             cacheKey={`${props.context.directory}:${path}`}
             directory={props.context.directory}
-            className="text-sm"
+            className="text-[0.875em]"
           />
         ) : (
-          <p className="text-sm text-text-weaker">
+          <p className="text-[0.875em] text-text-weaker">
             {noteQuery.isPending ? "Loading note…" : "Note preview unavailable."}
           </p>
         )}

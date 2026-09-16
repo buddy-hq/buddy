@@ -125,7 +125,8 @@ export const MARKDOWN_CONTENT_BASE_CLASS_NAME = [
   "focus:outline-none",
   // MDXEditor uses --text-base for font sizing, which shadows Buddy's color token alias.
   "![color:var(--markdown-text)]",
-  "![font-size:calc(var(--buddy-font-size-base)*var(--markdown-bench-document-font-scale))]",
+  "[font-family:var(--buddy-document-font-family)]",
+  "![font-size:calc(var(--buddy-document-font-size)*var(--markdown-bench-document-font-scale))]",
   "![line-height:1.5]",
   // Match Obsidian's base editor metrics while leaving Buddy's theme colors untouched.
   "[&_h1]:!text-[1.618em] [&_h1]:![font-weight:700] [&_h1]:!leading-[1.2] [&_h1]:!tracking-[-0.015em]",
@@ -150,7 +151,7 @@ export const MARKDOWN_DOCUMENT_PAPER_INSET_CLASS_NAME =
 export const MARKDOWN_DOCUMENT_PLAIN_INSET_CLASS_NAME = "px-4"
 
 export const MARKDOWN_NOTE_TITLE_BASE_CLASS_NAME =
-  "mb-[0.5em] whitespace-pre-wrap [font-size:calc(var(--buddy-font-size-base)*1.618*var(--markdown-bench-document-font-scale))] [font-weight:700] leading-[1.2] tracking-[-0.015em]"
+  "mb-[0.5em] whitespace-pre-wrap [font-family:var(--buddy-document-font-family)] [font-size:calc(var(--buddy-document-font-size)*1.618*var(--markdown-bench-document-font-scale))] [font-weight:700] leading-[1.2] tracking-[-0.015em]"
 
 export const MARKDOWN_NOTE_TITLE_PAPER_LAYOUT_CLASS_NAME =
   "pt-[clamp(0px,calc((100%_-_28rem)/4),3rem)]"

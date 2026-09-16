@@ -130,7 +130,7 @@ export const UserMessagePart = memo(function UserMessagePart({
 
   return (
     <>
-      <div className="ml-auto flex w-fit max-w-[min(82%,64ch)] flex-col items-end">
+      <div className="ml-auto flex w-fit max-w-[82%] flex-col items-end">
         <div
           className={cn(
             "composer-surface-bubble composer-grain relative inline-block max-w-full overflow-hidden",
@@ -140,8 +140,9 @@ export const UserMessagePart = memo(function UserMessagePart({
           <div className="relative">
             <div
               ref={contentRef}
+              data-chat-typography
               className={cn(
-                "overflow-hidden px-4 py-3 whitespace-pre-wrap break-words text-sm",
+                "max-w-[64ch] overflow-hidden px-4 py-3 whitespace-pre-wrap break-words",
                 animateHeight &&
                   "transition-[max-height] duration-300 ease-out motion-reduce:transition-none",
               )}
