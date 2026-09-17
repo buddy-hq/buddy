@@ -1,7 +1,9 @@
 import path from "node:path"
 import { afterEach, describe, expect, test } from "bun:test"
+import type { Hooks } from "@opencode-ai/plugin"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
+import { OpenCodeUserAgent } from "@buddy/opencode-adapter/installation"
 import { Config } from "@buddy/backend/config"
 import { buildOpenCodeConfigOverlay } from "../../src/config/opencode/overlay-builder"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
@@ -16,6 +18,21 @@ import {
   clearAllTeachingSessionState,
   writeTeachingSessionState,
 } from "../../src/learning/agent-execution/state/session-state"
+
+type ChatHeadersInput = Parameters<NonNullable<Hooks["chat.headers"]>>[0]
+type ChatHeadersOutput = Parameters<NonNullable<Hooks["chat.headers"]>>[1]
+
+function chatHeadersInput(providerID: string): ChatHeadersInput {
+  // SAFETY: The hook under test reads only `model.providerID`; the remaining protocol fields are
+  // intentionally minimal because exercising their SDK-owned shapes is outside this test's scope.
+  return {
+    sessionID: "ses_123",
+    agent: "build",
+    model: { providerID },
+    provider: {},
+    message: {},
+  } as ChatHeadersInput
+}
 
 afterEach(async () => {
   clearAllTeachingSessionState()
@@ -185,5 +202,38 @@ describe("Buddy runtime plugin", () => {
       "ChatGPT Pro/Plus (headless)",
       "Manually enter API Key",
     ])
+  })
+
+  test("runtime hooks set opencode User-Agent with valid semver for opencode provider requests", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const hooks = await createBuddyRuntimeHooks({
+      directory: project.path,
+      worktree: project.path,
+    })
+
+    const chatHeadersHook = hooks["chat.headers"]
+    expect(chatHeadersHook).toBeDefined()
+    expect(OpenCodeUserAgent).toMatch(
+      /^opencode\/(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9a-zA-Z.-]+)?(?:\+[0-9a-zA-Z.-]+)?$/u,
+    )
+
+    const opencodeOutput: ChatHeadersOutput = {
+      headers: {
+        "user-agent": "opencode/local",
+        "x-preserved": "preserved",
+      },
+    }
+    await chatHeadersHook?.(chatHeadersInput("opencode"), opencodeOutput)
+    expect(opencodeOutput.headers).toEqual({
+      "User-Agent": OpenCodeUserAgent,
+      "x-preserved": "preserved",
+    })
+
+    const otherOutput: ChatHeadersOutput = {
+      headers: { "user-agent": "anthropic-client/1.0.0" },
+    }
+    await chatHeadersHook?.(chatHeadersInput("anthropic"), otherOutput)
+    expect(otherOutput.headers).toEqual({ "user-agent": "anthropic-client/1.0.0" })
   })
 })
