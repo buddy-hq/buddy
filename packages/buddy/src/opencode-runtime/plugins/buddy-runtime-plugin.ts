@@ -3,6 +3,7 @@ import type { Hooks, Plugin } from "@opencode-ai/plugin"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { PRODUCTION_PERSONAS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { MessageID, PartID } from "@buddy/opencode-adapter/id"
+import { OpenCodeUserAgent } from "@buddy/opencode-adapter/installation"
 import { createOpenAICodexAuthHook } from "./openai-codex-auth"
 import { createOpenAICodexProviderHook } from "./openai-codex-provider"
 import { stripToolPresentationFromMessages } from "../tool-presentation-strip"
@@ -137,6 +138,19 @@ const stripToolPresentationFromChatMessages: NonNullable<
   stripToolPresentationFromMessages(output.messages)
 }
 
+const enforceOpenCodeUserAgent: NonNullable<Hooks["chat.headers"]> = async (hookInput, output) => {
+  // Source/dev execution does not pass through OpenCode's release bundler, so enforce the same
+  // release identity at the supported request hook boundary.
+  if (hookInput.model.providerID.startsWith("opencode")) {
+    for (const headerName of Object.keys(output.headers)) {
+      if (headerName.toLowerCase() === "user-agent") {
+        delete output.headers[headerName]
+      }
+    }
+    output.headers["User-Agent"] = OpenCodeUserAgent
+  }
+}
+
 type CommandExecuteBeforeHook = NonNullable<Hooks["command.execute.before"]>
 type EventHook = NonNullable<Hooks["event"]>
 type CommandExecuteBeforeInput = Parameters<CommandExecuteBeforeHook>[0]
@@ -195,6 +209,7 @@ function createBuddyRuntimeBehaviorHooks(input: { directory: string }) {
   return {
     "command.execute.before": compactCommandInvocationBeforeExecute,
     "chat.params": createTextVerbosityHook(input),
+    "chat.headers": enforceOpenCodeUserAgent,
     "experimental.chat.messages.transform": stripToolPresentationFromChatMessages,
     "experimental.chat.system.transform": async (
       hookInput: SystemTransformInput,

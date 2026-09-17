@@ -8,6 +8,7 @@ import {
   readBuddyReleaseChannel,
   resolveOpenCodeChannelForBuddyChannel,
 } from "@buddy/script/channel"
+import { OpenCodeVersion } from "@buddy/opencode-adapter/installation"
 import {
   CHEMFIG_CHILD_FILENAME,
   CHEMFIG_RUNTIME_DIRECTORY_NAME,
@@ -33,6 +34,8 @@ const outdir = path.resolve(backendDir, "dist/node")
 const require = createRequire(import.meta.url)
 const TARGET_PLATFORM_ENV = "BUDDY_NODE_ARTIFACT_TARGET_PLATFORM"
 const TARGET_ARCH_ENV = "BUDDY_NODE_ARTIFACT_TARGET_ARCH"
+// OpenCode reads this bare identifier as a build-time macro in its own release artifacts.
+const OPENCODE_VERSION_DEFINE = "OPENCODE_VERSION"
 const bundledAdvancedMathRuntimeVersion = computeAdvancedMathRuntimeVersion()
 const chonkieWasmOutputPath = path.resolve(outdir, "pkg/chonkiejs_chunk_bg.wasm")
 const tessdataSourcePath = path.resolve(backendDir, "resources/tessdata")
@@ -113,6 +116,7 @@ const result = await Bun.build({
     [BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE]: JSON.stringify(
       bundledAdvancedMathRuntimeVersion,
     ),
+    [OPENCODE_VERSION_DEFINE]: JSON.stringify(OpenCodeVersion),
     [OPENCODE_CHANNEL_DEFINE]: JSON.stringify(
       resolveOpenCodeChannelForBuddyChannel(readBuddyReleaseChannel()),
     ),
