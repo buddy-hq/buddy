@@ -482,39 +482,40 @@ describe("bench surface rendering", () => {
     ["notes.md", "read-only-markdown-bench-view"],
     ["notes.mdx", "read-only-markdown-bench-view"],
     ["notes.ts", "read-only-source-bench-view"],
-  ])("renders presented %s source with the owning read-only viewer", async (fileName, component) => {
-    await act(async () => {
-      root.render(
-        <ThemeProvider>
-          <PresentedMediaSourceViewer
-            directory={TEST_DIRECTORY}
-            title={fileName}
-            path={`/tmp/${fileName}`}
-            sourceFileName={fileName}
-            sourceRawUrl={`/api/objects/media-presentation/object-source-view/raw/item-1?directory=%2Frepo&fileName=${fileName}`}
-            content="# Hello\n"
-            version="2026-01-01T00:00:00.000Z"
-            error={undefined}
-            loading={component === "read-only-source-bench-view"}
-            actions={[]}
-            viewportKey={`presented-source:${fileName}`}
-          />
-        </ThemeProvider>,
-      )
-      await flushEffects()
-    })
-    await waitForEffect(
-      () => container.querySelector(`[data-component="${component}"]`) !== null,
-    )
+  ])(
+    "renders presented %s source with the owning read-only viewer",
+    async (fileName, component) => {
+      await act(async () => {
+        root.render(
+          <ThemeProvider>
+            <PresentedMediaSourceViewer
+              directory={TEST_DIRECTORY}
+              title={fileName}
+              path={`/tmp/${fileName}`}
+              sourceFileName={fileName}
+              sourceRawUrl={`/api/objects/media-presentation/object-source-view/raw/item-1?directory=%2Frepo&fileName=${fileName}`}
+              content="# Hello\n"
+              version="2026-01-01T00:00:00.000Z"
+              error={undefined}
+              loading={component === "read-only-source-bench-view"}
+              actions={[]}
+              viewportKey={`presented-source:${fileName}`}
+            />
+          </ThemeProvider>,
+        )
+        await flushEffects()
+      })
+      await waitForEffect(() => container.querySelector(`[data-component="${component}"]`) !== null)
 
-    expect(container.querySelector(`[data-component="${component}"]`)).not.toBeNull()
-    if (component === "read-only-markdown-bench-view") {
-      expect(container.querySelector('[data-component="markdown-bench-editor"]')).not.toBeNull()
-      expect(container.textContent).toContain("External file · Read-only")
-    } else {
-      expect(container.querySelector('[data-component="markdown-bench-editor"]')).toBeNull()
-    }
-  })
+      expect(container.querySelector(`[data-component="${component}"]`)).not.toBeNull()
+      if (component === "read-only-markdown-bench-view") {
+        expect(container.querySelector('[data-component="markdown-bench-editor"]')).not.toBeNull()
+        expect(container.textContent).toContain("External file · Read-only")
+      } else {
+        expect(container.querySelector('[data-component="markdown-bench-editor"]')).toBeNull()
+      }
+    },
+  )
 
   test("does not register an outgoing surface under the next route target", async () => {
     const registrations: BenchSurfaceRegistrationInput[] = []

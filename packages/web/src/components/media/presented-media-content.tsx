@@ -251,7 +251,15 @@ function usePresentedFileMediaModel(props: {
     if (workspacePlan.targets.includes(WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP)) {
       await executeTarget(actionInput, WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP)
     }
-  }, [actionInput, directory, executeTarget, item.id, objectID, openBenchRoute, workspacePlan.targets])
+  }, [
+    actionInput,
+    directory,
+    executeTarget,
+    item.id,
+    objectID,
+    openBenchRoute,
+    workspacePlan.targets,
+  ])
 
   const runTarget = useCallback(
     (target: PresentedFileOpenTarget) => {
@@ -708,11 +716,7 @@ export function PresentedMediaContent(props: PresentedMediaContentProps) {
         />
       ) : null}
       {files.length > 0 ? (
-        <PresentedFileMediaList
-          {...interactionProps}
-          objectID={props.objectID}
-          items={files}
-        />
+        <PresentedFileMediaList {...interactionProps} objectID={props.objectID} items={files} />
       ) : null}
     </div>
   )

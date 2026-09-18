@@ -1022,9 +1022,7 @@ describe("present media renderer", () => {
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_markdown/items/item_1/availability",
-          )
+          url.includes("/api/objects/media-presentation/object_markdown/items/item_1/availability")
         ) {
           return Response.json({ status: "available", message: null })
         }

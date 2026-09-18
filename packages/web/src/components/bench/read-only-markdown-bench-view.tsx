@@ -72,8 +72,7 @@ export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps
   const markdown = props.markdown
   const showPending = props.loading || (markdown === undefined && props.error === undefined)
   const resolveImageSrc = useCallback(
-    (src: string) =>
-      resolvePresentedMediaMarkdownImageSrc({ rawUrl: props.sourceRawUrl, src }),
+    (src: string) => resolvePresentedMediaMarkdownImageSrc({ rawUrl: props.sourceRawUrl, src }),
     [props.sourceRawUrl],
   )
   const openLink = useCallback(

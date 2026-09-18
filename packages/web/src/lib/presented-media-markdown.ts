@@ -92,7 +92,10 @@ export function resolvePresentedMediaMarkdownLink(
   if (normalizedHref.startsWith("//")) {
     return { type: "external-url", url: `https:${normalizedHref}` }
   }
-  if (!WINDOWS_ABSOLUTE_PATH_PATTERN.test(normalizedHref) && URI_SCHEME_PATTERN.test(normalizedHref)) {
+  if (
+    !WINDOWS_ABSOLUTE_PATH_PATTERN.test(normalizedHref) &&
+    URI_SCHEME_PATTERN.test(normalizedHref)
+  ) {
     const schemeEnd = normalizedHref.indexOf(":") + 1
     const scheme = normalizedHref.slice(0, schemeEnd).toLocaleLowerCase()
     return SAFE_EXTERNAL_LINK_SCHEMES.has(scheme)

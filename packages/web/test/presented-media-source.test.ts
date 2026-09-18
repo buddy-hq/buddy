@@ -104,9 +104,7 @@ describe("presented media source files", () => {
   })
 
   test("keeps raw endpoint errors out of the source viewer", async () => {
-    installTestFetch(async () =>
-      Response.json({ error: "File not found" }, { status: 404 }),
-    )
+    installTestFetch(async () => Response.json({ error: "File not found" }, { status: 404 }))
 
     await expect(
       loadPresentedMediaSource({
@@ -133,9 +131,7 @@ describe("presented media source files", () => {
       type: "local-path",
       path: "/tmp/guide.md",
     })
-    expect(
-      resolvePresentedMediaMarkdownLink("C:\\Users\\buddy\\notes.md", ".\\guide.md"),
-    ).toEqual({
+    expect(resolvePresentedMediaMarkdownLink("C:\\Users\\buddy\\notes.md", ".\\guide.md")).toEqual({
       type: "local-path",
       path: "C:\\Users\\buddy\\guide.md",
     })
