@@ -19,6 +19,7 @@ const mediaObjectRawParamSchema = z
 
 const mediaObjectRawQuerySchema = directoryQuerySchema.extend({
   fileName: nonEmptyString.optional(),
+  relativePath: nonEmptyString.optional(),
 })
 
 const mediaObjectAvailabilityResponseSchema = z
@@ -102,6 +103,7 @@ export const ObjectMediaPresentationRoutes = new Hono()
               objectID: params.objectID,
               itemID: params.itemID,
               downloadName: query.fileName,
+              relativePath: query.relativePath,
               includeBody: true,
               rangeHeader: c.req.header("range"),
               signal: c.req.raw.signal,
@@ -127,6 +129,7 @@ export const ObjectMediaPresentationRoutes = new Hono()
               objectID: params.objectID,
               itemID: params.itemID,
               downloadName: query.fileName,
+              relativePath: query.relativePath,
               includeBody: false,
               rangeHeader: c.req.header("range"),
             })
