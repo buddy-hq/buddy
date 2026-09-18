@@ -3,13 +3,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
   createMemoryHistory,
   createRootRoute,
+  createRoute,
   createRouter,
+  Outlet,
   RouterProvider,
 } from "@tanstack/react-router"
 import { act, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { PlatformProvider, type Platform } from "../src/context/platform"
 import { ServerProvider, type ServerConnection } from "../src/context/server"
+import { DirectoryWorkspaceProvider } from "../src/components/directory-chat/directory-workspace-context"
 import type { ToolPartProps } from "../src/components/chat/tools/registry"
 import { resolveToolRenderer } from "../src/components/chat/tools/registry"
 import {
@@ -22,6 +25,8 @@ import { usePresentedMediaPlaybackStore } from "../src/state/presented-media-pla
 import type { MessagePart } from "../src/state/chat-types"
 import { getPromptDraft, getPromptScopeKey, usePromptStore } from "../src/state/prompt-store"
 import { parseRequestUrl } from "./parse-test-values"
+import { decodeDirectory, encodeDirectory } from "../src/lib/directory-token"
+import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
 
 function PresentMediaToolHarness(props: ToolPartProps) {
   return renderPresentMediaTool(props)
@@ -54,6 +59,49 @@ function renderHarness(root: Root, element: ReactNode) {
   })
 
   root.render(<RouterProvider router={router} />)
+}
+
+function renderWorkspaceHarness(root: Root, element: ReactNode) {
+  const queryClient = createQueryClient()
+  queryClient.setQueryData(workspaceObjectsQueryKeys.all("/repo"), { objects: [] })
+  const rootRoute = createRootRoute({
+    component: () => (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    ),
+  })
+  const directoryRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "$directory",
+    component: DirectoryLayout,
+  })
+  const objectRoute = createRoute({
+    getParentRoute: () => directoryRoute,
+    path: "objects/$kind/$objectID",
+    component: () => <>{element}</>,
+  })
+
+  function DirectoryLayout() {
+    const params = directoryRoute.useParams()
+    const directory = decodeDirectory(params.directory)
+    return (
+      <DirectoryWorkspaceProvider key={params.directory} directory={directory}>
+        <Outlet />
+      </DirectoryWorkspaceProvider>
+    )
+  }
+
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([directoryRoute.addChildren([objectRoute])]),
+    history: createMemoryHistory({
+      initialEntries: [
+        `/${encodeDirectory("/repo")}/objects/media-presentation/source-card?view=gallery`,
+      ],
+    }),
+  })
+  root.render(<RouterProvider router={router} />)
+  return router
 }
 
 async function flushEffects(delay = 0) {
@@ -900,6 +948,158 @@ describe("present media renderer", () => {
     expect(container.textContent).toContain("Outside notebook")
     expect(mediaFileRows(container).length).toBe(1)
     expect(openPath).toHaveBeenCalledWith("/tmp/notes.pdf")
+  })
+
+  test("falls back to the default app when external Markdown cannot reach a Bench", async () => {
+    const openPath = mock(async () => {})
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = parseRequestUrl(input)
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (
+          method === "GET" &&
+          url.includes(
+            "/api/objects/media-presentation/object_markdown/items/item_1/availability",
+          ) &&
+          url.includes("directory=%2Frepo")
+        ) {
+          return Response.json({ status: "available", message: null })
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    await act(async () => {
+      renderHarness(
+        root,
+        <PlatformProvider value={createPlatform({ openPath })}>
+          <ServerProvider value={createServerConnection()}>
+            <PresentMediaToolHarness
+              {...createToolProps({
+                objectID: "object_markdown",
+                layout: "list",
+                items: [
+                  {
+                    path: "/tmp/notes.md",
+                    absolutePath: "/tmp/notes.md",
+                    fileName: "notes.md",
+                    mediaKind: "other",
+                    mimeType: "text/markdown",
+                    renderMode: "file",
+                    rawUrl:
+                      "/api/objects/media-presentation/object_markdown/raw/item_1?directory=%2Frepo&fileName=notes.md",
+                    canOpenInBuddy: false,
+                  },
+                ],
+              })}
+            />
+          </ServerProvider>
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    const row = firstMediaFileRow(container)
+    expect(row?.getAttribute("role")).toBe("button")
+    expect(row?.textContent).toContain("Outside notebook · Open in Bench")
+
+    await act(async () => {
+      row?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      await flushEffects()
+    })
+
+    expect(openPath).toHaveBeenCalledWith("/tmp/notes.md")
+  })
+
+  test("opens renderable external Markdown at its exact media object item on Bench", async () => {
+    const openPath = mock(async () => {})
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = parseRequestUrl(input)
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+        if (
+          method === "GET" &&
+          url.includes(
+            "/api/objects/media-presentation/object_markdown/items/item_1/availability",
+          )
+        ) {
+          return Response.json({ status: "available", message: null })
+        }
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    let router: ReturnType<typeof renderWorkspaceHarness> | undefined
+    await act(async () => {
+      router = renderWorkspaceHarness(
+        root,
+        <PlatformProvider value={createPlatform({ openPath })}>
+          <ServerProvider value={createServerConnection()}>
+            <PresentMediaToolHarness
+              {...createToolProps({
+                objectID: "object_markdown",
+                layout: "list",
+                items: [
+                  {
+                    path: "/tmp/notes.md",
+                    absolutePath: "/tmp/notes.md",
+                    fileName: "notes.md",
+                    mediaKind: "other",
+                    mimeType: "text/markdown",
+                    renderMode: "file",
+                    rawUrl:
+                      "/api/objects/media-presentation/object_markdown/raw/item_1?directory=%2Frepo&fileName=notes.md",
+                    canOpenInBuddy: false,
+                  },
+                ],
+              })}
+            />
+          </ServerProvider>
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="File actions for notes.md"]')
+        ?.dispatchEvent(
+          new PointerEvent("pointerdown", {
+            bubbles: true,
+            button: 0,
+            pointerType: "mouse",
+          }),
+        )
+      await flushEffects()
+    })
+    await waitForEffect(() =>
+      Array.from(document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')).some(
+        (item) => item.textContent?.trim() === "Open in Bench",
+      ),
+    )
+    expect(
+      Array.from(document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')).some(
+        (item) => item.textContent?.trim() === "Open in Bench",
+      ),
+    ).toBe(true)
+
+    await act(async () => {
+      firstMediaFileRow(container)?.click()
+      await flushEffects()
+    })
+
+    expect(router?.state.location.pathname).toBe(
+      `/${encodeDirectory("/repo")}/objects/media-presentation/object_markdown`,
+    )
+    expect(router?.state.location.search).toMatchObject({
+      view: "gallery",
+      item: "item_1",
+    })
+    expect(openPath).not.toHaveBeenCalled()
   })
 
   test("opens non-previewable workspace files in the default app on primary click", async () => {

@@ -18,6 +18,7 @@ import {
   buildPresentedMediaFileActionInput,
   isPresentedMediaOutsideNotebook,
 } from "@/lib/presented-media"
+import { canRenderPresentedMediaAsSource } from "@/lib/presented-media-source"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
 import {
@@ -76,12 +77,24 @@ type PresentedFileMediaModel = {
   onOpen?: () => void
 }
 
+const PRESENTED_FILE_OPEN_TARGET_OBJECT_BENCH = "object-bench" as const
+
+type PresentedFileOpenTarget =
+  | WorkspaceFileOpenTarget
+  | typeof PRESENTED_FILE_OPEN_TARGET_OBJECT_BENCH
+
+type PresentedFileOpenPlan = {
+  primaryTarget: PresentedFileOpenTarget | undefined
+  targets: PresentedFileOpenTarget[]
+}
+
 function resolvePresentedMediaStreamUrl(item: PresentMediaResolvedItem): string | null {
   if (!item.rawUrl) return null
   return resolveAssetUrl(item.rawUrl)
 }
 
-function fileOpenTargetLabel(target: WorkspaceFileOpenTarget, revealLabel: string): string {
+function fileOpenTargetLabel(target: PresentedFileOpenTarget, revealLabel: string): string {
+  if (target === PRESENTED_FILE_OPEN_TARGET_OBJECT_BENCH) return "Open in Bench"
   if (target === WORKSPACE_FILE_OPEN_TARGET_READING) return "Open file"
   if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) return "Open file"
   if (target === WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH) return "Open file"
@@ -90,7 +103,8 @@ function fileOpenTargetLabel(target: WorkspaceFileOpenTarget, revealLabel: strin
   return "Copy path"
 }
 
-function fileOpenTargetIcon(target: WorkspaceFileOpenTarget): AppIcon {
+function fileOpenTargetIcon(target: PresentedFileOpenTarget): AppIcon {
+  if (target === PRESENTED_FILE_OPEN_TARGET_OBJECT_BENCH) return FileTextIcon
   if (target === WORKSPACE_FILE_OPEN_TARGET_READING) return BookOpenIcon
   if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) return FileTextIcon
   if (target === WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH) return FolderOpenIcon
@@ -112,14 +126,15 @@ function resourceProcessLabel(resource: ResourceListItem | undefined): string | 
 function fileRowStatusLabel(input: {
   item: PresentMediaResolvedItem
   isMissing: boolean
-  primaryTarget: WorkspaceFileOpenTarget | undefined
+  primaryTarget: PresentedFileOpenTarget | undefined
   revealLabel: string
 }): string {
   if (input.isMissing) return "File unavailable"
   if (!input.primaryTarget) return "No open action available"
   const targetLabel = fileOpenTargetLabel(input.primaryTarget, input.revealLabel)
   if (
-    input.primaryTarget === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP &&
+    (input.primaryTarget === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP ||
+      input.primaryTarget === PRESENTED_FILE_OPEN_TARGET_OBJECT_BENCH) &&
     isPresentedMediaOutsideNotebook(input.item)
   ) {
     return `Outside notebook · ${targetLabel}`
@@ -129,15 +144,24 @@ function fileRowStatusLabel(input: {
 
 function usePresentedFileMediaModel(props: {
   directory: string
+  objectID: string
   item: PresentMediaResolvedItem
   onOpenResource?: WorkspaceResourceOpener
   resource?: ResourceListItem
   resourceProcessingReady: boolean
   onProcessResource?: (resource: ResourceListItem | undefined, path: string) => Promise<void>
 }): PresentedFileMediaModel {
-  const { directory, item, onOpenResource, onProcessResource, resource, resourceProcessingReady } =
-    props
+  const {
+    directory,
+    objectID,
+    item,
+    onOpenResource,
+    onProcessResource,
+    resource,
+    resourceProcessingReady,
+  } = props
   const platform = usePlatform()
+  const openBenchRoute = useOpenBench()
   const [processing, setProcessing] = useState(false)
   const { resolvePlan, executeTarget, executePrimary } = useWorkspaceFileOpen(
     directory,
@@ -159,9 +183,24 @@ function usePresentedFileMediaModel(props: {
       ),
     [item, platform.openPath, platform.revealPath, resource],
   )
-  const plan = resolvePlan(actionInput)
-  const primaryTarget = plan.primaryTarget
   const isMissing = item.resolvedAvailability.status === "missing"
+  const canOpenExternalSourceOnBench =
+    item.resolvedAvailability.status === "available" &&
+    isPresentedMediaOutsideNotebook(item) &&
+    canRenderPresentedMediaAsSource({
+      path: item.fileName,
+      mimeType: item.mimeType ?? undefined,
+      sizeBytes: item.sizeBytes ?? undefined,
+      renderMode: item.renderMode,
+    })
+  const workspacePlan = resolvePlan(actionInput)
+  const plan: PresentedFileOpenPlan = canOpenExternalSourceOnBench
+    ? {
+        primaryTarget: PRESENTED_FILE_OPEN_TARGET_OBJECT_BENCH,
+        targets: [PRESENTED_FILE_OPEN_TARGET_OBJECT_BENCH, ...workspacePlan.targets],
+      }
+    : workspacePlan
+  const primaryTarget = plan.primaryTarget
   const revealLabel = platform.os === "macos" ? "Reveal in Finder" : "Reveal in File Explorer"
   const processLabel =
     resourceProcessingReady && item.mediaKind === "pdf" && item.workspacePath
@@ -192,13 +231,39 @@ function usePresentedFileMediaModel(props: {
         data,
       }
 
+  const openPresentedSourceOnBench = useCallback(async () => {
+    const result = await openBenchRoute({
+      directory,
+      target: {
+        type: "object",
+        ref: {
+          kind: "media-presentation",
+          objectID,
+          revisionID: null,
+          itemID: item.id,
+        },
+        viewID: "gallery",
+      },
+      mode: BENCH_MODE_REQUEST_POLICY,
+      autoOpen: null,
+    })
+    if (result.outcome === "committed") return
+    if (workspacePlan.targets.includes(WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP)) {
+      await executeTarget(actionInput, WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP)
+    }
+  }, [actionInput, directory, executeTarget, item.id, objectID, openBenchRoute, workspacePlan.targets])
+
   const runTarget = useCallback(
-    (target: WorkspaceFileOpenTarget) => {
-      void executeTarget(actionInput, target).catch((error) => {
+    (target: PresentedFileOpenTarget) => {
+      const execution =
+        target === PRESENTED_FILE_OPEN_TARGET_OBJECT_BENCH
+          ? openPresentedSourceOnBench()
+          : executeTarget(actionInput, target)
+      void execution.catch((error) => {
         toast.error(error instanceof Error ? error.message : String(error))
       })
     },
-    [actionInput, executeTarget],
+    [actionInput, executeTarget, openPresentedSourceOnBench],
   )
 
   const processResource = useCallback(() => {
@@ -214,11 +279,15 @@ function usePresentedFileMediaModel(props: {
   const onOpen = useMemo(() => {
     if (!primaryTarget) return undefined
     return () => {
-      void executePrimary(actionInput).catch((error) => {
+      const execution =
+        primaryTarget === PRESENTED_FILE_OPEN_TARGET_OBJECT_BENCH
+          ? openPresentedSourceOnBench()
+          : executePrimary(actionInput)
+      void execution.catch((error) => {
         toast.error(error instanceof Error ? error.message : String(error))
       })
     }
-  }, [actionInput, executePrimary, primaryTarget])
+  }, [actionInput, executePrimary, openPresentedSourceOnBench, primaryTarget])
 
   const actions = useMemo<MediaAction[]>(() => {
     const items: Extract<MediaAction, { kind: "menu" }>["items"] = plan.targets.map((target) => {
@@ -294,6 +363,7 @@ function usePresentedFileMediaModel(props: {
 
 function PresentedFileMedia(props: {
   directory: string
+  objectID: string
   item: PresentMediaResolvedItem
   onOpenResource?: WorkspaceResourceOpener
   resource?: ResourceListItem
@@ -305,7 +375,7 @@ function PresentedFileMedia(props: {
 }
 
 function PresentedFileMediaList(
-  props: MediaInteractionProps & { items: PresentMediaResolvedItem[] },
+  props: MediaInteractionProps & { objectID: string; items: PresentMediaResolvedItem[] },
 ) {
   return (
     <div className="flex w-full max-w-full flex-col gap-2 overflow-hidden">
@@ -313,6 +383,7 @@ function PresentedFileMediaList(
         <PresentedFileMedia
           key={`file-${item.id}`}
           directory={props.directory}
+          objectID={props.objectID}
           item={item}
           onOpenResource={props.onOpenResource}
           onProcessResource={props.onProcessResource}
@@ -406,6 +477,7 @@ function PresentedPlaybackMedia(
   const openBenchRoute = useOpenBench()
   const fallback = usePresentedFileMediaModel({
     directory: props.directory,
+    objectID: props.objectID,
     item: props.item,
     onOpenResource: props.onOpenResource,
     onProcessResource: props.onProcessResource,
@@ -635,7 +707,13 @@ export function PresentedMediaContent(props: PresentedMediaContentProps) {
           items={audios}
         />
       ) : null}
-      {files.length > 0 ? <PresentedFileMediaList {...interactionProps} items={files} /> : null}
+      {files.length > 0 ? (
+        <PresentedFileMediaList
+          {...interactionProps}
+          objectID={props.objectID}
+          items={files}
+        />
+      ) : null}
     </div>
   )
 }

@@ -156,16 +156,17 @@ function actionCapabilitiesForWorkspacePath(
 export function presentedMediaItemFromInlineItem(
   item: PresentedMediaInlineItem,
 ): PresentedMediaItem | undefined {
+  const itemID = readNonEmptyString(item.itemID)
   const mediaKind = isWorkspaceMediaKind(item.mediaType) ? item.mediaType : undefined
   const fileName = readNonEmptyString(item.fileName) ?? readNonEmptyString(item.title)
   const displayPath = readNonEmptyString(item.source.displayPath) ?? item.source.path
-  if (!mediaKind || !fileName) return undefined
+  if (!itemID || !mediaKind || !fileName) return undefined
 
   const workspacePath = item.source.workspacePath === undefined ? null : item.source.workspacePath
   const availability = mediaAvailability(item.availability)
 
   return {
-    id: item.itemID,
+    id: itemID,
     inputPath: displayPath,
     absolutePath: item.source.path,
     displayPath,

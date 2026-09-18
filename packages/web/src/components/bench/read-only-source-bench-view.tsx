@@ -21,43 +21,45 @@ export function ReadOnlySourceBenchView(props: ReadOnlySourceBenchViewProps) {
   const { mode: colorMode } = useTheme()
 
   return (
-    <BenchSurfaceViewer
-      title={props.title}
-      subtitle={props.path}
-      actions={props.actions}
-      controlsPlacement="dock"
-      hideHeader
-    >
-      {props.loading ? (
-        <BenchSurfacePending />
-      ) : props.error ? (
-        <BenchMediaMessage title="File could not be opened" className="text-icon-critical-base">
-          {props.error}
-        </BenchMediaMessage>
-      ) : (
-        <div className="flex h-full min-h-0 flex-col">
-          {props.banner}
-          <div className="min-h-0 flex-1 overflow-hidden bg-background-base">
-            <Editor
-              height="100%"
-              path={props.path}
-              language={monacoLanguageForWorkspacePath(props.path)}
-              theme={colorMode === "dark" ? "vs-dark" : "light"}
-              value={props.content ?? ""}
-              options={{
-                automaticLayout: true,
-                domReadOnly: true,
-                fontSize: 13,
-                lineNumbers: "on",
-                minimap: { enabled: false },
-                readOnly: true,
-                scrollBeyondLastLine: false,
-                wordWrap: "off",
-              }}
-            />
+    <div data-component="read-only-source-bench-view" className="h-full min-h-0">
+      <BenchSurfaceViewer
+        title={props.title}
+        subtitle={props.path}
+        actions={props.actions}
+        controlsPlacement="dock"
+        hideHeader
+      >
+        {props.loading ? (
+          <BenchSurfacePending />
+        ) : props.error ? (
+          <BenchMediaMessage title="File could not be opened" className="text-icon-critical-base">
+            {props.error}
+          </BenchMediaMessage>
+        ) : (
+          <div className="flex h-full min-h-0 flex-col">
+            {props.banner}
+            <div className="min-h-0 flex-1 overflow-hidden bg-background-base">
+              <Editor
+                height="100%"
+                path={props.path}
+                language={monacoLanguageForWorkspacePath(props.path)}
+                theme={colorMode === "dark" ? "vs-dark" : "light"}
+                value={props.content ?? ""}
+                options={{
+                  automaticLayout: true,
+                  domReadOnly: true,
+                  fontSize: 13,
+                  lineNumbers: "on",
+                  minimap: { enabled: false },
+                  readOnly: true,
+                  scrollBeyondLastLine: false,
+                  wordWrap: "off",
+                }}
+              />
+            </div>
           </div>
-        </div>
-      )}
-    </BenchSurfaceViewer>
+        )}
+      </BenchSurfaceViewer>
+    </div>
   )
 }
