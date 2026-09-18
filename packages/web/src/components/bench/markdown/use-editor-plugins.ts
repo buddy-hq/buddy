@@ -55,6 +55,7 @@ export function useMarkdownBenchEditorPlugins(input: {
   directory: string
   documentFormat: MarkdownBenchDocumentFormat
   path: string
+  resolveImageSrc?(src: string): string
   obsidianWikiLinkContext: ObsidianWikiLinkContext
   onHistoryControlsChange(controls: MarkdownBenchHistoryControls): void
   onProcessingErrorChange(message: string | undefined): void
@@ -66,6 +67,7 @@ export function useMarkdownBenchEditorPlugins(input: {
     onHistoryControlsChange,
     onProcessingErrorChange,
     path,
+    resolveImageSrc,
   } = input
 
   return useMemo(
@@ -97,11 +99,12 @@ export function useMarkdownBenchEditorPlugins(input: {
       imagePlugin({
         imagePreviewHandler: (src) =>
           Promise.resolve(
-            resolveMarkdownBenchImageSrc({
-              directory: directory,
-              documentPath: path,
-              src,
-            }),
+            resolveImageSrc?.(src) ??
+              resolveMarkdownBenchImageSrc({
+                directory: directory,
+                documentPath: path,
+                src,
+              }),
           ),
       }),
       directivesPlugin({
@@ -134,6 +137,7 @@ export function useMarkdownBenchEditorPlugins(input: {
       onHistoryControlsChange,
       onProcessingErrorChange,
       path,
+      resolveImageSrc,
     ],
   )
 }

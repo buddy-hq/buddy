@@ -7,6 +7,7 @@ import { MARKDOWN_BENCH_IMAGE_SCREEN_CLASS_NAME } from "@/components/bench/markd
 type MarkdownBenchIntrinsicContextValue = {
   directory: string
   documentPath: string
+  resolveImageSrc?(src: string): string
 }
 
 type SafeMarkdownRenderContext = {
@@ -41,6 +42,7 @@ function resolveIntrinsicImageSrc(
   ctx: MarkdownBenchIntrinsicContextValue | null,
 ): string {
   if (!ctx) return src
+  if (ctx.resolveImageSrc) return ctx.resolveImageSrc(src)
   return resolveMarkdownBenchImageSrc({
     directory: ctx.directory,
     documentPath: ctx.documentPath,

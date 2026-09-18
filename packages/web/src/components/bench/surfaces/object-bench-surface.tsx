@@ -18,6 +18,7 @@ import {
 import { BenchMediaMessage, BenchMediaPreview } from "@/components/bench/bench-media-preview"
 import type { BenchMediaRenderMode } from "@/components/bench/bench-media-preview"
 import { ReadOnlySourceBenchView } from "@/components/bench/read-only-source-bench-view"
+import { PresentedMediaSourceViewer } from "@/components/bench/presented-media-source-viewer"
 import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import {
   BenchSurfacePending,
@@ -84,6 +85,7 @@ import type {
   ObjectQuestionSetReadQuestionsResponse,
   ObjectsViewResponse,
 } from "@buddy/sdk/types"
+import { markdownBenchDocumentFormatFromPath } from "@buddy/workspace-file-policy"
 
 type ObjectBenchContextStatus = BenchReadContextOpenOutput["target"]["status"]
 type ObjectBenchContextRefs = BenchReadContextOpenOutput["refs"]
@@ -264,7 +266,7 @@ export function ObjectBenchSurface(props: {
         },
         props.viewID ? { viewID: props.viewID } : undefined,
         props.revisionID ? { revisionID: props.revisionID } : undefined,
-        props.itemID ? { itemID: props.itemID } : undefined,
+        props.itemID !== undefined ? { itemID: props.itemID } : undefined,
       ),
     ),
   )
@@ -306,7 +308,7 @@ function LoadedObjectBenchSurface(props: {
           viewID: loaderData.view?.viewID ?? defaultBenchObjectViewID(loaderData.kind),
         },
         props.revisionID ? { revisionID: props.revisionID } : undefined,
-        props.itemID ? { itemID: props.itemID } : undefined,
+        props.itemID !== undefined ? { itemID: props.itemID } : undefined,
       ),
     ),
     enabled: isHtmlWidgetView,
@@ -902,7 +904,7 @@ function SelectedMediaObjectBenchView(props: {
   )
 }
 
-function PresentedMediaSourceBenchView(props: {
+type PresentedMediaSourceBenchViewProps = {
   directory: string
   view: ObjectsViewResponse
   layout: ObjectMediaGalleryViewData["layout"]
@@ -913,8 +915,11 @@ function PresentedMediaSourceBenchView(props: {
   sourceFileName: string
   src: string | undefined
   actions: BenchViewerAction[]
-}) {
+}
+
+function PresentedMediaSourceBenchView(props: PresentedMediaSourceBenchViewProps) {
   const [approvedLargeItemID, setApprovedLargeItemID] = useState<string>()
+  const markdownDocumentFormat = markdownBenchDocumentFormatFromPath(props.sourceFileName)
   const isLarge = isWorkspaceFileOverSoftLimit({
     path: props.sourceFileName,
     mimeType: props.item.mimeType ?? undefined,
@@ -958,7 +963,7 @@ function PresentedMediaSourceBenchView(props: {
         `size_bytes: ${props.item.sizeBytes ?? "unknown"}`,
         `availability: ${props.availability.status}`,
         `source_path: ${props.sourcePath}`,
-        "renderer: read-only-source",
+        `renderer: ${markdownDocumentFormat ? "read-only-markdown" : "read-only-source"}`,
         `large_file_approved: ${largeFileApproved}`,
       ]}
       content={
@@ -1018,18 +1023,21 @@ function PresentedMediaSourceBenchView(props: {
           />
         </BenchSurfaceViewer>
       ) : (
-        <ReadOnlySourceBenchView
+        <PresentedMediaSourceViewer
           title={props.title}
           path={props.sourcePath}
+          directory={props.directory}
+          sourceFileName={props.sourceFileName}
+          sourceRawUrl={props.src}
           content={sourceQuery.data}
+          version={props.item.modifiedAt ?? props.item.itemID}
           error={sourceError}
           loading={sourceQuery.isPending}
           actions={props.actions}
-          banner={
-            <div className="border-b border-border-base bg-surface-weak/40 px-4 py-1.5 text-xs text-text-weak">
-              External file · Read-only
-            </div>
-          }
+          viewportKey={benchSurfaceUiKey({
+            directory: props.directory,
+            target: objectBenchTarget(props.view),
+          })}
         />
       )}
     </ObjectBenchContextProvider>

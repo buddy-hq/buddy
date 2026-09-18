@@ -137,6 +137,7 @@ type MarkdownBenchEditorProps = Pick<
   /** Frontmatter revealed by the info control on the title. */
   properties?: readonly MarkdownBenchProperty[]
   readOnly?: boolean
+  resolveImageSrc?(src: string): string
   viewportKey?: string
   obsidianWikiLinkContext?: ObsidianWikiLinkContext
   onHistoryControlsChange?(controls: MarkdownBenchHistoryControlsState): void
@@ -349,9 +350,9 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         if (!(anchor instanceof HTMLAnchorElement)) return
         const href = anchor.getAttribute("href")
         if (!href) return
+        onOpenLink(href)
         event.preventDefault()
         event.stopPropagation()
-        onOpenLink(href)
       },
       [onOpenLink],
     )
@@ -363,6 +364,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       obsidianWikiLinkContext,
       onHistoryControlsChange: handleHistoryControlsChange,
       onProcessingErrorChange: handleProcessingErrorChange,
+      resolveImageSrc: props.resolveImageSrc,
     })
 
     useEffect(() => {
@@ -582,14 +584,22 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           {mermaidViewOptions ? (
             <MarkdownBenchMermaidViewProvider value={mermaidViewOptions}>
               <MarkdownBenchIntrinsicScope
-                value={{ directory: props.directory, documentPath: props.path }}
+                value={{
+                  directory: props.directory,
+                  documentPath: props.path,
+                  resolveImageSrc: props.resolveImageSrc,
+                }}
               >
                 {mdxEditorElement}
               </MarkdownBenchIntrinsicScope>
             </MarkdownBenchMermaidViewProvider>
           ) : (
             <MarkdownBenchIntrinsicScope
-              value={{ directory: props.directory, documentPath: props.path }}
+              value={{
+                directory: props.directory,
+                documentPath: props.path,
+                resolveImageSrc: props.resolveImageSrc,
+              }}
             >
               {mdxEditorElement}
             </MarkdownBenchIntrinsicScope>

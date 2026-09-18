@@ -222,7 +222,7 @@ export function objectBenchSurfaceQueryOptions(input: {
               viewID,
             },
             input.revisionID ? { revisionID: input.revisionID } : undefined,
-            input.itemID ? { itemID: input.itemID } : undefined,
+            input.itemID !== undefined ? { itemID: input.itemID } : undefined,
           ),
         ),
       )
