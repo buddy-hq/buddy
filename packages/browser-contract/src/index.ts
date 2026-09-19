@@ -1,7 +1,11 @@
+// Kept for compatibility with the browser runtime already present on main. The profile-aware
+// runtime in the follow-up PR resolves named partitions through the profile contract instead.
+export const IN_APP_BROWSER_PARTITION = "persist:buddy-browser"
 export const IN_APP_BROWSER_BLANK_URL = "about:blank"
 export const IN_APP_BROWSER_NEW_TAB_TITLE = "New tab"
 export const IN_APP_BROWSER_WEB_PREFERENCES =
   "contextIsolation=true,sandbox=true,nodeIntegration=false"
+export const IN_APP_BROWSER_DOWNLOAD_BLOCKED_MESSAGE = "Downloads are not supported yet."
 export const IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE = "This link cannot open another app yet."
 export const IN_APP_BROWSER_TITLE_MAX_LENGTH = 200
 export const IN_APP_BROWSER_URL_MAX_LENGTH = 8_192
