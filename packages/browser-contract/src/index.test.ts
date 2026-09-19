@@ -12,6 +12,8 @@ import {
   normalizeInAppBrowserTitle,
   normalizeInAppBrowserUrl,
   resolveAppShortcutID,
+  resolveInAppBrowserShortcutID,
+  stepInAppBrowserZoomFactor,
   type AppShortcutInput,
 } from "./index"
 
@@ -51,6 +53,54 @@ describe("application shortcut contract", () => {
     expect(resolveAppShortcutID(shortcutInput({ type: "keyUp" }), "macos")).toBeUndefined()
     expect(resolveAppShortcutID(shortcutInput({ shift: true }), "macos")).toBeUndefined()
     expect(resolveAppShortcutID(shortcutInput({ control: true }), "macos")).toBeUndefined()
+  })
+})
+
+describe("Browser shortcut contract", () => {
+  test("claims Mod+L for the address bar before the chat composer shortcut sees it", () => {
+    const modL = shortcutInput({ key: "l", code: "KeyL" })
+    expect(resolveAppShortcutID(modL, "macos")).toBe("composer.focus")
+    expect(resolveInAppBrowserShortcutID(modL, "macos")).toBe("focusAddress")
+    expect(
+      resolveInAppBrowserShortcutID({ ...modL, meta: false, control: true }, "windows"),
+    ).toBe("focusAddress")
+  })
+
+  test("resolves reload and zoom on either layout key or physical key", () => {
+    expect(resolveInAppBrowserShortcutID(shortcutInput({ key: "r", code: "KeyR" }), "macos")).toBe(
+      "reload",
+    )
+    expect(
+      resolveInAppBrowserShortcutID(shortcutInput({ key: "+", code: "Equal", shift: true }), "macos"),
+    ).toBe("zoomIn")
+    expect(
+      resolveInAppBrowserShortcutID(shortcutInput({ key: "-", code: "Minus" }), "macos"),
+    ).toBe("zoomOut")
+    expect(
+      resolveInAppBrowserShortcutID(shortcutInput({ key: "0", code: "Digit0" }), "macos"),
+    ).toBe("zoomReset")
+  })
+
+  test("leaves other chords with the page", () => {
+    expect(
+      resolveInAppBrowserShortcutID(shortcutInput({ key: "R", code: "KeyR", shift: true }), "macos"),
+    ).toBeUndefined()
+    expect(
+      resolveInAppBrowserShortcutID(shortcutInput({ key: "l", code: "KeyL", alt: true }), "macos"),
+    ).toBeUndefined()
+    expect(
+      resolveInAppBrowserShortcutID(
+        shortcutInput({ key: "l", code: "KeyL", meta: false, control: true }),
+        "macos",
+      ),
+    ).toBeUndefined()
+  })
+
+  test("steps zoom along the ladder and stops at its ends", () => {
+    expect(stepInAppBrowserZoomFactor(1, "in")).toBe(1.1)
+    expect(stepInAppBrowserZoomFactor(1, "out")).toBe(0.9)
+    expect(stepInAppBrowserZoomFactor(5, "in")).toBe(5)
+    expect(stepInAppBrowserZoomFactor(0.25, "out")).toBe(0.25)
   })
 })
 

@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./browser-import": "./src/browser-import.ts",
+    "./profiles": "./src/profiles.ts"
   },
   "scripts": {
     "test": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts",
