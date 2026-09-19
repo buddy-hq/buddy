@@ -26,6 +26,7 @@
     "electron-builder-config.ts",
     "electron-builder.config.ts",
     "scripts/electron-vite-build-policy.ts",
+    "scripts/in-app-browser-preload-artifact.ts",
     "../web/vite.ts",
     "../web/scripts/create-foliate-vite-plugin.ts",
     "../web/scripts/create-pdfjs-vite-plugin.ts",

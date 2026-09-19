@@ -12,14 +12,17 @@ import {
 } from "@buddy/script/chemfig-runtime"
 import { BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES } from "@buddy/script/backend-node-runtime"
 import {
+  KEYRING_PACKAGE_NAME,
   LITEPARSE_PACKAGE_NAME,
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
+  keyringNativePackageName,
   liteParseNativePackageName,
   nodePtyNativePackageName,
   parcelWatcherNativePackageName,
 } from "../../script/backend-node-artifact"
 import buddyWebVitePlugin from "../web/vite"
+import { createElectronPreloadViteBuild } from "./scripts/in-app-browser-preload-artifact"
 import {
   resolveExternalDevelopmentBackend,
   shouldCopyPackagedRuntimeAssets,
@@ -32,11 +35,14 @@ const BUDDY_SERVER_ENTRY = path.resolve(BUDDY_SERVER_DIST, "node.js")
 const MAIN_OUTPUT_DIR = path.resolve(__dirname, "out/main")
 const MAIN_CHUNKS_DIR = path.resolve(__dirname, "out/main/chunks")
 const nativeTarget = currentBackendNodeArtifactTarget()
+const keyringNativePkg = keyringNativePackageName(nativeTarget)
 const liteParseNativePkg = liteParseNativePackageName(nativeTarget)
 const nodePtyPkg = nodePtyNativePackageName(nativeTarget)
 const parcelWatcherPkg = parcelWatcherNativePackageName(nativeTarget)
 const optionalRuntimeExternalPackages = ["@chonkiejs/token"] as const
 const liteParseWrapperRuntimeEntries = ["dist", "package.json", "README.md", "LICENSE"] as const
+const WINDOWS_DPAPI_PACKAGE_NAME = "@primno/dpapi" as const
+const NATIVE_ADDON_LOADER_PACKAGE_NAME = "node-gyp-build" as const
 const ELECTRON_MAIN_ESM_SHIM = `
 // -- CommonJS Shims --
 import __cjs_mod__ from 'node:module';
@@ -50,8 +56,20 @@ const runtimePackages = [
   nodePtyPkg,
   parcelWatcherPkg,
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,
+  WINDOWS_DPAPI_PACKAGE_NAME,
+  NATIVE_ADDON_LOADER_PACKAGE_NAME,
 ] as const
 const require = createRequire(import.meta.url)
+const keyringRequire = createRequire(
+  require.resolve(`${KEYRING_PACKAGE_NAME}/package.json`, {
+    paths: [__dirname],
+  }),
+)
+const windowsDpapiRequire = createRequire(
+  require.resolve(`${WINDOWS_DPAPI_PACKAGE_NAME}/package.json`, {
+    paths: [__dirname],
+  }),
+)
 const liteParseRequire = createRequire(
   require.resolve(`${LITEPARSE_PACKAGE_NAME}/package.json`, {
     paths: [buddyDir],
@@ -83,7 +101,8 @@ export default defineConfig(({ command }) => ({
       // with it, and that entry is forked on its own -- the smoke harness copies out/main to a
       // temp directory with no node_modules beside it, so a bare `import { z } from "zod"` fails
       // to resolve and the utility exits before it can report ready. Everything in
-      // runtimePackages is native or too heavy to inline and stays external.
+      // runtimePackages is native, supports native loading, or is too heavy to inline and stays
+      // external.
       externalizeDeps: { include: [...runtimePackages], exclude: ["zod"] },
     },
     plugins: [
@@ -131,18 +150,13 @@ export default defineConfig(({ command }) => ({
           await copyBackendRuntimeSidecars()
           await copyChemfigRuntime()
           await copyRuntimePackages()
+          await copyKeyringRuntimePackage()
         },
       },
     ],
   },
   preload: {
-    build: {
-      rollupOptions: {
-        input: {
-          index: "src/preload/index.ts",
-        },
-      },
-    },
+    build: createElectronPreloadViteBuild(),
   },
   renderer: {
     define: {
@@ -226,6 +240,16 @@ async function copyRuntimePackages() {
   }
 }
 
+async function copyKeyringRuntimePackage() {
+  const wrapperSource = await resolveNativePackageDirectory(KEYRING_PACKAGE_NAME)
+  const nativeEntry = resolvePackageEntryPath(keyringNativePkg)
+  const destination = path.join(MAIN_OUTPUT_DIR, "node_modules", "@napi-rs", "keyring")
+  await fs.rm(destination, { recursive: true, force: true })
+  await fs.mkdir(path.dirname(destination), { recursive: true })
+  await fs.cp(wrapperSource, destination, { recursive: true, dereference: false })
+  await fs.copyFile(nativeEntry, path.join(destination, path.basename(nativeEntry)))
+}
+
 async function copyLiteParseWrapperPackage(source: string, destination: string) {
   await fs.mkdir(destination, { recursive: true })
   for (const entry of liteParseWrapperRuntimeEntries) {
@@ -257,6 +281,12 @@ async function resolveNativePackageDirectory(packageName: string): Promise<strin
 }
 
 function resolvePackageEntryPath(packageName: string): string {
+  if (packageName === NATIVE_ADDON_LOADER_PACKAGE_NAME) {
+    return windowsDpapiRequire.resolve(`${packageName}/package.json`)
+  }
+  if (packageName.startsWith(`${KEYRING_PACKAGE_NAME}-`)) {
+    return keyringRequire.resolve(packageName)
+  }
   if (packageName.startsWith(`${LITEPARSE_PACKAGE_NAME}-`)) {
     try {
       return liteParseRequire.resolve(`${packageName}/package.json`)
@@ -265,7 +295,7 @@ function resolvePackageEntryPath(packageName: string): string {
     }
   }
 
-  const resolveOptions = { paths: [buddyDir] }
+  const resolveOptions = { paths: [__dirname, buddyDir] }
   try {
     return require.resolve(`${packageName}/package.json`, resolveOptions)
   } catch {

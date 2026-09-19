@@ -41,4 +41,13 @@ describe("electron-builder config", () => {
     )
     expect(config.win?.verifyUpdateCodeSignature).toBe(false)
   })
+
+  test("packs the in-app browser guest preload with compiled desktop output", () => {
+    expect(config.files).toEqual(expect.arrayContaining(["out/**/*"]))
+  })
+
+  test("unpacks native credential bindings from the application archive", () => {
+    expect(config.asarUnpack).toContain("out/main/node_modules/@napi-rs/keyring/**/*")
+    expect(config.asarUnpack).toContain("out/main/chunks/node_modules/@primno/dpapi/prebuilds/**/*")
+  })
 })

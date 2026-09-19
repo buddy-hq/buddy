@@ -1,17 +1,27 @@
 import {
-  resolveAppShortcutID,
-  IN_APP_BROWSER_DOWNLOAD_BLOCKED_MESSAGE,
+  IN_APP_BROWSER_BLANK_URL,
   IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE,
-  IN_APP_BROWSER_PARTITION,
   isAllowedInAppBrowserUrl,
   isInAppBrowserTargetUrl,
+  resolveAppShortcutID,
+  resolveInAppBrowserShortcutID,
   type AppShortcutID,
   type AppShortcutInput,
   type AppShortcutPlatform,
+  type InAppBrowserShortcutID,
 } from "@buddy/browser-contract"
+import {
+  parseInAppBrowserPartition,
+  type InAppBrowserProfileID,
+} from "@buddy/browser-contract/profiles"
 import { guardInAppBrowserNavigation } from "./in-app-browser-navigation"
 
-const IN_APP_BROWSER_ALLOWED_PERMISSIONS = new Set(["clipboard-sanitized-write"])
+const IN_APP_BROWSER_ALLOWED_PERMISSIONS = new Set([
+  "clipboard-read",
+  "clipboard-sanitized-write",
+  "notifications",
+  "geolocation",
+])
 
 type Dispose = () => void
 const NOOP_DISPOSE: Dispose = () => undefined
@@ -24,35 +34,47 @@ type InAppBrowserWebPreferences = {
   contextIsolation?: boolean
 }
 
+export const IN_APP_BROWSER_POPUP_WINDOW_OPTIONS = {
+  webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+} as const
+
 export type InAppBrowserSessionBoundary = {
-  getUserAgent(): string
-  setUserAgent(userAgent: string): void
   setPermissionRequestHandler(
     handler: ((permission: string, callback: (allowed: boolean) => void) => void) | null,
   ): void
   setPermissionCheckHandler(handler: ((permission: string) => boolean) | null): void
-  onWillDownload(
-    handler: (
-      event: PreventableEvent,
-      guest: { sendMessage(message: string): void } | null,
-    ) => void,
-  ): Dispose
 }
+
+export type InAppBrowserWindowOpenDetails = {
+  readonly url: string
+  readonly disposition: string
+  readonly frameName: string
+}
+
+export type InAppBrowserWindowOpenResponse =
+  | { action: "deny" }
+  | {
+      action: "allow"
+      overrideBrowserWindowOptions: typeof IN_APP_BROWSER_POPUP_WINDOW_OPTIONS
+    }
 
 export type InAppBrowserGuestBoundary = {
   loadURL(url: string): Promise<void>
   sendMessage(message: string): void
-  setWindowOpenHandler(handler: (url: string) => { action: "deny" }): void
-  onWillNavigate(handler: (event: PreventableEvent, url: string) => void): Dispose
+  sendShortcut(shortcut: InAppBrowserShortcutID): void
+  setWindowOpenHandler(
+    handler: (details: InAppBrowserWindowOpenDetails) => InAppBrowserWindowOpenResponse,
+  ): void
+  onWillFrameNavigate(handler: (event: PreventableEvent, url: string) => void): Dispose
   onWillRedirect(handler: (event: PreventableEvent, url: string) => void): Dispose
   onBeforeInputEvent(handler: (event: PreventableEvent, input: AppShortcutInput) => void): Dispose
   onDestroyed(handler: () => void): Dispose
 }
 
-/** Delivers recognized app shortcuts from an embedded browser guest to its host renderer. */
-export type InAppBrowserShortcutBoundary = {
+export type InAppBrowserHostPolicy = {
   platform: AppShortcutPlatform
   onShortcut(id: AppShortcutID): void
+  onProfileAttaching(profileID: InAppBrowserProfileID): void
 }
 
 export type InAppBrowserHostBoundary = {
@@ -69,24 +91,14 @@ export type InAppBrowserHostBoundary = {
 export function configureInAppBrowserSessionBoundary(
   boundary: InAppBrowserSessionBoundary,
 ): Dispose {
-  const userAgent = boundary
-    .getUserAgent()
-    .replace(/Electron\/[\d.]+ /u, "")
-    .replace(/\s*Buddy\/[\d.]+/iu, "")
-  boundary.setUserAgent(userAgent)
   boundary.setPermissionRequestHandler((permission, callback) => {
     callback(IN_APP_BROWSER_ALLOWED_PERMISSIONS.has(permission))
   })
   boundary.setPermissionCheckHandler((permission) =>
     IN_APP_BROWSER_ALLOWED_PERMISSIONS.has(permission),
   )
-  const disposeDownload = boundary.onWillDownload((event, guest) => {
-    event.preventDefault()
-    guest?.sendMessage(IN_APP_BROWSER_DOWNLOAD_BLOCKED_MESSAGE)
-  })
 
   return () => {
-    disposeDownload()
     boundary.setPermissionRequestHandler(null)
     boundary.setPermissionCheckHandler(null)
   }
@@ -96,14 +108,14 @@ export function applyInAppBrowserWebviewAttachmentPolicy(input: {
   event: PreventableEvent
   webPreferences: InAppBrowserWebPreferences
   params: { partition?: string; src?: string }
-}): boolean {
-  if (
-    input.params.partition !== IN_APP_BROWSER_PARTITION ||
-    !input.params.src ||
-    !isInAppBrowserTargetUrl(input.params.src)
-  ) {
+}): InAppBrowserProfileID | undefined {
+  const profileID =
+    input.params.partition === undefined
+      ? undefined
+      : parseInAppBrowserPartition(input.params.partition)
+  if (!profileID || !input.params.src || !isInAppBrowserTargetUrl(input.params.src)) {
     input.event.preventDefault()
-    return false
+    return undefined
   }
 
   delete input.webPreferences.preload
@@ -111,17 +123,51 @@ export function applyInAppBrowserWebviewAttachmentPolicy(input: {
   input.webPreferences.nodeIntegration = false
   input.webPreferences.nodeIntegrationInSubFrames = false
   input.webPreferences.contextIsolation = true
-  return true
+  return profileID
+}
+
+export function isInAppBrowserEditingShortcut(
+  input: AppShortcutInput,
+  platform: AppShortcutPlatform,
+): boolean {
+  const isMac = platform === "macos"
+  if (isMac ? !input.meta || input.control : !input.control || input.meta) return false
+  const key = input.key.toLowerCase()
+  if (isMac && input.alt && input.shift && input.code === "KeyV") return true
+  if (key === "v" && input.shift) return input.alt === isMac
+  if (input.alt) return false
+  if (key === "z") return !input.shift || platform !== "windows"
+  if (input.shift) return false
+  return (
+    key === "a" ||
+    key === "c" ||
+    key === "v" ||
+    key === "x" ||
+    (key === "y" && platform === "windows")
+  )
+}
+
+function isPopupUrl(url: string): boolean {
+  return url === IN_APP_BROWSER_BLANK_URL || isAllowedInAppBrowserUrl(url)
+}
+
+function isOAuthPopup(details: InAppBrowserWindowOpenDetails): boolean {
+  if (details.disposition === "new-window") return true
+  return /^(?:oauth|oauth[-_ ]?popup)$/iu.test(details.frameName)
 }
 
 export function attachInAppBrowserGuestBoundary(
   guest: InAppBrowserGuestBoundary,
-  shortcuts: InAppBrowserShortcutBoundary,
+  policy: InAppBrowserHostPolicy,
 ): Dispose {
-  guest.setWindowOpenHandler((url) => {
-    if (isAllowedInAppBrowserUrl(url)) {
-      void guest.loadURL(url).catch(() => undefined)
-    } else {
+  guest.setWindowOpenHandler((details) => {
+    // Sign-in SDKs treat a null window.open() as blocked and post results back to the opener.
+    if (isOAuthPopup(details) && isPopupUrl(details.url)) {
+      return { action: "allow", overrideBrowserWindowOptions: IN_APP_BROWSER_POPUP_WINDOW_OPTIONS }
+    }
+    if (isAllowedInAppBrowserUrl(details.url)) {
+      void guest.loadURL(details.url).catch(() => undefined)
+    } else if (details.url !== IN_APP_BROWSER_BLANK_URL) {
       guest.sendMessage(IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE)
     }
     return { action: "deny" }
@@ -133,13 +179,19 @@ export function attachInAppBrowserGuestBoundary(
       onBlocked: () => guest.sendMessage(IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE),
     })
   }
-  const disposeNavigate = guest.onWillNavigate(guardNavigation)
+  const disposeNavigate = guest.onWillFrameNavigate(guardNavigation)
   const disposeRedirect = guest.onWillRedirect(guardNavigation)
   const disposeInput = guest.onBeforeInputEvent((event, input) => {
-    const shortcutID = resolveAppShortcutID(input, shortcuts.platform)
+    const browserShortcut = resolveInAppBrowserShortcutID(input, policy.platform)
+    if (browserShortcut) {
+      event.preventDefault()
+      guest.sendShortcut(browserShortcut)
+      return
+    }
+    const shortcutID = resolveAppShortcutID(input, policy.platform)
     if (!shortcutID) return
     event.preventDefault()
-    shortcuts.onShortcut(shortcutID)
+    policy.onShortcut(shortcutID)
   })
   return () => {
     disposeNavigate()
@@ -150,14 +202,15 @@ export function attachInAppBrowserGuestBoundary(
 
 export function wireInAppBrowserHostBoundary(
   host: InAppBrowserHostBoundary,
-  shortcuts: InAppBrowserShortcutBoundary,
+  policy: InAppBrowserHostPolicy,
 ): Dispose {
   const guestDisposals = new Set<Dispose>()
   const disposeAttach = host.onWillAttachWebview((event, webPreferences, params) => {
-    applyInAppBrowserWebviewAttachmentPolicy({ event, webPreferences, params })
+    const profileID = applyInAppBrowserWebviewAttachmentPolicy({ event, webPreferences, params })
+    if (profileID) policy.onProfileAttaching(profileID)
   })
   const disposeDidAttach = host.onDidAttachWebview((guest) => {
-    const disposeGuest = attachInAppBrowserGuestBoundary(guest, shortcuts)
+    const disposeGuest = attachInAppBrowserGuestBoundary(guest, policy)
     let disposed = false
     let disposeDestroyed: Dispose = NOOP_DISPOSE
     const dispose = () => {

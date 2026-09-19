@@ -1,7 +1,21 @@
 import { createContext, useContext, type ReactNode } from "react"
 import { createJSONStorage, type StateStorage } from "zustand/middleware"
 import { browserLocalStorage } from "@/state/parse-external"
-import type { InAppBrowserFaviconMessage, InAppBrowserHostMessage } from "@buddy/browser-contract"
+import type {
+  InAppBrowserAppearance,
+  InAppBrowserAudioMessage,
+  InAppBrowserCommandResult,
+  InAppBrowserFaviconMessage,
+  InAppBrowserHostMessage,
+  InAppBrowserProfileData,
+  InAppBrowserShortcutMessage,
+} from "@buddy/browser-contract"
+import type {
+  BrowserImportRequest,
+  BrowserImportResult,
+  BrowserImportSource,
+} from "@buddy/browser-contract/browser-import"
+import type { InAppBrowserProfileID } from "@buddy/browser-contract/profiles"
 
 export type OpenDirectoryPickerOptions = {
   title?: string
@@ -49,6 +63,8 @@ export type BenchCaptureRectangle = {
 
 export type PlatformStateStorage = StateStorage & {
   keys?(): readonly string[] | Promise<readonly string[]>
+  /** Flushes buffered writes when the platform storage supports explicit durability. */
+  flush?(): void | Promise<void>
 }
 
 export type Platform = {
@@ -81,12 +97,29 @@ export type Platform = {
   update?(): Promise<void>
   parseMarkdown?(markdown: string): Promise<string>
   captureBenchScreenshot?(rectangle: BenchCaptureRectangle): Promise<string>
-  inAppBrowser?: {
-    partition: string
-    webPreferences: string
-    onMessage(cb: (message: InAppBrowserHostMessage) => void): () => void
-    onFavicon(cb: (message: InAppBrowserFaviconMessage) => void): () => void
-  }
+  inAppBrowser?: InAppBrowserPlatform
+}
+
+export type InAppBrowserPlatform = {
+  /** Legacy single-partition field retained while the Bench surface rolls forward. */
+  partition?: string
+  webPreferences: string
+  onMessage(cb: (message: InAppBrowserHostMessage) => void): () => void
+  onFavicon(cb: (message: InAppBrowserFaviconMessage) => void): () => void
+  onAudio(cb: (message: InAppBrowserAudioMessage) => void): () => void
+  onShortcut(cb: (message: InAppBrowserShortcutMessage) => void): () => void
+  setAppearance(input: {
+    webContentsID: number
+    appearance: InAppBrowserAppearance
+  }): Promise<InAppBrowserCommandResult>
+  clearProfileData(input: {
+    profileID: InAppBrowserProfileID
+    data: InAppBrowserProfileData
+  }): Promise<InAppBrowserCommandResult>
+  checkSafariFullDiskAccess(): Promise<boolean>
+  listImportSources(): Promise<readonly BrowserImportSource[]>
+  importCookies(input: BrowserImportRequest): Promise<BrowserImportResult>
+  openFullDiskAccessSettings(): Promise<void>
 }
 
 function notifyWindowOfClick(href: string) {
