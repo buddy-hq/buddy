@@ -1,3 +1,5 @@
+// Kept for compatibility with the browser runtime already present on main. The profile-aware
+// runtime in the follow-up PR resolves named partitions through the profile contract instead.
 export const IN_APP_BROWSER_PARTITION = "persist:buddy-browser"
 export const IN_APP_BROWSER_BLANK_URL = "about:blank"
 export const IN_APP_BROWSER_NEW_TAB_TITLE = "New tab"
@@ -10,6 +12,11 @@ export const IN_APP_BROWSER_URL_MAX_LENGTH = 8_192
 export const IN_APP_BROWSER_FAVICON_DATA_URL_MAX_LENGTH = 8_192
 export const IN_APP_BROWSER_MESSAGE_CHANNEL = "inapp-browser-message"
 export const IN_APP_BROWSER_FAVICON_CHANNEL = "inapp-browser-favicon"
+export const IN_APP_BROWSER_AUDIO_CHANNEL = "inapp-browser-audio"
+export const IN_APP_BROWSER_SHORTCUT_CHANNEL = "inapp-browser-shortcut"
+export type InAppBrowserMouseNavigation = {
+  readonly direction: "back" | "forward"
+}
 
 type AppShortcutDefinition = {
   readonly key: string
@@ -78,6 +85,12 @@ function appShortcutKeyMatches(
   return keyMatches || input.code === shortcut.code
 }
 
+function isPrimaryModifierChord(input: AppShortcutInput, platform: AppShortcutPlatform): boolean {
+  if (input.type !== "keyDown" || input.isAutoRepeat || input.isComposing) return false
+  const primaryIsMeta = platform === "macos"
+  return input.meta === primaryIsMeta && input.control !== primaryIsMeta
+}
+
 /**
  * Resolve an Electron guest keydown into an app shortcut. Repeats and IME composition stay with
  * the guest page, matching the renderer's keyboard policy.
@@ -86,15 +99,67 @@ export function resolveAppShortcutID(
   input: AppShortcutInput,
   platform: AppShortcutPlatform,
 ): AppShortcutID | undefined {
-  if (input.type !== "keyDown" || input.isAutoRepeat || input.isComposing) return undefined
-
-  const primaryIsMeta = platform === "macos"
-  if (input.meta !== primaryIsMeta || input.control === primaryIsMeta) return undefined
+  if (!isPrimaryModifierChord(input, platform)) return undefined
 
   for (const [id, shortcut] of appShortcutEntries()) {
     if (input.shift !== !!shortcut.shift || input.alt !== !!shortcut.alt) continue
     if (appShortcutKeyMatches(input, shortcut)) return id
   }
+  return undefined
+}
+
+export type InAppBrowserShortcutID = "reload" | "focusAddress" | "zoomIn" | "zoomOut" | "zoomReset"
+
+export function resolveInAppBrowserShortcutID(
+  input: AppShortcutInput,
+  platform: AppShortcutPlatform,
+): InAppBrowserShortcutID | undefined {
+  if (!isPrimaryModifierChord(input, platform) || input.alt) return undefined
+  const key = input.key.toLowerCase()
+  if (input.code === "Equal" || input.code === "NumpadAdd" || key === "=" || key === "+") {
+    return "zoomIn"
+  }
+  if (input.shift) return undefined
+  if (input.code === "KeyR" || key === "r") return "reload"
+  if (input.code === "KeyL" || key === "l") return "focusAddress"
+  if (input.code === "Minus" || input.code === "NumpadSubtract" || key === "-") return "zoomOut"
+  if (input.code === "Digit0" || input.code === "Numpad0" || key === "0") return "zoomReset"
+  return undefined
+}
+
+export const IN_APP_BROWSER_ZOOM_FACTORS = [
+  0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5,
+] as const
+
+export type InAppBrowserZoomFactor = (typeof IN_APP_BROWSER_ZOOM_FACTORS)[number]
+
+export const DEFAULT_IN_APP_BROWSER_ZOOM_FACTOR: InAppBrowserZoomFactor = 1
+
+export function parseInAppBrowserZoomFactor<TValue>(
+  value: TValue,
+): InAppBrowserZoomFactor | undefined {
+  return IN_APP_BROWSER_ZOOM_FACTORS.find((factor) => factor === value)
+}
+
+export function stepInAppBrowserZoomFactor(
+  current: InAppBrowserZoomFactor,
+  direction: "in" | "out",
+): InAppBrowserZoomFactor {
+  const index = IN_APP_BROWSER_ZOOM_FACTORS.indexOf(current)
+  const next = direction === "in" ? index + 1 : index - 1
+  return IN_APP_BROWSER_ZOOM_FACTORS[next] ?? current
+}
+
+export type InAppBrowserAppearance = "system" | "light" | "dark"
+
+export const DEFAULT_IN_APP_BROWSER_APPEARANCE: InAppBrowserAppearance = "system"
+
+export function parseInAppBrowserAppearance<TValue>(
+  value: TValue,
+): InAppBrowserAppearance | undefined {
+  if (value === "system") return "system"
+  if (value === "light") return "light"
+  if (value === "dark") return "dark"
   return undefined
 }
 
@@ -112,6 +177,35 @@ export type InAppBrowserFaviconMessage = {
 export type InAppBrowserHostMessage = {
   webContentsID: number
   message: string
+}
+
+export type InAppBrowserAudioMessage = {
+  webContentsID: number
+  audible: boolean
+}
+
+export type InAppBrowserShortcutMessage = {
+  webContentsID: number
+  shortcut: InAppBrowserShortcutID
+}
+
+export type InAppBrowserCommandResult =
+  | { readonly _tag: "done" }
+  | {
+      readonly _tag: "failed"
+      readonly reason: "invalid-request" | "tab-unavailable" | "operation-failed"
+    }
+
+export type InAppBrowserProfileData = "cookies" | "cache" | "everything"
+
+export type InAppBrowserAppearanceRequest = {
+  webContentsID: number
+  appearance: InAppBrowserAppearance
+}
+
+export type InAppBrowserClearProfileDataRequest = {
+  profileID: string
+  data: InAppBrowserProfileData
 }
 
 const IN_APP_BROWSER_PROTOCOLS = new Set(["http:", "https:"])
