@@ -101,6 +101,8 @@ export type Platform = {
 }
 
 export type InAppBrowserPlatform = {
+  /** Legacy single-partition field retained while the Bench surface rolls forward. */
+  partition?: string
   webPreferences: string
   onMessage(cb: (message: InAppBrowserHostMessage) => void): () => void
   onFavicon(cb: (message: InAppBrowserFaviconMessage) => void): () => void
