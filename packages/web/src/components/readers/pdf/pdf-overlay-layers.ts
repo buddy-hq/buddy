@@ -1,5 +1,10 @@
 import type { PdfQuad, PdfTextAnchor } from "@buddy/reader-contract"
-import { ANNOTATION_COLOR_TOKENS, READER_SELECTION_BACKGROUND } from "../foliate-reader-constants"
+import {
+  ANNOTATION_COLORS,
+  READER_CITATION_INK,
+  READER_SELECTION_INK,
+} from "../foliate-reader-constants"
+import { READER_HIGHLIGHT_OVERLAY_STYLE } from "../utils/reader-highlight-paint"
 import type { ReaderAnnotation, ReaderSearchResult, ReaderSelection } from "../reader-types"
 import {
   viewportBoundsFromPdfQuad,
@@ -27,20 +32,8 @@ const PDF_SEARCH_MARK_CLASS_NAME = "buddy-pdf-search-mark"
 const PDF_ANNOTATION_LAYER_Z_INDEX = "4"
 const PDF_SELECTION_LAYER_Z_INDEX = "5"
 const PDF_SEARCH_LAYER_Z_INDEX = "6"
-const PDF_HIGHLIGHT_ALPHA = 0.34
-const PDF_HIGHLIGHT_OPACITY = String(PDF_HIGHLIGHT_ALPHA)
-const PDF_OPAQUE = "1"
-const PDF_SEARCH_MARK_OPACITY = "0.52"
-const PDF_ALPHA_PERCENT = 100
-
-/**
- * The wash the browser paints while a selection is being dragged. It matches the
- * marks Buddy paints once the drag ends, so handing the selection over to the
- * overlay is invisible instead of a flash of a different colour.
- */
-export const PDF_SELECTION_WASH = `color-mix(in srgb, ${READER_SELECTION_BACKGROUND} ${Math.round(
-  PDF_HIGHLIGHT_ALPHA * PDF_ALPHA_PERCENT,
-)}%, transparent)`
+const PDF_OPAQUE = { opacity: "1", mixBlendMode: "normal" }
+const PDF_SEARCH_MARK_STYLE = { opacity: "0.52", mixBlendMode: "normal" }
 const PDF_MARK_RADIUS_PX = 2
 const PDF_NOTE_MARKER_WIDTH_PX = 3
 /** Keeps a floating overlay clear of the surface edge it is anchored inside. */
@@ -73,31 +66,31 @@ type PdfMarkBounds = {
 type PdfLayerSpec = {
   className: string
   zIndex: string
-  opacity: string
+  paint: { opacity: string; mixBlendMode: string }
   label?: string
 }
 
 const PDF_ANNOTATION_LAYER: PdfLayerSpec = {
   className: PDF_ANNOTATION_LAYER_CLASS_NAME,
   zIndex: PDF_ANNOTATION_LAYER_Z_INDEX,
-  opacity: PDF_OPAQUE,
+  paint: PDF_OPAQUE,
   label: "Reader annotations",
 }
 
 const PDF_SELECTION_LAYER: PdfLayerSpec = {
   className: PDF_SELECTION_LAYER_CLASS_NAME,
   zIndex: PDF_SELECTION_LAYER_Z_INDEX,
-  opacity: PDF_HIGHLIGHT_OPACITY,
+  paint: READER_HIGHLIGHT_OVERLAY_STYLE,
 }
 
 const PDF_SEARCH_LAYER: PdfLayerSpec = {
   className: PDF_SEARCH_LAYER_CLASS_NAME,
   zIndex: PDF_SEARCH_LAYER_Z_INDEX,
-  opacity: PDF_SEARCH_MARK_OPACITY,
+  paint: PDF_SEARCH_MARK_STYLE,
 }
 
 function annotationFill(annotation: ReaderAnnotation): string {
-  return `var(${ANNOTATION_COLOR_TOKENS[annotation.color]})`
+  return ANNOTATION_COLORS[annotation.color].value
 }
 
 function annotationMarkStyle(annotation: ReaderAnnotation): Partial<CSSStyleDeclaration> {
@@ -122,8 +115,8 @@ function annotationMarkStyle(annotation: ReaderAnnotation): Partial<CSSStyleDecl
 }
 
 /** Only the filled wash is translucent; linear marks stay legible at full strength. */
-function annotationGroupOpacity(annotation: ReaderAnnotation): string {
-  return annotation.style === "highlight" ? PDF_HIGHLIGHT_OPACITY : PDF_OPAQUE
+function annotationGroupPaint(annotation: ReaderAnnotation): PdfLayerSpec["paint"] {
+  return annotation.style === "highlight" ? READER_HIGHLIGHT_OVERLAY_STYLE : PDF_OPAQUE
 }
 
 function existingLayer(
@@ -150,7 +143,7 @@ function ensureLayer(geometry: PdfPageViewGeometry, spec: PdfLayerSpec): HTMLDiv
     overflow: "hidden",
     pointerEvents: "none",
     userSelect: "none",
-    opacity: spec.opacity,
+    ...spec.paint,
     zIndex: spec.zIndex,
   })
   return layer
@@ -309,7 +302,7 @@ function renderAnnotationPage(input: {
       position: "absolute",
       inset: "0",
       pointerEvents: "none",
-      opacity: annotationGroupOpacity(annotation),
+      ...annotationGroupPaint(annotation),
     })
     layer.append(group)
 
@@ -417,7 +410,10 @@ export function renderPdfSelection(input: {
   session: PdfPageGeometryProvider
   selection: ReaderSelection | undefined
   pageIndex?: number
+  /** Paint a cited selection, whose comment editor is open, in the citation colour. */
+  tone?: "selection" | "citation"
 }): void {
+  const citation = input.tone === "citation"
   const anchor = input.selection?.anchor
   if (!anchor || anchor.kind !== "pdf-text") {
     removePdfSelectionLayers(input.root)
@@ -434,7 +430,7 @@ export function renderPdfSelection(input: {
         segments: anchor.segments,
         spec: PDF_SELECTION_LAYER,
         markClassName: PDF_SELECTION_MARK_CLASS_NAME,
-        color: READER_SELECTION_BACKGROUND,
+        color: citation ? READER_CITATION_INK : READER_SELECTION_INK,
       }),
   })
 }
@@ -461,7 +457,7 @@ export function renderPdfSearchResult(input: {
         segments: anchor.segments,
         spec: PDF_SEARCH_LAYER,
         markClassName: PDF_SEARCH_MARK_CLASS_NAME,
-        color: READER_SELECTION_BACKGROUND,
+        color: READER_SELECTION_INK,
       }),
   })
 }
@@ -524,6 +520,12 @@ export function pdfOverlayAnchorEquals(
 ): boolean {
   if (!left || !right) return left === right
   return left.x === right.x && left.y === right.y
+}
+
+/** The last painted selection mark, where the selected text ends. */
+export function lastPdfSelectionMark(root: HTMLElement): HTMLElement | undefined {
+  const marks = root.querySelectorAll<HTMLElement>(`.${PDF_SELECTION_MARK_CLASS_NAME}`)
+  return marks.item(marks.length - 1) ?? undefined
 }
 
 export function pdfSelectionAnchor(root: HTMLElement): PdfOverlayAnchor | undefined {

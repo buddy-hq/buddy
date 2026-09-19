@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  resolveCitationSourceOpenTarget,
   resolveRevertedUserMessageCount,
   resolveAutoCompactionWarning,
   resolveCurrentSessionQuestions,
@@ -14,6 +15,54 @@ import {
 } from "./test-utils"
 
 describe("directory chat main pane helpers", () => {
+  test("routes document citations to Markdown Bench instead of the raw file viewer", () => {
+    expect(
+      resolveCitationSourceOpenTarget({
+        schemaVersion: 1,
+        id: "document-citation",
+        excerpt: "quoted text",
+        source: {
+          kind: "document",
+          path: "basic-demo.md",
+          selector: { version: 1, start: 0, end: 11, prefix: "", suffix: "" },
+        },
+      }),
+    ).toEqual({
+      kind: "markdown",
+      target: {
+        type: "workspace-file",
+        root: "notebook",
+        path: "basic-demo.md",
+        viewer: "markdown",
+      },
+      replacesTarget: {
+        type: "workspace-file",
+        root: "notebook",
+        path: "basic-demo.md",
+        viewer: "file",
+      },
+    })
+  })
+
+  test("keeps PDF and EPUB citations on the reading-resource path", () => {
+    expect(
+      resolveCitationSourceOpenTarget({
+        schemaVersion: 1,
+        id: "reading-citation",
+        excerpt: "quoted text",
+        source: {
+          kind: "reading",
+          path: "books/example.pdf",
+          anchor: {
+            kind: "pdf-text",
+            segments: [{ pageIndex: 0, quads: [] }],
+            quote: { exact: "quoted text" },
+          },
+        },
+      }),
+    ).toEqual({ kind: "reading", path: "books/example.pdf" })
+  })
+
   test("offers image editing only to image-capable OpenAI models", () => {
     expect(
       canEditImagesForModel({

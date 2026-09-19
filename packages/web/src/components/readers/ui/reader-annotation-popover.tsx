@@ -1,5 +1,5 @@
 import { PencilLineIcon, Trash2Icon } from "@/icons/app-icons"
-import { Button, cn } from "@buddy/ui"
+import { Button } from "@buddy/ui"
 import type {
   ReaderAnnotationColorId,
   ReaderAnnotationPopoverViewModel,
@@ -12,6 +12,7 @@ import {
   READER_FLOATING_OVERLAY_ANCHOR_OFFSET_PROPERTY,
 } from "./reader-floating-overlay"
 import { READER_ANNOTATION_COLOR_OPTIONS } from "./reader-ui-constants"
+import { readerInkSwatchWash } from "../utils/reader-highlight-paint"
 
 type ReaderAnnotationPopoverProps = {
   popover: ReaderAnnotationPopoverViewModel | null
@@ -45,10 +46,8 @@ export function ReaderAnnotationPopover({
     >
       <ReaderFloatingSurface className="w-[300px] gap-3 p-4">
         <p
-          className={cn(
-            "line-clamp-3 rounded-sm text-xs leading-relaxed text-text-base",
-            color?.washClassName,
-          )}
+          className="line-clamp-3 rounded-sm text-xs leading-relaxed text-text-base"
+          style={{ backgroundColor: color ? readerInkSwatchWash(color.ink) : undefined }}
         >
           {annotation.text}
         </p>

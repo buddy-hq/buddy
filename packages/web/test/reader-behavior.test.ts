@@ -5,21 +5,21 @@ import {
   FLOW_PAGINATED,
   FLOW_SCROLLED,
   GLOBAL_PREFERENCES_STORAGE_KEY,
-  READER_SELECTION_BACKGROUND,
-  READER_SELECTION_FOREGROUND,
+  READER_CITATION_INK,
+  READER_SELECTION_INK,
   READER_THEMES,
   resolveReaderContentFilter,
 } from "../src/components/readers/foliate-reader-constants"
 import {
   buildLocationState,
   getOverlayPosition,
-  resolveAnnotationColorValue,
   resolveRestorableNavigationTarget,
 } from "../src/components/readers/utils/foliate-helpers"
 import {
   buildReaderStyles,
   getThemeDefinition,
 } from "../src/components/readers/utils/foliate-themes"
+import { readerInkWash } from "../src/components/readers/utils/reader-highlight-paint"
 import { READER_PREFERENCES_STORAGE_KEY } from "../src/components/readers/reader-storage"
 import {
   READER_NAVIGATION_GO_LEFT,
@@ -293,9 +293,6 @@ describe("reader themes", () => {
         pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.9)",
       },
     ])
-    expect(
-      READER_THEMES.every((theme) => theme.contentAccent === READER_SELECTION_BACKGROUND),
-    ).toBe(true)
   })
 
   test("forces reader colors after publisher EPUB styles", () => {
@@ -305,8 +302,8 @@ describe("reader themes", () => {
     expect(overrideStyles).toContain("background-color: #0f141d !important")
     expect(overrideStyles).toContain("color: #e6edf6 !important")
     expect(overrideStyles).toContain("color: #8fbbff !important")
-    expect(overrideStyles).toContain(`background: ${READER_SELECTION_BACKGROUND}`)
-    expect(overrideStyles).toContain(`color: ${READER_SELECTION_FOREGROUND}`)
+    expect(overrideStyles).toContain(`background: ${readerInkWash(READER_SELECTION_INK, "dark")}`)
+    expect(overrideStyles).toContain(`background: ${readerInkWash(READER_CITATION_INK, "dark")}`)
   })
 
   test("applies the selected theme filter only to fixed-layout EPUB content", () => {
@@ -318,10 +315,13 @@ describe("reader themes", () => {
     )
   })
 
-  test("resolves annotation colors from semantic theme tokens before EPUB injection", () => {
+  test("paints reader marks with fixed inks that ignore the app theme", () => {
     document.documentElement.style.setProperty("--surface-warning-base", "rgb(255, 191, 0)")
+    const preferences = loadGlobalPreferences("paper", FLOW_SCROLLED)
+    const [, overrideStyles] = buildReaderStyles(getThemeDefinition("paper"), preferences)
 
-    expect(resolveAnnotationColorValue("amber", document.documentElement)).toBe("rgb(255, 191, 0)")
+    expect(overrideStyles).toContain(`background: ${readerInkWash(READER_SELECTION_INK, "light")}`)
+    expect(overrideStyles).not.toContain("rgb(255, 191, 0)")
   })
 })
 

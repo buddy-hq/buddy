@@ -10,6 +10,8 @@ import {
   PromptComposer,
   type PromptComposerAttachmentsApi,
 } from "../src/components/prompt/prompt-composer"
+import { getCursorPosition } from "../src/components/prompt/editor-dom"
+import { requestPromptComposerFocus } from "../src/components/prompt/prompt-composer-focus"
 import { readPromptComposerLiveDraft } from "../src/components/prompt/prompt-composer-live-draft"
 import { SELECTION_CONTEXT_PART_TYPE } from "../src/components/prompt/prompt-types"
 import { createBrowserPlatform, setRuntimePlatform } from "../src/context/platform"
@@ -247,7 +249,7 @@ describe("prompt composer submit", () => {
     )
   })
 
-  test("restores the editor when the submit flow restores the draft in the store", async () => {
+  test("restores the editor and focuses the end of its draft", async () => {
     const promptKey = getPromptScopeKey(TEST_DIRECTORY)
     const store = usePromptStore.getState()
     store.replaceDraft(promptKey, createTextPromptDraft(TEST_PROMPT))
@@ -281,12 +283,14 @@ describe("prompt composer submit", () => {
 
     await act(async () => {
       restoreDraft?.()
+      requestPromptComposerFocus(TEST_DIRECTORY)
       await flushEffects()
     })
 
-    expect(container.querySelector('[data-component="prompt-editor"]')?.textContent).toContain(
-      TEST_PROMPT,
-    )
+    const editor = container.querySelector<HTMLElement>('[data-component="prompt-editor"]')
+    expect(editor?.textContent).toContain(TEST_PROMPT)
+    expect(document.activeElement).toBe(editor)
+    expect(editor ? getCursorPosition(editor) : undefined).toBe(TEST_PROMPT.length)
   })
 
   test("saves Note mode text without sending it to the model", async () => {

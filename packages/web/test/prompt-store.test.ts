@@ -296,4 +296,53 @@ describe("prompt store", () => {
     expect(part).not.toHaveProperty("cfi")
     expect(part).not.toHaveProperty("index")
   })
+
+  test("rehydrates multiple canonical citations with independent comments", async () => {
+    const key = getPromptScopeKey("/repo", "session-citations")
+    const citations = ["Compare this", "Challenge this"].map((comment, index) => ({
+      schemaVersion: 1,
+      id: `citation-${index + 1}`,
+      excerpt: `Excerpt ${index + 1}`,
+      comment,
+      source: {
+        kind: "document",
+        path: "notes/source.md",
+        revision: "v1",
+        selector: {
+          version: 1,
+          start: index * 10,
+          end: index * 10 + 9,
+          prefix: "",
+          suffix: "",
+        },
+      },
+    }))
+    localStorage.setItem(
+      PROMPT_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: PROMPT_STORE_VERSION,
+        state: {
+          draftsByKey: {
+            [key]: {
+              value: "",
+              parts: citations.map((citation) => ({ type: "selection-context", citation })),
+              attachments: [],
+              cursor: 0,
+              updatedAt: 1,
+            },
+          },
+          historyByDirectory: {},
+        },
+      }),
+    )
+
+    await usePromptStore.persist.rehydrate()
+
+    const parts = getPromptDraft(usePromptStore.getState(), key).parts
+    expect(parts).toHaveLength(2)
+    expect(parts.map((part) => ("citation" in part ? part.citation.comment : undefined))).toEqual([
+      "Compare this",
+      "Challenge this",
+    ])
+  })
 })

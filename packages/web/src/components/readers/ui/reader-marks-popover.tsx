@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { BookmarkIcon, PencilLineIcon, Trash2Icon } from "@/icons/app-icons"
-import { Button, Popover, PopoverContent, PopoverTrigger, ScrollArea, cn } from "@buddy/ui"
+import { Button, Popover, PopoverContent, PopoverTrigger, ScrollArea } from "@buddy/ui"
 import { formatReaderPositionAnchor } from "@buddy/reader-contract"
 import type {
   ReaderAnnotationViewModel,
@@ -11,6 +11,7 @@ import {
   READER_ANNOTATION_COLOR_OPTIONS,
   READER_ANNOTATION_STYLE_LABELS,
 } from "./reader-ui-constants"
+import { readerInkSwatchWash } from "../utils/reader-highlight-paint"
 import { ReaderPanelHeader } from "./reader-panel"
 import { ReaderToolbarButton } from "./reader-toolbar-button"
 
@@ -170,7 +171,8 @@ function AnnotationRow(props: {
     <div className="group flex w-full items-start gap-2.5 rounded-md px-2 py-2.5 hover:bg-surface-base-hover">
       <span
         aria-hidden="true"
-        className={cn("mt-1 size-2.5 shrink-0 rounded-full", color?.previewClassName)}
+        className="mt-1 size-2.5 shrink-0 rounded-full"
+        style={{ backgroundColor: color?.ink }}
       />
       <button
         type="button"
@@ -181,10 +183,8 @@ function AnnotationRow(props: {
           {READER_ANNOTATION_STYLE_LABELS[props.annotation.style]}
         </span>
         <span
-          className={cn(
-            "mt-0.5 line-clamp-2 block rounded-sm text-xs leading-snug text-text-base",
-            color?.washClassName,
-          )}
+          className="mt-0.5 line-clamp-2 block rounded-sm text-xs leading-snug text-text-base"
+          style={{ backgroundColor: color ? readerInkSwatchWash(color.ink) : undefined }}
         >
           {props.annotation.text}
         </span>

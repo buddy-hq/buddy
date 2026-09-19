@@ -392,7 +392,7 @@ describe("MarkdownBenchEditor", () => {
     expect(Z_INDEX.floating).toBeGreaterThan(Z_INDEX.modal)
   })
 
-  test("reports rendered document selections without an explicit action", async () => {
+  test("commits a rendered document selection only after Cite is activated", async () => {
     let selectedMarkdown = ""
     let selectedHeadingPath: string[] | undefined
 
@@ -409,7 +409,7 @@ describe("MarkdownBenchEditor", () => {
             documentFormat="markdown"
             path="test.md"
             onChange={() => {}}
-            onSelectionChange={(selection) => {
+            onCiteSelection={(selection) => {
               selectedMarkdown = selection.text
               selectedHeadingPath = selection.headingPath
             }}
@@ -429,12 +429,12 @@ describe("MarkdownBenchEditor", () => {
     const range = document.createRange()
     range.setStart(textNode, 0)
     range.setEnd(textNode, "Select this".length)
-    Object.defineProperty(range, "getClientRects", {
-      value: () => [
-        { top: 120, height: 18 },
-        { top: 180, height: 18 },
-      ],
+    const selectionRects = [{ top: 120, height: 18 }]
+    Object.assign(selectionRects, {
+      item: (index: number) => selectionRects[index] ?? null,
     })
+    Object.defineProperty(range, "getClientRects", { value: () => selectionRects })
+    Object.defineProperty(range, "cloneRange", { value: () => range })
     const selection = window.getSelection()
     selection?.removeAllRanges()
     selection?.addRange(range)
@@ -442,33 +442,31 @@ describe("MarkdownBenchEditor", () => {
     if (!editor) {
       throw new Error("Expected Markdown bench editor")
     }
-    Object.defineProperty(editor, "getBoundingClientRect", {
-      value: () => ({ top: 100 }),
-    })
 
     await act(async () => {
-      editor.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }))
+      editor.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, button: 0, isPrimary: true }),
+      )
+      window.dispatchEvent(new MouseEvent("mouseup", { button: 0, clientX: 80, clientY: 180 }))
       await flushEffects(20)
+    })
+
+    expect(selectedMarkdown).toBe("")
+    expect(editor.querySelector('[data-component="markdown-bench-selection-section"]')).toBeNull()
+    expect(editor.querySelector('[data-component="markdown-bench-selection-edge"]')).toBeNull()
+
+    const cite = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Cite selected text"]',
+    )
+    if (!cite) throw new Error("Expected citation action")
+    await act(async () => {
+      cite.click()
+      await flushEffects()
     })
 
     expect(selectedMarkdown).toBe("Select this")
     expect(selectedHeadingPath).toEqual(["Lesson", "Prompt"])
-
-    const selectionSection = container.querySelector<HTMLElement>(
-      '[data-component="markdown-bench-selection-section"]',
-    )
-    expect(selectionSection).not.toBeNull()
-    expect(selectionSection?.style.top).toBe("20px")
-    expect(selectionSection?.style.height).toBe("78px")
-    expect(selectionSection?.className).toContain("right-0")
-    expect(selectionSection?.className).toContain("--surface-warning-base")
-
-    const selectionEdge = selectionSection?.querySelector<HTMLElement>(
-      '[data-component="markdown-bench-selection-edge"]',
-    )
-    expect(selectionEdge).not.toBeNull()
-    expect(selectionEdge?.style.width).toBe("3px")
-    expect(selectionEdge?.className).toContain("bg-border-warning-base")
+    expect(document.body.querySelector('button[aria-label="Cite selected text"]')).toBeNull()
   })
 
   test("renders and serializes MDX components without executing them", async () => {

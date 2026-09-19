@@ -1,9 +1,3 @@
-const MARKDOWN_BENCH_SELECTION_EDGE_MIN_HEIGHT_PX = 3
-
-export type MarkdownBenchSelectionSection = {
-  top: number
-  height: number
-}
 function headingLevel(element: Element): number | undefined {
   const match = element.tagName.match(/^H([1-6])$/u)
   if (!match?.[1]) return undefined
@@ -44,33 +38,4 @@ export function resolveSelectionHeadingPath(
 
   const compactHeadingPath = headingPath.filter((entry) => entry.length > 0)
   return compactHeadingPath.length > 0 ? compactHeadingPath : undefined
-}
-
-export function resolveMarkdownBenchSelectionSection(input: {
-  range: Range
-  scrollRoot: HTMLElement
-}): MarkdownBenchSelectionSection | undefined {
-  const rootRect = input.scrollRoot.getBoundingClientRect()
-  const rects = Array.from(input.range.getClientRects())
-    .map((rect) => ({
-      top: rect.top - rootRect.top + input.scrollRoot.scrollTop,
-      height: rect.height,
-    }))
-    .filter((rect) => rect.height >= MARKDOWN_BENCH_SELECTION_EDGE_MIN_HEIGHT_PX)
-    .toSorted((left, right) => left.top - right.top)
-
-  if (rects.length === 0) {
-    return undefined
-  }
-
-  const first = rects[0]
-  const last = rects.at(-1)
-  if (!first || !last) {
-    return undefined
-  }
-
-  return {
-    top: first.top,
-    height: last.top + last.height - first.top,
-  }
 }

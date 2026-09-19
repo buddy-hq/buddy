@@ -1,0 +1,36 @@
+/* Chat and documents sit on the app surface, so citation marks tint the app accent. */
+::highlight(buddy-citation-target) {
+  background-color: color-mix(in oklab, var(--surface-interactive-base) 45%, transparent);
+}
+
+/* The cited source stays marked while its comment editor is open beside it. */
+::highlight(buddy-citation-comment) {
+  background-color: color-mix(in oklab, var(--surface-interactive-base) 45%, transparent);
+}
+
+.quote-band {
+  background-color: color-mix(in oklab, var(--text-base) 3%, transparent);
+}
+
+.quote-excerpt {
+  font-family: var(--buddy-chat-font-family);
+  font-size: calc(var(--buddy-chat-font-size) - 2px);
+  line-height: 1.5;
+  color: var(--text-weak);
+}
+
+.quote-comment {
+  font-family: var(--buddy-chat-font-family);
+  font-size: calc(var(--buddy-chat-font-size) - 1px);
+  line-height: 1.6;
+  color: var(--text-weak);
+}
+
+.quote-mark {
+  border-radius: 2px;
+  padding: 0 2px;
+  background-color: color-mix(in oklab, var(--surface-interactive-base) 35%, transparent);
+  color: inherit;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}

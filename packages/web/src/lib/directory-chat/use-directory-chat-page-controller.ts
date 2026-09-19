@@ -1342,6 +1342,7 @@ export function useDirectoryChatPageController(
           const restoreDraft = buildPromptDraftFromUserMessage(result.message, decodedDirectory)
           if (restoreDraft) {
             cs.setPromptDraft(cs.promptKey, restoreDraft)
+            requestPromptComposerFocus(decodedDirectory)
           }
           void syncTeachingRuntimeSelection()
         } catch {
@@ -1359,6 +1360,7 @@ export function useDirectoryChatPageController(
           const restoreDraft = buildPromptDraftFromUserMessage(result.message, decodedDirectory)
           if (restoreDraft) {
             cs.setPromptDraft(cs.promptKey, restoreDraft)
+            requestPromptComposerFocus(decodedDirectory)
           }
           void syncTeachingRuntimeSelection()
         } catch {
@@ -1718,6 +1720,7 @@ export function useDirectoryChatPageController(
       const restoreDraft = buildPromptDraftFromUserMessage(result.message, decodedDirectory)
       if (restoreDraft) {
         cs.setPromptDraft(cs.promptKey, restoreDraft)
+        requestPromptComposerFocus(decodedDirectory)
       }
       void syncTeachingRuntimeSelection()
     },
@@ -1753,6 +1756,7 @@ export function useDirectoryChatPageController(
         const restoreDraft = buildPromptDraftFromUserMessage(result.message, decodedDirectory)
         if (restoreDraft) {
           cs.setPromptDraft(cs.promptKey, restoreDraft)
+          requestPromptComposerFocus(decodedDirectory)
         } else {
           cs.clearPromptDraft(cs.promptKey)
         }

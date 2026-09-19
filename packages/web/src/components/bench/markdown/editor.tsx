@@ -15,7 +15,8 @@ import {
   type ReactNode,
   type MouseEvent as ReactMouseEvent,
 } from "react"
-import { cn } from "@buddy/ui"
+import { cn, toast } from "@buddy/ui"
+import type { CitationTextSelector } from "@buddy/citation-contract"
 import type { MarkdownBenchDocumentFormat } from "@buddy/workspace-file-policy"
 import {
   prepareMarkdownForMdxEditor,
@@ -44,18 +45,13 @@ import {
   type ObsidianWikiLinkContext,
 } from "@/components/bench/markdown/plugins/obsidian"
 import { findMarkdownBenchFragmentTarget } from "@/components/bench/markdown/editor-fragments"
-import {
-  resolveMarkdownBenchSelectionSection,
-  resolveSelectionHeadingPath,
-  type MarkdownBenchSelectionSection,
-} from "@/components/bench/markdown/editor-selection"
+import { resolveSelectionHeadingPath } from "@/components/bench/markdown/editor-selection"
 import {
   MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS,
   MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME,
   MARKDOWN_BENCH_MDX_POPUP_LAYER_CSS,
   MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME,
   MARKDOWN_BENCH_PAPER_PLAIN_CLASS_NAME,
-  MARKDOWN_BENCH_SELECTION_EDGE_WIDTH_PX,
   MARKDOWN_BENCH_TABLE_CSS,
   MARKDOWN_CONTENT_BASE_CLASS_NAME,
   MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME,
@@ -80,6 +76,22 @@ import {
   MarkdownBenchPropertiesView,
 } from "@/components/bench/markdown/properties"
 import type { MarkdownBenchProperty } from "@/components/bench/markdown/property-values"
+import { CitationSelectionToolbar } from "@/components/citations/citation-selection-toolbar"
+import {
+  captureRenderedTextSelection,
+  resolveRenderedTextRange,
+} from "@/lib/citations/rendered-text"
+import { observeSelectionActions } from "@/lib/citations/selection-actions"
+import { registerCitationNavigationHandler } from "@/lib/citations/navigation"
+import { revealCitationRange } from "@/lib/citations/highlight"
+import type { CitationCommentSource } from "@/lib/citations/comment-request"
+import { rangeCitationCommentSource } from "@/lib/citations/comment-source"
+import { filterStagedQuotes, useStagedQuotes } from "@/lib/citations/staged-quotes"
+import {
+  QUOTE_COMMENT_MARKER_SIZE_PX,
+  QuoteCommentMarkers,
+} from "@/components/citations/quote-comment-markers"
+import { useRenderedTextCommentAnchors } from "@/components/citations/use-rendered-text-comment-anchors"
 
 export type { MarkdownBenchHistoryControlsState }
 
@@ -109,6 +121,7 @@ export type MarkdownBenchEditorHandle = Pick<
 
 export type MarkdownBenchDocumentSelection = {
   text: string
+  selector: CitationTextSelector
   headingPath?: string[]
 }
 
@@ -144,7 +157,10 @@ type MarkdownBenchEditorProps = Pick<
   onOpenLink?(href: string): void
   onProcessingResult?(result: MarkdownBenchProcessingResult): void
   onRenameTitle?(title: string): Promise<void>
-  onSelectionChange?(selection: MarkdownBenchDocumentSelection): void
+  onCiteSelection?(
+    selection: MarkdownBenchDocumentSelection,
+    commentSource: CitationCommentSource,
+  ): void
   renamingTitle?: boolean
 }
 
@@ -159,9 +175,28 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     const isPlainAppearance = appearance === "plain"
     const editorRef = useRef<MDXEditorMethods>(null)
     const editorRootRef = useRef<HTMLDivElement>(null)
-    const [selectionSection, setSelectionSection] = useState<
-      MarkdownBenchSelectionSection | undefined
-    >(undefined)
+    const paperRef = useRef<HTMLDivElement>(null)
+    const stagedQuotes = useStagedQuotes()
+    const documentQuotes = useMemo(
+      () =>
+        filterStagedQuotes(
+          stagedQuotes,
+          (citation) => citation.source.kind === "document" && citation.source.path === props.path,
+        ),
+      [stagedQuotes, props.path],
+    )
+    const commentAnchors = useRenderedTextCommentAnchors({
+      quotes: documentQuotes,
+      overlayRef: paperRef,
+      textRootSelector: '[contenteditable="true"]',
+      markerOffset: -QUOTE_COMMENT_MARKER_SIZE_PX - 2,
+    })
+    const [citationCandidate, setCitationCandidate] = useState<{
+      selection: MarkdownBenchDocumentSelection
+      commentSource: CitationCommentSource
+      position: { x: number; y: number }
+    }>()
+    const citationActionRef = useRef<HTMLDivElement>(null)
     const applyingExternalMarkdownRef = useRef(false)
     const historyControlsRef = useRef<MarkdownBenchHistoryControls>(
       EMPTY_MARKDOWN_BENCH_HISTORY_CONTROLS,
@@ -294,7 +329,6 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       },
       [props.documentFormat],
     )
-    const onSelectionChange = props.onSelectionChange
     const handleHistoryControlsChange = useCallback((controls: MarkdownBenchHistoryControls) => {
       historyControlsRef.current = controls
       onHistoryControlsChangeRef.current?.({
@@ -311,37 +345,74 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         onProcessingResultRef.current?.(result)
       })
     }, [])
-    const notifySelectionChange = useCallback(() => {
-      if (!onSelectionChange) return
-      window.requestAnimationFrame(() => {
-        const editorRoot = editorRootRef.current
-        const selection = window.getSelection()
-        if (
-          !editorRoot ||
-          !selection ||
-          selection.isCollapsed ||
-          selection.rangeCount === 0 ||
-          !selection.anchorNode ||
-          !selection.focusNode ||
-          !editorRoot.contains(selection.anchorNode) ||
-          !editorRoot.contains(selection.focusNode)
-        ) {
-          setSelectionSection(undefined)
-          onSelectionChange({ text: "" })
-          return
-        }
-
-        const range = selection.getRangeAt(0)
-        setSelectionSection(resolveMarkdownBenchSelectionSection({ range, scrollRoot: editorRoot }))
-        const headingPath = resolveSelectionHeadingPath(editorRoot, range)
-        onSelectionChange(
-          Object.assign(
-            { text: selection.toString().trim() },
+    const onCiteSelection = props.onCiteSelection
+    useEffect(() => {
+      const editorRoot = editorRootRef.current
+      if (!editorRoot || !onCiteSelection) return
+      const observer = observeSelectionActions({
+        element: editorRoot,
+        getActionElement: () => citationActionRef.current,
+        onDismiss: () => setCitationCandidate(undefined),
+        onSelection: (pointer) => {
+          const contentRoot = editorRoot.querySelector<HTMLElement>('[contenteditable="true"]')
+          if (!contentRoot) return
+          const captured = captureRenderedTextSelection(contentRoot, window.getSelection())
+          if (!captured) {
+            setCitationCandidate(undefined)
+            return
+          }
+          const headingPath = resolveSelectionHeadingPath(editorRoot, captured.range)
+          const selection = Object.assign(
+            { text: captured.excerpt, selector: captured.selector },
             headingPath ? { headingPath } : undefined,
-          ),
-        )
+          )
+          const rects = captured.range.getClientRects()
+          const rect = rects.item(rects.length - 1) ?? captured.range.getBoundingClientRect()
+          setCitationCandidate({
+            selection,
+            commentSource: rangeCitationCommentSource({
+              range: captured.range,
+              observe: editorRoot,
+              resolve: () => {
+                const nextContentRoot = editorRoot.querySelector<HTMLElement>(
+                  '[contenteditable="true"]',
+                )
+                return nextContentRoot
+                  ? resolveRenderedTextRange(nextContentRoot, captured.excerpt, captured.selector)
+                  : undefined
+              },
+            }),
+            position: pointer ?? { x: rect.right, y: rect.bottom },
+          })
+        },
       })
-    }, [onSelectionChange])
+      return observer.dispose
+    }, [onCiteSelection])
+    useEffect(
+      () =>
+        registerCitationNavigationHandler((citation) => {
+          if (citation.source.kind !== "document" || citation.source.path !== props.path) {
+            return false
+          }
+          const contentRoot = editorRootRef.current?.querySelector<HTMLElement>(
+            '[contenteditable="true"]',
+          )
+          if (!contentRoot) return false
+          const range = resolveRenderedTextRange(
+            contentRoot,
+            citation.excerpt,
+            citation.source.selector,
+          )
+          if (!range) {
+            contentRoot.scrollIntoView({ block: "center" })
+            toast.warning("The quoted text changed. Showing its source document instead.")
+            return true
+          }
+          revealCitationRange(range)
+          return true
+        }),
+      [props.path],
+    )
     const onOpenLink = props.onOpenLink
     const openLink = useCallback(
       (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -366,10 +437,6 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       onProcessingErrorChange: handleProcessingErrorChange,
       resolveImageSrc: props.resolveImageSrc,
     })
-
-    useEffect(() => {
-      setSelectionSection(undefined)
-    }, [props.markdown])
 
     useEffect(() => {
       onHistoryControlsChangeRef.current = props.onHistoryControlsChange
@@ -434,13 +501,18 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
 
     const mdxEditorElement = (
       <div
+        ref={paperRef}
         data-component="markdown-bench-paper"
-        className={
+        className={cn(
+          "relative",
           isPlainAppearance
             ? MARKDOWN_BENCH_PAPER_PLAIN_CLASS_NAME
-            : MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME
-        }
+            : MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME,
+        )}
       >
+        <div data-markdown-export-ignore>
+          <QuoteCommentMarkers anchors={commentAnchors} />
+        </div>
         <div
           data-component="markdown-bench-document-content"
           className={cn(
@@ -543,32 +615,18 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
             : cn("bg-background-base pb-48", MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS),
           props.className,
         )}
-        onPointerUp={notifySelectionChange}
-        onKeyUp={notifySelectionChange}
         onClickCapture={openLink}
       >
-        {selectionSection ? (
-          <div
-            aria-hidden
-            data-component="markdown-bench-selection-section-overlay"
-            className="pointer-events-none absolute left-1/2 top-0 z-20 w-full max-w-3xl -translate-x-1/2"
-          >
-            <div
-              data-component="markdown-bench-selection-section"
-              className="absolute left-0 right-0 bg-[color:color-mix(in_oklab,var(--surface-warning-base)_42%,transparent)]"
-              style={{
-                top: selectionSection.top,
-                height: selectionSection.height,
-              }}
-            >
-              <div
-                data-component="markdown-bench-selection-edge"
-                className="absolute inset-y-0 left-0 rounded-r-sm bg-border-warning-base"
-                style={{ width: MARKDOWN_BENCH_SELECTION_EDGE_WIDTH_PX }}
-              />
-            </div>
-          </div>
-        ) : null}
+        <CitationSelectionToolbar
+          actionRef={citationActionRef}
+          position={citationCandidate?.position}
+          onCite={() => {
+            if (!citationCandidate) return
+            props.onCiteSelection?.(citationCandidate.selection, citationCandidate.commentSource)
+            setCitationCandidate(undefined)
+            window.getSelection()?.removeAllRanges()
+          }}
+        />
         {scopedThemeCss ? (
           <style data-markdown-bench-content-theme-style data-markdown-export-ignore>
             {scopedThemeCss}

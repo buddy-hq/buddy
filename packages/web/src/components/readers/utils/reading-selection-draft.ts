@@ -6,7 +6,9 @@ import {
   type PromptMarkdownSelectionContextPart,
   type PromptMessageSelectionContextPart,
   type PromptReadingSelectionContextPart,
+  promptPartFromCitation,
 } from "@/components/prompt/prompt-types"
+import type { Citation } from "@buddy/citation-contract"
 import type { PromptDraftState } from "@/state/prompt-store"
 
 type PromptDraftInput = Pick<PromptDraftState, "attachments" | "cursor" | "parts" | "value">
@@ -59,6 +61,18 @@ export function appendSelectionContextToDraft(
   return toDraftUpdate(currentDraft, parts, Number.POSITIVE_INFINITY)
 }
 
+/** Append one durable citation occurrence without replacing earlier citations. */
+export function appendCitationToDraft(
+  currentDraft: PromptDraftInput,
+  citation: Citation,
+): PromptDraftUpdate {
+  return toDraftUpdate(
+    currentDraft,
+    [...currentDraft.parts, promptPartFromCitation(citation)],
+    Number.POSITIVE_INFINITY,
+  )
+}
+
 export function removeReadingSelectionFromDraft(
   currentDraft: PromptDraftInput,
   selectionKey: string,
@@ -74,7 +88,10 @@ export function removeSelectionContextFromDraft(
     if (part.type !== READING_SELECTION_PART_TYPE && part.type !== SELECTION_CONTEXT_PART_TYPE) {
       return true
     }
-    return part.selectionKey !== selectionKey
+    return (
+      part.selectionKey !== selectionKey &&
+      (!("citation" in part) || part.citation.id !== selectionKey)
+    )
   })
 
   if (parts.length === currentDraft.parts.length) {

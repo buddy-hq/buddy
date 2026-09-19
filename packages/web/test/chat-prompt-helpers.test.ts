@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { READER_ANCHOR_KIND_CFI_TEXT, READER_ANCHOR_KIND_PDF_TEXT } from "@buddy/reader-contract"
+import { CITATION_SCHEMA_VERSION } from "@buddy/citation-contract"
 import {
   buildCommandAttachmentParts,
   buildPromptDraftFromUserMessage,
@@ -201,6 +202,201 @@ describe("buildPromptDraftFromUserMessage", () => {
           cfi: "epubcfi(/6/2)",
           sectionIndex: 1,
         },
+      },
+    ])
+  })
+
+  test("restores canonical citations and their independent comments from message metadata", () => {
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: "msg-citations", sessionID: "ses-1" }),
+      ["Compare this", "Challenge this"].map((comment, index) => ({
+        id: `part-citation-${index + 1}`,
+        sessionID: "ses-1",
+        messageID: "msg-citations",
+        type: "text" as const,
+        text: `provider citation ${index + 1}`,
+        metadata: {
+          buddyPromptPart: {
+            type: SELECTION_CONTEXT_PART_TYPE,
+            citation: {
+              schemaVersion: CITATION_SCHEMA_VERSION,
+              id: `citation-${index + 1}`,
+              excerpt: `Excerpt ${index + 1}`,
+              comment,
+              source: {
+                kind: "document",
+                path: "notes/source.md",
+                selector: {
+                  version: 1,
+                  start: index * 10,
+                  end: index * 10 + 9,
+                  prefix: "",
+                  suffix: "",
+                },
+              },
+            },
+          },
+        },
+      })),
+    )
+
+    const parts = buildPromptDraftFromUserMessage(message, "/repo")?.parts ?? []
+    expect(parts).toHaveLength(2)
+    expect(parts.map((part) => ("citation" in part ? part.citation.comment : undefined))).toEqual([
+      "Compare this",
+      "Challenge this",
+    ])
+  })
+
+  test("restores user prose alongside a flattened canonical citation", () => {
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: "msg-citation-prose", sessionID: "ses-1" }),
+      [
+        {
+          id: "part-citation",
+          sessionID: "ses-1",
+          messageID: "msg-citation-prose",
+          type: "text",
+          text: "provider-formatted citation",
+          metadata: {
+            buddyPromptPart: {
+              type: SELECTION_CONTEXT_PART_TYPE,
+              citation: {
+                schemaVersion: CITATION_SCHEMA_VERSION,
+                id: "citation-reading",
+                excerpt: "Quoted passage",
+                source: {
+                  kind: "reading",
+                  path: "Atomic Habits.epub",
+                  anchor: {
+                    kind: READER_ANCHOR_KIND_CFI_TEXT,
+                    cfi: "epubcfi(/6/4)",
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          id: "part-prose",
+          sessionID: "ses-1",
+          messageID: "msg-citation-prose",
+          type: "text",
+          text: "what is this",
+        },
+      ],
+    )
+
+    const draft = buildPromptDraftFromUserMessage(message, "/repo")
+
+    expect(draft?.value).toBe("what is this")
+    expect(draft?.cursor).toBe("what is this".length)
+    expect(draft?.parts.at(-1)).toEqual({
+      type: PROMPT_PART_TYPE_TEXT,
+      text: "what is this",
+    })
+  })
+
+  test("restores a direct canonical chat citation without dropping its source or comment", () => {
+    const citation = {
+      schemaVersion: CITATION_SCHEMA_VERSION,
+      id: "citation-chat",
+      excerpt: "Quoted assistant response",
+      comment: "Explain this claim",
+      source: {
+        kind: "chat" as const,
+        sessionID: "ses-source",
+        messageID: "msg-source",
+        partID: "part-source",
+        selector: {
+          version: 1 as const,
+          start: 12,
+          end: 37,
+          prefix: "Before ",
+          suffix: " after",
+        },
+      },
+    }
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: "msg-chat-citation", sessionID: "ses-1" }),
+      [
+        {
+          id: "part-chat-citation",
+          sessionID: "ses-1",
+          messageID: "msg-chat-citation",
+          type: SELECTION_CONTEXT_PART_TYPE,
+          citation,
+          source: "message",
+          text: citation.excerpt,
+          selectionKey: citation.id,
+          quotedMessageID: citation.source.messageID,
+        },
+      ],
+    )
+
+    expect(buildPromptDraftFromUserMessage(message, "/repo")?.parts).toEqual([
+      {
+        type: SELECTION_CONTEXT_PART_TYPE,
+        citation,
+        source: "message",
+        text: citation.excerpt,
+        selectionKey: citation.id,
+        quotedMessageID: citation.source.messageID,
+      },
+    ])
+  })
+
+  test("restores a direct canonical document citation instead of downgrading it", () => {
+    const citation = {
+      schemaVersion: CITATION_SCHEMA_VERSION,
+      id: "citation-document",
+      excerpt: "Document excerpt",
+      comment: "Compare this section",
+      source: {
+        kind: "document" as const,
+        path: "notes/source.md",
+        revision: "revision-2",
+        selector: {
+          version: 1 as const,
+          start: 5,
+          end: 21,
+          prefix: "Intro",
+          suffix: "Conclusion",
+        },
+      },
+      presentation: {
+        headingPath: ["Chapter 1", "Evidence"],
+      },
+    }
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: "msg-document-citation", sessionID: "ses-1" }),
+      [
+        {
+          id: "part-document-citation",
+          sessionID: "ses-1",
+          messageID: "msg-document-citation",
+          type: SELECTION_CONTEXT_PART_TYPE,
+          citation,
+          source: "markdown",
+          text: citation.excerpt,
+          selectionKey: citation.id,
+          path: citation.source.path,
+          version: citation.source.revision,
+          headingPath: citation.presentation.headingPath,
+        },
+      ],
+    )
+
+    expect(buildPromptDraftFromUserMessage(message, "/repo")?.parts).toEqual([
+      {
+        type: SELECTION_CONTEXT_PART_TYPE,
+        citation,
+        source: "markdown",
+        text: citation.excerpt,
+        selectionKey: citation.id,
+        path: citation.source.path,
+        version: citation.source.revision,
+        headingPath: citation.presentation.headingPath,
       },
     ])
   })

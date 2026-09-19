@@ -2,7 +2,11 @@ import type { Context } from "hono"
 import { isJsonContentType } from "../../http/http"
 import { invalidJsonResponse } from "../../http/request-json"
 import { extractSdkErrorMessage, type SdkResult } from "../../http/sdk-response"
-import { flattenPromptPartsForRuntime } from "../../learning/prompt/workspace-file-references"
+import {
+  flattenPromptPartsForRuntime,
+  resolvePromptCitationLocations,
+} from "../../learning/prompt/workspace-file-references"
+import type { CitationLocationContext } from "../../learning/prompt/citation-source-location"
 import { parseTSessionJsonObject, type TSessionJsonObject } from "./parse-values"
 
 async function parseRequestJsonObject(c: Context): Promise<TSessionJsonObject | Response> {
@@ -38,22 +42,32 @@ export function toSessionSdkResult<TData, TError>(result: {
   }
 }
 
-export function prepareRuntimePromptBody(body: TSessionJsonObject): TSessionJsonObject {
+async function flattenRuntimeParts<T>(parts: readonly T[], context: CitationLocationContext) {
+  return flattenPromptPartsForRuntime(parts, await resolvePromptCitationLocations(parts, context))
+}
+
+export async function prepareRuntimePromptBody(
+  body: TSessionJsonObject,
+  context: CitationLocationContext,
+): Promise<TSessionJsonObject> {
   if (!Array.isArray(body.parts)) {
     return body
   }
 
   return {
     ...body,
-    parts: flattenPromptPartsForRuntime(body.parts),
+    parts: await flattenRuntimeParts(body.parts, context),
   }
 }
 
-export function prepareRuntimeCommandBody(body: TSessionJsonObject): TSessionJsonObject {
+export async function prepareRuntimeCommandBody(
+  body: TSessionJsonObject,
+  context: CitationLocationContext,
+): Promise<TSessionJsonObject> {
   const withRuntimeParts = Array.isArray(body.parts)
     ? {
         ...body,
-        parts: flattenPromptPartsForRuntime(body.parts),
+        parts: await flattenRuntimeParts(body.parts, context),
       }
     : body
 

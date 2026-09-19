@@ -86,10 +86,18 @@ function readerTextAnchorsMatch(left: MessagePart, right: MessagePart): boolean 
   return readerTextAnchorEquals(leftAnchor, rightAnchor)
 }
 
+function readCitationID<TValue>(value: TValue): string | undefined {
+  return isRecord(value) ? parseString(value.id) : undefined
+}
+
 function promptSelectionMetadataMatches(existing: MessagePart, metadata: TRecord) {
   if (metadata.type !== existing.type) return false
   if (metadata.type !== "reading-selection" && metadata.type !== SELECTION_CONTEXT_PART_TYPE) {
     return false
+  }
+  const citationID = readCitationID(metadata.citation)
+  if (citationID !== undefined || existing.citation !== undefined) {
+    return citationID !== undefined && readCitationID(existing.citation) === citationID
   }
   if (metadata.text !== existing.text) return false
 

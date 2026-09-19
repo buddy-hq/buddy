@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, toast } from "@buddy/ui"
 import { formatReaderPositionAnchor } from "@buddy/reader-contract"
+import {
+  CITATION_SCHEMA_VERSION,
+  type Citation,
+  type ReadingCitationSource,
+} from "@buddy/citation-contract"
+import { requestCitationComment, type CitationCommentSource } from "@/lib/citations/comment-request"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
@@ -11,10 +17,11 @@ import {
 } from "@/components/bench/bench-route-context"
 import { objectRef, workspaceFileRef } from "@/components/bench/bench-context-utils"
 import {
-  appendReadingSelectionToDraft,
+  appendCitationToDraft,
   removeReadingSelectionFromDraft,
 } from "@/components/readers/utils/reading-selection-draft"
 import type { ReaderSelection } from "@/components/readers/reader-types"
+import type { DocumentReaderHandle } from "@/components/readers/reader-types"
 import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
 import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer-live-draft"
@@ -28,6 +35,8 @@ import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runti
 import { addResource, rebuildResource, type ResourceRecord } from "@/state/resource-actions"
 import type { BenchTarget } from "@/lib/bench-navigation"
 import { stringifyError } from "@/lib/api-client"
+import { registerCitationNavigationHandler } from "@/lib/citations/navigation"
+import { useReadingMarginMarks } from "@/components/citations/use-reading-margin-marks"
 
 type DirectoryChatReadingPageProps = {
   directory: string
@@ -77,6 +86,8 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     readingPersonaSessionKey ? state.selectedPersonaBySession[readingPersonaSessionKey] : undefined,
   )
   const previousPersonaBySessionRef = useRef<Record<string, string | undefined>>({})
+  const readerRef = useRef<DocumentReaderHandle>(null)
+  const [readerReady, setReaderReady] = useState(false)
   const resourcesQuery = useQuery({
     ...resourcesQueryOptions(readyDirectory ?? ""),
     enabled: readyDirectory !== undefined,
@@ -334,6 +345,30 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     setLastOpenedReadingResource,
   ])
 
+  const ownsReadingSource = useCallback(
+    (source: ReadingCitationSource) => {
+      const citationPath = normalizeRelativePath(source.path ?? "")
+      return (
+        (!!citationPath && citationPath === normalizedPath) ||
+        (!!source.resourceKey &&
+          [resourceObjectID, resourceAlias, props.resourceKey].includes(source.resourceKey))
+      )
+    },
+    [normalizedPath, props.resourceKey, resourceAlias, resourceObjectID],
+  )
+  const { marginMarks, renderMarginMarks } = useReadingMarginMarks(ownsReadingSource)
+
+  useEffect(
+    () =>
+      registerCitationNavigationHandler(async (citation) => {
+        if (citation.source.kind !== "reading" || !ownsReadingSource(citation.source)) return false
+        const reader = readerRef.current
+        if (!readerReady || !reader?.getSnapshot()) return false
+        return reader.goToText(citation.source.anchor)
+      }),
+    [ownsReadingSource, readerReady],
+  )
+
   if (controller.status === "invalid") {
     return <DirectoryInvalidNotebook />
   }
@@ -347,28 +382,39 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   }
 
   const readyController = controller
-  function stageReadingSelection(input: ReaderSelection) {
+  function stageReadingSelection(input: ReaderSelection, commentSource?: CitationCommentSource) {
     const promptKey = readyController.mainPaneProps.chatState.promptKey
     const setPromptDraft = readyController.mainPaneProps.chatState.setPromptDraft
     const currentDraft = readPromptComposerLiveDraft(promptKey)
     const resourceKey = resourceRecord?.objectID ?? resourceRecord?.alias ?? props.resourceKey
-    setPromptDraft(
-      promptKey,
-      appendReadingSelectionToDraft(
-        currentDraft,
-        Object.assign(
+    const citation: Citation = Object.assign(
+      {
+        schemaVersion: CITATION_SCHEMA_VERSION,
+        id: input.selectionKey,
+        excerpt: input.text,
+        source: Object.assign(
           {
-            text: input.text,
-            selectionKey: input.selectionKey,
+            kind: "reading" as const,
+            anchor: input.anchor,
+            directory: readyDirectory,
+            path: normalizedPath,
           },
           resourceKey ? { resourceKey } : undefined,
-          { anchor: input.anchor },
-          input.tocLabel ? { tocLabel: input.tocLabel } : undefined,
-          input.pageLabel ? { pageLabel: input.pageLabel } : undefined,
-          input.locationLabel ? { locationLabel: input.locationLabel } : undefined,
         ),
-      ),
+      },
+      input.tocLabel || input.pageLabel || input.locationLabel
+        ? {
+            presentation: Object.assign(
+              {},
+              input.tocLabel ? { tocLabel: input.tocLabel } : undefined,
+              input.pageLabel ? { pageLabel: input.pageLabel } : undefined,
+              input.locationLabel ? { locationLabel: input.locationLabel } : undefined,
+            ),
+          }
+        : undefined,
     )
+    requestCitationComment(citation.id, commentSource)
+    setPromptDraft(promptKey, appendCitationToDraft(currentDraft, citation))
   }
 
   function removeStagedReadingSelection(selectionKey: string) {
@@ -418,6 +464,8 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       ) : null}
       <div className="min-h-0 flex-1">
         <DirectoryChatReadingReaderPane
+          readerRef={readerRef}
+          onReadyChange={setReaderReady}
           directory={readyDirectory}
           resourceName={resourceName}
           resourcePath={normalizedPath}
@@ -440,12 +488,14 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
               )
             }
           }}
-          onChatSelection={(selection) => {
-            stageReadingSelection(selection)
+          onChatSelection={(selection, commentSource) => {
+            stageReadingSelection(selection, commentSource)
           }}
           onChatSelectionRemoved={(selectionKey) => {
             removeStagedReadingSelection(selectionKey)
           }}
+          marginMarks={marginMarks}
+          renderMarginMarks={renderMarginMarks}
           onAnnotationsChange={(annotations) => {
             const summary = annotations.slice(-10).map((annotation) => {
               const note = annotation.note?.trim()

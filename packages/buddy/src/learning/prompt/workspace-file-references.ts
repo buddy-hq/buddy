@@ -7,6 +7,13 @@ import {
   readReaderTextAnchor,
   type ReaderTextAnchor,
 } from "@buddy/reader-contract"
+import {
+  CITATION_PROMPT_PART_TYPE,
+  formatCitationForProvider,
+  readCitationPromptPart,
+  type CitationPromptPart,
+  type CitationProviderLocation,
+} from "@buddy/citation-contract"
 import { Agent } from "@buddy/opencode-adapter/agent"
 import { SessionTransformValidationError } from "../../session"
 import { resolveResourceReference } from "../../resources/resource-registry-service"
@@ -20,6 +27,10 @@ import {
   readNativeResourcePromptAttachment,
 } from "./native-resource-attachments"
 import { BUDDY_PROMPT_PART_METADATA_KEY } from "./native-resource-metadata"
+import {
+  resolveCitationProviderLocation,
+  type CitationLocationContext,
+} from "./citation-source-location"
 import {
   parseJsonObject,
   parseNonEmptyPromptString,
@@ -192,6 +203,12 @@ export async function normalizePromptParts(input: {
       normalizedParts.push(
         readingSelectionPromptPart(normalizeReadingSelectionPart(readingSelection)),
       )
+      continue
+    }
+
+    const citation = normalizeCitationPromptPart(part)
+    if (citation) {
+      normalizedParts.push(citationPromptPart(citation))
       continue
     }
 
@@ -562,6 +579,29 @@ function parseSelectionContextPart<T>(part: T): TJsonObject | undefined {
   return object
 }
 
+function normalizeCitationPromptPart<T>(part: T): CitationPromptPart | undefined {
+  const object = parseJsonObject(part)
+  if (
+    object === undefined ||
+    object.type !== CITATION_PROMPT_PART_TYPE ||
+    object.citation === undefined
+  ) {
+    return undefined
+  }
+  const citation = readCitationPromptPart(part)
+  if (!citation) throw new SessionTransformValidationError("citation prompt part is invalid")
+  return citation
+}
+
+function citationPromptPart(part: CitationPromptPart): TPromptPart {
+  const citation = parseJsonObject(part.citation)
+  if (!citation) throw new SessionTransformValidationError("citation is not JSON-compatible")
+  return {
+    type: CITATION_PROMPT_PART_TYPE,
+    citation,
+  }
+}
+
 function readSelectionTextAnchor(value: TJsonValue | undefined): ReaderTextAnchor | undefined {
   const object = parseJsonObject(value)
   if (object === undefined) return undefined
@@ -718,7 +758,29 @@ function normalizeSelectionContextPart(part: TJsonObject): SelectionContextPart 
   )
 }
 
-export function flattenPromptPartsForRuntime<T>(parts: readonly T[]): TPromptPart[] {
+export type CitationProviderLocations = ReadonlyMap<string, CitationProviderLocation>
+
+export async function resolvePromptCitationLocations<T>(
+  parts: readonly T[],
+  context: CitationLocationContext,
+): Promise<CitationProviderLocations> {
+  const citations = parts.flatMap((part) => {
+    const citation = normalizeCitationPromptPart(part)
+    return citation ? [citation.citation] : []
+  })
+  const entries = await Promise.all(
+    citations.map(
+      async (citation) =>
+        [citation.id, await resolveCitationProviderLocation(citation, context)] as const,
+    ),
+  )
+  return new Map(entries)
+}
+
+export function flattenPromptPartsForRuntime<T>(
+  parts: readonly T[],
+  citationLocations: CitationProviderLocations = new Map(),
+): TPromptPart[] {
   return parts.flatMap((part) => {
     if (isNativeResourceAttachmentPart(part)) {
       const metadata = readNativeResourcePromptAttachment(part)
@@ -728,6 +790,22 @@ export function flattenPromptPartsForRuntime<T>(parts: readonly T[]): TPromptPar
           text: `Attached native learning resource metadata: ${JSON.stringify({ filename: metadata.filename, format: metadata.format })}. Follow the preparation instructions in the system reminder before relying on this document's contents.`,
           metadata: {
             [BUDDY_PROMPT_PART_METADATA_KEY]: nativeResourceAttachmentPromptPart(metadata),
+          },
+        },
+      ]
+    }
+
+    const citation = normalizeCitationPromptPart(part)
+    if (citation) {
+      return [
+        {
+          type: PROMPT_PART_TYPE_TEXT,
+          text: formatCitationForProvider(
+            citation.citation,
+            citationLocations.get(citation.citation.id),
+          ),
+          metadata: {
+            [BUDDY_PROMPT_PART_METADATA_KEY]: citationPromptPart(citation),
           },
         },
       ]

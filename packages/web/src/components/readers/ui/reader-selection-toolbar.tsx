@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { CopyIcon, PencilLineIcon, SearchIcon } from "@/icons/app-icons"
+import { CopyIcon, PencilLineIcon, QuoteIcon, SearchIcon } from "@/icons/app-icons"
 import { Button } from "@buddy/ui"
 import type { ReaderAnnotationColorId, ReaderSelectionToolbarViewModel } from "../reader-types"
 import { ReaderAnnotationColorDots } from "./reader-annotation-color-dots"
@@ -15,6 +15,7 @@ type ReaderSelectionToolbarProps = {
   selectionAction: ReaderSelectionToolbarState | null
   anchorRoot: HTMLElement | null
   onCopyText: (text: string) => void
+  onCite?: () => void
   onHighlight: (color: ReaderAnnotationColorId) => void
   onOpenAnnotationDialog: () => void
   onSearch: (text: string) => void
@@ -25,6 +26,7 @@ export function ReaderSelectionToolbar({
   selectionAction,
   anchorRoot,
   onCopyText,
+  onCite,
   onHighlight,
   onOpenAnnotationDialog,
   onSearch,
@@ -51,6 +53,11 @@ export function ReaderSelectionToolbar({
           <span aria-hidden className="mx-2.5 h-5 w-px shrink-0 bg-border-weak-base" />
 
           <span className="flex items-center gap-1">
+            {onCite ? (
+              <ActionButton onClick={onCite} label="Cite selected text">
+                <QuoteIcon />
+              </ActionButton>
+            ) : null}
             <ActionButton onClick={onOpenAnnotationDialog} label="Add note">
               <PencilLineIcon />
             </ActionButton>

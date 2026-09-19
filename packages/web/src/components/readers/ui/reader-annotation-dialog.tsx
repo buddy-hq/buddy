@@ -12,7 +12,6 @@ import {
   Textarea,
   ToggleGroup,
   ToggleGroupItem,
-  cn,
 } from "@buddy/ui"
 import type {
   ReaderAnnotationColorId,
@@ -104,7 +103,8 @@ export function ReaderAnnotationDialog({
                 >
                   <span
                     aria-hidden="true"
-                    className={cn("size-4 rounded-full", option.previewClassName)}
+                    className="size-4 rounded-full"
+                    style={{ backgroundColor: option.ink }}
                   />
                 </ToggleGroupItem>
               ))}

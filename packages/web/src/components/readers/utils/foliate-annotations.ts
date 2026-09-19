@@ -168,10 +168,33 @@ export async function revealFoliateAnnotation(
   view: FoliateAnnotationView,
   annotation: FoliateAnnotationPayload,
 ): Promise<Range | undefined> {
-  const resolved = await resolveCanonicalNavigationTarget(view, annotation.value)
+  return revealFoliateText(view, annotation.value)
+}
+
+/** Navigate to a CFI text range and resolve it in the rendered publication document. */
+export async function revealFoliateText(
+  view: FoliateAnnotationView,
+  cfi: string,
+): Promise<Range | undefined> {
+  const resolved = await resolveCanonicalNavigationTarget(view, cfi)
   if (!resolved) return undefined
 
   await view.renderer.goTo({ index: resolved.index, anchor: resolved.anchor })
   const content = getRenderedContent(view, resolved.index)
   return content ? resolveRange(resolved.anchor, content.doc) : undefined
+}
+
+export async function resolveFoliateRenderedRange(
+  view: FoliateAnnotationView,
+  cfi: string,
+): Promise<Range | undefined> {
+  const resolved = await resolveCanonicalNavigationTarget(view, cfi)
+  if (!resolved) return undefined
+  return resolveAnnotationContent(
+    view,
+    [resolved.index, resolved.nativeIndex],
+    resolved.index,
+    resolved.anchor,
+    undefined,
+  )?.range
 }

@@ -30,15 +30,19 @@ export function usePromptEditorSync(props: UsePromptEditorSyncProps) {
     const editor = editorRef.current
     if (!editor) return
 
-    if (mirrorInputRef.current) {
-      mirrorInputRef.current = false
-      return
-    }
-
     const nextParts =
       draft.parts.length > 0 ? draft.parts : createPromptPartsFromValue(draft.value, knownAgents)
-    const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
     const domParts = collectPromptParts(editor)
+
+    if (mirrorInputRef.current) {
+      mirrorInputRef.current = false
+      // Composer-originated changes already live in the contenteditable, but an
+      // external draft replacement can arrive before this mirror flag is
+      // consumed. Skip only when the DOM actually matches the incoming draft.
+      if (arePromptPartsEqual(domParts, nextParts)) return
+    }
+
+    const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
     const editorFocused = document.activeElement === editor
 
     if (arePromptPartsEqual(domParts, nextParts)) {

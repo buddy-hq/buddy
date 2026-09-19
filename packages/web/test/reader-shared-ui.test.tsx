@@ -87,6 +87,7 @@ describe("shared reader UI", () => {
 
   test("routes the engine-neutral selection actions without losing selected text", async () => {
     const onCopyText = mock(() => undefined)
+    const onCite = mock(() => undefined)
     const onHighlight = mock(() => undefined)
     const onOpenAnnotationDialog = mock(() => undefined)
     const onSearch = mock(() => undefined)
@@ -98,6 +99,7 @@ describe("shared reader UI", () => {
           anchorRoot={null}
           selectionAction={{ text: selectedText, x: 24, y: 32 }}
           onCopyText={onCopyText}
+          onCite={onCite}
           onHighlight={onHighlight}
           onOpenAnnotationDialog={onOpenAnnotationDialog}
           onSearch={onSearch}
@@ -106,7 +108,7 @@ describe("shared reader UI", () => {
       await flushEffects()
     })
 
-    const labels = ["Amber", "Add note", "Copy", "Search for this"]
+    const labels = ["Amber", "Cite selected text", "Add note", "Copy", "Search for this"]
     for (const label of labels) {
       const button = requireElement(
         container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`),
@@ -118,6 +120,7 @@ describe("shared reader UI", () => {
     }
 
     expect(onCopyText).toHaveBeenCalledWith(selectedText)
+    expect(onCite).toHaveBeenCalledTimes(1)
     expect(onHighlight).toHaveBeenCalledTimes(1)
     expect(onOpenAnnotationDialog).toHaveBeenCalledTimes(1)
     expect(onSearch).toHaveBeenCalledWith(selectedText)

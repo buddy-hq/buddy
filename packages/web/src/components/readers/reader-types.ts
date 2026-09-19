@@ -4,6 +4,7 @@ import type {
   ReaderRelocation,
   ReaderTextAnchor,
 } from "@buddy/reader-contract"
+import type { CitationCommentSource } from "@/lib/citations/comment-request"
 
 export type {
   CfiPositionAnchor,
@@ -221,10 +222,22 @@ export type PdfReaderMode = {
   rotation: PdfReaderRotation
 }
 
+export type ReaderMarginMark = {
+  id: string
+  anchor: ReaderTextAnchor
+}
+
+export type ReaderMarginMarkPosition = {
+  id: string
+  x: number
+  y: number
+}
+
 export type DocumentReaderHandle = {
   next: () => Promise<void>
   prev: () => Promise<void>
   goTo: (target: ReaderPositionAnchor) => Promise<void>
+  goToText: (target: ReaderTextAnchor) => Promise<boolean>
   setTheme: (theme: ReaderThemeId) => void
   getSnapshot: () => ReaderSnapshot | null
 }
@@ -239,12 +252,14 @@ export type DocumentReaderProps = {
   emptyState?: ReactNode
   onReady?: (snapshot: ReaderSnapshot) => void
   onLocationChange?: (location: ReaderRelocation) => void
-  onChatSelection?: (selection: ReaderSelection) => void
+  onChatSelection?: (selection: ReaderSelection, commentSource?: CitationCommentSource) => void
   onChatSelectionRemoved?: (selectionKey: string) => void
   onOpenExternalLink?: (href: string) => void
   onOpeningInteractionChange?: (pending: boolean) => void
   onError?: (error: Error) => void
   onAnnotationsChange?: (annotations: ReaderAnnotation[]) => void
+  marginMarks?: readonly ReaderMarginMark[]
+  renderMarginMarks?: (positions: readonly ReaderMarginMarkPosition[]) => ReactNode
 }
 
 function hasPdfExtension(value: string): boolean {

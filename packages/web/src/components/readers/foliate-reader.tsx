@@ -68,7 +68,6 @@ import type {
   ReaderSelectionToolbarState,
 } from "./foliate-reader-types"
 import {
-  ANNOTATION_COLOR_IDS,
   ANNOTATION_STYLE_HIGHLIGHT,
   DEFAULT_ANNOTATION_COLOR_ID,
   DEFAULT_AUTHOR,
@@ -104,13 +103,17 @@ import {
   getSourceName,
   isEditingTarget,
   readSelectedRange,
+  toTopViewportDOMRect,
   releaseObjectUrl,
-  resolveAnnotationColorValue,
   resolveRestorableNavigationTarget,
   resolveCoverUrl,
   syncMarginals,
   toFoliateInput,
 } from "./utils/foliate-helpers"
+import {
+  detachedCitationCommentRect,
+  rangeCitationCommentSource,
+} from "@/lib/citations/comment-source"
 import {
   buildBookPersistenceKey,
   loadBookState,
@@ -133,11 +136,20 @@ import {
   resolveReaderWheelNavigation,
 } from "./utils/foliate-navigation"
 import { drawAnnotation, toAnnotationDialogState } from "./utils/foliate-drawing"
+import { readerHighlightVariables } from "./utils/reader-highlight-paint"
 import {
   removeFoliateAnnotation,
   renderFoliateAnnotation,
   revealFoliateAnnotation,
+  revealFoliateText,
 } from "./utils/foliate-annotations"
+import { revealCitationRange } from "@/lib/citations/highlight"
+import { measureFoliateMarginMarks } from "./utils/foliate-margin-marks"
+import {
+  useMarginMarkPositions,
+  type MarginMarkMeasure,
+  type MarginMarkRefreshSubscription,
+} from "./utils/use-margin-mark-positions"
 import { withReaderSourceContentFingerprint } from "./reader-storage"
 import type {
   ReaderAnnotationViewModel,
@@ -160,7 +172,6 @@ ensureFoliateRuntimeCompat()
 
 const WHEEL_GESTURE_IDLE_THRESHOLD_MS = 180
 const READER_PERCENT_MAX = 100
-const HOST_THEME_ATTRIBUTE_FILTER = ["class", "style", "data-theme", "data-color-scheme"]
 
 function drawAnnotationListener(event: CustomEvent<FoliateDrawAnnotationEventDetail>) {
   drawAnnotation(event)
@@ -172,33 +183,6 @@ function foliateBookmarkOrder(bookmark: CommonReaderBookmark): string {
 
 function foliateAnnotationOrder(annotation: ReaderAnnotationViewModel): string {
   return annotation.anchor.kind === "cfi-text" ? annotation.anchor.cfi : ""
-}
-
-function readAnnotationThemeSignature(): string {
-  const root = globalThis.document?.documentElement
-  if (!root) return ""
-  return ANNOTATION_COLOR_IDS.map((colorId) => resolveAnnotationColorValue(colorId, root)).join(
-    "\0",
-  )
-}
-
-function useAnnotationThemeSignature(): string {
-  const [signature, setSignature] = useState(readAnnotationThemeSignature)
-
-  useEffect(() => {
-    const syncSignature = () => setSignature(readAnnotationThemeSignature())
-    syncSignature()
-    if (!("MutationObserver" in globalThis)) return
-
-    const observer = new MutationObserver(syncSignature)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: HOST_THEME_ATTRIBUTE_FILTER,
-    })
-    return () => observer.disconnect()
-  }, [])
-
-  return signature
 }
 
 function createSelectionKey() {
@@ -240,6 +224,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       onOpenExternalLink,
       onError,
       onAnnotationsChange,
+      marginMarks,
+      renderMarginMarks,
       persistenceSuffix,
     },
     ref,
@@ -323,6 +309,26 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const readerSourceRef = useRef(readerSource)
     const persistenceSuffixRef = useRef(persistenceSuffix)
     const benchSurfaceActive = useBenchSurfaceActive()
+    const measureMarginMarks = useCallback<MarginMarkMeasure>((marks, surface) => {
+      const view = viewRef.current
+      return view ? measureFoliateMarginMarks(view, marks, surface) : []
+    }, [])
+    const subscribeMarginMarkRefresh = useCallback<MarginMarkRefreshSubscription>((refresh) => {
+      const view = viewRef.current
+      if (!view) return () => {}
+      const events = ["relocate", "load", "create-overlay"] as const
+      for (const event of events) view.addEventListener(event, refresh)
+      return () => {
+        for (const event of events) view.removeEventListener(event, refresh)
+      }
+    }, [])
+    const marginMarkPositions = useMarginMarkPositions({
+      enabled: status === "ready" && benchSurfaceActive && renderMarginMarks !== undefined,
+      marks: marginMarks,
+      surfaceRef: readerSurfaceRef,
+      measure: measureMarginMarks,
+      subscribe: subscribeMarginMarkRefresh,
+    })
     const benchSurfaceActiveRef = useRef(benchSurfaceActive)
     benchSurfaceActiveRef.current = benchSurfaceActive
 
@@ -352,7 +358,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
     const stableSource = stableSourceRef.current.value
     const stableInitialLocation = stableInitialLocationRef.current.value
-    const annotationThemeSignature = useAnnotationThemeSignature()
     const theme = getThemeDefinition(preferences.themeId)
     const canChangeFlow = snapshot ? !snapshot.isFixedLayout : false
     const showPageTurnControls =
@@ -418,6 +423,14 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         goTo: async (target) => {
           await viewRef.current?.goTo(target)
         },
+        goToText: async (cfi) => {
+          const view = viewRef.current
+          if (!view) return false
+          const range = await revealFoliateText(view, cfi)
+          if (!range) return false
+          revealCitationRange(range)
+          return true
+        },
         setTheme: (nextTheme) => {
           setPreferences((current) => ({ ...current, themeId: nextTheme }))
         },
@@ -439,10 +452,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               view,
               {
                 ...annotation,
-                color: resolveAnnotationColorValue(
-                  getAnnotationColorId(annotation.color),
-                  readerSurfaceRef.current,
-                ),
+                color: getAnnotationColorValue(getAnnotationColorId(annotation.color)),
               },
               onlyIndex,
             )
@@ -545,30 +555,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       applyReaderPreferences(view, theme, preferences)
       syncMarginals(view, snapshotRef.current, locationRef.current)
     }, [preferences, theme])
-
-    useEffect(() => {
-      const view = viewRef.current
-      if (!view) return
-      void (async () => {
-        for (const annotation of annotationsRef.current) {
-          if (viewRef.current !== view) return
-          try {
-            await removeFoliateAnnotation(view, annotation)
-            if (viewRef.current !== view) return
-            await renderFoliateAnnotation(view, {
-              ...annotation,
-              color: resolveAnnotationColorValue(
-                getAnnotationColorId(annotation.color),
-                readerSurfaceRef.current,
-              ),
-            })
-          } catch (error) {
-            if (viewRef.current !== view) return
-            console.warn("Failed to refresh reader annotation color", { annotation, error })
-          }
-        }
-      })()
-    }, [annotationThemeSignature])
 
     useEffect(() => {
       if (!persistenceTarget) return
@@ -721,9 +707,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       if (!action.text.trim()) {
         return
       }
-      removeCurrentChatSelection()
       selectionActionRef.current = action
-      stagedSelectionKeyRef.current = action.selectionKey
       setAnnotationPopover(null)
       setSelectionToolbar(
         Object.assign(
@@ -738,6 +722,32 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           action.locationLabel ? { locationLabel: action.locationLabel } : undefined,
         ),
       )
+    }
+
+    function citeCurrentSelection() {
+      const action = selectionActionRef.current
+      const container = readerSurfaceRef.current
+      if (!action || !container) return
+      const frameDocument = action.range.startContainer.ownerDocument
+      const commentSource = frameDocument?.body
+        ? rangeCitationCommentSource({
+            range: action.range,
+            observe: frameDocument.body,
+            resolve: () => undefined,
+            contextElement: container,
+            toViewportRect: (rect) => {
+              const viewportRect = toTopViewportDOMRect(rect, frameDocument.defaultView)
+              const bounds = container.getBoundingClientRect()
+              // Paginated books keep turned pages laid out beside the visible one.
+              const visible =
+                viewportRect.right > bounds.left &&
+                viewportRect.left < bounds.right &&
+                viewportRect.bottom > bounds.top &&
+                viewportRect.top < bounds.bottom
+              return visible ? viewportRect : detachedCitationCommentRect()
+            },
+          })
+        : undefined
       callbacksRef.current.onChatSelection?.(
         Object.assign(
           {
@@ -750,7 +760,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           action.pageLabel ? { pageLabel: action.pageLabel } : undefined,
           action.locationLabel ? { locationLabel: action.locationLabel } : undefined,
         ),
+        commentSource,
       )
+      // The comment editor highlights the cited text, so the native selection can go.
+      dismissSelectionToolbar(true)
     }
 
     function removeCurrentChatSelection() {
@@ -853,10 +866,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         // deselection happens after addAnnotation(), WebKit can leave the new SVG
         // overlayer stale until the reader is resized or remounted.
         dismissSelectionToolbar(true)
-        const info = await renderFoliateAnnotation(view, {
-          ...annotation,
-          color: resolveAnnotationColorValue(nextDialog.color, readerSurfaceRef.current),
-        })
+        const info = await renderFoliateAnnotation(view, annotation)
         if (info) {
           annotation.index = info.index
           annotation.label = info.label
@@ -879,10 +889,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         modified: new Date().toISOString(),
       }
       await removeFoliateAnnotation(view, existing)
-      const info = await renderFoliateAnnotation(view, {
-        ...updated,
-        color: resolveAnnotationColorValue(nextDialog.color, readerSurfaceRef.current),
-      })
+      const info = await renderFoliateAnnotation(view, updated)
       if (info) {
         updated.index = info.index
         updated.label = info.label
@@ -1514,7 +1521,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         <div
           ref={readerSurfaceRef}
           className={cn("relative min-h-0 min-w-0 w-full flex-1", theme.viewportClassName)}
+          style={readerHighlightVariables(theme.appearance)}
         >
+          {renderMarginMarks?.(marginMarkPositions)}
           {status === "loading" ? (
             <div className="pointer-events-none absolute inset-x-3 top-3 z-30">
               <ReaderStatusPill>
@@ -1572,6 +1581,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             selectionAction={selectionToolbar}
             anchorRoot={readerSurfaceRef.current}
             onCopyText={(text: string) => void handleCopySelection(text)}
+            onCite={citeCurrentSelection}
             onHighlight={(color) => {
               const action = selectionActionRef.current
               const view = viewRef.current
@@ -1591,10 +1601,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               // layout refresh.
               dismissSelectionToolbar(true)
               void (async () => {
-                const info = await renderFoliateAnnotation(view, {
-                  ...annotation,
-                  color: resolveAnnotationColorValue(color, readerSurfaceRef.current),
-                })
+                const info = await renderFoliateAnnotation(view, annotation)
                 if (info) {
                   annotation.index = info.index
                   annotation.label = info.label

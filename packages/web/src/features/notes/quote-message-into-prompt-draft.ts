@@ -15,7 +15,9 @@ const MESSAGE_QUOTE_SELECTION_KEY_PREFIX = "message_" as const
 function isMessageSelectionContextPart(
   part: PromptComposerPart,
 ): part is PromptMessageSelectionContextPart {
-  return part.type === SELECTION_CONTEXT_PART_TYPE && part.source === "message"
+  return (
+    part.type === SELECTION_CONTEXT_PART_TYPE && part.source === "message" && !("citation" in part)
+  )
 }
 
 export function quoteMessageIntoPromptDraft(input: {

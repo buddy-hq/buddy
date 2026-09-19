@@ -15,7 +15,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { TooltipProvider, cn } from "@buddy/ui"
+import { TooltipProvider, cn, toast } from "@buddy/ui"
 import type {
   ToolCollectionToken,
   ToolLayoutRole,
@@ -102,6 +102,17 @@ import {
 } from "@/lib/active-chat-transition-state"
 import type { ChatTranscriptProps, TForkMessageInput, TRetryActionInput } from "./types"
 import { visibleMessageText } from "./utils/user-message-text"
+import { CITATION_SCHEMA_VERSION, type Citation } from "@buddy/citation-contract"
+import { CitationSelectionToolbar } from "@/components/citations/citation-selection-toolbar"
+import {
+  captureRenderedTextSelection,
+  resolveRenderedTextRange,
+} from "@/lib/citations/rendered-text"
+import { observeSelectionActions } from "@/lib/citations/selection-actions"
+import { registerCitationNavigationHandler } from "@/lib/citations/navigation"
+import { revealCitationRange } from "@/lib/citations/highlight"
+import type { CitationCommentSource } from "@/lib/citations/comment-request"
+import { rangeCitationCommentSource } from "@/lib/citations/comment-source"
 
 const HISTORY_PREPEND_TOP_THRESHOLD_PX = 160
 const TIMELINE_PADDING_END_PX = 64
@@ -145,6 +156,10 @@ const EMPTY_ACTIVITY_ROW_EXPANSION_STATE: ActivityRowExpansionState = {
 const DEFAULT_INITIAL_SCROLL_OFFSET = () => undefined
 const DEFAULT_SHOULD_ANCHOR_BOTTOM = () => true
 const DEFAULT_HAS_SCROLL_GESTURE = () => false
+
+function createChatCitationID() {
+  return `chat_citation_${crypto.randomUUID()}`
+}
 
 type TimelineCacheEntry = {
   measurements: VirtualItem[]
@@ -1122,6 +1137,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     sessionID: requestedSessionID,
     onForkMessage,
     onQuoteMessage,
+    onCite,
     onOpenSession,
     onOpenResource,
     onRevertMessage,
@@ -1296,6 +1312,69 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   const [rangeVersion, setRangeVersion] = useState(0)
   const [, setViewStateVersion] = useState(0)
   const scrollElement = scrollViewportRef?.current ?? undefined
+  const citationActionRef = useRef<HTMLDivElement>(null)
+  const [citationCandidate, setCitationCandidate] = useState<{
+    citation: Citation
+    commentSource: CitationCommentSource
+    position: { x: number; y: number }
+  }>()
+
+  useEffect(() => {
+    if (!scrollElement || !onCite) return
+    const observer = observeSelectionActions({
+      element: scrollElement,
+      getActionElement: () => citationActionRef.current,
+      onDismiss: () => setCitationCandidate(undefined),
+      onSelection: (pointer) => {
+        const selection = scrollElement.ownerDocument.getSelection()
+        const anchor = selection?.anchorNode
+        const anchorElement = anchor instanceof Element ? anchor : anchor?.parentElement
+        const source = anchorElement?.closest<HTMLElement>('[data-citation-source="assistant"]')
+        if (!source || !scrollElement.contains(source)) {
+          setCitationCandidate(undefined)
+          return
+        }
+        const captured = captureRenderedTextSelection(source, selection ?? null)
+        const sourceSessionID = source.dataset.citationSession
+        const sourceMessageID = source.dataset.citationMessage
+        const sourcePartID = source.dataset.citationPart
+        if (!captured || !sourceSessionID || !sourceMessageID || !sourcePartID) {
+          setCitationCandidate(undefined)
+          return
+        }
+        const rects = captured.range.getClientRects()
+        const rect = rects.item(rects.length - 1) ?? captured.range.getBoundingClientRect()
+        setCitationCandidate({
+          citation: {
+            schemaVersion: CITATION_SCHEMA_VERSION,
+            id: createChatCitationID(),
+            excerpt: captured.excerpt,
+            source: {
+              kind: "chat",
+              sessionID: sourceSessionID,
+              messageID: sourceMessageID,
+              partID: sourcePartID,
+              selector: captured.selector,
+            },
+          },
+          commentSource: rangeCitationCommentSource({
+            range: captured.range,
+            observe: scrollElement,
+            resolve: () => {
+              const nextSource = scrollElement.querySelector<HTMLElement>(
+                `[data-citation-part="${CSS.escape(sourcePartID)}"]`,
+              )
+              return nextSource
+                ? resolveRenderedTextRange(nextSource, captured.excerpt, captured.selector)
+                : undefined
+            },
+          }),
+          position: pointer ?? { x: rect.right, y: rect.bottom },
+        })
+      },
+    })
+    return observer.dispose
+  }, [onCite, scrollElement])
 
   if (viewStateCacheKeyRef.current !== cacheKey) {
     viewStateCacheKeyRef.current = cacheKey
@@ -1408,6 +1487,41 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         .toSorted((left, right) => left - right)
     },
   })
+
+  useEffect(
+    () =>
+      registerCitationNavigationHandler(async (citation) => {
+        if (citation.source.kind !== "chat") return false
+        const citationSource = citation.source
+        if (citationSource.sessionID !== sessionID) {
+          if (!onOpenSession) return false
+          onOpenSession(citationSource.sessionID)
+          return "pending"
+        }
+        const rowIndex = rows.findIndex(
+          (row) =>
+            row.type === "assistant" && row.assistantMessageIDs.includes(citationSource.messageID),
+        )
+        if (rowIndex < 0) return false
+        rowVirtualizer.scrollToIndex(rowIndex, { align: "center" })
+        for (let attempt = 0; attempt < 30; attempt += 1) {
+          await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+          const source = scrollViewportRef?.current?.querySelector<HTMLElement>(
+            `[data-citation-part="${CSS.escape(citationSource.partID)}"]`,
+          )
+          if (!source) continue
+          const range = resolveRenderedTextRange(source, citation.excerpt, citationSource.selector)
+          if (range) revealCitationRange(range, source)
+          else {
+            source.scrollIntoView({ block: "center", behavior: "smooth" })
+            toast.warning("The quoted text changed. Showing its source response instead.")
+          }
+          return true
+        }
+        return false
+      }),
+    [onOpenSession, rowVirtualizer, rows, scrollViewportRef, sessionID],
+  )
 
   useEffect(() => {
     rowVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = (item) => {
@@ -1900,6 +2014,16 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     <ChatScrollProvider viewportRef={scrollViewportRef}>
       <TooltipProvider>
         <div className="relative min-w-0 w-full max-w-full">
+          <CitationSelectionToolbar
+            actionRef={citationActionRef}
+            position={citationCandidate?.position}
+            onCite={() => {
+              if (!citationCandidate) return
+              onCite?.(citationCandidate.citation, citationCandidate.commentSource)
+              setCitationCandidate(undefined)
+              scrollElement?.ownerDocument.getSelection()?.removeAllRanges()
+            }}
+          />
           <div
             ref={virtualContentRef}
             className="relative min-w-0 w-full max-w-full"

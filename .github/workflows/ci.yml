@@ -89,7 +89,7 @@ jobs:
             install_ripgrep: false
             prepare_generated: true
           - name: remaining
-            owners: browser-contract,desktop-electron,opencode-adapter,shared-script,root-script
+            owners: browser-contract,citation-contract,desktop-electron,opencode-adapter,shared-script,root-script
             shard_count: 1
             shard_index: 0
             test_concurrency: 2

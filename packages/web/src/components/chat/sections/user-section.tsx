@@ -2,7 +2,6 @@ import { memo, useMemo } from "react"
 import { cn } from "@buddy/ui"
 import { FileAttachmentPart } from "../parts/file-attachment"
 import { UserMessagePart } from "../parts/user-message"
-import { SelectionClip } from "@/components/prompt/selection-clip"
 import { FileAttachmentChip } from "@/components/files/file-attachment-chip"
 import {
   isChatAgentPart,
@@ -146,7 +145,7 @@ export const UserSection = memo(function UserSection({
       .join("")
       .replace(/[ \t]{2,}/g, " ")
       .trim()
-    if (!text) return undefined
+    if (!text && userSelectionContextParts.length === 0) return undefined
     const firstPart = userTextParts[0] ?? userParts.find(isChatTextPart)
     if (!firstPart) {
       return {
@@ -167,6 +166,7 @@ export const UserSection = memo(function UserSection({
     userMessage?.info.id,
     userMessage?.info.sessionID,
     userParts,
+    userSelectionContextParts.length,
     userTextParts,
   ])
   const inlineReferences = useMemo(
@@ -179,7 +179,6 @@ export const UserSection = memo(function UserSection({
     userNativeResourceParts.length > 0 ||
     userTextFileAttachmentParts.length > 0 ||
     standaloneReferenceParts.size > 0 ||
-    userSelectionContextParts.length > 0 ||
     combinedTextPart !== undefined
 
   if (!userMessage || !hasVisibleContent) return null
@@ -221,15 +220,11 @@ export const UserSection = memo(function UserSection({
             ))}
           </div>
         ) : null}
-        {userSelectionContextParts.map((part) => (
-          <div key={part.id} className="ml-auto w-fit max-w-[min(82%,64ch)]">
-            <SelectionClip variant="inline" data={part} />
-          </div>
-        ))}
         {combinedTextPart ? (
           <UserMessagePart
             key={combinedTextPart.id}
             part={combinedTextPart}
+            quotes={userSelectionContextParts}
             info={userMessage.info}
             references={userInlineFileParts}
             agents={userAgentParts}

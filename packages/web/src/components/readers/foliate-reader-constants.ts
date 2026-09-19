@@ -81,9 +81,6 @@ export const READER_SIDEBAR_BREAKPOINT_HYSTERESIS_PX = 32
 // Theme Definitions
 // ============================================================
 
-export const READER_SELECTION_BACKGROUND = "var(--surface-warning-base)"
-export const READER_SELECTION_FOREGROUND = "var(--text-on-warning-base)"
-
 export const READER_THEMES: FoliateReaderThemeDefinition[] = [
   {
     id: "paper",
@@ -95,7 +92,6 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentMuted: "#6a6054",
     contentLink: "#2f69b7",
     contentHeading: "#15110c",
-    contentAccent: READER_SELECTION_BACKGROUND,
     pdfFilter: "none",
   },
   {
@@ -108,7 +104,6 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentMuted: "#755742",
     contentLink: "#8a4f24",
     contentHeading: "#2c1c12",
-    contentAccent: READER_SELECTION_BACKGROUND,
     pdfFilter: "sepia(0.22) saturate(0.92) brightness(0.98)",
   },
   {
@@ -121,7 +116,6 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentMuted: "#9aa8bb",
     contentLink: "#8fbbff",
     contentHeading: "#f5f8fc",
-    contentAccent: READER_SELECTION_BACKGROUND,
     pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.88) contrast(1.04)",
   },
   {
@@ -134,7 +128,6 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentMuted: "#5b7382",
     contentLink: "#1d5d84",
     contentHeading: "#102432",
-    contentAccent: READER_SELECTION_BACKGROUND,
     pdfFilter: "brightness(0.99) saturate(0.96)",
   },
   {
@@ -147,7 +140,6 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentMuted: "#a3acb4",
     contentLink: "#89c0f2",
     contentHeading: "#ffffff",
-    contentAccent: READER_SELECTION_BACKGROUND,
     pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.9)",
   },
 ]
@@ -167,22 +159,18 @@ export const ANNOTATION_COLORS = {
   amber: {
     label: "Amber",
     value: "#f59e0b",
-    previewClassName: "bg-amber-400",
   },
   mint: {
     label: "Mint",
     value: "#34d399",
-    previewClassName: "bg-emerald-400",
   },
   sky: {
     label: "Sky",
     value: "#38bdf8",
-    previewClassName: "bg-sky-400",
   },
   rose: {
     label: "Rose",
     value: "#fb7185",
-    previewClassName: "bg-rose-400",
   },
 } satisfies Record<ReaderAnnotationColorId, ReaderAnnotationColor>
 
@@ -190,12 +178,13 @@ export const ANNOTATION_COLOR_IDS: ReaderAnnotationColorId[] = ["amber", "mint",
 
 export const DEFAULT_ANNOTATION_COLOR_ID: ReaderAnnotationColorId = "amber"
 
-export const ANNOTATION_COLOR_TOKENS = {
-  amber: "--surface-warning-base",
-  mint: "--surface-success-base",
-  sky: "--surface-info-base",
-  rose: "--surface-critical-base",
-} satisfies Record<ReaderAnnotationColorId, string>
+/**
+ * Reader marks paint these fixed inks, never app surface tokens: the page follows
+ * its own reader theme, where app tokens turn muddy or vanish. Annotation inks are
+ * also the persisted annotation colour values.
+ */
+export const READER_SELECTION_INK = ANNOTATION_COLORS.amber.value
+export const READER_CITATION_INK = "#3b82f6"
 
 export const ANNOTATION_STYLE_LABELS = {
   highlight: "Highlight",

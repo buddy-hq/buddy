@@ -26,6 +26,7 @@ import {
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   readPromptReaderTextAnchor,
+  promptPartFromCitation,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptAgentPart,
@@ -36,6 +37,7 @@ import {
   type PromptReadingSelectionPart,
   type PromptReadingSelectionContextPart,
   type PromptSelectionContextPart,
+  type PromptCitationContextPart,
   type PromptSkillPart,
   type PromptTextPart,
   type PromptResourceReferencePart,
@@ -117,8 +119,10 @@ type SelectionContextPartInput =
   | Omit<PromptReadingSelectionContextPart, "type">
   | Omit<PromptMarkdownSelectionContextPart, "type">
   | Omit<PromptMessageSelectionContextPart, "type">
+  | Omit<PromptCitationContextPart, "type">
 
 function createSelectionContextPart(part: SelectionContextPartInput): PromptSelectionContextPart {
+  if ("citation" in part) return promptPartFromCitation(structuredClone(part.citation))
   if (part.source === "message") {
     return {
       type: SELECTION_CONTEXT_PART_TYPE,
@@ -256,6 +260,11 @@ export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptCom
 
     if (leftPart.type === SELECTION_CONTEXT_PART_TYPE) {
       if (rightPart.type !== SELECTION_CONTEXT_PART_TYPE) return false
+      if ("citation" in leftPart || "citation" in rightPart) {
+        if (!("citation" in leftPart) || !("citation" in rightPart)) return false
+        if (JSON.stringify(leftPart.citation) !== JSON.stringify(rightPart.citation)) return false
+        continue
+      }
       if (leftPart.source !== rightPart.source) return false
       if (leftPart.text !== rightPart.text) return false
       if (leftPart.selectionKey !== rightPart.selectionKey) return false

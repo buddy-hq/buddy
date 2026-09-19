@@ -5,7 +5,8 @@ import type {
   FoliateNavigationTarget,
   FoliateTocItem,
 } from "foliate-js/view.js"
-import type { ReaderSource } from "./reader-types"
+import type { ReaderMarginMark, ReaderMarginMarkPosition, ReaderSource } from "./reader-types"
+import type { CitationCommentSource } from "@/lib/citations/comment-request"
 
 export type { FoliateNavigationTarget }
 
@@ -68,7 +69,6 @@ export type FoliateReaderThemeDefinition = {
   contentMuted: string
   contentLink: string
   contentHeading: string
-  contentAccent: string
   pdfFilter: string
 }
 
@@ -158,6 +158,7 @@ export interface FoliateReaderHandle {
   next: () => Promise<void>
   prev: () => Promise<void>
   goTo: (target: FoliateNavigationTarget) => Promise<void>
+  goToText: (cfi: string) => Promise<boolean>
   setTheme: (theme: FoliateReaderThemeId) => void
   setFlow: (flow: FoliateReaderFlow) => void
   getSnapshot: () => FoliateReaderSnapshot | null
@@ -180,11 +181,16 @@ export interface FoliateReaderProps {
   emptyState?: ReactNode
   onReady?: (snapshot: FoliateReaderSnapshot) => void
   onLocationChange?: (location: FoliateReaderLocation) => void
-  onChatSelection?: (selection: FoliateReaderSelection) => void
+  onChatSelection?: (
+    selection: FoliateReaderSelection,
+    commentSource?: CitationCommentSource,
+  ) => void
   onChatSelectionRemoved?: (selectionKey: string) => void
   onOpenExternalLink?: (href: string) => void
   onError?: (error: Error) => void
   onAnnotationsChange?: (annotations: ReaderAnnotation[]) => void
+  marginMarks?: readonly ReaderMarginMark[]
+  renderMarginMarks?: (positions: readonly ReaderMarginMarkPosition[]) => ReactNode
   persistenceSuffix?: string
 }
 
@@ -256,7 +262,6 @@ export interface ReaderAnnotation extends FoliateAnnotationPayload {
 export interface ReaderAnnotationColor {
   label: string
   value: string
-  previewClassName: string
 }
 
 // ============================================================

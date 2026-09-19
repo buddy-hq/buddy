@@ -6,8 +6,10 @@ import type {
   ToolPart as SdkToolPart,
 } from "@buddy/sdk"
 import type { ReaderTextAnchor } from "@buddy/reader-contract"
+import { readCitation, type Citation } from "@buddy/citation-contract"
 import type { MessagePart } from "@/state/chat-types"
 import {
+  promptPartFromCitation,
   READING_SELECTION_PART_TYPE,
   readPromptReaderTextAnchor,
   readPromptSelectionContextMetadata,
@@ -37,7 +39,9 @@ export type ChatToolPart = MessagePart & SdkToolPart
 export type ChatReadingSelectionPart = MessagePart & {
   type: typeof READING_SELECTION_PART_TYPE | typeof SELECTION_CONTEXT_PART_TYPE
   text: string
-  source?: "reading" | "markdown"
+  source?: "reading" | "markdown" | "message"
+  comment?: string
+  citation?: Citation
   selectionKey?: string
   path?: string
   version?: string
@@ -97,21 +101,26 @@ function readOptionalStringArray<TValue>(value: TValue): string[] | undefined {
 
 function addMessageIdentity(
   part: MessagePart,
-  normalized:
-    | PromptReadingSelectionPart
-    | Exclude<PromptSelectionContextPart, { source: "message" }>,
+  normalized: PromptReadingSelectionPart | PromptSelectionContextPart,
 ): ChatReadingSelectionPart {
-  return {
+  const result: ChatReadingSelectionPart = {
     id: part.id,
     sessionID: part.sessionID,
     messageID: part.messageID,
     ...normalized,
   }
+  if ("citation" in normalized && normalized.citation.comment) {
+    result.comment = normalized.citation.comment
+  }
+  return result
 }
 
 export function readChatReadingSelectionPart(
   part: MessagePart,
 ): ChatReadingSelectionPart | undefined {
+  const citation =
+    part.type === SELECTION_CONTEXT_PART_TYPE ? readCitation(part.citation) : undefined
+  if (citation) return addMessageIdentity(part, promptPartFromCitation(citation))
   if (isChatReadingSelectionPart(part)) {
     const text = parseTString(part.text)
     const selectionKey = readOptionalString(part.selectionKey)
@@ -205,9 +214,12 @@ export function readChatReadingSelectionPart(
   }
 
   const metadataPart = readPromptSelectionContextMetadata(part.metadata)
-  // A quoted message is composer-only: it is captured into a note by ID and never
-  // round-trips through chat part metadata.
-  if (metadataPart && !("source" in metadataPart && metadataPart.source === "message")) {
+  if (
+    metadataPart &&
+    (metadataPart.type === READING_SELECTION_PART_TYPE ||
+      "citation" in metadataPart ||
+      metadataPart.source !== "message")
+  ) {
     return addMessageIdentity(part, metadataPart)
   }
 

@@ -33,6 +33,7 @@ import {
 import type { KeyboardEvent as ReactKeyboardEvent } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { readerTextAnchorKey } from "@buddy/reader-contract"
+import { withCitationComment } from "@buddy/citation-contract"
 import { matchesKeyboardEvent, normalizeRegisterableHotkey } from "@tanstack/react-hotkeys"
 import { language } from "@/context/language"
 import { GameDock } from "../game/game-dock"
@@ -113,7 +114,9 @@ import {
 } from "./attachment-utils"
 import { ImageAttachments } from "./image-attachments"
 import { useSkillPresentationLookup } from "../skills/skill-presentation"
-import { SelectionClip, type SelectionClipData } from "./selection-clip"
+import { QuoteChip } from "./quote-chip"
+import type { QuoteData } from "@/components/citations/quote-view"
+import { usePublishStagedQuotes } from "@/lib/citations/staged-quotes"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
 import { usePromptEditorSync } from "./use-prompt-editor-sync"
@@ -274,6 +277,7 @@ function isSelectionContextChipPart(part: PromptComposerPart): part is Selection
 }
 
 function buildSelectionContextEntryKey(part: SelectionContextChipPart) {
+  if ("citation" in part) return part.citation.id
   const anchorKey = part.anchor ? readerTextAnchorKey(part.anchor) : ""
   return (
     part.selectionKey ??
@@ -285,25 +289,17 @@ function buildSelectionContextEntryKey(part: SelectionContextChipPart) {
 
 type DismissedSelectionPreview = {
   key: string
-  data: SelectionClipData
+  data: QuoteData
 }
 
-/** Map a composer selection-context part onto the shared clip's data shape. */
-function selectionClipDataFromChipPart(part: SelectionContextChipPart): SelectionClipData {
+function quoteDataFromChipPart(part: SelectionContextChipPart): QuoteData {
+  if ("citation" in part) {
+    return { text: part.citation.excerpt, source: part.source, citation: part.citation }
+  }
   return Object.assign(
     { text: part.text },
     "source" in part && part.source ? { source: part.source } : undefined,
-    Object.assign(
-      {},
-      "path" in part && part.path ? { path: part.path } : undefined,
-      "headingPath" in part && part.headingPath ? { headingPath: part.headingPath } : undefined,
-    ),
-    Object.assign(
-      {},
-      part.tocLabel ? { tocLabel: part.tocLabel } : undefined,
-      part.pageLabel ? { pageLabel: part.pageLabel } : undefined,
-      part.locationLabel ? { locationLabel: part.locationLabel } : undefined,
-    ),
+    "path" in part && part.path ? { path: part.path } : undefined,
   )
 }
 
@@ -457,6 +453,12 @@ export function PromptComposer(props: PromptComposerProps) {
       ),
     [draft.parts],
   )
+  const stagedCitations = useMemo(
+    () =>
+      selectionContextEntries.flatMap(({ part }) => ("citation" in part ? [part.citation] : [])),
+    [selectionContextEntries],
+  )
+  usePublishStagedQuotes(stagedCitations)
   const draftEditorParts = useMemo(
     () => draft.parts.filter((part) => !isSelectionContextChipPart(part)),
     [draft.parts],
@@ -465,7 +467,9 @@ export function PromptComposer(props: PromptComposerProps) {
     () =>
       draft.parts.find(
         (part): part is PromptMessageSelectionContextPart =>
-          part.type === SELECTION_CONTEXT_PART_TYPE && part.source === "message",
+          part.type === SELECTION_CONTEXT_PART_TYPE &&
+          part.source === "message" &&
+          !("citation" in part),
       ),
     [draft.parts],
   )
@@ -715,6 +719,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
   const previousSelectionContextCountRef = useRef(selectionContextEntries.length)
   const consumedFocusRequestIDRef = useRef(0)
+  const appliedFocusRequestIDRef = useRef(0)
 
   const flushPendingStoreDraft = useCallback(() => {
     if (storeSyncTimerRef.current !== undefined) {
@@ -904,10 +909,13 @@ export function PromptComposer(props: PromptComposerProps) {
     const editor = editorRef.current
     if (!editor) return
 
-    editor.focus()
+    // Read the target before focusing: focus() fires onFocus synchronously,
+    // which writes any stale DOM selection (e.g. offset 0 left by a cleared
+    // editor) back into draftRef.
     const currentDraft = draftRef.current
     const editorValueLength = serializePromptEditorParts(currentDraft.parts).length
     const nextCursor = Math.max(0, Math.min(currentDraft.cursor, editorValueLength))
+    editor.focus()
     setCursorPosition(editor, nextCursor)
     setCursorOffset(nextCursor)
     updateDraftCursorFromComposer(nextCursor, "debounced")
@@ -934,12 +942,22 @@ export function PromptComposer(props: PromptComposerProps) {
   )
 
   useEffect(() => {
-    if (focusRequestID === 0) return
-    const frame = window.requestAnimationFrame(focusEditorAtDraftCursor)
+    if (focusRequestID === 0 || focusRequestID <= appliedFocusRequestIDRef.current) return
+    // A focus request can be dispatched in the same turn as an external store
+    // replacement (for example, Undo message). Wait for that draft to reach the
+    // local composer so focusing cannot mirror the previous empty cursor back
+    // into the restored draft before its editor DOM is rendered.
+    if (!arePromptDraftContentsEqual(draft, storeDraft)) return
+
+    const requestID = focusRequestID
+    const frame = window.requestAnimationFrame(() => {
+      focusEditorAtDraftCursor()
+      appliedFocusRequestIDRef.current = requestID
+    })
     return () => {
       window.cancelAnimationFrame(frame)
     }
-  }, [focusEditorAtDraftCursor, focusRequestID])
+  }, [draft, focusEditorAtDraftCursor, focusRequestID, storeDraft])
 
   useEffect(() => {
     const previous = previousSelectionContextCountRef.current
@@ -1154,7 +1172,7 @@ export function PromptComposer(props: PromptComposerProps) {
     if (dismissedSelection) {
       setDismissedSelectionPreviews((current) => [
         ...current,
-        { key, data: selectionClipDataFromChipPart(dismissedSelection.part) },
+        { key, data: quoteDataFromChipPart(dismissedSelection.part) },
       ])
       window.setTimeout(() => {
         setDismissedSelectionPreviews((current) =>
@@ -1178,6 +1196,24 @@ export function PromptComposer(props: PromptComposerProps) {
       parts: nextParts,
       attachments: currentDraft.attachments,
       cursor: nextCursor,
+    })
+  }
+
+  function updateCitationComment(key: string, comment: string) {
+    const currentDraft = draftRef.current
+    const nextParts = currentDraft.parts.map((part) => {
+      if (!isSelectionContextChipPart(part) || !("citation" in part)) return part
+      if (part.citation.id !== key) return part
+      return {
+        ...part,
+        citation: withCitationComment(part.citation, comment),
+      }
+    })
+    replaceDraftFromComposer({
+      value: serializePromptEditorParts(nextParts),
+      parts: nextParts,
+      attachments: currentDraft.attachments,
+      cursor: currentDraft.cursor,
     })
   }
 
@@ -1651,20 +1687,21 @@ export function PromptComposer(props: PromptComposerProps) {
       {!sketchDockOpen &&
       !showGameReplacement &&
       (selectionContextEntries.length > 0 || dismissedSelectionPreviews.length > 0) ? (
-        <div className="mb-2 flex flex-wrap gap-1.5">
+        <div className="mb-2 flex flex-wrap gap-2">
           {selectionContextEntries.map(({ part, key }) => (
-            <SelectionClip
+            <QuoteChip
               key={key}
-              variant="chip"
-              data={selectionClipDataFromChipPart(part)}
+              data={quoteDataFromChipPart(part)}
               onRemove={() => removeSelectionContextByKey(key)}
+              onCommentChange={
+                "citation" in part ? (comment) => updateCitationComment(key, comment) : undefined
+              }
               className="animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-300 ease-out"
             />
           ))}
           {dismissedSelectionPreviews.map((selection) => (
-            <SelectionClip
+            <QuoteChip
               key={`dismissed_${selection.key}`}
-              variant="chip"
               data={selection.data}
               className="animate-out fade-out slide-out-to-top-1 zoom-out-95 pointer-events-none opacity-0 duration-200"
             />

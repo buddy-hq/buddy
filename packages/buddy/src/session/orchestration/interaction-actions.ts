@@ -448,7 +448,10 @@ async function queueSessionPromptAsync(input: {
 
   try {
     const transformed = await promptTransform.onTransform(input.body)
-    const runtimeSafeBody = prepareRuntimePromptBody(parseTSessionJsonObject(transformed) ?? {})
+    const runtimeSafeBody = await prepareRuntimePromptBody(
+      parseTSessionJsonObject(transformed) ?? {},
+      { directory: input.directory, sessionID: input.sessionID },
+    )
     const result = await sessionInteractionRuntime.sendPromptAsync({
       directory: input.directory,
       sessionID: input.sessionID,
@@ -736,7 +739,10 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
       context: { directory, sessionID, request: c.req.raw },
     })
     const transformed = await promptTransform.onTransform(body)
-    const runtimeSafeBody = prepareRuntimePromptBody(parseTSessionJsonObject(transformed) ?? {})
+    const runtimeSafeBody = await prepareRuntimePromptBody(
+      parseTSessionJsonObject(transformed) ?? {},
+      { directory, sessionID },
+    )
 
     const client = await getOpenCodeClient(directory)
     const result = toSessionSdkResult(
@@ -831,7 +837,10 @@ export async function postSessionCommand(c: Context): Promise<Response> {
       context: { directory, sessionID, request: c.req.raw },
     })
     const transformed = await commandTransform.onTransform(commandBody)
-    const runtimeSafeBody = prepareRuntimeCommandBody(parseTSessionJsonObject(transformed) ?? {})
+    const runtimeSafeBody = await prepareRuntimeCommandBody(
+      parseTSessionJsonObject(transformed) ?? {},
+      { directory, sessionID },
+    )
 
     const client = await getOpenCodeClient(directory)
     const result = toSessionSdkResult(
