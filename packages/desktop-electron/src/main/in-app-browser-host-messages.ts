@@ -43,7 +43,10 @@ export function sendInAppBrowserAudio(guest: WebContents, audible: boolean): voi
   } satisfies InAppBrowserAudioMessage)
 }
 
-export function sendInAppBrowserShortcut(guest: WebContents, shortcut: InAppBrowserShortcutID): void {
+export function sendInAppBrowserShortcut(
+  guest: WebContents,
+  shortcut: InAppBrowserShortcutID,
+): void {
   sendToHost(guest, IN_APP_BROWSER_SHORTCUT_CHANNEL, {
     webContentsID: guest.id,
     shortcut,

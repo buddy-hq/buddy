@@ -47,11 +47,7 @@ describe("electron-builder config", () => {
   })
 
   test("unpacks native credential bindings from the application archive", () => {
-    expect(config.asarUnpack).toContain(
-      "out/main/node_modules/@napi-rs/keyring/**/*",
-    )
-    expect(config.asarUnpack).toContain(
-      "out/main/chunks/node_modules/@primno/dpapi/prebuilds/**/*",
-    )
+    expect(config.asarUnpack).toContain("out/main/node_modules/@napi-rs/keyring/**/*")
+    expect(config.asarUnpack).toContain("out/main/chunks/node_modules/@primno/dpapi/prebuilds/**/*")
   })
 })

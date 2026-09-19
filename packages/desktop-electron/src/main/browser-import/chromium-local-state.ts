@@ -28,7 +28,9 @@ function isPlainDirectoryName(name: string): boolean {
   )
 }
 
-export function parseChromiumLocalStateProfiles(text: string): readonly BrowserImportSourceProfile[] {
+export function parseChromiumLocalStateProfiles(
+  text: string,
+): readonly BrowserImportSourceProfile[] {
   const infoCache = parseLocalState(text, localStateProfiles)?.profile?.info_cache
   if (infoCache === undefined) return []
   return Object.entries(infoCache)

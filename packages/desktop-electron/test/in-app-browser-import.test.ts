@@ -54,7 +54,9 @@ function createLogger() {
   }
 }
 
-function createCookieStore(flush: () => Promise<void> = async () => undefined): InAppBrowserImportCookieStore & {
+function createCookieStore(
+  flush: () => Promise<void> = async () => undefined,
+): InAppBrowserImportCookieStore & {
   readonly written: BrowserImportCookieDetails[]
   readonly flushes: number
 } {

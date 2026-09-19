@@ -101,7 +101,9 @@ function encodeCookieRecord(cookie: SafariFixtureCookie): Buffer {
 function encodeCookiePage(cookies: readonly SafariFixtureCookie[]): Buffer {
   const records = cookies.map(encodeCookieRecord)
   const headerSize = 12 + records.length * 4
-  const page = Buffer.alloc(headerSize + records.reduce((total, record) => total + record.length, 0))
+  const page = Buffer.alloc(
+    headerSize + records.reduce((total, record) => total + record.length, 0),
+  )
   page.writeUInt32BE(0x0000_0100, 0)
   page.writeUInt32LE(records.length, 4)
   let cursor = headerSize
@@ -113,7 +115,10 @@ function encodeCookiePage(cookies: readonly SafariFixtureCookie[]): Buffer {
   return page
 }
 
-function encodeBinaryCookies(pages: readonly Buffer[], pageSizes = pages.map((page) => page.length)) {
+function encodeBinaryCookies(
+  pages: readonly Buffer[],
+  pageSizes = pages.map((page) => page.length),
+) {
   const header = Buffer.alloc(8 + pageSizes.length * 4)
   header.write("cook", 0, "latin1")
   header.writeUInt32BE(pageSizes.length, 4)
@@ -259,7 +264,9 @@ describe("Safari cookie import", () => {
           probeOpen: async (filePath, access) =>
             probeDenied && filePath === jar && access === "read" ? "accessDenied" : "opened",
           readBytes: async (filePath) =>
-            filePath === jar ? { _tag: "accessDenied" } : nodeBrowserImportFiles.readBytes(filePath),
+            filePath === jar
+              ? { _tag: "accessDenied" }
+              : nodeBrowserImportFiles.readBytes(filePath),
         },
       }),
     )
@@ -335,12 +342,12 @@ describe("Safari cookie import", () => {
     )
     const { sink, written } = recordingSink()
 
-    expect((await importer.listSources()).find((source) => source.id === "safari")?.profiles).toEqual(
-      [
-        { id: ".", name: "Personal" },
-        { id: store(WORK_PROFILE_UUID), name: "Work" },
-      ],
-    )
+    expect(
+      (await importer.listSources()).find((source) => source.id === "safari")?.profiles,
+    ).toEqual([
+      { id: ".", name: "Personal" },
+      { id: store(WORK_PROFILE_UUID), name: "Work" },
+    ])
     expect(
       await importer.importCookies({
         sourceID: "safari",
@@ -355,21 +362,23 @@ describe("Safari cookie import", () => {
     const home = createTemporaryRoot()
     const library = safariLibrary(home)
     const stores = path.join(library, "WebKit", "WebsiteDataStore")
-    writeJar(path.join(stores, WORK_PROFILE_UUID.toLowerCase(), "Cookies"), [cookie("work.test", "w")])
+    writeJar(path.join(stores, WORK_PROFILE_UUID.toLowerCase(), "Cookies"), [
+      cookie("work.test", "w"),
+    ])
     mkdirSync(path.join(stores, DELETED_PROFILE_UUID.toLowerCase(), "Cookies"), { recursive: true })
     mkdirSync(path.join(library, "Safari"), { recursive: true })
     writeFileSync(path.join(library, "Safari", "SafariTabs.db"), "not a database")
     const importer = createBrowserImporter(createTestHost({ platform: "darwin", home }))
 
-    expect((await importer.listSources()).find((source) => source.id === "safari")?.profiles).toEqual(
-      [
-        { id: ".", name: "Safari" },
-        {
-          id: path.join(stores, WORK_PROFILE_UUID.toLowerCase(), "Cookies"),
-          name: WORK_PROFILE_UUID.toLowerCase(),
-        },
-      ],
-    )
+    expect(
+      (await importer.listSources()).find((source) => source.id === "safari")?.profiles,
+    ).toEqual([
+      { id: ".", name: "Safari" },
+      {
+        id: path.join(stores, WORK_PROFILE_UUID.toLowerCase(), "Cookies"),
+        name: WORK_PROFILE_UUID.toLowerCase(),
+      },
+    ])
   })
 
   test("checks Full Disk Access against a named profile when no default jar exists", async () => {

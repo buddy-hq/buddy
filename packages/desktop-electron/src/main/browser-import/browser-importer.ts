@@ -140,7 +140,9 @@ export function createBrowserImporter(host: BrowserImportHost): BrowserImporter 
     return importFailed(input.reason)
   }
 
-  async function assessSource(definition: BrowserImportSourceDefinition): Promise<SourceAssessment> {
+  async function assessSource(
+    definition: BrowserImportSourceDefinition,
+  ): Promise<SourceAssessment> {
     if (!definition.platforms.includes(host.platform)) return unavailable("unsupportedPlatform")
     const userDataDirectory = definition.userDataDirectory(host)
     if (userDataDirectory === undefined) return unavailable("notInstalled")
@@ -258,11 +260,7 @@ export function createBrowserImporter(host: BrowserImportHost): BrowserImporter 
             stage: "resolveCookieDatabase",
           })
         }
-        const read = await readSourceCookies(
-          definition,
-          assessment.userDataDirectory,
-          databasePath,
-        )
+        const read = await readSourceCookies(definition, assessment.userDataDirectory, databasePath)
         if (read._tag === "failed") {
           return failedImport({
             sourceID: request.sourceID,

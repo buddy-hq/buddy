@@ -7,10 +7,7 @@ import type { BrowserImportFiles } from "./browser-import-files"
 import type { OpenReadOnlyDatabase } from "./cookie-database"
 
 /** The internal operation that failed while importing browser cookies. */
-export type BrowserImportFailureStage =
-  | "assessSource"
-  | "resolveCookieDatabase"
-  | "readCookieStore"
+export type BrowserImportFailureStage = "assessSource" | "resolveCookieDatabase" | "readCookieStore"
 
 /** Safe routing context for a browser-import failure reported by the importer. */
 export type BrowserImportFailureDiagnostic = {
@@ -46,9 +43,7 @@ export type BrowserImportHost = {
     service: string,
     account: string,
   ) => Promise<BrowserImportKeychainPasswordRead>
-  readonly unprotectWindowsData: (
-    encrypted: Uint8Array,
-  ) => Promise<BrowserImportWindowsDataRead>
+  readonly unprotectWindowsData: (encrypted: Uint8Array) => Promise<BrowserImportWindowsDataRead>
   readonly isProcessAlive: (pid: number) => boolean
   readonly reportFailure: (diagnostic: BrowserImportFailureDiagnostic) => void
 }

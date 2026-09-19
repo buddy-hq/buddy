@@ -59,9 +59,7 @@ async function readKeychainPassword(
   }
   try {
     const value = new keyring.Entry(service, account).getPassword()
-    return value
-      ? { _tag: "password", value }
-      : { _tag: "failed", reason: "keychainItemMissing" }
+    return value ? { _tag: "password", value } : { _tag: "failed", reason: "keychainItemMissing" }
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause)
     return {
@@ -74,9 +72,7 @@ async function readKeychainPassword(
   }
 }
 
-async function unprotectWindowsData(
-  encrypted: Uint8Array,
-): Promise<BrowserImportWindowsDataRead> {
+async function unprotectWindowsData(encrypted: Uint8Array): Promise<BrowserImportWindowsDataRead> {
   try {
     const { Dpapi, isPlatformSupported } = await import("@primno/dpapi")
     if (!isPlatformSupported) {

@@ -5,8 +5,7 @@ const IN_APP_BROWSER_URL_MAX_LENGTH = 8_192
 const IN_APP_BROWSER_ALLOWED_PROTOCOLS = new Set(["http:", "https:"])
 
 /** IPC channel used when the guest preload blocks an unsafe page link. */
-export const IN_APP_BROWSER_NAVIGATION_BLOCKED_CHANNEL =
-  "inapp-browser-navigation-blocked" as const
+export const IN_APP_BROWSER_NAVIGATION_BLOCKED_CHANNEL = "inapp-browser-navigation-blocked" as const
 
 type BrowserActivationEvent = {
   readonly isTrusted: boolean

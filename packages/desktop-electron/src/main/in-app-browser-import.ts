@@ -5,10 +5,16 @@ import {
   type BrowserImportSource,
   type BrowserImportSourceID,
 } from "@buddy/browser-contract/browser-import"
-import { inAppBrowserProfilePartition, parseInAppBrowserProfileID } from "@buddy/browser-contract/profiles"
+import {
+  inAppBrowserProfilePartition,
+  parseInAppBrowserProfileID,
+} from "@buddy/browser-contract/profiles"
 import { parseTString } from "../shared/parse-external"
 import type { BrowserImportLogger } from "./browser-import/browser-import"
-import type { BrowserImportCookieDetails, BrowserImportCookieSink } from "./browser-import/browser-importer"
+import type {
+  BrowserImportCookieDetails,
+  BrowserImportCookieSink,
+} from "./browser-import/browser-importer"
 
 export type { BrowserImportLogger }
 

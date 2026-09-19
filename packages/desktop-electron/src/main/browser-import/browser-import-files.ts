@@ -45,7 +45,9 @@ export const nodeBrowserImportFiles: BrowserImportFiles = {
       return { _tag: "read", bytes: await readFile(path) }
     } catch (cause) {
       // macOS privacy protection (TCC) refuses with EPERM; Full Disk Access cannot fix EACCES.
-      return hasSystemErrorCode(cause, "EPERM") ? { _tag: "accessDenied" } : { _tag: "failed", cause }
+      return hasSystemErrorCode(cause, "EPERM")
+        ? { _tag: "accessDenied" }
+        : { _tag: "failed", cause }
     }
   },
   async listDirectory(path) {

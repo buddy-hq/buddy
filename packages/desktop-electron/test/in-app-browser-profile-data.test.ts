@@ -99,10 +99,7 @@ describe("in-app browser profile data", () => {
     const sessions = createEmptyPartitionSessions()
 
     expect(
-      await clearInAppBrowserProfileData(
-        { profileID: "../default", data: "cookies" },
-        sessions,
-      ),
+      await clearInAppBrowserProfileData({ profileID: "../default", data: "cookies" }, sessions),
     ).toEqual({ _tag: "failed", reason: "invalid-request" })
     expect(
       await clearInAppBrowserProfileData(

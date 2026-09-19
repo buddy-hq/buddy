@@ -122,7 +122,10 @@ export function parseBinaryCookies(bytes: Uint8Array): BinaryCookiesParse {
 }
 
 // stat succeeds without Full Disk Access; only opening the jar reveals a refusal.
-export async function safariAccessDenied(files: BrowserImportFiles, jarPath: string): Promise<boolean> {
+export async function safariAccessDenied(
+  files: BrowserImportFiles,
+  jarPath: string,
+): Promise<boolean> {
   return (await files.probeOpen(jarPath, "read")) === "accessDenied"
 }
 

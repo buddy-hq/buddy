@@ -158,9 +158,9 @@ describe("browser import sources", () => {
       }),
     )
 
-    expect((await importer.listSources()).find((source) => source.id === "chrome")?.profiles).toEqual(
-      [{ id: "Default", name: "Default", cookieCount: 2 }],
-    )
+    expect(
+      (await importer.listSources()).find((source) => source.id === "chrome")?.profiles,
+    ).toEqual([{ id: "Default", name: "Default", cookieCount: 2 }])
     expect(keychainReads).toBe(0)
   })
 
@@ -188,9 +188,9 @@ describe("browser import sources", () => {
     const importer = createBrowserImporter(createTestHost({ platform: "darwin", home }))
     const { sink } = recordingSink()
 
-    expect((await importer.listSources()).find((source) => source.id === "chrome")?.profiles).toEqual(
-      [{ id: "Default", name: "You" }],
-    )
+    expect(
+      (await importer.listSources()).find((source) => source.id === "chrome")?.profiles,
+    ).toEqual([{ id: "Default", name: "You" }])
     expect(
       await importer.importCookies({
         sourceID: "chrome",

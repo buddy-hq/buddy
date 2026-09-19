@@ -198,10 +198,7 @@ function installMacChrome(home: string): string {
   return root
 }
 
-function windowsChromiumRoot(
-  localAppData: string,
-  source: "chrome" | "edge",
-): string {
+function windowsChromiumRoot(localAppData: string, source: "chrome" | "edge"): string {
   return source === "chrome"
     ? path.join(localAppData, "Google", "Chrome", "User Data")
     : path.join(localAppData, "Microsoft", "Edge", "User Data")
@@ -218,10 +215,9 @@ function installWindowsChromium(
     path.join(root, "Local State"),
     JSON.stringify({
       os_crypt: {
-        encrypted_key: Buffer.concat([
-          Buffer.from("DPAPI"),
-          WINDOWS_PROTECTED_KEY,
-        ]).toString("base64"),
+        encrypted_key: Buffer.concat([Buffer.from("DPAPI"), WINDOWS_PROTECTED_KEY]).toString(
+          "base64",
+        ),
       },
       profile: { info_cache: { Default: { name: "Personal" } } },
     }),
@@ -288,7 +284,11 @@ describe("Chromium cookie import on macOS", () => {
     expect(keychain.requests).toEqual([])
 
     expect(
-      await importer.importCookies({ sourceID: "chrome", sourceProfileID: "Default", cookies: sink }),
+      await importer.importCookies({
+        sourceID: "chrome",
+        sourceProfileID: "Default",
+        cookies: sink,
+      }),
     ).toEqual({
       _tag: "imported",
       imported: 2,
@@ -317,9 +317,7 @@ describe("Chromium cookie import on macOS", () => {
         sameSite: "unspecified",
       },
     ])
-    expect(keychain.requests).toEqual([
-      { service: "Chrome Safe Storage", account: "Chrome" },
-    ])
+    expect(keychain.requests).toEqual([{ service: "Chrome Safe Storage", account: "Chrome" }])
     expect(readdirSync(host.temporaryDirectory)).toEqual([])
   })
 
@@ -338,7 +336,11 @@ describe("Chromium cookie import on macOS", () => {
       const { sink, written } = recordingSink()
 
       expect(
-        await importer.importCookies({ sourceID: "chrome", sourceProfileID: "Default", cookies: sink }),
+        await importer.importCookies({
+          sourceID: "chrome",
+          sourceProfileID: "Default",
+          cookies: sink,
+        }),
       ).toEqual({ _tag: "failed", reason })
       expect(written).toEqual([])
     }
@@ -399,7 +401,11 @@ describe("Chromium cookie import on macOS", () => {
       { host: "example.test", name: "stale", value: "left behind by the Network/ move" },
     ])
     const importer = createBrowserImporter(
-      createTestHost({ platform: "darwin", home, readKeychainPassword: async () => KEYCHAIN_SECRET }),
+      createTestHost({
+        platform: "darwin",
+        home,
+        readKeychainPassword: async () => KEYCHAIN_SECRET,
+      }),
     )
     const { sink, written } = recordingSink()
 
@@ -416,13 +422,17 @@ describe("Chromium cookie import on macOS", () => {
       { host: "linux.example.test", name: "keyring", encrypted: Buffer.from("v11ciphertext") },
     ])
     const importer = createBrowserImporter(
-      createTestHost({ platform: "darwin", home, readKeychainPassword: async () => KEYCHAIN_SECRET }),
+      createTestHost({
+        platform: "darwin",
+        home,
+        readKeychainPassword: async () => KEYCHAIN_SECRET,
+      }),
     )
     const { sink, written } = recordingSink()
 
-    expect((await importer.listSources()).find((source) => source.id === "chrome")?.profiles).toEqual(
-      [{ id: "Profile 1", name: "Profile 1", cookieCount: 2 }],
-    )
+    expect(
+      (await importer.listSources()).find((source) => source.id === "chrome")?.profiles,
+    ).toEqual([{ id: "Profile 1", name: "Profile 1", cookieCount: 2 }])
     expect(
       await importer.importCookies({
         sourceID: "chrome",
@@ -455,12 +465,16 @@ describe("Chromium cookie import on macOS", () => {
     const { sink, written } = recordingSink()
 
     expect(
-      await importer.importCookies({ sourceID: "chrome", sourceProfileID: "Default", cookies: sink }),
+      await importer.importCookies({
+        sourceID: "chrome",
+        sourceProfileID: "Default",
+        cookies: sink,
+      }),
     ).toEqual({ _tag: "failed", reason: "readFailed" })
     expect(written).toEqual([])
-    expect(
-      failures.map(({ sourceID, reason, stage }) => ({ sourceID, reason, stage })),
-    ).toEqual([{ sourceID: "chrome", reason: "readFailed", stage: "readCookieStore" }])
+    expect(failures.map(({ sourceID, reason, stage }) => ({ sourceID, reason, stage }))).toEqual([
+      { sourceID: "chrome", reason: "readFailed", stage: "readCookieStore" },
+    ])
     expect(failures[0]?.cause).toBeInstanceOf(Error)
   })
 })
@@ -519,7 +533,9 @@ describe("Chromium cookie import on Windows", () => {
       ])
     }
     expect(unprotected).toHaveLength(2)
-    expect(unprotected.every((bytes) => Buffer.from(bytes).equals(WINDOWS_PROTECTED_KEY))).toBeTrue()
+    expect(
+      unprotected.every((bytes) => Buffer.from(bytes).equals(WINDOWS_PROTECTED_KEY)),
+    ).toBeTrue()
   })
 
   test("does not touch DPAPI while the Windows browser lock is held", async () => {
@@ -556,7 +572,11 @@ describe("Chromium cookie import on Windows", () => {
       reason: "browserRunning",
     })
     expect(
-      await importer.importCookies({ sourceID: "chrome", sourceProfileID: "Default", cookies: sink }),
+      await importer.importCookies({
+        sourceID: "chrome",
+        sourceProfileID: "Default",
+        cookies: sink,
+      }),
     ).toEqual({ _tag: "failed", reason: "browserRunning" })
     expect(unprotectCalls).toBe(0)
   })
@@ -611,7 +631,11 @@ describe("Chromium cookie import on Windows", () => {
     const { sink, written } = recordingSink()
 
     expect(
-      await importer.importCookies({ sourceID: "chrome", sourceProfileID: "Default", cookies: sink }),
+      await importer.importCookies({
+        sourceID: "chrome",
+        sourceProfileID: "Default",
+        cookies: sink,
+      }),
     ).toEqual({ _tag: "failed", reason: "appBoundEncryptionUnsupported" })
     expect(written).toEqual([])
     expect(unprotectCalls).toBe(0)
