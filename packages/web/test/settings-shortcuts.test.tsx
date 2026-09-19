@@ -19,6 +19,14 @@ function desktopPlatform(os: "macos" | "windows" | "linux"): Platform {
       webPreferences: "",
       onMessage: () => () => undefined,
       onFavicon: () => () => undefined,
+      onAudio: () => () => undefined,
+      onShortcut: () => () => undefined,
+      setAppearance: async () => ({ _tag: "done" as const }),
+      clearProfileData: async () => ({ _tag: "done" as const }),
+      checkSafariFullDiskAccess: async () => false,
+      listImportSources: async () => [],
+      importCookies: async () => ({ _tag: "failed" as const, reason: "readFailed" as const }),
+      openFullDiskAccessSettings: async () => undefined,
     },
   }
 }

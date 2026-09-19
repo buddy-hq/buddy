@@ -35,7 +35,20 @@ import {
   UPDATER_ENABLED,
 } from "./constants"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
+import { importBrowserCookies } from "./browser-import/browser-import"
 import { buildRuntimeEnvironment, installCli } from "./cli"
+import { setInAppBrowserAppearance } from "./in-app-browser-appearance"
+import {
+  checkInAppBrowserSafariFullDiskAccess,
+  importInAppBrowserCookies,
+  listInAppBrowserImportSources,
+  openFullDiskAccessSettings,
+} from "./in-app-browser-import"
+import { clearInAppBrowserProfileData } from "./in-app-browser-profile-data"
+import {
+  disposeInAppBrowserSessions,
+  inAppBrowserSessionFromPartition,
+} from "./in-app-browser-session"
 import { registerIpcHandlers, sendDeepLinks, sendMenuCommand } from "./ipc"
 import { initLogging, safelyWriteToStandardStream } from "./logging"
 import {
@@ -716,6 +729,19 @@ registerIpcHandlers({
     })
     return exportMarkdownPdf(input, allowedRoots)
   },
+  setInAppBrowserAppearance: (host, input) => setInAppBrowserAppearance(host, input),
+  clearInAppBrowserProfileData: (input) =>
+    clearInAppBrowserProfileData(input, {
+      fromPartition: inAppBrowserSessionFromPartition,
+    }),
+  checkInAppBrowserSafariFullDiskAccess: () => checkInAppBrowserSafariFullDiskAccess(logger),
+  listInAppBrowserImportSources: () => listInAppBrowserImportSources(logger),
+  importInAppBrowserCookies: (input) =>
+    importInAppBrowserCookies(input, logger, {
+      sessions: { fromPartition: inAppBrowserSessionFromPartition },
+      importCookies: importBrowserCookies,
+    }),
+  openFullDiskAccessSettings,
 })
 
 async function killBackendUtility() {
@@ -785,6 +811,7 @@ async function restartBackendUtilityForDevelopment() {
 function beginApplicationShutdown() {
   if (applicationQuitting) return
   applicationQuitting = true
+  disposeInAppBrowserSessions()
   stopBackendDevelopmentReloadWatcher?.()
   stopBackendDevelopmentReloadWatcher = undefined
 }

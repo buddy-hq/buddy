@@ -1,5 +1,5 @@
 import { createBrowserPlatform, type Platform } from "@buddy/web/context/platform"
-import { IN_APP_BROWSER_PARTITION, IN_APP_BROWSER_WEB_PREFERENCES } from "@buddy/browser-contract"
+import { IN_APP_BROWSER_WEB_PREFERENCES } from "@buddy/browser-contract"
 import { readBuddyRendererGlobals } from "../shared/parse-external"
 import {
   checkForUpdate,
@@ -101,11 +101,18 @@ function createStorage(name: string) {
         const batch = Array.from(pending.entries())
         pending.clear()
 
-        for (const [key, value] of batch) {
-          if (value === null) {
-            await store.delete(key).catch(() => undefined)
-          } else {
-            await store.set(key, value).catch(() => undefined)
+        for (const [index, [key, value]] of batch.entries()) {
+          try {
+            if (value === null) {
+              await store.delete(key)
+            } else {
+              await store.set(key, value)
+            }
+          } catch (error) {
+            for (const [pendingKey, pendingValue] of batch.slice(index)) {
+              if (!pending.has(pendingKey)) pending.set(pendingKey, pendingValue)
+            }
+            throw error
           }
         }
       }
@@ -121,7 +128,7 @@ function createStorage(name: string) {
 
     timer = setTimeout(() => {
       timer = undefined
-      void flush()
+      void flush().catch(() => undefined)
     }, WRITE_DEBOUNCE_MS)
   }
 
@@ -130,7 +137,7 @@ function createStorage(name: string) {
       const next = pending.get(key)
       if (next !== undefined) return next
 
-      const value = await store.get(key).catch(() => undefined)
+      const value = await store.get(key)
       return value === undefined ? null : value
     },
     async setItem(key, value) {
@@ -180,10 +187,17 @@ export function createDesktopPlatform(): Platform {
     platform: "desktop",
     os,
     inAppBrowser: {
-      partition: IN_APP_BROWSER_PARTITION,
       webPreferences: IN_APP_BROWSER_WEB_PREFERENCES,
       onMessage: window.api.onInAppBrowserMessage,
       onFavicon: window.api.onInAppBrowserFavicon,
+      onAudio: window.api.onInAppBrowserAudio,
+      onShortcut: window.api.onInAppBrowserShortcut,
+      setAppearance: window.api.setInAppBrowserAppearance,
+      clearProfileData: window.api.clearInAppBrowserProfileData,
+      checkSafariFullDiskAccess: window.api.checkInAppBrowserSafariFullDiskAccess,
+      listImportSources: window.api.listInAppBrowserImportSources,
+      importCookies: window.api.importInAppBrowserCookies,
+      openFullDiskAccessSettings: window.api.openFullDiskAccessSettings,
     },
     get version() {
       return readDesktopAppVersion()
