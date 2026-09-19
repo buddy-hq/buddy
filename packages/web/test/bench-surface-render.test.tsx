@@ -19,6 +19,7 @@ import { BenchMediaPreview } from "../src/components/bench/bench-media-preview"
 import { DirectoryWorkspaceProvider } from "../src/components/directory-chat/directory-workspace-context"
 import { QuestionSetBenchReview } from "../src/components/bench/question-set-bench-review"
 import { SvgBenchView } from "../src/components/bench/svg-bench-view"
+import { PresentedMediaSourceViewer } from "../src/components/bench/presented-media-source-viewer"
 import { BenchSurfaceViewer, BenchZoomableViewer } from "../src/components/bench/bench-viewer-shell"
 import { HtmlWidgetFrame } from "../src/components/chat/tools/render/html-widget"
 import { ServerProvider, type ServerConnection } from "../src/context/server"
@@ -49,6 +50,7 @@ import type {
   ObjectQuestionSetReadQuestionsResponse,
 } from "@buddy/sdk/types"
 import { parseRequestUrl } from "./parse-test-values"
+import { ThemeProvider } from "../src/theme"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_DECK_ID = "deck-1"
@@ -475,6 +477,45 @@ describe("bench surface rendering", () => {
     expect(iframe?.className).toContain("w-full")
     expect(iframe?.getAttribute("style") ?? "").not.toContain("transform")
   })
+
+  test.each([
+    ["notes.md", "read-only-markdown-bench-view"],
+    ["notes.mdx", "read-only-markdown-bench-view"],
+    ["notes.ts", "read-only-source-bench-view"],
+  ])(
+    "renders presented %s source with the owning read-only viewer",
+    async (fileName, component) => {
+      await act(async () => {
+        root.render(
+          <ThemeProvider>
+            <PresentedMediaSourceViewer
+              directory={TEST_DIRECTORY}
+              title={fileName}
+              path={`/tmp/${fileName}`}
+              sourceFileName={fileName}
+              sourceRawUrl={`/api/objects/media-presentation/object-source-view/raw/item-1?directory=%2Frepo&fileName=${fileName}`}
+              content="# Hello\n"
+              version="2026-01-01T00:00:00.000Z"
+              error={undefined}
+              loading={component === "read-only-source-bench-view"}
+              actions={[]}
+              viewportKey={`presented-source:${fileName}`}
+            />
+          </ThemeProvider>,
+        )
+        await flushEffects()
+      })
+      await waitForEffect(() => container.querySelector(`[data-component="${component}"]`) !== null)
+
+      expect(container.querySelector(`[data-component="${component}"]`)).not.toBeNull()
+      if (component === "read-only-markdown-bench-view") {
+        expect(container.querySelector('[data-component="markdown-bench-editor"]')).not.toBeNull()
+        expect(container.textContent).toContain("External file · Read-only")
+      } else {
+        expect(container.querySelector('[data-component="markdown-bench-editor"]')).toBeNull()
+      }
+    },
+  )
 
   test("does not register an outgoing surface under the next route target", async () => {
     const registrations: BenchSurfaceRegistrationInput[] = []

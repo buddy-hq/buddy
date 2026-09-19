@@ -15,12 +15,15 @@ export async function stageMediaImageEdit(input: {
   localPath: string
 }): Promise<PromptComposerAttachment> {
   const image = requireBuddyData(
-    await getBuddyClient(input.directory).objectMediaPresentation.raw({
-      objectID: input.objectID,
-      itemID: input.itemID,
-      directory: input.directory,
-      fileName: input.fileName,
-    }),
+    await getBuddyClient(input.directory).objectMediaPresentation.raw(
+      {
+        objectID: input.objectID,
+        itemID: input.itemID,
+        directory: input.directory,
+        fileName: input.fileName,
+      },
+      { parseAs: "blob" },
+    ),
   )
   const mime = image.type || DEFAULT_IMAGE_MIME_TYPE
   if (!mime.startsWith("image/")) {

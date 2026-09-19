@@ -16,12 +16,15 @@ export async function loadPresentedMediaSource(
   input: PresentedMediaSourceQueryInput,
 ): Promise<string> {
   const blob = requireBuddyData(
-    await getBuddyClient(input.directory).objectMediaPresentation.raw({
-      directory: input.directory,
-      objectID: input.objectID,
-      itemID: input.itemID,
-      fileName: input.fileName,
-    }),
+    await getBuddyClient(input.directory).objectMediaPresentation.raw(
+      {
+        directory: input.directory,
+        objectID: input.objectID,
+        itemID: input.itemID,
+        fileName: input.fileName,
+      },
+      { parseAs: "blob" },
+    ),
   )
   return readPresentedMediaSourceBlob(blob)
 }

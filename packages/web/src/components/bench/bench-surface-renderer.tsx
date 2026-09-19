@@ -74,7 +74,7 @@ export function BenchSurfaceRenderer(props: {
           viewID: props.target.viewID,
         },
         props.target.ref.revisionID ? { revisionID: props.target.ref.revisionID } : undefined,
-        props.target.ref.itemID ? { itemID: props.target.ref.itemID } : undefined,
+        props.target.ref.itemID !== null ? { itemID: props.target.ref.itemID } : undefined,
       )}
     />
   )

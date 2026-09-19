@@ -70,6 +70,37 @@ describe("presented media raw routes", () => {
     expect(response.headers.get("content-length")).toBe(String("local-image".length))
   })
 
+  test("serves relative Markdown assets through the owning presented item", async () => {
+    await using repo = await createGitRepo("buddy-presented-media-route-markdown-asset")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-presented-media-route-markdown-asset-",
+    })
+    const localPath = path.join(localDir.path, "notes.md")
+    const imagePath = path.join(localDir.path, "images", "cat.png")
+    await fs.mkdir(path.dirname(imagePath), { recursive: true })
+    await fs.writeFile(localPath, "![Cat](./images/cat.png)")
+    await fs.writeFile(imagePath, "cat-image")
+
+    const output = await OpenCodeInstance.provide({
+      directory: repo.path,
+      fn: async () =>
+        buildPresentedMediaObjectOutput({
+          directory: repo.path,
+          items: [{ path: localPath }],
+        }),
+    })
+    const rawUrl = output.output.items[0]?.rawUrl ?? ""
+
+    const response = await app.request(`${rawUrl}&relativePath=images%2Fcat.png`)
+
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe("cat-image")
+    expect(response.headers.get("content-disposition")).toContain("cat.png")
+
+    const escaped = await app.request(`${rawUrl}&relativePath=..%2Foutside.png`)
+    expect(escaped.status).toBe(404)
+  })
+
   test("reports current availability without fetching media bytes", async () => {
     await using repo = await createGitRepo("buddy-presented-media-route-availability")
     await using localDir = await temporaryDirectory({

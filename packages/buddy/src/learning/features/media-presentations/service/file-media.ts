@@ -653,11 +653,25 @@ export async function resolvePresentedMediaObjectItem(
   }
 }
 
+async function resolvePresentedMediaRelativeAssetPath(
+  itemPath: string,
+  relativePath: string,
+): Promise<string | undefined> {
+  if (path.isAbsolute(relativePath)) return undefined
+  const itemDirectory = await fs.realpath(path.dirname(itemPath)).catch(() => undefined)
+  if (!itemDirectory) return undefined
+  const candidatePath = path.resolve(itemDirectory, relativePath)
+  const resolvedPath = await fs.realpath(candidatePath).catch(() => undefined)
+  if (!resolvedPath || !isPathWithinBoundary(itemDirectory, resolvedPath)) return undefined
+  return resolvedPath
+}
+
 export async function readPresentedMediaObjectRawResponse(input: {
   directory: string
   objectID: string
   itemID: string
   downloadName: string | undefined
+  relativePath: string | undefined
   includeBody: boolean
   rangeHeader: string | undefined
   signal?: AbortSignal
@@ -666,9 +680,17 @@ export async function readPresentedMediaObjectRawResponse(input: {
   if (!item) {
     return Response.json({ error: PROJECT_FILE_NOT_FOUND_ERROR }, { status: 404 })
   }
+  const absolutePath = input.relativePath
+    ? await resolvePresentedMediaRelativeAssetPath(item.absolutePath, input.relativePath)
+    : item.absolutePath
+  if (!absolutePath) {
+    return Response.json({ error: PROJECT_FILE_NOT_FOUND_ERROR }, { status: 404 })
+  }
   return await readRawFileResponse({
-    absolutePath: item.absolutePath,
-    downloadName: input.downloadName ?? item.fileName,
+    absolutePath,
+    downloadName: input.relativePath
+      ? path.basename(absolutePath)
+      : (input.downloadName ?? item.fileName),
     includeBody: input.includeBody,
     rangeHeader: input.rangeHeader,
     signal: input.signal,
