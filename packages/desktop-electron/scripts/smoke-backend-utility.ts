@@ -28,6 +28,7 @@ import {
 } from "../../buddy/script/node-artifact-runtime"
 import type { NodeArtifactProcess } from "../../buddy/script/node-artifact-runtime"
 import {
+  KEYRING_PACKAGE_NAME,
   LITEPARSE_PACKAGE_NAME,
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
@@ -339,6 +340,7 @@ function collectRelativeFilePaths(directory: string, relativeDirectory = ""): st
 function runtimePackageNames(): string[] {
   const target = currentBackendNodeArtifactTarget()
   return [
+    KEYRING_PACKAGE_NAME,
     LITEPARSE_PACKAGE_NAME,
     liteParseNativePackageName(target),
     nodePtyNativePackageName(target),

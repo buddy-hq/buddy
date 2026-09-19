@@ -42,6 +42,8 @@ export function createElectronBuilderConfiguration(
       CHEMFIG_RUNTIME_ASAR_PATTERN,
       "out/main/chunks/node_modules/@llamaindex/liteparse-*/**/*",
       "out/main/chunks/node_modules/@lydell/node-pty-*/**/*",
+      "out/main/node_modules/@napi-rs/keyring/**/*",
+      "out/main/chunks/node_modules/@primno/dpapi/prebuilds/**/*",
       "out/main/chunks/node_modules/@parcel/watcher-*/**/*",
     ],
     files: ["out/**/*"],

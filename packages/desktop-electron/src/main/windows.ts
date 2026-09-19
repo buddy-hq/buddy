@@ -187,7 +187,7 @@ function lockWindowTitle(win: BrowserWindow) {
 
 function resolveWebPreferences(globals: WindowGlobals, input: { webviewTag: boolean }) {
   return {
-    preload: join(root, "../preload/index.mjs"),
+    preload: join(root, "../preload/index.cjs"),
     sandbox: false,
     additionalArguments: [encodeBuddyWindowVersionArg(globals.version)],
     webviewTag: input.webviewTag,

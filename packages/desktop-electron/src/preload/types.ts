@@ -1,5 +1,18 @@
 import type { UpdateProgressSnapshot, UpdateRing } from "../shared/update-state"
-import type { InAppBrowserFaviconMessage, InAppBrowserHostMessage } from "@buddy/browser-contract"
+import type {
+  InAppBrowserAppearanceRequest,
+  InAppBrowserAudioMessage,
+  InAppBrowserClearProfileDataRequest,
+  InAppBrowserCommandResult,
+  InAppBrowserFaviconMessage,
+  InAppBrowserHostMessage,
+  InAppBrowserShortcutMessage,
+} from "@buddy/browser-contract"
+import type {
+  BrowserImportRequest,
+  BrowserImportResult,
+  BrowserImportSource,
+} from "@buddy/browser-contract/browser-import"
 
 export type InitStep = { phase: "server_waiting" } | { phase: "sqlite_waiting" } | { phase: "done" }
 
@@ -57,6 +70,18 @@ export type ElectronAPI = {
   onFullscreenChanged: (cb: (isFullscreen: boolean) => void) => () => void
   onInAppBrowserMessage: (cb: (message: InAppBrowserHostMessage) => void) => () => void
   onInAppBrowserFavicon: (cb: (message: InAppBrowserFaviconMessage) => void) => () => void
+  onInAppBrowserAudio: (cb: (message: InAppBrowserAudioMessage) => void) => () => void
+  onInAppBrowserShortcut: (cb: (message: InAppBrowserShortcutMessage) => void) => () => void
+  setInAppBrowserAppearance: (
+    input: InAppBrowserAppearanceRequest,
+  ) => Promise<InAppBrowserCommandResult>
+  clearInAppBrowserProfileData: (
+    input: InAppBrowserClearProfileDataRequest,
+  ) => Promise<InAppBrowserCommandResult>
+  checkInAppBrowserSafariFullDiskAccess: () => Promise<boolean>
+  listInAppBrowserImportSources: () => Promise<readonly BrowserImportSource[]>
+  importInAppBrowserCookies: (input: BrowserImportRequest) => Promise<BrowserImportResult>
+  openFullDiskAccessSettings: () => Promise<void>
   getIsFullscreen: () => Promise<boolean>
 
   openDirectoryPicker: (opts?: {

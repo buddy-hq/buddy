@@ -10,6 +10,7 @@ const ENGLISH_TESSDATA_RELATIVE_PATH = ["resources", "tessdata", "eng.traineddat
 const PHOTON_WASM_PATTERN = /^photon_rs_bg(?:-[a-z0-9]+)?\.wasm$/i
 const DIRECTORY_NODE_MODULES = "node_modules" as const
 export const LITEPARSE_PACKAGE_NAME = "@llamaindex/liteparse" as const
+export const KEYRING_PACKAGE_NAME = "@napi-rs/keyring" as const
 export const TYPESCRIPT_RUNTIME_PACKAGE_NAME = "typescript" as const
 
 export type BackendNodeArtifactTarget = {
@@ -48,6 +49,23 @@ export function liteParseNativePackageName(target: BackendNodeArtifactTarget): s
     return `@llamaindex/liteparse-linux-${target.arch}-gnu`
   }
   throw new Error(`Unsupported LiteParse platform: ${target.platform}-${target.arch}`)
+}
+
+export function keyringNativePackageName(target: BackendNodeArtifactTarget): string {
+  if (target.platform === "darwin") {
+    return `${KEYRING_PACKAGE_NAME}-darwin-${target.arch}`
+  }
+  if (target.platform === "win32") {
+    return `${KEYRING_PACKAGE_NAME}-win32-${target.arch}-msvc`
+  }
+  if (target.platform === "linux") {
+    const abi = target.arch === "arm" ? "gnueabihf" : "gnu"
+    return `${KEYRING_PACKAGE_NAME}-linux-${target.arch}-${abi}`
+  }
+  if (target.platform === "freebsd" && target.arch === "x64") {
+    return `${KEYRING_PACKAGE_NAME}-freebsd-x64`
+  }
+  throw new Error(`Unsupported Keyring platform: ${target.platform}-${target.arch}`)
 }
 
 export function assertBackendNodeArtifactRuntimeFiles(input: { artifactDir: string }): void {

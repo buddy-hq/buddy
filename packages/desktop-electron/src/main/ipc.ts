@@ -1,6 +1,16 @@
 import { execFile } from "node:child_process"
 import { app, BrowserWindow, Notification, clipboard, dialog, ipcMain, shell } from "electron"
-import type { IpcMainEvent, IpcMainInvokeEvent } from "electron"
+import type { IpcMainEvent, IpcMainInvokeEvent, WebContents } from "electron"
+import type {
+  InAppBrowserAppearanceRequest,
+  InAppBrowserClearProfileDataRequest,
+  InAppBrowserCommandResult,
+} from "@buddy/browser-contract"
+import type {
+  BrowserImportRequest,
+  BrowserImportResult,
+  BrowserImportSource,
+} from "@buddy/browser-contract/browser-import"
 import { READER_EXTERNAL_LINK_PROTOCOLS, readAllowedExternalLink } from "@buddy/reader-contract"
 
 import type {
@@ -64,6 +74,17 @@ type Deps = {
   installUpdate: () => Promise<void> | void
   setBackgroundColor: (color: string) => void
   exportMarkdownPdf: (input: MarkdownPdfExportInput) => Promise<string | null>
+  setInAppBrowserAppearance: (
+    host: WebContents,
+    input: InAppBrowserAppearanceRequest,
+  ) => Promise<InAppBrowserCommandResult>
+  clearInAppBrowserProfileData: (
+    input: InAppBrowserClearProfileDataRequest,
+  ) => Promise<InAppBrowserCommandResult>
+  checkInAppBrowserSafariFullDiskAccess: () => Promise<boolean>
+  listInAppBrowserImportSources: () => Promise<readonly BrowserImportSource[]>
+  importInAppBrowserCookies: (input: BrowserImportRequest) => Promise<BrowserImportResult>
+  openFullDiskAccessSettings: () => Promise<void>
 }
 
 export function registerIpcHandlers(deps: Deps) {
@@ -119,6 +140,26 @@ export function registerIpcHandlers(deps: Deps) {
     "export-markdown-pdf",
     (_event: IpcMainInvokeEvent, input: MarkdownPdfExportInput) => deps.exportMarkdownPdf(input),
   )
+  ipcMain.handle(
+    "in-app-browser-set-appearance",
+    (event: IpcMainInvokeEvent, input: InAppBrowserAppearanceRequest) =>
+      deps.setInAppBrowserAppearance(event.sender, input),
+  )
+  ipcMain.handle(
+    "in-app-browser-clear-profile-data",
+    (_event: IpcMainInvokeEvent, input: InAppBrowserClearProfileDataRequest) =>
+      deps.clearInAppBrowserProfileData(input),
+  )
+  ipcMain.handle("in-app-browser-check-safari-full-disk-access", () =>
+    deps.checkInAppBrowserSafariFullDiskAccess(),
+  )
+  ipcMain.handle("in-app-browser-list-import-sources", () => deps.listInAppBrowserImportSources())
+  ipcMain.handle(
+    "in-app-browser-import-cookies",
+    (_event: IpcMainInvokeEvent, input: BrowserImportRequest) =>
+      deps.importInAppBrowserCookies(input),
+  )
+  ipcMain.handle("open-full-disk-access-settings", () => deps.openFullDiskAccessSettings())
 
   ipcMain.handle("store-get", (_event: IpcMainInvokeEvent, name: string, key: string) => {
     const store = getStore(name)

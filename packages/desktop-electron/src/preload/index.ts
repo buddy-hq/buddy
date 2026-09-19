@@ -4,10 +4,14 @@ import { readBuddyWindowVersionArg } from "../shared/window-preload-args"
 import { isFunctionValue, isObjectValue, parseTString } from "../shared/parse-external"
 import type { ElectronAPI, InitStep, SqliteMigrationProgress } from "./types"
 import {
+  IN_APP_BROWSER_AUDIO_CHANNEL,
   IN_APP_BROWSER_FAVICON_CHANNEL,
   IN_APP_BROWSER_MESSAGE_CHANNEL,
+  IN_APP_BROWSER_SHORTCUT_CHANNEL,
+  type InAppBrowserAudioMessage,
   type InAppBrowserFaviconMessage,
   type InAppBrowserHostMessage,
+  type InAppBrowserShortcutMessage,
 } from "@buddy/browser-contract"
 
 const appVersion = readBuddyWindowVersionArg(process.argv)
@@ -166,6 +170,24 @@ const api: ElectronAPI = {
     ipcRenderer.on(IN_APP_BROWSER_FAVICON_CHANNEL, handler)
     return () => ipcRenderer.removeListener(IN_APP_BROWSER_FAVICON_CHANNEL, handler)
   },
+  onInAppBrowserAudio: (cb) => {
+    const handler = (_: IpcRendererEvent, message: InAppBrowserAudioMessage) => cb(message)
+    ipcRenderer.on(IN_APP_BROWSER_AUDIO_CHANNEL, handler)
+    return () => ipcRenderer.removeListener(IN_APP_BROWSER_AUDIO_CHANNEL, handler)
+  },
+  onInAppBrowserShortcut: (cb) => {
+    const handler = (_: IpcRendererEvent, message: InAppBrowserShortcutMessage) => cb(message)
+    ipcRenderer.on(IN_APP_BROWSER_SHORTCUT_CHANNEL, handler)
+    return () => ipcRenderer.removeListener(IN_APP_BROWSER_SHORTCUT_CHANNEL, handler)
+  },
+  setInAppBrowserAppearance: (input) => ipcRenderer.invoke("in-app-browser-set-appearance", input),
+  clearInAppBrowserProfileData: (input) =>
+    ipcRenderer.invoke("in-app-browser-clear-profile-data", input),
+  checkInAppBrowserSafariFullDiskAccess: () =>
+    ipcRenderer.invoke("in-app-browser-check-safari-full-disk-access"),
+  listInAppBrowserImportSources: () => ipcRenderer.invoke("in-app-browser-list-import-sources"),
+  importInAppBrowserCookies: (input) => ipcRenderer.invoke("in-app-browser-import-cookies", input),
+  openFullDiskAccessSettings: () => ipcRenderer.invoke("open-full-disk-access-settings"),
   getIsFullscreen: () => ipcRenderer.invoke("get-is-fullscreen"),
 
   openDirectoryPicker: (opts) => ipcRenderer.invoke("open-directory-picker", opts),
