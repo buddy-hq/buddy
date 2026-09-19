@@ -11,7 +11,9 @@ const PHOTON_WASM_PATTERN = /^photon_rs_bg(?:-[a-z0-9]+)?\.wasm$/i
 const DIRECTORY_NODE_MODULES = "node_modules" as const
 export const LITEPARSE_PACKAGE_NAME = "@llamaindex/liteparse" as const
 export const KEYRING_PACKAGE_NAME = "@napi-rs/keyring" as const
+export const NATIVE_ADDON_LOADER_PACKAGE_NAME = "node-gyp-build" as const
 export const TYPESCRIPT_RUNTIME_PACKAGE_NAME = "typescript" as const
+export const WINDOWS_DPAPI_PACKAGE_NAME = "@primno/dpapi" as const
 
 export type BackendNodeArtifactTarget = {
   arch: string

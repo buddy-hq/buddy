@@ -30,7 +30,9 @@ import type { NodeArtifactProcess } from "../../buddy/script/node-artifact-runti
 import {
   KEYRING_PACKAGE_NAME,
   LITEPARSE_PACKAGE_NAME,
+  NATIVE_ADDON_LOADER_PACKAGE_NAME,
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,
+  WINDOWS_DPAPI_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
   liteParseNativePackageName,
   nodePtyNativePackageName,
@@ -284,7 +286,11 @@ async function smokeApiRoutes(input: { baseUrl: string; directory: string }): Pr
 
 function assertDesktopBuildContract(mainDir: string): void {
   const scan = scanBuildOutput(mainDir)
-  const allowedPackagedPackages = new Set(runtimePackageNames())
+  const allowedPackagedPackages = new Set([
+    ...runtimePackageNames(),
+    NATIVE_ADDON_LOADER_PACKAGE_NAME,
+    WINDOWS_DPAPI_PACKAGE_NAME,
+  ])
   const forbiddenPackagedPackages = scan.packagedNodeModules.filter(
     (packageName) => !allowedPackagedPackages.has(packageName),
   )

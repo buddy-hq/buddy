@@ -14,7 +14,9 @@ import { BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES } from "@buddy/script/backend-no
 import {
   KEYRING_PACKAGE_NAME,
   LITEPARSE_PACKAGE_NAME,
+  NATIVE_ADDON_LOADER_PACKAGE_NAME,
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,
+  WINDOWS_DPAPI_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
   keyringNativePackageName,
   liteParseNativePackageName,
@@ -41,8 +43,6 @@ const nodePtyPkg = nodePtyNativePackageName(nativeTarget)
 const parcelWatcherPkg = parcelWatcherNativePackageName(nativeTarget)
 const optionalRuntimeExternalPackages = ["@chonkiejs/token"] as const
 const liteParseWrapperRuntimeEntries = ["dist", "package.json", "README.md", "LICENSE"] as const
-const WINDOWS_DPAPI_PACKAGE_NAME = "@primno/dpapi" as const
-const NATIVE_ADDON_LOADER_PACKAGE_NAME = "node-gyp-build" as const
 const ELECTRON_MAIN_ESM_SHIM = `
 // -- CommonJS Shims --
 import __cjs_mod__ from 'node:module';
