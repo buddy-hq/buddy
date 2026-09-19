@@ -5,6 +5,7 @@ import {
   removeFoliateAnnotation,
   renderFoliateAnnotation,
   revealFoliateAnnotation,
+  revealFoliateText,
 } from "../src/components/readers/utils/foliate-annotations"
 
 function createOverlayer() {
@@ -108,6 +109,18 @@ describe("Foliate annotation rendering", () => {
     const { navigationTargets, range, view } = createMalformedSpineView()
 
     await expect(revealFoliateAnnotation(view, annotation)).resolves.toBe(range)
+    expect(navigationTargets).toEqual([
+      {
+        index: 3,
+        anchor: expect.any(Function),
+      },
+    ])
+  })
+
+  test("reveals citation text without requiring a persisted annotation", async () => {
+    const { navigationTargets, range, view } = createMalformedSpineView()
+
+    await expect(revealFoliateText(view, annotation.value)).resolves.toBe(range)
     expect(navigationTargets).toEqual([
       {
         index: 3,

@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import type { PdfQuad } from "@buddy/reader-contract"
-import { READER_SELECTION_BACKGROUND } from "../src/components/readers/foliate-reader-constants"
+import {
+  ANNOTATION_COLORS,
+  READER_CITATION_INK,
+  READER_SELECTION_INK,
+} from "../src/components/readers/foliate-reader-constants"
+import { READER_HIGHLIGHT_OVERLAY_STYLE } from "../src/components/readers/utils/reader-highlight-paint"
 import type { PdfPageViewGeometry } from "../src/components/readers/pdf/pdf-geometry"
 import {
   pdfAnnotationAnchor,
@@ -10,6 +15,7 @@ import {
   renderPdfSearchResult,
   renderPdfSelection,
 } from "../src/components/readers/pdf/pdf-overlay-layers"
+import { measurePdfMarginMarks } from "../src/components/readers/pdf/pdf-margin-marks"
 import type {
   ReaderAnnotation,
   ReaderSearchResult,
@@ -41,6 +47,24 @@ function createGeometry(input: {
       convertToViewportPoint: (x, y) => [x, y],
     },
     cropBox: { xMin: 0, yMin: 0, xMax: 200, yMax: 300 },
+    cropBoxOrigin: { x: 0, y: 0 },
+  }
+}
+
+function createMarginGeometry(
+  div: HTMLDivElement,
+  textLayerDiv: HTMLDivElement,
+): PdfPageViewGeometry {
+  return {
+    div,
+    textLayerDiv,
+    viewport: {
+      width: 700,
+      height: 600,
+      convertToPdfPoint: (x, y) => [x, y],
+      convertToViewportPoint: (x, y) => [x, y],
+    },
+    cropBox: { xMin: 0, yMin: 0, xMax: 700, yMax: 600 },
     cropBoxOrigin: { x: 0, y: 0 },
   }
 }
@@ -150,6 +174,47 @@ afterEach(() => {
 })
 
 describe("PDF overlay layers", () => {
+  test("positions a multi-page margin mark from its first visible quad", () => {
+    const surface = document.createElement("div")
+    const viewport = document.createElement("div")
+    const hiddenPage = document.createElement("div")
+    const hiddenText = document.createElement("div")
+    const visiblePage = document.createElement("div")
+    const visibleText = document.createElement("div")
+    surface.getBoundingClientRect = () => rect(0, 0, 800, 600)
+    viewport.getBoundingClientRect = () => rect(0, 0, 800, 600)
+    hiddenPage.getBoundingClientRect = () => rect(40, -700, 700, 600)
+    hiddenText.getBoundingClientRect = () => rect(40, -700, 700, 600)
+    visiblePage.getBoundingClientRect = () => rect(40, 80, 700, 600)
+    visibleText.getBoundingClientRect = () => rect(40, 80, 700, 600)
+
+    expect(
+      measurePdfMarginMarks({
+        marks: [
+          {
+            id: "multi-page-citation",
+            anchor: {
+              kind: "pdf-text",
+              segments: [
+                { pageIndex: 0, quads: [quad(20, 40, 120, 60)] },
+                { pageIndex: 1, quads: [quad(20, 100, 120, 120)] },
+              ],
+              quote: { exact: "spanning citation" },
+            },
+          },
+        ],
+        session: {
+          getPageGeometry: (pageIndex) =>
+            pageIndex === 0
+              ? createMarginGeometry(hiddenPage, hiddenText)
+              : createMarginGeometry(visiblePage, visibleText),
+        },
+        surface,
+        viewport,
+      }),
+    ).toEqual([{ id: "multi-page-citation", x: 724, y: 190 }])
+  })
+
   test("positions annotation marks from the overlay origin and washes them as one group", () => {
     const { root, page, session } = createPage()
     const restore = stubLayout(root)
@@ -163,14 +228,15 @@ describe("PDF overlay layers", () => {
       })
 
       const group = page.querySelector<HTMLElement>(".buddy-pdf-annotation-group")
-      expect(group?.style.opacity).toBe("0.34")
+      expect(group?.style.opacity).toBe(READER_HIGHLIGHT_OVERLAY_STYLE.opacity)
+      expect(group?.style.mixBlendMode).toBe(READER_HIGHLIGHT_OVERLAY_STYLE.mixBlendMode)
       const marks = page.querySelectorAll<HTMLElement>(".buddy-pdf-annotation-mark")
       expect(marks).toHaveLength(2)
       expect(marks[0]?.style.left).toBe("10px")
       expect(marks[0]?.style.top).toBe("20px")
       expect(marks[0]?.style.width).toBe("30px")
       expect(marks[0]?.style.height).toBe("10px")
-      expect(marks[0]?.style.backgroundColor).toBe("var(--surface-info-base)")
+      expect(marks[0]?.style.backgroundColor).toBe(ANNOTATION_COLORS.sky.value)
       // Alpha belongs to the group so touching marks never darken each other.
       expect(marks[0]?.style.opacity).toBe("")
       // Marks never take pointer hits, so a drag can start over a highlight.
@@ -276,14 +342,20 @@ describe("PDF overlay layers", () => {
       renderPdfSelection({ root, session, selection: SELECTION })
 
       const layer = page.querySelector<HTMLElement>(".buddy-pdf-selection-layer")
-      expect(layer?.style.opacity).toBe("0.34")
+      expect(layer?.style.opacity).toBe(READER_HIGHLIGHT_OVERLAY_STYLE.opacity)
+      expect(layer?.style.mixBlendMode).toBe(READER_HIGHLIGHT_OVERLAY_STYLE.mixBlendMode)
       const mark = page.querySelector<HTMLElement>(".buddy-pdf-selection-mark")
       expect(mark?.style.left).toBe("12px")
       expect(mark?.style.top).toBe("24px")
       expect(mark?.style.width).toBe("40px")
       expect(mark?.style.height).toBe("12px")
-      expect(mark?.style.backgroundColor).toBe(READER_SELECTION_BACKGROUND)
+      expect(mark?.style.backgroundColor).toBe(READER_SELECTION_INK)
       expect(mark?.style.opacity).toBe("")
+
+      renderPdfSelection({ root, session, selection: SELECTION, tone: "citation" })
+      expect(
+        page.querySelector<HTMLElement>(".buddy-pdf-selection-mark")?.style.backgroundColor,
+      ).toBe(READER_CITATION_INK)
 
       renderPdfSelection({ root, session, selection: undefined })
       expect(page.querySelector(".buddy-pdf-selection-layer")).toBeNull()
@@ -309,7 +381,7 @@ describe("PDF overlay layers", () => {
 
       expect(page.querySelector(".buddy-pdf-selection-layer")).toBeNull()
       const annotationMark = page.querySelector<HTMLElement>(".buddy-pdf-annotation-mark")
-      expect(annotationMark?.style.backgroundColor).toBe("var(--surface-critical-base)")
+      expect(annotationMark?.style.backgroundColor).toBe(ANNOTATION_COLORS.rose.value)
     } finally {
       restore()
     }
@@ -357,7 +429,7 @@ describe("PDF overlay layers", () => {
       expect(mark?.style.top).toBe("44px")
       expect(mark?.style.width).toBe("50px")
       expect(mark?.style.height).toBe("14px")
-      expect(mark?.style.backgroundColor).toBe(READER_SELECTION_BACKGROUND)
+      expect(mark?.style.backgroundColor).toBe(READER_SELECTION_INK)
 
       renderPdfSearchResult({ root, session, result: undefined })
       expect(page.querySelector(".buddy-pdf-search-layer")).toBeNull()

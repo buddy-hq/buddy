@@ -36,6 +36,7 @@
         "@ai-sdk/anthropic": "2.0.62",
         "@bokuweb/zstd-wasm": "^0.0.27",
         "@buddy/browser-contract": "workspace:*",
+        "@buddy/citation-contract": "workspace:*",
         "@buddy/opencode-adapter": "workspace:*",
         "@buddy/reader-contract": "workspace:*",
         "@buddy/workspace-file-policy": "workspace:*",
@@ -90,6 +91,15 @@
         "@parcel/watcher-linux-x64-musl": "2.5.1",
         "@parcel/watcher-win32-arm64": "2.5.1",
         "@parcel/watcher-win32-x64": "2.5.1",
+      },
+    },
+    "packages/citation-contract": {
+      "name": "@buddy/citation-contract",
+      "dependencies": {
+        "@buddy/reader-contract": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/desktop-electron": {
@@ -249,6 +259,7 @@
       "version": "0.0.63",
       "dependencies": {
         "@buddy/browser-contract": "workspace:*",
+        "@buddy/citation-contract": "workspace:*",
         "@buddy/opencode-adapter": "workspace:*",
         "@buddy/reader-contract": "workspace:*",
         "@buddy/sdk": "workspace:*",
@@ -1672,6 +1683,8 @@
     "@buddy/backend": ["@buddy/backend@workspace:packages/buddy"],
 
     "@buddy/browser-contract": ["@buddy/browser-contract@workspace:packages/browser-contract"],
+
+    "@buddy/citation-contract": ["@buddy/citation-contract@workspace:packages/citation-contract"],
 
     "@buddy/desktop-electron": ["@buddy/desktop-electron@workspace:packages/desktop-electron"],
 

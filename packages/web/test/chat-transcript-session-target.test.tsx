@@ -3,8 +3,14 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
+import { requestCitationNavigation } from "../src/lib/citations/navigation"
 import { useChatStore } from "../src/state/chat-store"
-import { createMessageWithParts, createUserMessageInfo, seedDirectoryChatState } from "./test-utils"
+import {
+  createAssistantMessageInfo,
+  createMessageWithParts,
+  createUserMessageInfo,
+  seedDirectoryChatState,
+} from "./test-utils"
 import {
   createChatTranscriptTestViewport,
   type ChatTranscriptTestViewport,
@@ -17,6 +23,14 @@ const CHILD_SESSION_ID = "child-session"
 async function flushEffects() {
   await Promise.resolve()
   await new Promise<void>((resolve) => setTimeout(resolve, 0))
+}
+
+async function waitFor(predicate: () => boolean): Promise<void> {
+  const timeoutAt = Date.now() + 2_000
+  while (!predicate()) {
+    if (Date.now() >= timeoutAt) throw new Error("Timed out waiting for citation navigation")
+    await flushEffects()
+  }
 }
 
 describe("ChatTranscript session target", () => {
@@ -103,5 +117,139 @@ describe("ChatTranscript session target", () => {
     expect(useChatStore.getState().directories[DIRECTORY]?.sessionID).toBe(ROOT_SESSION_ID)
     expect(container.textContent).toContain("Subagent Bench content")
     expect(container.textContent).not.toContain("Root chat content")
+  })
+
+  test("opens and reveals a chat citation from the source session after a fork", async () => {
+    const sourceExcerpt = "source answer"
+    const sourceMessageID = "source-assistant-message"
+    const sourcePartID = "source-assistant-part"
+    const sourceMessages = [
+      createMessageWithParts(
+        createUserMessageInfo({ id: "source-user-message", sessionID: ROOT_SESSION_ID }),
+        [
+          {
+            id: "source-user-part",
+            sessionID: ROOT_SESSION_ID,
+            messageID: "source-user-message",
+            type: "text",
+            text: "Give me the source",
+          },
+        ],
+      ),
+      createMessageWithParts(
+        createAssistantMessageInfo({
+          id: sourceMessageID,
+          sessionID: ROOT_SESSION_ID,
+          parentID: "source-user-message",
+        }),
+        [
+          {
+            id: sourcePartID,
+            sessionID: ROOT_SESSION_ID,
+            messageID: sourceMessageID,
+            type: "text",
+            text: `Original ${sourceExcerpt} text`,
+          },
+        ],
+      ),
+    ]
+    const forkedMessages = [
+      createMessageWithParts(
+        createUserMessageInfo({ id: "fork-user-message", sessionID: CHILD_SESSION_ID }),
+        [
+          {
+            id: "fork-user-part",
+            sessionID: CHILD_SESSION_ID,
+            messageID: "fork-user-message",
+            type: "text",
+            text: "Give me the source",
+          },
+        ],
+      ),
+      createMessageWithParts(
+        createAssistantMessageInfo({
+          id: "fork-assistant-message",
+          sessionID: CHILD_SESSION_ID,
+          parentID: "fork-user-message",
+        }),
+        [
+          {
+            id: "fork-assistant-part",
+            sessionID: CHILD_SESSION_ID,
+            messageID: "fork-assistant-message",
+            type: "text",
+            text: `Original ${sourceExcerpt} text`,
+          },
+        ],
+      ),
+    ]
+    const openedSessionIDs: string[] = []
+    const revealedCitationPartIDs: string[] = []
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
+    HTMLElement.prototype.scrollIntoView = function () {
+      const citationPartID = this.dataset.citationPart
+      if (citationPartID) revealedCitationPartIDs.push(citationPartID)
+    }
+
+    seedDirectoryChatState(DIRECTORY, {
+      sessionID: CHILD_SESSION_ID,
+      messagesBySessionID: {
+        [ROOT_SESSION_ID]: sourceMessages,
+        [CHILD_SESSION_ID]: forkedMessages,
+      },
+    })
+    transcriptViewport.ref.current?.append(container)
+
+    function renderSession(sessionID: string) {
+      root.render(
+        <ChatTranscript
+          directory={DIRECTORY}
+          sessionID={sessionID}
+          scrollViewportRef={transcriptViewport.ref}
+          onOpenSession={(nextSessionID) => {
+            openedSessionIDs.push(nextSessionID)
+            renderSession(nextSessionID)
+          }}
+        />,
+      )
+    }
+
+    await act(async () => {
+      renderSession(CHILD_SESSION_ID)
+      await flushEffects()
+    })
+
+    let opened = false
+    try {
+      await act(async () => {
+        opened = await requestCitationNavigation({
+          schemaVersion: 1,
+          id: "citation-from-before-fork",
+          excerpt: sourceExcerpt,
+          source: {
+            kind: "chat",
+            sessionID: ROOT_SESSION_ID,
+            messageID: sourceMessageID,
+            partID: sourcePartID,
+            selector: {
+              version: 1,
+              start: 9,
+              end: 22,
+              prefix: "Original ",
+              suffix: " text",
+            },
+          },
+        })
+        await flushEffects()
+      })
+      await waitFor(() => revealedCitationPartIDs.includes(sourcePartID))
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView
+    }
+
+    expect(opened).toBe(true)
+    expect(openedSessionIDs).toEqual([ROOT_SESSION_ID])
+    expect(container.querySelector(`[data-citation-part="${sourcePartID}"]`)).not.toBeNull()
+    expect(revealedCitationPartIDs).toContain(sourcePartID)
   })
 })

@@ -1,11 +1,10 @@
-import { useCallback, useRef } from "react"
+import { useCallback } from "react"
+import { CITATION_SCHEMA_VERSION, type Citation } from "@buddy/citation-contract"
 import type { MarkdownBenchDocumentSelection } from "@/components/bench/markdown/editor"
-import {
-  appendSelectionContextToDraft,
-  removeSelectionContextFromDraft,
-} from "@/components/readers/utils/reading-selection-draft"
+import { appendCitationToDraft } from "@/components/readers/utils/reading-selection-draft"
 import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer-live-draft"
 import { usePromptStore } from "@/state/prompt-store"
+import { requestCitationComment, type CitationCommentSource } from "@/lib/citations/comment-request"
 
 function createMarkdownSelectionKey() {
   const random = Math.random().toString(36).slice(2, 10)
@@ -13,45 +12,40 @@ function createMarkdownSelectionKey() {
 }
 
 export function useMarkdownBenchSelectionSync(input: {
+  directory: string
   path: string
   promptKey: string | undefined
   version: string
-}): (selection: MarkdownBenchDocumentSelection) => void {
-  const { path, promptKey, version } = input
+}): (selection: MarkdownBenchDocumentSelection, commentSource?: CitationCommentSource) => void {
+  const { directory, path, promptKey, version } = input
   const setPromptDraft = usePromptStore((state) => state.replaceDraft)
-  const stagedSelectionKeyRef = useRef<string | undefined>(undefined)
-
   return useCallback(
-    (selection: MarkdownBenchDocumentSelection) => {
+    (selection: MarkdownBenchDocumentSelection, commentSource?: CitationCommentSource) => {
       if (!promptKey) return
-      const text = selection.text.trim()
+      const text = selection.text
+      if (!text.trim()) return
       const currentDraft = readPromptComposerLiveDraft(promptKey)
-      const stagedSelectionKey = stagedSelectionKeyRef.current
-      const draftWithoutPreviousSelection = stagedSelectionKey
-        ? (removeSelectionContextFromDraft(currentDraft, stagedSelectionKey) ?? currentDraft)
-        : currentDraft
-
-      if (!text) {
-        stagedSelectionKeyRef.current = undefined
-        if (draftWithoutPreviousSelection !== currentDraft) {
-          setPromptDraft(promptKey, draftWithoutPreviousSelection)
-        }
-        return
-      }
-
       const selectionKey = createMarkdownSelectionKey()
-      stagedSelectionKeyRef.current = selectionKey
-      setPromptDraft(
-        promptKey,
-        appendSelectionContextToDraft(
-          draftWithoutPreviousSelection,
-          Object.assign(
-            { source: "markdown" as const, text, selectionKey, path, version },
-            selection.headingPath ? { headingPath: selection.headingPath } : undefined,
-          ),
-        ),
+      const citation: Citation = Object.assign(
+        {
+          schemaVersion: CITATION_SCHEMA_VERSION,
+          id: selectionKey,
+          excerpt: text,
+          source: {
+            kind: "document" as const,
+            directory,
+            path,
+            revision: version,
+            selector: selection.selector,
+          },
+        },
+        selection.headingPath
+          ? { presentation: { headingPath: selection.headingPath } }
+          : undefined,
       )
+      requestCitationComment(citation.id, commentSource)
+      setPromptDraft(promptKey, appendCitationToDraft(currentDraft, citation))
     },
-    [path, promptKey, setPromptDraft, version],
+    [directory, path, promptKey, setPromptDraft, version],
   )
 }

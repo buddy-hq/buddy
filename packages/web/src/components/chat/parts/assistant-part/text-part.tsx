@@ -1,4 +1,4 @@
-import { memo, useState } from "react"
+import { memo, useMemo, useRef, useState } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
 import type { MarkdownMermaidContext } from "@/components/markdown/Markdown"
 import type { MarkdownChemistryContext } from "@/components/markdown/Markdown"
@@ -13,6 +13,9 @@ import type { ChatTextPart } from "../../utils/part-guards"
 import { isSvgAutoRepairAssistantMessage } from "../../utils/message-visibility"
 import { MessageNoteAction } from "@/features/notes/message-note-action"
 import { CHAT_MARKDOWN_TEXT_STYLE } from "../../chat-text-styles"
+import { filterStagedQuotes, useStagedQuotes } from "@/lib/citations/staged-quotes"
+import { QuoteCommentMarkers } from "@/components/citations/quote-comment-markers"
+import { useRenderedTextCommentAnchors } from "@/components/citations/use-rendered-text-comment-anchors"
 
 type AssistantTextPartProps = {
   part: ChatTextPart
@@ -96,6 +99,22 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   onQuoteMessage,
 }: AssistantTextPartProps) {
   const [branching, setBranching] = useState(false)
+  const textPartRef = useRef<HTMLDivElement>(null)
+  const stagedQuotes = useStagedQuotes()
+  const partQuotes = useMemo(
+    () =>
+      filterStagedQuotes(
+        stagedQuotes,
+        (citation) => citation.source.kind === "chat" && citation.source.partID === part.id,
+      ),
+    [stagedQuotes, part.id],
+  )
+  const commentAnchors = useRenderedTextCommentAnchors({
+    quotes: partQuotes,
+    overlayRef: textPartRef,
+    textRootSelector: "[data-citation-part]",
+    markerOffset: 0,
+  })
   const text = part.text
   const withoutLeadingFigure = stripLeadingFigureImage
     ? stripLeadingRenderFigureMarkdown(text)
@@ -145,9 +164,14 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   }
 
   return (
-    <div className="group/text-part min-w-0 w-full max-w-full">
+    <div ref={textPartRef} className="group/text-part relative min-w-0 w-full max-w-full">
+      <QuoteCommentMarkers anchors={commentAnchors} />
       <div
         data-chat-typography
+        data-citation-source="assistant"
+        data-citation-session={part.sessionID}
+        data-citation-message={part.messageID}
+        data-citation-part={part.id}
         className="min-w-0 w-full max-w-full transition-opacity duration-75 ease-out"
         style={CHAT_MARKDOWN_TEXT_STYLE}
       >

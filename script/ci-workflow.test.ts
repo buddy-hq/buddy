@@ -148,6 +148,9 @@ describe("CI workflow", () => {
     ])
     expect(shards.filter((shard) => shard.owners === "backend")).toHaveLength(2)
     expect(shards.filter((shard) => shard.owners === "web")).toHaveLength(2)
+    expect(shards.find((shard) => shard.name === "remaining")?.owners).toBe(
+      "browser-contract,citation-contract,desktop-electron,opencode-adapter,shared-script,root-script",
+    )
     expect(shards.filter((shard) => shard.install_ripgrep === true)).toHaveLength(3)
     expect(shards.filter((shard) => shard.prepare_generated === true)).toHaveLength(2)
     expect(jobEnvironment.BUDDY_TEST_CONCURRENCY).toBe("${{ matrix.test_concurrency }}")

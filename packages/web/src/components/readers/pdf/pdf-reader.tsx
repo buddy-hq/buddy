@@ -52,9 +52,15 @@ import { ReaderStatusPill } from "../ui/reader-status-pill"
 import { ReaderToolbar } from "../ui/reader-toolbar"
 import { ReaderTocPopover } from "../ui/reader-toc-popover"
 import { useReaderRecentLocations } from "../ui/use-reader-recent-locations"
-import { DEFAULT_ANNOTATION_COLOR_ID, READER_THEMES } from "../foliate-reader-constants"
+import {
+  DEFAULT_ANNOTATION_COLOR_ID,
+  READER_SELECTION_INK,
+  READER_THEMES,
+} from "../foliate-reader-constants"
+import { readerHighlightVariables, readerInkWash } from "../utils/reader-highlight-paint"
 import { getThemeDefinition } from "../utils/foliate-themes"
 import { copyText } from "../utils/foliate-helpers"
+import { detachedCitationCommentRect } from "@/lib/citations/comment-source"
 import {
   clampPdfCustomScale,
   createLocalReaderStateRepository,
@@ -91,11 +97,11 @@ import {
 } from "./pdf-dom-interactions"
 import {
   indexPdfAnnotationsByPage,
+  lastPdfSelectionMark,
   pdfAnnotationAnchor,
   pdfAnnotationAtPoint,
   pdfOverlayAnchorEquals,
   pdfSelectionAnchor,
-  PDF_SELECTION_WASH,
   removePdfAnnotationLayers,
   removePdfSearchLayers,
   removePdfSelectionLayers,
@@ -106,6 +112,12 @@ import {
   type PdfOverlayAnchor,
 } from "./pdf-overlay-layers"
 import { shouldDismissPdfSelectionForRelocation } from "./pdf-reader-state"
+import { measurePdfMarginMarks } from "./pdf-margin-marks"
+import {
+  useMarginMarkPositions,
+  type MarginMarkMeasure,
+  type MarginMarkRefreshSubscription,
+} from "../utils/use-margin-mark-positions"
 import { createPdfSearchRowBatcher } from "./pdf-search-row-batcher"
 import { shouldShowPdfPageTurnControls } from "./pdf-viewer-mode"
 import { PdfViewerSession, type PdfSearchRequest } from "./pdf-viewer-session"
@@ -138,6 +150,7 @@ const PDF_READER_SHORTCUTS: ReaderShortcut[] = [
   { keys: "?", label: "Open keyboard help" },
   { keys: "Esc", label: "Close reader overlays" },
 ]
+const PDF_CITATION_REVEAL_DURATION_MS = 2_400
 
 const READER_THEME_OPTIONS = READER_THEMES.map((theme) => ({
   id: theme.id,
@@ -305,6 +318,8 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     onOpeningInteractionChange,
     onError,
     onAnnotationsChange,
+    marginMarks,
+    renderMarginMarks,
   },
   ref,
 ) {
@@ -314,12 +329,16 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
   const containerRef = useRef<HTMLDivElement | null>(null)
   const viewerElementRef = useRef<HTMLDivElement | null>(null)
   const sessionRef = useRef<PdfViewerSession | null>(null)
+  const marginMarkRefreshersRef = useRef(new Set<() => void>())
   const snapshotRef = useRef<ReaderSnapshot | null>(null)
   const locationRef = useRef<ReaderRelocation | null>(null)
   const persistenceSourceRef = useRef<ReaderSource>(source)
   const hydratedRef = useRef(false)
   const stagedSelectionKeyRef = useRef<string | null>(null)
   const selectionActionRef = useRef<PdfSelectionState | null>(null)
+  const commentSelectionRef = useRef<ReaderSelection | null>(null)
+  const revealedCitationSelectionRef = useRef<ReaderSelection | null>(null)
+  const citationRevealTimeoutRef = useRef<number | null>(null)
   const activeSearchResultRef = useRef<ReaderSearchResult | undefined>(undefined)
   const pendingLocationRef = useRef<PdfPositionAnchor | null>(null)
   const searchAbortRef = useRef<AbortController | null>(null)
@@ -349,6 +368,25 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
   )
   const initialMode = initialDocumentState.pdfMode ?? initialPreferences.pdfMode
   const [status, setStatus] = useState<PdfReaderStatus>("loading")
+  const measureMarginMarks = useCallback<MarginMarkMeasure>((marks, surface) => {
+    const session = sessionRef.current
+    const viewport = containerRef.current
+    return session && viewport ? measurePdfMarginMarks({ marks, session, surface, viewport }) : []
+  }, [])
+  const subscribeMarginMarkRefresh = useCallback<MarginMarkRefreshSubscription>((refresh) => {
+    const refreshers = marginMarkRefreshersRef.current
+    refreshers.add(refresh)
+    return () => {
+      refreshers.delete(refresh)
+    }
+  }, [])
+  const marginMarkPositions = useMarginMarkPositions({
+    enabled: status === "ready" && renderMarginMarks !== undefined,
+    marks: marginMarks,
+    surfaceRef: readerSurfaceRef,
+    measure: measureMarginMarks,
+    subscribe: subscribeMarginMarkRefresh,
+  })
   const [error, setError] = useState<Error | null>(null)
   const [snapshot, setSnapshot] = useState<ReaderSnapshot | null>(null)
   const [location, setLocation] = useState<ReaderRelocation | null>(null)
@@ -361,6 +399,10 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
   const [, setScale] = useState(initialDocumentState.pdfMode?.scale ?? 1)
   const [layoutFallback, setLayoutFallback] = useState<string | null>(null)
   const [selectionAction, setSelectionAction] = useState<PdfSelectionState | null>(null)
+  // A cited selection stays painted while its comment editor is open beside it.
+  const [commentSelection, setCommentSelection] = useState<ReaderSelection | null>(null)
+  const [revealedCitationSelection, setRevealedCitationSelection] =
+    useState<ReaderSelection | null>(null)
   const [annotationPopover, setAnnotationPopover] = useState<PdfAnnotationPopoverState | null>(null)
   const [annotationEditor, setAnnotationEditor] = useState<PdfAnnotationEditorState | null>(null)
   const [search, setSearch] = useState<ReaderSearchViewModel>(emptySearchViewModel)
@@ -426,6 +468,8 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
   documentStateRef.current = documentState
   modeRef.current = mode
   selectionActionRef.current = selectionAction
+  commentSelectionRef.current = commentSelection
+  revealedCitationSelectionRef.current = revealedCitationSelection
   activeSearchResultRef.current = activeSearchResult
 
   const removeStagedSelection = useCallback(() => {
@@ -448,6 +492,49 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     },
     [removeStagedSelection],
   )
+
+  const clearCitationReveal = useCallback(() => {
+    if (citationRevealTimeoutRef.current !== null) {
+      window.clearTimeout(citationRevealTimeoutRef.current)
+      citationRevealTimeoutRef.current = null
+    }
+    revealedCitationSelectionRef.current = null
+    setRevealedCitationSelection(null)
+  }, [])
+
+  const revealCitationSelection = useCallback(
+    (selection: ReaderSelection) => {
+      clearCitationReveal()
+      revealedCitationSelectionRef.current = selection
+      setRevealedCitationSelection(selection)
+      citationRevealTimeoutRef.current = window.setTimeout(
+        clearCitationReveal,
+        PDF_CITATION_REVEAL_DURATION_MS,
+      )
+    },
+    [clearCitationReveal],
+  )
+
+  useEffect(() => () => clearCitationReveal(), [clearCitationReveal])
+
+  const citeCurrentSelection = useCallback(() => {
+    const selection = selectionActionRef.current?.selection
+    const root = readerSurfaceRef.current
+    if (!selection || !root) return
+    setCommentSelection(selection)
+    callbacksRef.current.onChatSelection?.(selection, {
+      getBoundingClientRect: () =>
+        lastPdfSelectionMark(root)?.getBoundingClientRect() ?? detachedCitationCommentRect(),
+      get contextElement() {
+        return lastPdfSelectionMark(root) ?? root
+      },
+      mark: () => {
+        setCommentSelection(selection)
+        return () => setCommentSelection((current) => (current === selection ? null : current))
+      },
+    })
+    dismissSelection(false)
+  }, [dismissSelection])
 
   const handleCopySelection = useCallback(
     async (text: string) => {
@@ -511,7 +598,12 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
         {
           root,
           session,
-          selection: selectionActionRef.current?.selection,
+          selection:
+            selectionActionRef.current?.selection ??
+            commentSelectionRef.current ??
+            revealedCitationSelectionRef.current ??
+            undefined,
+          tone: selectionActionRef.current ? ("selection" as const) : ("citation" as const),
         },
         pageIndex !== undefined ? { pageIndex } : undefined,
       ),
@@ -524,6 +616,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
    * from the live DOM instead of from where the page was when they opened.
    */
   const refreshOverlayAnchors = useCallback(() => {
+    for (const refresh of marginMarkRefreshersRef.current) refresh()
     const root = readerSurfaceRef.current
     if (!root) return
     setSelectionAction((current) => {
@@ -643,9 +736,24 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     paintAnnotations(annotationPageIndex)
     const root = readerSurfaceRef.current
     const session = sessionRef.current
-    if (root && session) renderPdfSelection({ root, session, selection: stagedSelection })
+    if (root && session) {
+      renderPdfSelection({
+        root,
+        session,
+        selection: stagedSelection ?? commentSelection ?? revealedCitationSelection ?? undefined,
+        tone: stagedSelection ? "selection" : "citation",
+      })
+    }
     refreshOverlayAnchors()
-  }, [annotationPageIndex, mode, paintAnnotations, refreshOverlayAnchors, stagedSelection])
+  }, [
+    annotationPageIndex,
+    commentSelection,
+    mode,
+    paintAnnotations,
+    refreshOverlayAnchors,
+    revealedCitationSelection,
+    stagedSelection,
+  ])
 
   useEffect(() => {
     renderActiveSearchResult()
@@ -762,6 +870,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
           locationRef.current = nextLocation
           if (shouldDismissPdfSelectionForRelocation(previousLocation, nextLocation)) {
             dismissSelection(true)
+            renderSelection()
           }
           setLocation(nextLocation)
           updateHistory(nextLocation.anchor)
@@ -832,6 +941,8 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       if (event.button !== 0 || !isPdfSelectionEventTarget(event.target, container)) return
       selectionPointerId = event.pointerId
       setAnnotationPopover(null)
+      setCommentSelection(null)
+      clearCitationReveal()
       if (selectionActionRef.current) clearStagedSelection()
       whitespaceSelectionDrag = beginPdfWhitespaceSelectionDrag({ root, pointer: event })
       if (whitespaceSelectionDrag) {
@@ -891,14 +1002,12 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
         }
         const selection = { ...read, selectionKey: createReaderRecordId("selection") }
         removeStagedSelection()
-        stagedSelectionKeyRef.current = selection.selectionKey
         renderPdfSelection({ root, session, selection })
         clearPdfSelection(root)
         root.classList.remove(PDF_LIVE_SELECTION_CLASS_NAME)
         const nextAction = { selection, anchor: pdfSelectionAnchor(root) }
         selectionActionRef.current = nextAction
         setSelectionAction(nextAction)
-        callbacksRef.current.onChatSelection?.(selection)
       })
     }
     const handleSelectionPointerUp = (event: PointerEvent) => {
@@ -974,6 +1083,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       void session.destroy().catch(() => undefined)
     }
   }, [
+    clearCitationReveal,
     defaultTheme,
     cancelQueuedSearchProgress,
     dismissSelection,
@@ -1024,10 +1134,28 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       goTo: async (target) => {
         if (target.kind === "pdf-position") await sessionRef.current?.goTo(target)
       },
+      goToText: async (target) => {
+        if (target.kind !== "pdf-text") return false
+        const session = sessionRef.current
+        const root = readerSurfaceRef.current
+        if (!session || !root) return false
+        const position = await session.resolveTextAnchorPosition(target)
+        if (!position) return false
+        await session.goTo(position)
+        const selection: ReaderSelection = {
+          text: target.quote.exact,
+          selectionKey: createReaderRecordId("selection"),
+          anchor: target,
+        }
+        dismissSelection(false)
+        renderPdfSelection({ root, session, selection, tone: "citation" })
+        revealCitationSelection(selection)
+        return true
+      },
       setTheme,
       getSnapshot: () => snapshotRef.current,
     }),
-    [setTheme],
+    [dismissSelection, revealCitationSelection, setTheme],
   )
 
   const currentAnchor = isPdfPosition(location?.anchor) ? location.anchor : undefined
@@ -1603,6 +1731,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       <div
         ref={readerSurfaceRef}
         className={cn("relative min-h-0 min-w-0 flex-1", theme.viewportClassName)}
+        style={readerHighlightVariables(theme.appearance)}
       >
         {status === "loading" ? (
           <div className="pointer-events-none absolute inset-x-3 top-3 z-30">
@@ -1631,6 +1760,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
         >
           <div ref={viewerElementRef} className="pdfViewer" />
         </div>
+        {renderMarginMarks?.(marginMarkPositions)}
 
         {status === "ready" && shouldShowPdfPageTurnControls(mode, layoutFallback !== null) ? (
           <>
@@ -1669,6 +1799,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
           }
           anchorRoot={readerSurfaceRef.current}
           onCopyText={(text) => void handleCopySelection(text)}
+          onCite={citeCurrentSelection}
           onHighlight={createQuickHighlight}
           onOpenAnnotationDialog={openCreateAnnotation}
           onSearch={(query) => {
@@ -1792,7 +1923,8 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
            * The text layer is transparent text laid over the rendered canvas, so a
            * selection may only tint it. Painting a selection foreground reveals the
            * substitute glyphs on top of the real ones, which reads as the font
-           * changing mid-drag. Only the glyph spans take the wash: the structural
+           * changing mid-drag. The wash matches the marks painted once the drag
+           * ends, so the handoff is continuous. Only the glyph spans take it: the structural
            * nodes the text layer parks at the page origin — line breaks, the
            * end-of-content sentinel — would otherwise paint a stray band down the
            * left edge of the page.
@@ -1802,7 +1934,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
           }
 
           .buddy-pdfjs-scope .textLayer span::selection {
-            background: ${PDF_SELECTION_WASH};
+            background: ${readerInkWash(READER_SELECTION_INK, theme.appearance)};
           }
 
           .${PDF_LIVE_SELECTION_CLASS_NAME} .textLayer span::selection {

@@ -201,6 +201,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const promptKey =
     controller.status === "ready" ? controller.mainPaneProps.chatState.promptKey : undefined
   const syncSelectionToChat = useMarkdownBenchSelectionSync({
+    directory: location.directory,
     path: location.path,
     promptKey,
     version,
@@ -376,7 +377,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             onOpenLink={openMarkdownLink}
             onProcessingResult={applyProcessingResult}
             onRenameTitle={renameTitle}
-            onSelectionChange={syncSelectionToChat}
+            onCiteSelection={syncSelectionToChat}
             renamingTitle={renamingTitle}
           />
         )}

@@ -145,6 +145,8 @@ export const dict = {
   "chat.userMessage.revert": "Undo",
   "chat.userMessage.showMore": "Show more",
   "chat.userMessage.showLess": "Show less",
+  "chat.selection.chatTitle": "Chat",
+  "chat.selection.commentMarker": "Show comments on this passage",
   "chat.selection.documentTitle": "Selected text",
   "chat.selection.messageTitle": "Quoted message",
   "chat.selection.passageTitle": "Selected passage",

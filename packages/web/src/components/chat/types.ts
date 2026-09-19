@@ -3,6 +3,8 @@ import type { ToolCollectionToken, ToolLayoutRole } from "@buddy/opencode-adapte
 import type { ResourceReadingTarget } from "@/state/resources-query"
 import type { MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
 import type { RetryActionID } from "./session-retry-notice"
+import type { Citation } from "@buddy/citation-contract"
+import type { CitationCommentSource } from "@/lib/citations/comment-request"
 
 export type { MessageWithParts, ProviderInfo, SessionStatusInfo } from "@/state/chat-types"
 
@@ -63,6 +65,7 @@ export type ChatTranscriptProps = {
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   /** `text` is the quoted message, not a note: the composer takes the note itself. */
   onQuoteMessage?: (input: { sessionID: string; messageID: string; text: string }) => void
+  onCite?: (citation: Citation, commentSource?: CitationCommentSource) => void
   onRetryAction?: (input: TRetryActionInput) => void
   onContinueTruncated?: (input: { userMessageID: string }) => void
 }

@@ -44,11 +44,6 @@
   --composer-surface-shadow-floating:
     0 0 0 1px var(--composer-surface-hairline), 0 2px 8px -3px rgb(0 0 0 / 0.14),
     0 20px 44px -14px rgb(0 0 0 / 0.32);
-
-  /* Selection clip: a passage the user pulled from a document. The quote-rail
-     accent that marks it as a citation, and the softer (anchored) fill so a
-     pulled-in quote reads quieter than a live message bubble. */
-  --composer-clip-rail: color-mix(in oklab, var(--text-interactive-base) 60%, transparent);
 }
 
 /* --- grain overlay ------------------------------------------------------- */
@@ -143,20 +138,6 @@
   border-radius: var(--composer-surface-radius) var(--composer-surface-radius) 2px
     var(--composer-surface-radius);
   background-color: var(--composer-surface-bg-floating);
-}
-
-/* Selection clip — a quoted passage pulled from a document, shown inline in the
-   transcript and as a chip over the composer. Same grain material, but dressed
-   as a citation rather than a chat bubble: a left quote-rail (kept outside the
-   grain, which anchors to the padding box, so it stays a crisp accent), left
-   corners squared to meet the rail, and the softer anchored fill so a pulled-in
-   quote recedes rather than competes with a live message. The mono excerpt and
-   labelled header live at the call sites (see selection-clip.tsx). */
-.composer-surface-clip {
-  border: 0;
-  border-left: 2px solid var(--composer-clip-rail);
-  border-radius: 3px var(--composer-surface-radius-sm) var(--composer-surface-radius-sm) 3px;
-  background-color: var(--composer-surface-bg);
 }
 
 /* The composer shell keeps its resting surface on focus — no ring or edge

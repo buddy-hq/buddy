@@ -73,6 +73,8 @@ import { ReaderLayoutConsistencyEasel } from "./easel/reader-layout-consistency"
 import { SegmentedActiveStateEasel } from "./easel/segmented-active-state"
 import { SettingsUpdatesAndModeEasel } from "./easel/settings-updates-and-mode"
 import { SelectDropdownVariantsEasel } from "./easel/select-dropdown-variants"
+import { CitationHighlightColorsEasel } from "./easel/citation-highlight-colors"
+import { ReaderHighlightStrengthsEasel } from "./easel/reader-highlight-strengths"
 import { ThemeSelectors } from "./theme-selectors"
 import { findCatalogID } from "./easel/select-value"
 
@@ -90,6 +92,8 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "reader-highlight-strengths"
+  | "citation-highlight-colors"
   | "bench-table-restyle"
   | "select-dropdown-variants"
   | "settings-updates-and-mode"
@@ -131,6 +135,18 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "reader-highlight-strengths",
+    label: "Reader highlights · app tokens vs reader inks",
+    subtitle:
+      "Why reader marks look muddy or vanish: they borrow app surface tokens that follow the app theme, not the page · all five reader page themes, shipped EPUB and PDF paint next to fixed inks with strength and blend set by page appearance",
+  },
+  {
+    id: "citation-highlight-colors",
+    label: "Citation highlight · palette colours",
+    subtitle:
+      "The mark on cited text while its comment box is open · amber (shipped), accent, sky, mint, brand, rose and neutral ink on the real chat and document backgrounds, at three strengths",
+  },
   {
     id: "bench-table-restyle",
     label: "Bench tables · three restyles (Ruled shipped)",
@@ -1378,7 +1394,9 @@ export function DevToolsEaselTab(props: { directory?: string }) {
       <div
         className={cn(
           "flex min-h-0 flex-1",
-          prototype === "select-dropdown-variants" ||
+          prototype === "reader-highlight-strengths" ||
+            prototype === "citation-highlight-colors" ||
+            prototype === "select-dropdown-variants" ||
             prototype === "location-step-options" ||
             prototype === "settings-updates-and-mode" ||
             prototype === "segmented-active-state" ||
@@ -1407,6 +1425,22 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
       >
+        {prototype === "reader-highlight-strengths" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <ReaderHighlightStrengthsEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "citation-highlight-colors" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <CitationHighlightColorsEasel />
+            </div>
+          </div>
+        ) : null}
+
         {prototype === "select-dropdown-variants" ? (
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">

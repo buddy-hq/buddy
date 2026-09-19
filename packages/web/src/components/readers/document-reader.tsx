@@ -14,6 +14,7 @@ import {
   type FoliateReaderSelection,
   type FoliateReaderSnapshot,
 } from "./foliate-reader"
+import type { CitationCommentSource } from "@/lib/citations/comment-request"
 import type { ReaderAnnotation as FoliateReaderAnnotation } from "./foliate-reader-types"
 import {
   foliateAnnotationsToReaderAnnotations,
@@ -97,6 +98,8 @@ const FoliateDocumentReader = forwardRef<DocumentReaderHandle, DocumentReaderPro
       onOpenExternalLink,
       onError,
       onAnnotationsChange,
+      marginMarks,
+      renderMarginMarks,
     },
     ref,
   ) {
@@ -117,6 +120,10 @@ const FoliateDocumentReader = forwardRef<DocumentReaderHandle, DocumentReaderPro
         goTo: async (target) => {
           if (target.kind !== "cfi-position") return
           await foliateRef.current?.goTo(target.cfi)
+        },
+        goToText: async (target) => {
+          if (target.kind !== "cfi-text") return false
+          return (await foliateRef.current?.goToText(target.cfi)) ?? false
         },
         setTheme: (theme) => foliateRef.current?.setTheme(theme),
         getSnapshot: () =>
@@ -140,8 +147,8 @@ const FoliateDocumentReader = forwardRef<DocumentReaderHandle, DocumentReaderPro
       [onLocationChange],
     )
     const handleChatSelection = useCallback(
-      (selection: FoliateReaderSelection) => {
-        onChatSelection?.(foliateSelectionToReaderSelection(selection))
+      (selection: FoliateReaderSelection, commentSource?: CitationCommentSource) => {
+        onChatSelection?.(foliateSelectionToReaderSelection(selection), commentSource)
       },
       [onChatSelection],
     )
@@ -170,6 +177,8 @@ const FoliateDocumentReader = forwardRef<DocumentReaderHandle, DocumentReaderPro
         onOpenExternalLink={onOpenExternalLink}
         onError={onError}
         onAnnotationsChange={handleAnnotationsChange}
+        marginMarks={marginMarks}
+        renderMarginMarks={renderMarginMarks}
       />
     )
   },

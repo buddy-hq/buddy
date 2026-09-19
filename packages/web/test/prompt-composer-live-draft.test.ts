@@ -4,7 +4,10 @@ import {
   registerPromptComposerLiveDraftReader,
   resetPromptComposerLiveDraftReadersForTests,
 } from "../src/components/prompt/prompt-composer-live-draft"
-import { SELECTION_CONTEXT_PART_TYPE } from "../src/components/prompt/prompt-types"
+import {
+  SELECTION_CONTEXT_PART_TYPE,
+  promptPartFromCitation,
+} from "../src/components/prompt/prompt-types"
 import {
   createTextPromptDraft,
   getPromptDraft,
@@ -86,6 +89,58 @@ describe("PromptComposer live draft quoting", () => {
 
     const draft = getPromptDraft(usePromptStore.getState(), PROMPT_KEY)
     expect(draft.parts.filter((part) => part.type === SELECTION_CONTEXT_PART_TYPE)).toEqual([
+      {
+        type: SELECTION_CONTEXT_PART_TYPE,
+        source: "message",
+        text: QUOTED_TEXT,
+        selectionKey: "message_msg_1",
+        quotedMessageID: "msg_1",
+      },
+    ])
+  })
+
+  test("preserves a chat citation while replacing the whole-message quote", () => {
+    const store = usePromptStore.getState()
+    const citationPart = promptPartFromCitation({
+      schemaVersion: 1,
+      id: "citation_1",
+      excerpt: "cited response text",
+      source: {
+        kind: "chat",
+        sessionID: SESSION_ID,
+        messageID: "cited-message",
+        partID: "part_1",
+        selector: { version: 1, start: 0, end: 19, prefix: "", suffix: "" },
+      },
+    })
+    registerPromptComposerLiveDraftReader(PROMPT_KEY, () => ({
+      ...createTextPromptDraft(LIVE_DRAFT_TEXT),
+      parts: [
+        { type: "text", text: LIVE_DRAFT_TEXT },
+        citationPart,
+        {
+          type: SELECTION_CONTEXT_PART_TYPE,
+          source: "message",
+          text: "old whole-message quote",
+          selectionKey: "message_old",
+          quotedMessageID: "old",
+        },
+      ],
+    }))
+
+    quoteMessageIntoPromptDraft({
+      directory: DIRECTORY,
+      sessionID: SESSION_ID,
+      messageID: "msg_1",
+      text: QUOTED_TEXT,
+      replaceDraft: store.replaceDraft,
+    })
+
+    const selectionParts = getPromptDraft(usePromptStore.getState(), PROMPT_KEY).parts.filter(
+      (part) => part.type === SELECTION_CONTEXT_PART_TYPE,
+    )
+    expect(selectionParts).toEqual([
+      citationPart,
       {
         type: SELECTION_CONTEXT_PART_TYPE,
         source: "message",

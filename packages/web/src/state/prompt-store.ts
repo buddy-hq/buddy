@@ -38,6 +38,8 @@ import {
   isPromptReadyNativeResourceAttachment,
 } from "@/components/prompt/prompt-types"
 import { z } from "zod"
+import { readCitation } from "@buddy/citation-contract"
+import { promptPartFromCitation } from "@/components/prompt/prompt-types"
 import { getPlatform } from "../context/platform"
 import {
   browserLocalStorage,
@@ -280,6 +282,9 @@ function parsePromptComposerPart<TValue>(value: TValue): PromptComposerPart | un
     return part
   }
   if (type === SELECTION_CONTEXT_PART_TYPE) {
+    const citation = readCitation(record.citation)
+    if (citation) return promptPartFromCitation(citation)
+    if (record.citation !== undefined) return undefined
     const text = parseStringValue(record.text)
     const selectionKey = parseStringValue(record.selectionKey)
     if (text === undefined || selectionKey === undefined) {

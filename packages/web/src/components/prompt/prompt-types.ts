@@ -7,6 +7,12 @@ import { isNativeResourceFormat } from "@buddy/workspace-file-policy"
 import type { NativeResourceDelivery, NativeResourceFormat } from "@buddy/workspace-file-policy"
 import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import { parseStringArray } from "@/state/chat-types"
+import {
+  CITATION_PROMPT_PART_TYPE,
+  readCitation,
+  type Citation,
+  type CitationPromptPart,
+} from "@buddy/citation-contract"
 
 export type PromptModelAttachment = {
   id: string
@@ -227,10 +233,60 @@ export type PromptMessageSelectionContextPart = {
   locationLabel?: never
 }
 
+/** Canonical citation plus legacy display aliases during the persisted-data migration. */
+export type PromptCitationContextPart = CitationPromptPart & {
+  source: PromptSelectionContextSource
+  text: string
+  selectionKey: string
+  resourceKey?: string
+  anchor?: ReaderTextAnchor
+  path?: string
+  version?: string
+  headingPath?: string[]
+  tocLabel?: string
+  pageLabel?: string
+  locationLabel?: string
+  quotedMessageID?: string
+}
+
 export type PromptSelectionContextPart =
   | PromptReadingSelectionContextPart
   | PromptMarkdownSelectionContextPart
   | PromptMessageSelectionContextPart
+  | PromptCitationContextPart
+
+/** Project a canonical citation into the current composer-compatible part shape. */
+export function promptPartFromCitation(citation: Citation): PromptCitationContextPart {
+  const presentation = citation.presentation
+  const common = {
+    type: CITATION_PROMPT_PART_TYPE,
+    citation,
+    text: citation.excerpt,
+    selectionKey: citation.id,
+  } as const
+  if (citation.source.kind === "reading") {
+    return Object.assign(
+      { ...common, source: "reading" as const, anchor: citation.source.anchor },
+      citation.source.resourceKey ? { resourceKey: citation.source.resourceKey } : undefined,
+      citation.source.path ? { path: citation.source.path } : undefined,
+      presentation?.tocLabel ? { tocLabel: presentation.tocLabel } : undefined,
+      presentation?.pageLabel ? { pageLabel: presentation.pageLabel } : undefined,
+      presentation?.locationLabel ? { locationLabel: presentation.locationLabel } : undefined,
+    )
+  }
+  if (citation.source.kind === "document") {
+    return Object.assign(
+      { ...common, source: "markdown" as const, path: citation.source.path },
+      citation.source.revision ? { version: citation.source.revision } : undefined,
+      presentation?.headingPath ? { headingPath: [...presentation.headingPath] } : undefined,
+    )
+  }
+  return {
+    ...common,
+    source: "message",
+    quotedMessageID: citation.source.messageID,
+  }
+}
 
 export type PromptNativeResourceAttachmentPart = {
   type: typeof NATIVE_RESOURCE_ATTACHMENT_PART_TYPE
@@ -333,6 +389,9 @@ export function readPromptSelectionContextMetadata<TMetadata>(
     return readPromptReadingSelectionMetadata(metadata)
   }
   if (candidate.type !== SELECTION_CONTEXT_PART_TYPE) return undefined
+  const citation = readCitation(candidate.citation)
+  if (citation) return promptPartFromCitation(citation)
+  if (candidate.citation !== undefined) return undefined
   if (candidate.source !== "reading" && candidate.source !== "markdown") return undefined
   const text = parseTString(candidate.text)
   if (text === undefined) return undefined

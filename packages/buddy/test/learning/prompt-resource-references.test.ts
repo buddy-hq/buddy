@@ -4,6 +4,11 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { READER_ANCHOR_KIND_CFI_TEXT, READER_ANCHOR_KIND_PDF_TEXT } from "@buddy/reader-contract"
+import {
+  CITATION_SCHEMA_VERSION,
+  formatCitationForProvider,
+  type Citation,
+} from "@buddy/citation-contract"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
@@ -338,6 +343,73 @@ describe("message prompt resource references", () => {
         },
       },
     ])
+  })
+
+  test("preserves and expands multiple canonical citations independently", () => {
+    const citations: Citation[] = [
+      {
+        schemaVersion: CITATION_SCHEMA_VERSION,
+        id: "citation-1",
+        excerpt: "First exact excerpt",
+        comment: "Compare this",
+        source: {
+          kind: "document" as const,
+          path: "notes/one.md",
+          revision: "v1",
+          selector: { version: 1 as const, start: 0, end: 19, prefix: "", suffix: "" },
+        },
+      },
+      {
+        schemaVersion: CITATION_SCHEMA_VERSION,
+        id: "citation-2",
+        excerpt: "Second exact excerpt",
+        comment: "Challenge this",
+        source: {
+          kind: "chat" as const,
+          sessionID: "session-1",
+          messageID: "message-1",
+          partID: "part-1",
+          selector: { version: 1 as const, start: 20, end: 40, prefix: "", suffix: "" },
+        },
+      },
+    ]
+
+    expect(
+      flattenPromptPartsForRuntime(
+        citations.map((citation) => ({ type: SELECTION_CONTEXT_PART_TYPE, citation })),
+      ),
+    ).toEqual(
+      citations.map((citation) => ({
+        type: "text",
+        text: formatCitationForProvider(citation),
+        metadata: {
+          buddyPromptPart: { type: SELECTION_CONTEXT_PART_TYPE, citation },
+        },
+      })),
+    )
+  })
+
+  test("rejects malformed canonical citations instead of downgrading them to legacy selections", () => {
+    expect(() =>
+      flattenPromptPartsForRuntime([
+        {
+          type: SELECTION_CONTEXT_PART_TYPE,
+          citation: {
+            schemaVersion: CITATION_SCHEMA_VERSION,
+            id: "citation-invalid",
+            excerpt: "Invalid bounds",
+            source: {
+              kind: "document",
+              path: "notes/source.md",
+              selector: { version: 1, start: 5, end: 5, prefix: "", suffix: "" },
+            },
+          },
+          source: "markdown",
+          text: "Invalid bounds",
+          selectionKey: "citation-invalid",
+        },
+      ]),
+    ).toThrow("citation prompt part is invalid")
   })
 
   test("preserves neutral PDF selection anchors in prompt metadata", () => {

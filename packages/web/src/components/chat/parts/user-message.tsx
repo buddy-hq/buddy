@@ -8,6 +8,7 @@ import type { MessageInfo, ProviderInfo } from "@/state/chat-types"
 import type { ChatAgentPart, ChatFilePart, ChatTextPart } from "../utils/part-guards"
 import { MessageNoteAction } from "@/features/notes/message-note-action"
 import { CHAT_BODY_TEXT_STYLE } from "../chat-text-styles"
+import { QuoteBand, type QuoteBandItem } from "@/components/citations/quote-band"
 
 // Collapsed height cap for a long sent message. Anything taller gets clamped
 // behind a fade with a "Show more" toggle instead of running full-length.
@@ -16,8 +17,11 @@ const COLLAPSED_MAX_HEIGHT_PX = 260
 // "Show more" that reveals a sliver).
 const CLAMP_REVEAL_THRESHOLD_PX = 40
 
+const NO_QUOTES: readonly QuoteBandItem[] = []
+
 type UserMessagePartProps = {
   part: ChatTextPart
+  quotes?: readonly QuoteBandItem[]
   info: MessageInfo
   references: ChatFilePart[]
   agents: ChatAgentPart[]
@@ -36,6 +40,7 @@ function userMessagePartEqual(
   if (prevProps.queued !== nextProps.queued) return false
   if (prevProps.part.text !== nextProps.part.text) return false
   if (prevProps.part.synthetic !== nextProps.part.synthetic) return false
+  if (prevProps.quotes !== nextProps.quotes) return false
 
   // Compare info (shallow comparison of key fields)
   const prevTime = prevProps.info.time?.created
@@ -55,6 +60,7 @@ function userMessagePartEqual(
 
 export const UserMessagePart = memo(function UserMessagePart({
   part,
+  quotes = NO_QUOTES,
   info: _info,
   references,
   agents,
@@ -99,8 +105,9 @@ export const UserMessagePart = memo(function UserMessagePart({
     return () => observer.disconnect()
   }, [text])
 
+  const hasText = text.trim().length > 0
   if (part.synthetic === true) return null
-  if (!text.trim()) return null
+  if (!hasText && quotes.length === 0) return null
 
   const { measured, overflowing, fullHeight } = metrics
   const clamped = overflowing && !expanded
@@ -137,42 +144,46 @@ export const UserMessagePart = memo(function UserMessagePart({
             queued && "opacity-60",
           )}
         >
-          <div className="relative">
-            <div
-              ref={contentRef}
-              data-chat-typography
-              className={cn(
-                "max-w-[64ch] overflow-hidden px-4 py-3 whitespace-pre-wrap break-words",
-                animateHeight &&
-                  "transition-[max-height] duration-300 ease-out motion-reduce:transition-none",
-              )}
-              style={
-                maxHeight === null ? CHAT_BODY_TEXT_STYLE : { ...CHAT_BODY_TEXT_STYLE, maxHeight }
-              }
-            >
-              <HighlightedText
-                text={text}
-                references={references}
-                agents={agents}
-                inlineReferences={inlineReferences}
-              />
-            </div>
-            {overflowing && (
+          {quotes.length > 0 ? <QuoteBand items={quotes} /> : null}
+          {hasText ? (
+            <div className="relative">
               <div
-                aria-hidden
+                ref={contentRef}
+                data-chat-typography
                 className={cn(
-                  "pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-14",
-                  clamped ? "opacity-100" : "opacity-0",
-                  animateHeight && "transition-opacity duration-200 motion-reduce:transition-none",
+                  "max-w-[64ch] overflow-hidden px-4 py-3 whitespace-pre-wrap break-words",
+                  animateHeight &&
+                    "transition-[max-height] duration-300 ease-out motion-reduce:transition-none",
                 )}
-                style={{
-                  background:
-                    "linear-gradient(to top, var(--composer-surface-bg-floating), transparent)",
-                }}
-              />
-            )}
-          </div>
-          {overflowing && (
+                style={
+                  maxHeight === null ? CHAT_BODY_TEXT_STYLE : { ...CHAT_BODY_TEXT_STYLE, maxHeight }
+                }
+              >
+                <HighlightedText
+                  text={text}
+                  references={references}
+                  agents={agents}
+                  inlineReferences={inlineReferences}
+                />
+              </div>
+              {overflowing && (
+                <div
+                  aria-hidden
+                  className={cn(
+                    "pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-14",
+                    clamped ? "opacity-100" : "opacity-0",
+                    animateHeight &&
+                      "transition-opacity duration-200 motion-reduce:transition-none",
+                  )}
+                  style={{
+                    background:
+                      "linear-gradient(to top, var(--composer-surface-bg-floating), transparent)",
+                  }}
+                />
+              )}
+            </div>
+          ) : null}
+          {hasText && overflowing && (
             <button
               type="button"
               onClick={handleToggleExpanded}
@@ -217,7 +228,9 @@ export const UserMessagePart = memo(function UserMessagePart({
             </TooltipContent>
           </Tooltip>
         ) : null}
-        <CopyAction value={text} label={language.t("chat.userMessage.copyMessage")} />
+        {hasText ? (
+          <CopyAction value={text} label={language.t("chat.userMessage.copyMessage")} />
+        ) : null}
       </div>
     </>
   )

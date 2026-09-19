@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, type RefObject } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Loader2Icon } from "@/icons/app-icons"
 import { cn, toast } from "@buddy/ui"
@@ -7,6 +7,8 @@ import { readerSourceFormatFromPath } from "@buddy/workspace-file-policy"
 import { DocumentReader } from "@/components/readers/document-reader"
 import type {
   ReaderAnnotation,
+  DocumentReaderHandle,
+  DocumentReaderProps,
   ReaderRelocation,
   ReaderSelection,
   ReaderSnapshot,
@@ -21,6 +23,7 @@ import {
   readingResourceBlobQueryOptions,
   type ResourceFileExtension,
 } from "@/state/resources-query"
+import type { CitationCommentSource } from "@/lib/citations/comment-request"
 
 type DirectoryChatReadingReaderPaneProps = {
   directory: string
@@ -31,9 +34,13 @@ type DirectoryChatReadingReaderPaneProps = {
   coverExtension?: ResourceFileExtension
   resourceStatus?: "preparing" | "ready" | "unsupported" | "error" | "stale" | "unprocessed"
   onLocationChange?: (location: ReaderRelocation) => void
-  onChatSelection?: (selection: ReaderSelection) => void
+  onChatSelection?: (selection: ReaderSelection, commentSource?: CitationCommentSource) => void
   onChatSelectionRemoved?: (selectionKey: string) => void
   onAnnotationsChange?: (annotations: ReaderAnnotation[]) => void
+  marginMarks?: DocumentReaderProps["marginMarks"]
+  renderMarginMarks?: DocumentReaderProps["renderMarginMarks"]
+  readerRef?: RefObject<DocumentReaderHandle>
+  onReadyChange?: (ready: boolean) => void
 }
 
 const NOTEBOOK_PERSISTENCE_SUFFIX_PREFIX = "notebook"
@@ -82,6 +89,7 @@ export function buildWorkspaceReaderSourceId(input: {
 
 export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReaderPaneProps) {
   const platform = usePlatform()
+  const onReadyChange = props.onReadyChange
   const [readerReadySourceKey, setReaderReadySourceKey] = useState<string | null>(null)
   const [readerErrorState, setReaderErrorState] = useState<ReaderFailureState | null>(null)
   const [readerInteractionSourceKey, setReaderInteractionSourceKey] = useState<string | null>(null)
@@ -164,6 +172,10 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
     },
     [readerSourceKey],
   )
+
+  useEffect(() => {
+    onReadyChange?.(readerReady)
+  }, [onReadyChange, readerReady])
 
   useEffect(() => {
     if (
@@ -289,6 +301,7 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
         )}
       >
         <DocumentReader
+          ref={props.readerRef}
           source={readerSource}
           className="h-full min-h-0"
           persistenceSuffix={persistenceSuffix}
@@ -298,6 +311,8 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
           onChatSelection={props.onChatSelection}
           onChatSelectionRemoved={props.onChatSelectionRemoved}
           onAnnotationsChange={props.onAnnotationsChange}
+          marginMarks={props.marginMarks}
+          renderMarginMarks={props.renderMarginMarks}
           onOpenExternalLink={handleOpenExternalLink}
           onOpeningInteractionChange={handleOpeningInteractionChange}
         />

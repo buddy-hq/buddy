@@ -234,6 +234,41 @@ describe("DirectoryChatReadingReaderPane", () => {
     expect(openedLinks).toEqual(["https://example.com/reader-link"])
   })
 
+  test("reports semantic reader readiness after the active source opens", async () => {
+    const { DirectoryChatReadingReaderPane } =
+      await import("../src/components/directory-chat/directory-chat-reading-reader-pane")
+    const queryKey = [RESOURCE_QUERY_KEY_ROOT, DIRECTORY, RESOURCE_PATH]
+    const readyStates: boolean[] = []
+    readerShouldError = false
+    queryClient.setQueryData(queryKey, currentBlob)
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <DirectoryChatReadingReaderPane
+            directory={DIRECTORY}
+            resourceName="Book"
+            resourcePath={RESOURCE_PATH}
+            onReadyChange={(ready) => readyStates.push(ready)}
+          />
+        </QueryClientProvider>,
+      )
+      await flushEffects()
+      await flushEffects()
+    })
+
+    expect(readyStates).toEqual([false, true])
+
+    currentBlob = new Blob(["replacement"], { type: "application/pdf" })
+    await act(async () => {
+      queryClient.setQueryData(queryKey, currentBlob, { updatedAt: Date.now() + 1_000 })
+      await flushEffects()
+      await flushEffects()
+    })
+
+    expect(readyStates).toEqual([false, true, false, true])
+  })
+
   test("suspends the opening timeout while the reader waits for user input", async () => {
     const { shouldStartReaderOpenTimeout } =
       await import("../src/components/directory-chat/directory-chat-reading-reader-pane")

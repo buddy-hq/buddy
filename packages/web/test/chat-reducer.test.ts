@@ -23,6 +23,20 @@ function textPart(id: string, text: string): MessagePart {
   }
 }
 
+function documentCitation(id: string) {
+  return {
+    schemaVersion: 1,
+    id,
+    excerpt: "cited excerpt",
+    comment: "why this matters",
+    source: {
+      kind: "document",
+      path: "notes/a.md",
+      selector: { version: 1, start: 0, end: 13, prefix: "", suffix: "" },
+    },
+  }
+}
+
 describe("chat reducer", () => {
   test("inserts keyed parts in server order", () => {
     const second = textPart("part_2", "world")
@@ -108,6 +122,56 @@ describe("chat reducer", () => {
         (part) => part.id,
       ),
     ).toEqual(["prt_0196_test_selection_b", "prt_0196_test_selection_server"])
+  })
+
+  test("replaces an optimistic citation with the server part that carries the same citation", () => {
+    const citation = documentCitation("citation_a")
+    const optimistic: MessagePart = {
+      id: "prt_0196_test_citation_optimistic",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID,
+      type: "selection-context",
+      source: "markdown",
+      optimistic: true,
+      text: citation.excerpt,
+      selectionKey: citation.id,
+      path: "notes/a.md",
+      citation,
+    }
+    const server: MessagePart = {
+      ...textPart("prt_0196_test_citation_server", "cited for the model"),
+      metadata: { buddyPromptPart: { type: "selection-context", citation } },
+    }
+
+    expect(upsertMessagePart([optimistic], server).map((part) => part.id)).toEqual([
+      "prt_0196_test_citation_server",
+    ])
+  })
+
+  test("keeps an optimistic citation when the server part cites something else", () => {
+    const citation = documentCitation("citation_a")
+    const optimistic: MessagePart = {
+      id: "prt_0196_test_citation_optimistic",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID,
+      type: "selection-context",
+      source: "markdown",
+      optimistic: true,
+      text: citation.excerpt,
+      selectionKey: citation.id,
+      citation,
+    }
+    const server: MessagePart = {
+      ...textPart("prt_0196_test_citation_server", "cited for the model"),
+      metadata: {
+        buddyPromptPart: { type: "selection-context", citation: documentCitation("citation_b") },
+      },
+    }
+
+    expect(upsertMessagePart([optimistic], server).map((part) => part.id)).toEqual([
+      "prt_0196_test_citation_optimistic",
+      "prt_0196_test_citation_server",
+    ])
   })
 
   test("replaces optimistic native resource metadata with its persisted text part", () => {

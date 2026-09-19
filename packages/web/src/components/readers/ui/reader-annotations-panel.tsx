@@ -1,5 +1,5 @@
 import { PencilLineIcon, XIcon } from "@/icons/app-icons"
-import { Button, ScrollArea, cn } from "@buddy/ui"
+import { Button, ScrollArea } from "@buddy/ui"
 import { VirtualizedRows } from "@/components/virtualization/virtualized-rows"
 import type { ReaderAnnotationViewModel } from "../reader-types"
 import {
@@ -30,7 +30,8 @@ export function ReaderAnnotationsPanel({
       <div className="group mb-0.5 flex items-start gap-2 rounded-md px-1 py-2 hover:bg-surface-base-hover">
         <span
           aria-hidden="true"
-          className={cn("mt-1.5 size-2 shrink-0 rounded-full", color?.previewClassName)}
+          className="mt-1.5 size-2 shrink-0 rounded-full"
+          style={{ backgroundColor: color?.ink }}
         />
         <button
           type="button"

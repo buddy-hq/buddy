@@ -22,7 +22,6 @@ import type {
 import {
   ANNOTATION_COLORS,
   ANNOTATION_COLOR_IDS,
-  ANNOTATION_COLOR_TOKENS,
   ANNOTATION_STYLE_HIGHLIGHT,
   ANNOTATION_STYLE_STRIKETHROUGH,
   ANNOTATION_STYLE_SQUIGGLY,
@@ -460,22 +459,6 @@ export function getAnnotationColorValue(colorId: ReaderAnnotationColorId): strin
   return ANNOTATION_COLORS[colorId].value
 }
 
-export function resolveAnnotationColorValue(
-  colorId: ReaderAnnotationColorId,
-  element: HTMLElement | null,
-): string {
-  try {
-    const token = ANNOTATION_COLOR_TOKENS[colorId]
-    const computedValue = globalThis.window
-      .getComputedStyle(element ?? globalThis.document.documentElement)
-      .getPropertyValue(token)
-    const trimmedValue = computedValue.trim()
-    return trimmedValue || getAnnotationColorValue(colorId)
-  } catch {
-    return getAnnotationColorValue(colorId)
-  }
-}
-
 export function getAnnotationStyle(annotation: ReaderAnnotation): FoliateReaderAnnotationStyle {
   const { style } = annotation
   if (style === ANNOTATION_STYLE_UNDERLINE) return ANNOTATION_STYLE_UNDERLINE
@@ -553,6 +536,12 @@ function toTopViewportRect(rect: OverlayRect, view: Window | null): OverlayRect 
   }
 
   return nextRect
+}
+
+/** Map a rect from a reader frame into top-level viewport coordinates. */
+export function toTopViewportDOMRect(rect: DOMRect, view: Window | null): DOMRect {
+  const mapped = toTopViewportRect(toOverlayRect(rect), view)
+  return new DOMRect(mapped.left, mapped.top, mapped.width, mapped.height)
 }
 
 export function getOverlayPosition(range: Range, container: HTMLElement) {

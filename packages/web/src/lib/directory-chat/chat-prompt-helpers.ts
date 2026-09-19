@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { readCitationPromptPart } from "@buddy/citation-contract"
 import { serializePromptEditorParts } from "@/components/prompt/prompt-parts"
 import {
   BUDDY_PROMPT_PART_METADATA_KEY,
@@ -14,6 +15,7 @@ import {
   readPromptNativeResourceAttachmentMetadata,
   readPromptNativeResourceAttachmentPart,
   readPromptTextFileAttachmentMetadata,
+  promptPartFromCitation,
   isPromptModelAttachment,
   isPromptNativeResourceAttachment,
   isPromptReadyNativeResourceAttachment,
@@ -608,6 +610,12 @@ export function buildPromptDraftFromUserMessage(
         type: RESOURCE_REFERENCE_PART_TYPE,
         key: part.key,
       })
+      continue
+    }
+
+    const citationPart = readCitationPromptPart(part)
+    if (citationPart) {
+      promptParts.push(promptPartFromCitation(citationPart.citation))
       continue
     }
 

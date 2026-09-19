@@ -42,23 +42,29 @@ describe("sdk session body parsing", () => {
     })
   })
 
-  test("defaults command arguments to an empty string when omitted", () => {
+  test("defaults command arguments to an empty string when omitted", async () => {
     expect(
-      prepareRuntimeCommandBody({
-        command: "init",
-      }),
+      await prepareRuntimeCommandBody(
+        {
+          command: "init",
+        },
+        { directory: "/tmp/notebook" },
+      ),
     ).toEqual({
       command: "init",
       arguments: "",
     })
   })
 
-  test("preserves explicit command arguments", () => {
+  test("preserves explicit command arguments", async () => {
     expect(
-      prepareRuntimeCommandBody({
-        command: "init",
-        arguments: "topic",
-      }),
+      await prepareRuntimeCommandBody(
+        {
+          command: "init",
+          arguments: "topic",
+        },
+        { directory: "/tmp/notebook" },
+      ),
     ).toEqual({
       command: "init",
       arguments: "topic",

@@ -10,6 +10,7 @@ import {
 } from "../foliate-reader-constants"
 import type { ReaderAnnotation, ReaderAnnotationDialogState } from "../foliate-reader-types"
 import { getAnnotationColorId, getAnnotationStyle } from "./foliate-helpers"
+import { READER_HIGHLIGHT_OVERLAY_STYLE } from "./reader-highlight-paint"
 
 export function createSvgElement(tag: string) {
   return document.createElementNS("http://www.w3.org/2000/svg", tag)
@@ -51,7 +52,7 @@ export function addNoteMarker(group: SVGElement, rects: DOMRectList, color: stri
 export function drawHighlight(rects: DOMRectList, color: string) {
   const group = createSvgElement("g")
   group.setAttribute("fill", color)
-  group.style.opacity = "0.26"
+  Object.assign(group.style, READER_HIGHLIGHT_OVERLAY_STYLE)
   for (const rect of Array.from(rects)) {
     const node = createSvgElement("rect")
     node.setAttribute("x", `${rect.left}`)

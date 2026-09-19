@@ -200,6 +200,7 @@ describe("DocumentReader PDF integration", () => {
   test("repairs migrated Foliate PDF annotations with PDF.js text geometry", async () => {
     const module = documentReaderModule
     if (!module) throw new Error("DocumentReader module was not initialized")
+    const readerRef = createRef<DocumentReaderHandle>()
     const source: ReaderSource = {
       kind: "blob",
       blob: new Blob([createSyntheticMultiPagePdf()], { type: "application/pdf" }),
@@ -228,6 +229,7 @@ describe("DocumentReader PDF integration", () => {
     await act(async () => {
       root.render(
         <module.DocumentReader
+          ref={readerRef}
           source={source}
           showToolbar={false}
           onAnnotationsChange={(annotations) => annotationSnapshots.push(annotations)}
@@ -254,6 +256,17 @@ describe("DocumentReader PDF integration", () => {
         segments: [{ pageIndex: 0, startOffset: 0, endOffset: 24 }],
       },
     })
+    const repairedAnchor = annotationSnapshots.at(-1)?.[0]?.anchor
+    if (!repairedAnchor || repairedAnchor.kind !== "pdf-text") {
+      throw new Error("expected repaired PDF text anchor")
+    }
+    let revealed = false
+    await act(async () => {
+      revealed = (await readerRef.current?.goToText(repairedAnchor)) ?? false
+      await Promise.resolve()
+    })
+    expect(revealed).toBe(true)
+    expect(container.querySelector('[aria-label="Selection actions"]')).toBeNull()
   })
 
   test("streams scoped search results with exact PDF anchors", async () => {
@@ -335,10 +348,12 @@ describe("DocumentReader PDF integration", () => {
       expect(secondResult?.anchor.kind).toBe("pdf-text")
       if (!secondResult || secondResult.anchor.kind !== "pdf-text") return
       const secondAnchor = secondResult.anchor
-      expect(await session.resolveTextAnchorPosition(secondAnchor)).toMatchObject({
+      const secondPosition = await session.resolveTextAnchorPosition(secondAnchor)
+      expect(secondPosition).toMatchObject({
         kind: "pdf-position",
         pageIndex: 1,
       })
+      expect(secondPosition?.yRatio).toBeGreaterThan(0)
       await session.showSearchResult(secondResult)
       await waitFor(() => session.getCurrentPosition()?.pageIndex === 1)
       expect(session.getCurrentPosition()?.pageIndex).toBe(1)

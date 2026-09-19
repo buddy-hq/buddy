@@ -64,6 +64,18 @@ import {
   type ComposerAccessoryLayout,
 } from "@/components/prompt/composer-accessory-layout"
 import { useGameStore } from "@/state/game-store"
+import type { Citation } from "@buddy/citation-contract"
+import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer-live-draft"
+import { appendCitationToDraft } from "@/components/readers/utils/reading-selection-draft"
+import { requestCitationComment, type CitationCommentSource } from "@/lib/citations/comment-request"
+import { registerCitationNavigationHandler } from "@/lib/citations/navigation"
+import { fileNameFromPath } from "@/lib/workspace-file-paths"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
+  useOpenBench,
+  type BenchTarget,
+} from "@/lib/bench-navigation"
 
 type PromptComposerProps = Omit<
   ComponentProps<typeof PromptComposer>,
@@ -127,6 +139,34 @@ type ChatLayoutMeasurements = {
   paneHeight: number
   reservedContentHeight: number
   hasBlockingResponseSurface: boolean
+}
+
+export type CitationSourceOpenTarget =
+  | {
+      kind: "markdown"
+      target: Extract<BenchTarget, { type: "workspace-file" }>
+      replacesTarget: Extract<BenchTarget, { type: "workspace-file" }>
+    }
+  | { kind: "reading"; path: string }
+
+export function resolveCitationSourceOpenTarget(
+  citation: Citation,
+): CitationSourceOpenTarget | undefined {
+  const { source } = citation
+  if (source.kind === "document") {
+    const sharedTarget = {
+      type: "workspace-file" as const,
+      root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+      path: source.path,
+    }
+    return {
+      kind: "markdown",
+      target: { ...sharedTarget, viewer: "markdown" },
+      replacesTarget: { ...sharedTarget, viewer: "file" },
+    }
+  }
+  if (source.kind === "reading" && source.path) return { kind: "reading", path: source.path }
+  return undefined
 }
 
 const EMPTY_CHAT_LAYOUT_MEASUREMENTS: ChatLayoutMeasurements = {
@@ -227,6 +267,7 @@ export function resolveRevertedUserMessageCount(input: {
 export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   const location = useLocation()
   const platform = usePlatform()
+  const openBench = useOpenBench()
   const {
     directory,
     chatState,
@@ -328,6 +369,39 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     acceptsImages: chatState.selectedModelAcceptsImages,
     chatGptOAuthReady: providerCatalogQuery.data?.openAIModelAvailability.status === "ready",
   })
+  const promptKey = chatState.promptKey
+  const setPromptDraft = chatState.setPromptDraft
+  const handleCite = useCallback(
+    (citation: Citation, commentSource?: CitationCommentSource) => {
+      const currentDraft = readPromptComposerLiveDraft(promptKey)
+      requestCitationComment(citation.id, commentSource)
+      setPromptDraft(promptKey, appendCitationToDraft(currentDraft, citation))
+    },
+    [promptKey, setPromptDraft],
+  )
+  useEffect(
+    () =>
+      registerCitationNavigationHandler(async (citation) => {
+        const target = resolveCitationSourceOpenTarget(citation)
+        if (!target) return false
+        if (target.kind === "markdown") {
+          const result = await openBench({
+            directory,
+            target: target.target,
+            replacesTarget: target.replacesTarget,
+            mode: BENCH_CHAT_LAYOUT_DOCKED,
+            autoOpen: null,
+          })
+          return result.outcome === "committed" ? "pending" : false
+        }
+        void onOpenResource(directory, {
+          path: target.path,
+          name: fileNameFromPath(target.path),
+        })
+        return "pending"
+      }),
+    [directory, onOpenResource, openBench],
+  )
 
   // The prompt composer publishes its attachment API here so files dropped
   // anywhere in this pane (not just on the composer) get attached.
@@ -583,6 +657,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     onOpenResource={onOpenResource}
                     onForkMessage={onForkMessage}
                     onQuoteMessage={onQuoteMessage}
+                    onCite={handleCite}
                     onRevertMessage={onRevertMessage}
                     onRetryAction={handleRetryAction}
                     onContinueTruncated={handleContinueTruncated}

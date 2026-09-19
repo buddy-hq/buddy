@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@buddy/browser-contract": "workspace:*",
+    "@buddy/citation-contract": "workspace:*",
     "@buddy/opencode-adapter": "workspace:*",
     "@buddy/reader-contract": "workspace:*",
     "@buddy/sdk": "workspace:*",

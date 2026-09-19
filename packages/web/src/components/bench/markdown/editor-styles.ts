@@ -166,7 +166,6 @@ export const MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME =
 
 export const MARKDOWN_BENCH_PAPER_PLAIN_CLASS_NAME = "w-full min-h-full bg-background-base"
 
-export const MARKDOWN_BENCH_SELECTION_EDGE_WIDTH_PX = 3
 export const MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS =
   "px-[clamp(0px,calc((100%_-_28rem)/8),1.5rem)] pt-[clamp(0px,calc((100%_-_28rem)/8),1.5rem)]"
 

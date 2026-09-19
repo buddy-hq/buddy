@@ -4,12 +4,16 @@ import type {
   FoliateReaderThemeId,
 } from "../foliate-reader-types"
 import {
-  READER_SELECTION_FOREGROUND,
+  READER_CITATION_INK,
+  READER_SELECTION_INK,
   READER_THEMES,
   VIEW_ELEMENT_CLASS_NAME,
 } from "../foliate-reader-constants"
 import type { View as FoliateView } from "foliate-js/view.js"
 import { FONT_PUBLISHER, FONT_SANS, FONT_SERIF } from "../foliate-reader-constants"
+import { CITATION_COMMENT_HIGHLIGHT_NAME } from "@/lib/citations/comment-source"
+import { CITATION_HIGHLIGHT_NAME } from "@/lib/citations/highlight"
+import { readerInkWash } from "./reader-highlight-paint"
 
 const MIN_READER_INLINE_CONTENT_WIDTH_PX = 320
 const MIN_READER_MARGIN_PX = 16
@@ -49,7 +53,6 @@ function resolveColor(value: string): string {
 function resolveTheme(theme: FoliateReaderThemeDefinition) {
   return {
     ...theme,
-    contentAccent: resolveColor(theme.contentAccent),
     contentBackground: resolveColor(theme.contentBackground),
     contentForeground: resolveColor(theme.contentForeground),
     contentHeading: resolveColor(theme.contentHeading),
@@ -84,7 +87,7 @@ export function buildReaderStyles(
 ): [string, string] {
   const family = fontStack(preferences.fontPreset)
   const overrideFont = preferences.fontPreset !== FONT_PUBLISHER
-  const selectionForeground = resolveColor(READER_SELECTION_FOREGROUND)
+  const selectionWash = readerInkWash(READER_SELECTION_INK, theme.appearance)
 
   // ---- base stylesheet (prepended before book CSS) ----
   const base = `
@@ -92,7 +95,6 @@ export function buildReaderStyles(
 
     :root {
       color-scheme: ${theme.appearance};
-      --buddy-reader-accent: ${theme.contentAccent};
     }
 
     html {
@@ -144,8 +146,13 @@ export function buildReaderStyles(
     }
 
     ::selection {
-      background: ${theme.contentAccent};
-      color: ${selectionForeground};
+      background: ${selectionWash};
+    }
+
+    /* Separate rule: an unsupported pseudo-element would invalidate ::selection. */
+    ::highlight(${CITATION_COMMENT_HIGHLIGHT_NAME}),
+    ::highlight(${CITATION_HIGHLIGHT_NAME}) {
+      background: ${readerInkWash(READER_CITATION_INK, theme.appearance)};
     }
 
     ${
@@ -194,7 +201,7 @@ export function buildReaderStyles(
     }
 
     mark {
-      background: color-mix(in oklab, ${theme.contentAccent} 72%, transparent);
+      background: ${selectionWash};
       color: inherit;
     }
 
