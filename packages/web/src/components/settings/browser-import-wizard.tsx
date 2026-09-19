@@ -66,13 +66,10 @@ export function BrowserImportWizard(props: {
     setStep({ _tag: "importing" })
     void props
       .onImport({ sourceProfileID: chosenSourceProfileID, target: chosen })
-      .then(
-        browserImportOutcomeStep,
-        (error): BrowserImportWizardStep => {
-          console.error("[browser-import] Import workflow failed", error)
-          return { _tag: "blocked", reason: "readFailed" }
-        },
-      )
+      .then(browserImportOutcomeStep, (error): BrowserImportWizardStep => {
+        console.error("[browser-import] Import workflow failed", error)
+        return { _tag: "blocked", reason: "readFailed" }
+      })
       .then(setStep)
       .finally(() => {
         importInFlightRef.current = false

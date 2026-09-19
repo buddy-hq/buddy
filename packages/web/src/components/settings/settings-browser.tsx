@@ -3,7 +3,15 @@ import {
   parseInAppBrowserAppearance,
   parseInAppBrowserZoomFactor,
 } from "@buddy/browser-contract"
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, toast } from "@buddy/ui"
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from "@buddy/ui"
 import { usePlatform } from "@/context/platform"
 import {
   flushInAppBrowserSettings,

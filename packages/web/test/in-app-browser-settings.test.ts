@@ -62,9 +62,9 @@ describe("Browser settings", () => {
   test("adds and renames profiles with trimmed names and rejects built-in IDs", () => {
     const { settings, profile } = addedProfile("  Work  ", "work")
     expect(profile.name).toBe("Work")
-    expect(renameInAppBrowserProfile(settings, { id: profile.id, name: " Job " }).userProfiles).toEqual(
-      [{ id: profile.id, name: "Job" }],
-    )
+    expect(
+      renameInAppBrowserProfile(settings, { id: profile.id, name: " Job " }).userProfiles,
+    ).toEqual([{ id: profile.id, name: "Job" }])
     expect(addInAppBrowserProfile(settings, { id: "incognito", name: "Sneaky" })).toEqual({
       _tag: "rejected",
       reason: "invalid-name",

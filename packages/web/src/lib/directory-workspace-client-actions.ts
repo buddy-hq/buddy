@@ -301,10 +301,7 @@ function readBenchClientAction<TValue>(value: TValue): BenchClientActionV2 | und
 async function resolvePresentedTarget(target: BenchTarget): Promise<BenchTarget | null> {
   if (target.type !== "browser" || target.profileID !== undefined) return target
   if (!(await waitForInAppBrowserSettingsHydration())) return null
-  return withInAppBrowserProfile(
-    target,
-    useInAppBrowserSettingsStore.getState().defaultProfileID,
-  )
+  return withInAppBrowserProfile(target, useInAppBrowserSettingsStore.getState().defaultProfileID)
 }
 
 function readBenchClientLease<TValue>(value: TValue): BenchClientLease | undefined {

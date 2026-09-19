@@ -1,7 +1,4 @@
-import {
-  parseInAppBrowserAppearance,
-  type InAppBrowserAppearance,
-} from "@buddy/browser-contract"
+import { parseInAppBrowserAppearance, type InAppBrowserAppearance } from "@buddy/browser-contract"
 import {
   Button,
   DropdownMenu,

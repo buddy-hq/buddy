@@ -95,8 +95,7 @@ export const useInAppBrowserHistoryStore = create<InAppBrowserHistoryState>()(
           }
           queueMicrotask(() => {
             if (attempt !== hydrationAttempt) return
-            const hasPending =
-              Object.keys(pendingVisits).length > 0 || pendingRemovals.size > 0
+            const hasPending = Object.keys(pendingVisits).length > 0 || pendingRemovals.size > 0
             const visits = pendingVisits
             const removals = new Map(pendingRemovals)
             pendingVisits = {}

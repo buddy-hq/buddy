@@ -116,7 +116,9 @@ export function useBrowserPage(input: {
             pendingNavigationObservedRef.current = false
           }
           updateRuntime((current) =>
-            current.error ? current : { ...current, loading: false, error: { _tag: "open-failed" } },
+            current.error
+              ? current
+              : { ...current, loading: false, error: { _tag: "open-failed" } },
           )
         },
       })
@@ -270,13 +272,10 @@ export function useBrowserPage(input: {
       crashRecoveryRef.current = plan.state
       updateRuntime((current) => ({ ...current, loading: true, error: null }))
       window.clearTimeout(restartTimerRef.current)
-      restartTimerRef.current = window.setTimeout(
-        () => {
-          restartTimerRef.current = undefined
-          restartWebview(runtimeRef.current.url)
-        },
-        plan.delayMs,
-      )
+      restartTimerRef.current = window.setTimeout(() => {
+        restartTimerRef.current = undefined
+        restartWebview(runtimeRef.current.url)
+      }, plan.delayMs)
     }
 
     webview.addEventListener("did-attach", synchronizeAttachedState)

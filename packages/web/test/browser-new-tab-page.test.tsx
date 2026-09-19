@@ -47,9 +47,6 @@ describe("Browser new tab page", () => {
     const icons = [...(container.querySelectorAll("img") ?? [])].map((image) =>
       image.getAttribute("src"),
     )
-    expect(icons).toEqual([
-      "https://hibuddy.in/favicon.ico",
-      "https://mail.google.com/favicon.ico",
-    ])
+    expect(icons).toEqual(["https://hibuddy.in/favicon.ico", "https://mail.google.com/favicon.ico"])
   })
 })

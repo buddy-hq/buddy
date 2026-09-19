@@ -332,12 +332,12 @@ describe("DirectoryWorkspaceClientActionLedger", () => {
         },
       })
 
-      expect(harness.executed.map((command) => command.type === "present" && command.target)).toEqual(
-        [
-          { ...BROWSER_TARGET, profileID: defaultProfileID },
-          { ...BROWSER_TARGET, profileID: explicitProfileID },
-        ],
-      )
+      expect(
+        harness.executed.map((command) => command.type === "present" && command.target),
+      ).toEqual([
+        { ...BROWSER_TARGET, profileID: defaultProfileID },
+        { ...BROWSER_TARGET, profileID: explicitProfileID },
+      ])
     } finally {
       useInAppBrowserSettingsStore.setState(DEFAULT_IN_APP_BROWSER_SETTINGS)
       setRuntimePlatform(createBrowserPlatform())

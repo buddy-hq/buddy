@@ -16,19 +16,22 @@ describe("in-app Browser appearance apply", () => {
     const cause = new Error("debugger attach failed")
 
     try {
-      await applyInAppBrowserAppearance(async () => {
-        throw cause
-      }, { ...REQUEST, webContentsID: 7 })
-      await applyInAppBrowserAppearance(async () => ({ _tag: "failed", reason: "tab-unavailable" }), {
-        ...REQUEST,
-        webContentsID: 8,
-      })
+      await applyInAppBrowserAppearance(
+        async () => {
+          throw cause
+        },
+        { ...REQUEST, webContentsID: 7 },
+      )
+      await applyInAppBrowserAppearance(
+        async () => ({ _tag: "failed", reason: "tab-unavailable" }),
+        {
+          ...REQUEST,
+          webContentsID: 8,
+        },
+      )
 
       expect(consoleError.mock.calls).toEqual([
-        [
-          "[in-app-browser] appearance.failed",
-          { webContentsID: 7, appearance: "dark", cause },
-        ],
+        ["[in-app-browser] appearance.failed", { webContentsID: 7, appearance: "dark", cause }],
         [
           "[in-app-browser] appearance.failed",
           { webContentsID: 8, appearance: "dark", reason: "tab-unavailable" },

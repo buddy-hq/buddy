@@ -49,12 +49,10 @@ export function useBrowserProfileImport(browser: InAppBrowserPlatform) {
   const importingRef = useRef(false)
 
   const loadSources = useCallback(() => {
-    void browser
-      .listImportSources()
-      .then(setSources, (error) => {
-        console.error("[browser-import] Could not list browser import sources", error)
-        setSources((previous) => previous ?? [])
-      })
+    void browser.listImportSources().then(setSources, (error) => {
+      console.error("[browser-import] Could not list browser import sources", error)
+      setSources((previous) => previous ?? [])
+    })
   }, [browser])
 
   const refreshSource = useCallback(

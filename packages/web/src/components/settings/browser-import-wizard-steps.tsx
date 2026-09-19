@@ -64,16 +64,18 @@ export function FullDiskAccessStep(props: {
     const check = () => {
       if (checking) return
       checking = true
-      void onCheck().then(
-        (next) => {
-          if (!disposed) setGranted(next)
-        },
-        () => {
-          if (!disposed) setGranted(false)
-        },
-      ).finally(() => {
-        checking = false
-      })
+      void onCheck()
+        .then(
+          (next) => {
+            if (!disposed) setGranted(next)
+          },
+          () => {
+            if (!disposed) setGranted(false)
+          },
+        )
+        .finally(() => {
+          checking = false
+        })
     }
     check()
     const interval = window.setInterval(check, 1_000)
@@ -325,9 +327,8 @@ export function DoneStep(props: {
       : skipped > 0
         ? "No cookies were imported."
         : "There were no cookies to import."
-  const skippedSites = props.skippedDomains.length > 0
-    ? ` Skipped sites: ${props.skippedDomains.join(", ")}.`
-    : ""
+  const skippedSites =
+    props.skippedDomains.length > 0 ? ` Skipped sites: ${props.skippedDomains.join(", ")}.` : ""
   return (
     <>
       <DialogHeader>

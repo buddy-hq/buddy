@@ -6,7 +6,9 @@
    Keep marked webviews paintable and move them offscreen during screenshot capture.
    Production webviews use `absolute inset-0`; leaving right/bottom at 0 with a
    -100000px origin would stretch the guest to ~100000px. */
-:root[data-bench-capture-privacy="true"] [data-keep-webview-paintable] webview[data-browser-tab-id] {
+:root[data-bench-capture-privacy="true"]
+  [data-keep-webview-paintable]
+  webview[data-browser-tab-id] {
   visibility: visible !important;
   position: fixed !important;
   top: var(--bench-webview-offscreen-offset, -100000px) !important;

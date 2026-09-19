@@ -28,7 +28,9 @@ describe("Browser favicon display sources", () => {
     expect(inAppBrowserOriginFaviconUrl("file:///tmp/private")).toBeUndefined()
     expect(inAppBrowserOriginFaviconUrl("javascript:alert(1)")).toBeUndefined()
     expect(inAppBrowserOriginFaviconUrl("data:image/png;base64,AAAA")).toBeUndefined()
-    expect(inAppBrowserOriginFaviconUrl(`https://example.com/${"a".repeat(10_000)}`)).toBeUndefined()
+    expect(
+      inAppBrowserOriginFaviconUrl(`https://example.com/${"a".repeat(10_000)}`),
+    ).toBeUndefined()
   })
 
   test("tries a captured raster before the live origin favicon", () => {

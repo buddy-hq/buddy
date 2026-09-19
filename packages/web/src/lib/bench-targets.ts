@@ -183,7 +183,10 @@ function readBenchTarget<TValue>(value: TValue): BenchTarget | undefined {
     const url = readNonEmptyString(record.url)
     const profileID = parseInAppBrowserProfileID(record.profileID)
     return tabID && url && isInAppBrowserTargetUrl(url)
-      ? Object.assign({ type: "browser" as const, tabID, url }, profileID ? { profileID } : undefined)
+      ? Object.assign(
+          { type: "browser" as const, tabID, url },
+          profileID ? { profileID } : undefined,
+        )
       : undefined
   }
 

@@ -218,7 +218,10 @@ function readBenchTargetFromLocation<TSearch>(input: {
     const url = readStringSearchValue(search, "url")
     const profileID = parseInAppBrowserProfileID(readStringSearchValue(search, "profile"))
     return tabID && url && isInAppBrowserTargetUrl(url)
-      ? Object.assign({ type: "browser" as const, tabID, url }, profileID ? { profileID } : undefined)
+      ? Object.assign(
+          { type: "browser" as const, tabID, url },
+          profileID ? { profileID } : undefined,
+        )
       : undefined
   }
 
@@ -318,7 +321,10 @@ function buildBenchNavigation(input: {
       to: "/$directory/browser/$tabID",
       params: { directory: encodedDirectory, tabID: target.tabID },
       search: withBenchModeSearch(
-        Object.assign({ url: target.url }, target.profileID ? { profile: target.profileID } : undefined),
+        Object.assign(
+          { url: target.url },
+          target.profileID ? { profile: target.profileID } : undefined,
+        ),
         mode,
       ),
     }

@@ -1,4 +1,7 @@
-import { IN_APP_BROWSER_TITLE_MAX_LENGTH, IN_APP_BROWSER_URL_MAX_LENGTH } from "@buddy/browser-contract"
+import {
+  IN_APP_BROWSER_TITLE_MAX_LENGTH,
+  IN_APP_BROWSER_URL_MAX_LENGTH,
+} from "@buddy/browser-contract"
 import { parseTJsonObject, parseTNumber, parseTString } from "@/components/chat/tools/types"
 
 const MAX_ENTRIES_PER_DIRECTORY = 50

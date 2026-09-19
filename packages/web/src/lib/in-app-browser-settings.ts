@@ -38,7 +38,11 @@ export const DEFAULT_IN_APP_BROWSER_SETTINGS: InAppBrowserSettings = {
 }
 
 export type AddInAppBrowserProfileResult =
-  | { readonly _tag: "added"; readonly settings: InAppBrowserSettings; readonly profile: InAppBrowserProfile }
+  | {
+      readonly _tag: "added"
+      readonly settings: InAppBrowserSettings
+      readonly profile: InAppBrowserProfile
+    }
   | { readonly _tag: "rejected"; readonly reason: "invalid-name" | "limit-reached" }
 
 function parseUserProfiles<TValue>(value: TValue): readonly InAppBrowserProfile[] {
@@ -83,7 +87,9 @@ export function newTabInAppBrowserProfiles(
     if (profile.id === defaultProfileID) return 0
     return profile.id === INCOGNITO_IN_APP_BROWSER_PROFILE_ID ? 2 : 1
   }
-  return resolveInAppBrowserProfiles(userProfiles).toSorted((left, right) => rank(left) - rank(right))
+  return resolveInAppBrowserProfiles(userProfiles).toSorted(
+    (left, right) => rank(left) - rank(right),
+  )
 }
 
 export function parseInAppBrowserSettings<TValue>(value: TValue): InAppBrowserSettings {
@@ -148,6 +154,8 @@ export function removeInAppBrowserProfile(
     ...settings,
     userProfiles: settings.userProfiles.filter((profile) => profile.id !== id),
     defaultProfileID:
-      settings.defaultProfileID === id ? DEFAULT_IN_APP_BROWSER_PROFILE_ID : settings.defaultProfileID,
+      settings.defaultProfileID === id
+        ? DEFAULT_IN_APP_BROWSER_PROFILE_ID
+        : settings.defaultProfileID,
   }
 }
