@@ -5,6 +5,10 @@ import { createRoot, type Root } from "react-dom/client"
 import { BenchTabs } from "../src/components/bench/bench-tabs"
 import { upsertBenchTab } from "../src/lib/bench-tabs"
 import type { BenchTarget } from "../src/lib/bench-navigation"
+import {
+  useInAppBrowserTabsStore,
+  type InAppBrowserTabRuntime,
+} from "../src/state/in-app-browser-tabs-store"
 
 const FIRST_TARGET = {
   type: "workspace-file",
@@ -31,6 +35,7 @@ afterEach(async () => {
   container?.remove()
   root = undefined
   container = undefined
+  useInAppBrowserTabsStore.setState({ byTabID: {} })
 })
 
 describe("BenchTabs", () => {
@@ -208,4 +213,147 @@ describe("BenchTabs", () => {
     })
     expect(immersiveCount).toBe(1)
   })
+
+  test("shows a captured browser favicon when the tab URL has not followed a redirect", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const target = {
+      type: "browser",
+      tabID: "browser/gmail",
+      url: "https://gmail.com/",
+    } satisfies BenchTarget
+    const opened = upsertBenchTab([], target)
+    const faviconDataUrl = "data:image/png;base64,AAAA"
+    useInAppBrowserTabsStore.getState().setTab(target.tabID, {
+      url: "https://gmail.com/",
+      title: "Gmail",
+      loading: false,
+      canGoBack: false,
+      canGoForward: false,
+      favicon: {
+        dataUrl: faviconDataUrl,
+        pageUrl: "https://mail.google.com",
+        capturedAt: 1,
+      },
+      error: null,
+    })
+
+    await act(async () => {
+      root?.render(
+        <QueryClientProvider client={new QueryClient()}>
+          <BenchTabs
+            directory="/workspace"
+            tabs={opened.tabs}
+            activeTabKey={opened.activeTabKey}
+            onActivate={() => undefined}
+            onClose={() => undefined}
+            onCloseOthers={() => undefined}
+            onCloseToRight={() => undefined}
+            onCloseAll={() => undefined}
+          />
+        </QueryClientProvider>,
+      )
+    })
+
+    expect(container.querySelector("img")?.getAttribute("src")).toBe(faviconDataUrl)
+  })
+
+  test("asks the redirected page origin for /favicon.ico when no icon was captured", async () => {
+    await renderBrowserTab({
+      tabID: "browser/gmail-redirect",
+      targetUrl: "https://gmail.com/",
+      runtime: browserRuntime({
+        url: "https://mail.google.com/mail/u/0/",
+        title: "Inbox",
+      }),
+    })
+
+    expect(tabFavicon()?.getAttribute("src")).toBe("https://mail.google.com/favicon.ico")
+  })
+
+  test("falls through a broken captured favicon to the live origin, then the globe", async () => {
+    await renderBrowserTab({
+      tabID: "browser/gmail-fallback",
+      targetUrl: "https://gmail.com/",
+      runtime: browserRuntime({
+        url: "https://mail.google.com/mail/u/0/",
+        title: "Inbox",
+        favicon: {
+          dataUrl: "data:image/png;base64,AAAA",
+          pageUrl: "https://mail.google.com",
+          capturedAt: 1,
+        },
+      }),
+    })
+
+    expect(tabFavicon()?.getAttribute("src")).toBe("data:image/png;base64,AAAA")
+
+    await failTabFavicon()
+    expect(tabFavicon()?.getAttribute("src")).toBe("https://mail.google.com/favicon.ico")
+
+    await failTabFavicon()
+    expect(tabFavicon()).toBeNull()
+    expect(container?.querySelector('[role="tab"] svg')).not.toBeNull()
+  })
 })
+
+function browserRuntime(
+  overrides: Partial<InAppBrowserTabRuntime> & Pick<InAppBrowserTabRuntime, "url" | "title">,
+): InAppBrowserTabRuntime {
+  return {
+    loading: false,
+    canGoBack: false,
+    canGoForward: false,
+    favicon: null,
+    error: null,
+    ...overrides,
+  }
+}
+
+async function renderBrowserTab(input: {
+  tabID: string
+  targetUrl: string
+  runtime: InAppBrowserTabRuntime
+}) {
+  Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+  container = document.createElement("div")
+  document.body.appendChild(container)
+  root = createRoot(container)
+  const target = {
+    type: "browser",
+    tabID: input.tabID,
+    url: input.targetUrl,
+  } satisfies BenchTarget
+  const opened = upsertBenchTab([], target)
+  useInAppBrowserTabsStore.getState().setTab(input.tabID, input.runtime)
+  await act(async () => {
+    root?.render(
+      <QueryClientProvider client={new QueryClient()}>
+        <BenchTabs
+          directory="/workspace"
+          tabs={opened.tabs}
+          activeTabKey={opened.activeTabKey}
+          onActivate={() => undefined}
+          onClose={() => undefined}
+          onCloseOthers={() => undefined}
+          onCloseToRight={() => undefined}
+          onCloseAll={() => undefined}
+        />
+      </QueryClientProvider>,
+    )
+  })
+}
+
+function tabFavicon(): HTMLImageElement | null {
+  return container?.querySelector('[role="tab"] img') ?? null
+}
+
+async function failTabFavicon() {
+  const img = tabFavicon()
+  expect(img).not.toBeNull()
+  await act(async () => {
+    img?.dispatchEvent(new Event("error"))
+  })
+}

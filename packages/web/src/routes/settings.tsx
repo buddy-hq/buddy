@@ -158,14 +158,16 @@ function SettingsRoute() {
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
   const leftSidebarMaxWidth = resolveLeftSidebarMaxWidth(viewportWidth)
+  const inAppBrowserAvailable = platform.inAppBrowser !== undefined
   const visibleTabs = useMemo(
     () =>
       getVisibleSettingsTabDefinitions({
         standardsEnabled,
         primaryUse,
         enabledExperimentalFeatureIDs,
+        inAppBrowserAvailable,
       }),
-    [enabledExperimentalFeatureIDs, primaryUse, standardsEnabled],
+    [enabledExperimentalFeatureIDs, inAppBrowserAvailable, primaryUse, standardsEnabled],
   )
   const coreTabs = useMemo(() => visibleTabs.filter(isCoreSettingsTab), [visibleTabs])
   const revealedTabs = useMemo(

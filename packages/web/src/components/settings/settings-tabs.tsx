@@ -9,6 +9,7 @@ import {
   KeyboardIcon,
   PaintbrushIcon,
   CpuSettingsIcon,
+  Globe,
   UserRoundIcon,
   Settings05Icon,
   TeachingIcon,
@@ -26,6 +27,7 @@ import { StandardsSettings } from "./settings-standards"
 import { MemorySettings } from "./settings-memory"
 import { AboutSettings } from "./settings-about"
 import { ShortcutsSettings } from "./settings-shortcuts"
+import { BrowserSettings } from "./settings-browser"
 import {
   EXPERIMENTAL_FEATURE_ID,
   type ExperimentalFeatureID,
@@ -37,6 +39,7 @@ export type SettingsTab =
   | "appearance"
   | "notifications"
   | "personalization"
+  | "browser"
   | "providers"
   | "skills"
   | "mcps"
@@ -63,6 +66,7 @@ export type SettingsTabDefinition = {
   icon: AppIcon
   layout: "standard" | "full-page"
   reveal?: SettingsTabReveal
+  requiresInAppBrowser?: true
   badgeLabelKey?: string
   render: (context: SettingsTabRenderContext) => ReactNode
 }
@@ -124,6 +128,14 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: UserRoundIcon,
     layout: "standard",
     render: () => <PersonalizationSettings />,
+  },
+  {
+    id: "browser",
+    navLabelKey: "routes.settings.nav.browser",
+    icon: Globe,
+    layout: "standard",
+    requiresInAppBrowser: true,
+    render: () => <BrowserSettings />,
   },
   {
     id: "providers",
@@ -206,6 +218,7 @@ export type SettingsTabVisibilityInput = {
   standardsEnabled: boolean
   primaryUse?: PrimaryUse
   enabledExperimentalFeatureIDs: ReadonlySet<ExperimentalFeatureID>
+  inAppBrowserAvailable?: boolean
 }
 
 function revealIsActive(reveal: SettingsTabReveal, input: SettingsTabVisibilityInput): boolean {
@@ -239,7 +252,9 @@ export function getVisibleSettingsTabDefinitions(
   input: SettingsTabVisibilityInput,
 ): SettingsTabDefinition[] {
   return SETTINGS_TABS.filter(
-    (tab) => tab.reveal === undefined || revealIsActive(tab.reveal, input),
+    (tab) =>
+      (!tab.requiresInAppBrowser || input.inAppBrowserAvailable === true) &&
+      (tab.reveal === undefined || revealIsActive(tab.reveal, input)),
   )
 }
 

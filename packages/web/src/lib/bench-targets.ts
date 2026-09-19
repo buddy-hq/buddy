@@ -1,5 +1,9 @@
 import { parseTJsonObject, parseTString, readNonEmptyString } from "@/components/chat/tools/types"
 import { isInAppBrowserTargetUrl } from "@buddy/browser-contract"
+import {
+  parseInAppBrowserProfileID,
+  type InAppBrowserProfileID,
+} from "@buddy/browser-contract/profiles"
 
 export const BENCH_CHAT_SEARCH_PARAM = "benchChat"
 export const BENCH_CHAT_LAYOUT_DOCKED = "docked"
@@ -54,6 +58,8 @@ export type BenchTarget =
       type: "browser"
       tabID: string
       url: string
+      // Absent on tabs saved before profiles existed; they use Default.
+      profileID?: InAppBrowserProfileID
     }
   | { type: "object"; ref: BenchObjectRef; viewID: string }
 
@@ -175,8 +181,12 @@ function readBenchTarget<TValue>(value: TValue): BenchTarget | undefined {
   if (record.type === "browser") {
     const tabID = readNonEmptyString(record.tabID)
     const url = readNonEmptyString(record.url)
+    const profileID = parseInAppBrowserProfileID(record.profileID)
     return tabID && url && isInAppBrowserTargetUrl(url)
-      ? { type: "browser", tabID, url }
+      ? Object.assign(
+          { type: "browser" as const, tabID, url },
+          profileID ? { profileID } : undefined,
+        )
       : undefined
   }
 
@@ -305,4 +315,18 @@ export {
   readBenchTabTarget,
   readBenchTarget,
   readBenchChatLayoutMode,
+}
+
+export function createInAppBrowserBenchTarget(
+  url: string,
+  profileID: InAppBrowserProfileID,
+): Extract<BenchTarget, { type: "browser" }> {
+  return { type: "browser", tabID: crypto.randomUUID(), url, profileID }
+}
+
+export function withInAppBrowserProfile(
+  target: BenchTarget,
+  profileID: InAppBrowserProfileID,
+): BenchTarget {
+  return target.type === "browser" && !target.profileID ? { ...target, profileID } : target
 }

@@ -1,5 +1,6 @@
 import type { NavigateOptions } from "@tanstack/react-router"
 import { isInAppBrowserTargetUrl } from "@buddy/browser-contract"
+import { parseInAppBrowserProfileID } from "@buddy/browser-contract/profiles"
 import { parseTJsonObject, readNonEmptyString } from "@/components/chat/tools/types"
 import { decodeDirectory, encodeDirectory } from "@/lib/directory-token"
 import {
@@ -215,8 +216,12 @@ function readBenchTargetFromLocation<TSearch>(input: {
     const encodedTabID = readSingleChildSegment(childPath, BENCH_BROWSER_ROUTE_CHILD_PREFIX)
     const tabID = encodedTabID ? decodeRouteSegment(encodedTabID) : undefined
     const url = readStringSearchValue(search, "url")
+    const profileID = parseInAppBrowserProfileID(readStringSearchValue(search, "profile"))
     return tabID && url && isInAppBrowserTargetUrl(url)
-      ? { type: "browser", tabID, url }
+      ? Object.assign(
+          { type: "browser" as const, tabID, url },
+          profileID ? { profileID } : undefined,
+        )
       : undefined
   }
 
@@ -315,7 +320,13 @@ function buildBenchNavigation(input: {
     return {
       to: "/$directory/browser/$tabID",
       params: { directory: encodedDirectory, tabID: target.tabID },
-      search: withBenchModeSearch({ url: target.url }, mode),
+      search: withBenchModeSearch(
+        Object.assign(
+          { url: target.url },
+          target.profileID ? { profile: target.profileID } : undefined,
+        ),
+        mode,
+      ),
     }
   }
 

@@ -1,6 +1,17 @@
 import { create } from "zustand"
 import type { InAppBrowserFavicon } from "@buddy/browser-contract"
 
+export type InAppBrowserPageError =
+  | {
+      readonly _tag: "load-failed"
+      readonly url: string
+      readonly code: number
+      readonly description: string
+    }
+  | { readonly _tag: "open-failed" }
+  | { readonly _tag: "crashed" }
+  | { readonly _tag: "unavailable" }
+
 export type InAppBrowserTabRuntime = {
   url: string
   title: string
@@ -8,7 +19,7 @@ export type InAppBrowserTabRuntime = {
   canGoBack: boolean
   canGoForward: boolean
   favicon: InAppBrowserFavicon | null
-  error: string | null
+  error: InAppBrowserPageError | null
 }
 
 export type InAppBrowserTabContextRuntime = Pick<
@@ -20,6 +31,19 @@ type InAppBrowserTabsState = {
   byTabID: Record<string, InAppBrowserTabRuntime>
   setTab(tabID: string, runtime: InAppBrowserTabRuntime): void
   removeTab(tabID: string): void
+}
+
+function samePageError(
+  left: InAppBrowserPageError | null,
+  right: InAppBrowserPageError | null,
+): boolean {
+  if (left === null || right === null) return left === right
+  if (left._tag === "load-failed" && right._tag === "load-failed") {
+    return (
+      left.url === right.url && left.code === right.code && left.description === right.description
+    )
+  }
+  return left._tag === right._tag
 }
 
 function sameRuntime(
@@ -35,7 +59,7 @@ function sameRuntime(
     left.favicon?.dataUrl === right.favicon?.dataUrl &&
     left.favicon?.pageUrl === right.favicon?.pageUrl &&
     left.favicon?.capturedAt === right.favicon?.capturedAt &&
-    left.error === right.error
+    samePageError(left.error, right.error)
   )
 }
 

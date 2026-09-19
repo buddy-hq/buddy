@@ -43,6 +43,7 @@ import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/di
 import { useDirectoryWorkspace } from "@/components/directory-chat/directory-workspace-context"
 import { IN_APP_BROWSER_BLANK_URL } from "@buddy/browser-contract"
 import { useRightWorkspaceOpen } from "@/components/directory-chat/right-workspace-open"
+import { useInAppBrowserLinkRouting } from "@/components/directory-chat/use-in-app-browser-link-routing"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useCreateBoard } from "@/lib/use-create-board"
@@ -89,7 +90,11 @@ import {
 import { openOwnedSubagentBench } from "@/lib/subagent-bench-target"
 import { useOpenSubagentBench } from "@/lib/use-open-subagent-bench"
 import { browserWindow, hasFunctionValue } from "@/state/parse-external"
-import { createNotesBenchTarget } from "@/lib/bench-targets"
+import { createInAppBrowserBenchTarget, createNotesBenchTarget } from "@/lib/bench-targets"
+import {
+  useInAppBrowserSettingsStore,
+  waitForInAppBrowserSettingsHydration,
+} from "@/state/in-app-browser-settings-store"
 import { createNoteAndUpdateCache } from "@/features/notes/create-note"
 
 type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
@@ -675,17 +680,28 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const handleFocusComposer = useCallback(() => {
     requestPromptComposerFocus(currentDirectory)
   }, [currentDirectory])
-  useShortcutCommand("composer.focus", handleFocusComposer)
+  const browserAddressShortcutActive =
+    presentation.benchVisible && presentation.benchTarget?.type === "browser"
+  useShortcutCommand("composer.focus", handleFocusComposer, {
+    enabled: !browserAddressShortcutActive,
+  })
   // The Bench's own "New tab" request, so an immersive Bench stays immersive.
   const browserAvailable = usePlatform().inAppBrowser !== undefined
   const openBenchTab = useRightWorkspaceOpen({ mode: BENCH_MODE_REQUEST_POLICY })
   const handleNewBrowserTab = useCallback(() => {
-    void openBenchTab({
-      type: "object",
-      directory: currentDirectory,
-      target: { type: "browser", tabID: crypto.randomUUID(), url: IN_APP_BROWSER_BLANK_URL },
+    void waitForInAppBrowserSettingsHydration().then((hydrated) => {
+      if (!hydrated) return
+      return openBenchTab({
+        type: "object",
+        directory: currentDirectory,
+        target: createInAppBrowserBenchTarget(
+          IN_APP_BROWSER_BLANK_URL,
+          useInAppBrowserSettingsStore.getState().defaultProfileID,
+        ),
+      })
     })
   }, [currentDirectory, openBenchTab])
+  useInAppBrowserLinkRouting(currentDirectory)
   // Without the in-app browser (the web build), Mod+T is left to the browser itself.
   useShortcutCommand("browser.newTab", handleNewBrowserTab, { enabled: browserAvailable })
 

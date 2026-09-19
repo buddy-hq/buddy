@@ -17,6 +17,7 @@ import {
   ContextMenuContent,
   ContextMenuGroup,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
   Tooltip,
   TooltipContent,
@@ -40,9 +41,11 @@ import {
 } from "@/icons/app-icons"
 import type { BenchObjectKind } from "@/lib/bench-navigation"
 import { BenchNewTabPopover } from "@/components/bench/bench-new-tab-popover"
+import { BrowserTabAudioButton, BrowserTabMuteMenuItem } from "@/components/bench/browser-tab-audio"
+import { BrowserFaviconImage } from "@/components/bench/surfaces/browser/browser-favicon-image"
 import { benchTabKey, resolveBenchTabTitle, type BenchTab } from "@/lib/bench-tabs"
 import { createNotesBenchTarget } from "@/lib/bench-targets"
-import { inAppBrowserFaviconForUrl } from "@/lib/in-app-browser-events"
+import { inAppBrowserFaviconImageSources } from "@/lib/in-app-browser-favicon"
 import { useNoteCaptureSignal } from "@/features/notes/capture-activity"
 import { parseSubagentSession } from "@/lib/session-family"
 import { useChatStore } from "@/state/chat-store"
@@ -125,31 +128,15 @@ function benchTabIcon(target: BenchTab["target"]): ComponentType<{ className?: s
   return objectTabIcon(target.ref.kind)
 }
 
-function BrowserTabFavicon(props: {
-  runtime: InAppBrowserTabRuntime | undefined
-  fallbackUrl: string
-}) {
-  const url = props.runtime?.url ?? props.fallbackUrl
-  const favicon = inAppBrowserFaviconForUrl(props.runtime?.favicon ?? null, url)
+function BrowserTabFavicon(props: { runtime: InAppBrowserTabRuntime | undefined }) {
   return (
-    <BrowserTabFaviconAttempt
-      key={favicon?.dataUrl ?? "no-favicon"}
-      source={favicon?.dataUrl ?? null}
-    />
-  )
-}
-
-function BrowserTabFaviconAttempt(props: { source: string | null }) {
-  const [failed, setFailed] = useState(false)
-  if (!props.source || failed) return <Globe className={TAB_ICON_CLASS} />
-  return (
-    <img
-      src={props.source}
-      alt=""
-      aria-hidden="true"
-      draggable={false}
+    <BrowserFaviconImage
+      sources={inAppBrowserFaviconImageSources({
+        capturedDataUrl: props.runtime?.favicon?.dataUrl ?? null,
+        pageUrl: props.runtime?.url ?? null,
+      })}
+      fallback={<Globe className={TAB_ICON_CLASS} />}
       className={`${TAB_ICON_CLASS} rounded-sm object-contain`}
-      onError={() => setFailed(true)}
     />
   )
 }
@@ -206,10 +193,7 @@ function BenchTabItem(props: BenchTabItemProps) {
                 className="bench-tab-label flex h-full min-w-0 flex-1 items-center gap-1.5 text-left outline-none"
               >
                 {props.tab.target.type === "browser" ? (
-                  <BrowserTabFavicon
-                    runtime={props.browserRuntime}
-                    fallbackUrl={props.tab.target.url}
-                  />
+                  <BrowserTabFavicon runtime={props.browserRuntime} />
                 ) : (
                   <Icon className={TAB_ICON_CLASS} />
                 )}
@@ -227,6 +211,9 @@ function BenchTabItem(props: BenchTabItemProps) {
               {props.title}
             </TooltipContent>
           </Tooltip>
+          {props.tab.target.type === "browser" ? (
+            <BrowserTabAudioButton tabID={props.tab.target.tabID} />
+          ) : null}
           <button
             type="button"
             aria-label={`Close ${props.title}`}
@@ -251,6 +238,14 @@ function BenchTabItem(props: BenchTabItemProps) {
           </ContextMenuItem>
           <ContextMenuItem onSelect={props.onCloseAll}>Close all</ContextMenuItem>
         </ContextMenuGroup>
+        {props.tab.target.type === "browser" ? (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuGroup>
+              <BrowserTabMuteMenuItem tabID={props.tab.target.tabID} />
+            </ContextMenuGroup>
+          </>
+        ) : null}
       </ContextMenuContent>
     </ContextMenu>
   )

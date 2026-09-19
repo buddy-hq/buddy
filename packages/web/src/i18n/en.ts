@@ -741,6 +741,7 @@ export const dict = {
   "routes.settings.emptyState": "Open a notebook to configure settings.",
   "routes.settings.nav.about": "About",
   "routes.settings.nav.appearance": "Appearance",
+  "routes.settings.nav.browser": "Browser",
   "routes.settings.nav.general": "General",
   "routes.settings.nav.mcps": "MCPs",
   "routes.settings.nav.memory": "Memory",
