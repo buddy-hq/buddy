@@ -12,7 +12,7 @@
  *
  * Plain black base + soft brand radial glows. No card chrome.
  */
-import buddyIcon from "../../assets/buddy-app-icon.png"
+import buddyIconSrc from "../../assets/buddy-app-icon.png?url"
 import chatgptSvg from "../../assets/competitors/chatgpt.svg?raw"
 import claudeSvg from "../../assets/competitors/claude.svg?raw"
 import diffitLogo from "../../assets/competitors/diffit.webp?url"
@@ -55,7 +55,6 @@ const competitorMarks: Readonly<Record<CompareLogoId, CompetitorMark>> = {
 }
 
 const mark = competitorMarks[logoMeta.id]
-const buddyIconSrc = typeof buddyIcon === "string" ? buddyIcon : buddyIcon.src
 const pairTitle = `Buddy vs ${competitor}`
 ---
 
