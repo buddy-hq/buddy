@@ -28,6 +28,9 @@ import {
   type BenchTarget,
   type BenchSessionTarget,
 } from "../src/lib/bench-navigation"
+import { createInAppBrowserProfileID } from "@buddy/browser-contract/profiles"
+import { IN_APP_BROWSER_BLANK_URL } from "@buddy/browser-contract"
+import { createInAppBrowserBenchTarget } from "../src/lib/bench-targets"
 import { encodeDirectory } from "../src/lib/directory-token"
 import { resolveRightWorkspaceSelectorDrawerWidth } from "../src/lib/directory-chat/right-workspace-layout"
 
@@ -726,6 +729,33 @@ describe("bench navigation policy", () => {
       target: BROWSER_TARGET,
       layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
     })
+  })
+
+  test("keeps a Browser tab's profile through Bench navigation", () => {
+    const target = { ...BROWSER_TARGET, profileID: createInAppBrowserProfileID() }
+    const navigation = buildBenchNavigation({
+      directory: DIRECTORY,
+      target,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+    const pathname = `/${encodeDirectory(DIRECTORY)}/browser/${encodeURIComponent(target.tabID)}`
+
+    expect(navigation.search).toMatchObject({ url: target.url, profile: target.profileID })
+    expect(readBenchTargetFromLocation({ pathname, search: navigation.search })).toEqual(target)
+  })
+
+  test("round-trips a blank Browser tab and its profile through Bench navigation", () => {
+    const profileID = createInAppBrowserProfileID()
+    const target = createInAppBrowserBenchTarget(IN_APP_BROWSER_BLANK_URL, profileID)
+    const navigation = buildBenchNavigation({
+      directory: DIRECTORY,
+      target,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+    const pathname = `/${encodeDirectory(DIRECTORY)}/browser/${encodeURIComponent(target.tabID)}`
+
+    expect(navigation.search).toEqual({ url: IN_APP_BROWSER_BLANK_URL, profile: profileID })
+    expect(readBenchTargetFromLocation({ pathname, search: navigation.search })).toEqual(target)
   })
 
   test("rejects malformed encoded Bench route segments without throwing", () => {

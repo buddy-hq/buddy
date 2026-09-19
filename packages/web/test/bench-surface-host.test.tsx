@@ -6,7 +6,11 @@ import {
   useBenchSurfaceActive,
   useOnBenchSurfaceActivated,
 } from "../src/components/bench/bench-surface-activity"
-import { BenchSurfaceHost } from "../src/components/bench/bench-surface-host"
+import {
+  BenchSurfaceHost,
+  benchSurfaceInstancePresentation,
+} from "../src/components/bench/bench-surface-host"
+import { PlatformProvider, type Platform } from "../src/context/platform"
 import { benchTargetKey, type BenchTarget } from "../src/lib/bench-navigation"
 
 const FIRST_TARGET: BenchTarget = {
@@ -35,6 +39,29 @@ function readerTarget(objectID: string): BenchTarget {
     type: "object",
     ref: { kind: "resource", objectID, revisionID: null, itemID: null },
     viewID: "reader",
+  }
+}
+
+const BROWSER_TARGET: BenchTarget = {
+  type: "browser",
+  tabID: "tab-1",
+  url: "https://example.com/",
+}
+const SECOND_BROWSER_TARGET: BenchTarget = {
+  type: "browser",
+  tabID: "tab-2",
+  url: "https://example.org/",
+}
+
+function desktopPlatform(os: "macos" | "windows" | "linux"): Platform {
+  return {
+    platform: "desktop",
+    os,
+    openLink: () => undefined,
+    restart: async () => undefined,
+    back: () => undefined,
+    forward: () => undefined,
+    notify: async () => undefined,
   }
 }
 
@@ -88,27 +115,37 @@ async function renderHost(
   benchVisible = true,
   activationIdentity?: string,
   retainedTargets: readonly BenchTarget[] = [FIRST_TARGET, SECOND_TARGET],
+  platform?: Platform,
 ) {
+  const host = (
+    <BenchSurfaceHost
+      directory="/workspace"
+      activeTarget={target}
+      retainedTargetKeys={retainedTargets.map(benchTargetKey)}
+      benchVisible={benchVisible}
+      activeRuntimeState={undefined}
+      renderContext={(input) => (
+        <StableProvider active={input.active}>{input.children}</StableProvider>
+      )}
+      renderSurface={(instanceTarget) => (
+        <CountingSurface
+          activationIdentity={activationIdentity}
+          targetKey={benchTargetKey(instanceTarget)}
+        />
+      )}
+    />
+  )
   await act(async () => {
-    root?.render(
-      <BenchSurfaceHost
-        directory="/workspace"
-        activeTarget={target}
-        retainedTargetKeys={retainedTargets.map(benchTargetKey)}
-        benchVisible={benchVisible}
-        activeRuntimeState={undefined}
-        renderContext={(input) => (
-          <StableProvider active={input.active}>{input.children}</StableProvider>
-        )}
-        renderSurface={(instanceTarget) => (
-          <CountingSurface
-            activationIdentity={activationIdentity}
-            targetKey={benchTargetKey(instanceTarget)}
-          />
-        )}
-      />,
-    )
+    root?.render(platform ? <PlatformProvider value={platform}>{host}</PlatformProvider> : host)
   })
+}
+
+function instanceForTarget(target: BenchTarget): HTMLElement | undefined {
+  const key = benchTargetKey(target)
+  const match = [
+    ...(container?.querySelectorAll('[data-component="bench-surface-instance"]') ?? []),
+  ].find((node) => node.getAttribute("data-target-key") === key)
+  return match instanceof HTMLElement ? match : undefined
 }
 
 describe("BenchSurfaceHost", () => {
@@ -311,5 +348,158 @@ describe("BenchSurfaceHost", () => {
 
     expect(activationCounts.get(benchTargetKey(FIRST_TARGET))).toBe(2)
     expect(mountCounts.get(benchTargetKey(FIRST_TARGET))).toBe(1)
+  })
+
+  test("parks an inactive macOS browser offscreen without visibility:hidden classes", async () => {
+    mountCounts.clear()
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await renderHost(
+      BROWSER_TARGET,
+      true,
+      undefined,
+      [BROWSER_TARGET, SECOND_BROWSER_TARGET],
+      desktopPlatform("macos"),
+    )
+    await renderHost(
+      SECOND_BROWSER_TARGET,
+      true,
+      undefined,
+      [BROWSER_TARGET, SECOND_BROWSER_TARGET],
+      desktopPlatform("macos"),
+    )
+
+    const parked = instanceForTarget(BROWSER_TARGET)
+    const active = instanceForTarget(SECOND_BROWSER_TARGET)
+    expect(parked?.getAttribute("data-keep-webview-paintable")).toBe("true")
+    expect(parked?.classList.contains("invisible")).toBeFalse()
+    expect(parked?.classList.contains("opacity-0")).toBeFalse()
+    expect(parked?.classList.contains("pointer-events-none")).toBeTrue()
+    expect(parked?.style.position).toBe("fixed")
+    expect(parked?.style.left).toBe("-100000px")
+    expect(parked?.style.top).toBe("-100000px")
+    expect(parked?.hasAttribute("inert")).toBeTrue()
+    expect(parked?.getAttribute("aria-hidden")).toBe("true")
+
+    expect(active?.getAttribute("data-keep-webview-paintable")).toBe("true")
+    expect(active?.hasAttribute("inert")).toBeFalse()
+    expect(active?.style.left).toBe("")
+  })
+
+  test("keeps the current hide classes for parked Windows browsers and macOS files", async () => {
+    mountCounts.clear()
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await renderHost(
+      BROWSER_TARGET,
+      true,
+      undefined,
+      [BROWSER_TARGET, SECOND_BROWSER_TARGET],
+      desktopPlatform("windows"),
+    )
+    await renderHost(
+      SECOND_BROWSER_TARGET,
+      true,
+      undefined,
+      [BROWSER_TARGET, SECOND_BROWSER_TARGET],
+      desktopPlatform("windows"),
+    )
+
+    const parkedWindowsBrowser = instanceForTarget(BROWSER_TARGET)
+    expect(parkedWindowsBrowser?.hasAttribute("data-keep-webview-paintable")).toBeFalse()
+    expect(parkedWindowsBrowser?.classList.contains("invisible")).toBeTrue()
+    expect(parkedWindowsBrowser?.classList.contains("opacity-0")).toBeTrue()
+    expect(parkedWindowsBrowser?.style.left).toBe("")
+
+    await renderHost(
+      FIRST_TARGET,
+      true,
+      undefined,
+      [FIRST_TARGET, SECOND_TARGET],
+      desktopPlatform("macos"),
+    )
+    await renderHost(
+      SECOND_TARGET,
+      true,
+      undefined,
+      [FIRST_TARGET, SECOND_TARGET],
+      desktopPlatform("macos"),
+    )
+
+    const parkedMacosFile = instanceForTarget(FIRST_TARGET)
+    expect(parkedMacosFile?.hasAttribute("data-keep-webview-paintable")).toBeFalse()
+    expect(parkedMacosFile?.classList.contains("invisible")).toBeTrue()
+    expect(parkedMacosFile?.classList.contains("opacity-0")).toBeTrue()
+  })
+})
+
+describe("benchSurfaceInstancePresentation", () => {
+  test("keeps a parked macOS browser paintable and offscreen", () => {
+    const presentation = benchSurfaceInstancePresentation({
+      state: "parked",
+      target: "browser",
+      os: "macos",
+    })
+
+    expect(presentation.keepWebviewPaintable).toBeTrue()
+    expect(presentation.className.includes("invisible")).toBeFalse()
+    expect(presentation.className.includes("opacity-0")).toBeFalse()
+    expect(presentation.className.includes("pointer-events-none")).toBeTrue()
+    expect(presentation.style).toEqual({
+      position: "fixed",
+      left: -100_000,
+      top: -100_000,
+      zIndex: -1,
+    })
+  })
+
+  test("hides parked browsers on other platforms and parked non-browser surfaces on macOS", () => {
+    const parkedWindowsBrowser = benchSurfaceInstancePresentation({
+      state: "parked",
+      target: "browser",
+      os: "other",
+    })
+    const parkedMacosFile = benchSurfaceInstancePresentation({
+      state: "parked",
+      target: "other",
+      os: "macos",
+    })
+
+    for (const presentation of [parkedWindowsBrowser, parkedMacosFile]) {
+      expect(presentation.keepWebviewPaintable).toBeFalse()
+      expect(presentation.className.includes("invisible")).toBeTrue()
+      expect(presentation.className.includes("opacity-0")).toBeTrue()
+      expect(presentation.style).toBeUndefined()
+    }
+  })
+
+  test("marks only macOS browser instances as keep-paintable while active", () => {
+    expect(
+      benchSurfaceInstancePresentation({
+        state: "active",
+        target: "browser",
+        os: "macos",
+      }).keepWebviewPaintable,
+    ).toBeTrue()
+    expect(
+      benchSurfaceInstancePresentation({
+        state: "active",
+        target: "browser",
+        os: "other",
+      }).keepWebviewPaintable,
+    ).toBeFalse()
+    expect(
+      benchSurfaceInstancePresentation({
+        state: "active",
+        target: "other",
+        os: "macos",
+      }).keepWebviewPaintable,
+    ).toBeFalse()
   })
 })

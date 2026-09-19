@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from "react"
+import { useState, type CSSProperties, type ReactNode } from "react"
 import type { BenchRuntimeState } from "@/components/bench/bench-route-context"
 import { BenchSurfaceActivityProvider } from "@/components/bench/bench-surface-activity"
+import { usePlatform } from "@/context/platform"
 import {
   releaseBenchSurfaceInstances,
   retainBenchSurfaceInstance,
@@ -11,6 +12,91 @@ import { benchTargetKey, type BenchTabTarget } from "@/lib/bench-navigation"
 
 type BenchSurfaceHostRuntimeState = Omit<BenchRuntimeState, "target"> & {
   target: BenchTabTarget
+}
+
+/** Pixel offset used to park a macOS webview offscreen while keeping it paintable. */
+export const BENCH_WEBVIEW_OFFSCREEN_OFFSET_PX = -100_000
+
+const ACTIVE_SURFACE_CLASS = "h-full min-h-0 w-full min-w-0"
+const PARKED_SURFACE_CLASS =
+  "pointer-events-none invisible absolute inset-0 h-full w-full opacity-0"
+const PARKED_PAINTABLE_BROWSER_CLASS = "pointer-events-none h-full w-full"
+
+/** Offscreen placement for a parked, still-paintable macOS browser webview. */
+export type TBenchSurfaceInstanceOffscreenStyle = {
+  readonly position: "fixed"
+  readonly left: number
+  readonly top: number
+  readonly zIndex: number
+}
+
+/**
+ * Class and style policy for a kept-alive Bench instance.
+ *
+ * Inactive macOS browser webviews stay `visibility: visible` and move offscreen.
+ * Electron 43+ on macOS can permanently blank a guest after `visibility: hidden`.
+ */
+export type TBenchSurfaceInstancePresentation = {
+  /** Tailwind classes applied to the instance wrapper. */
+  readonly className: string
+  /** Offscreen placement for parked paintable browser webviews. */
+  readonly style: TBenchSurfaceInstanceOffscreenStyle | undefined
+  /** When true, screenshot privacy must not apply `visibility: hidden` to this instance's webview. */
+  readonly keepWebviewPaintable: boolean
+}
+
+/**
+ * Decide how a kept-alive Bench instance is presented.
+ *
+ * @param input - Activity, surface kind, and OS used to keep macOS browser guests paintable.
+ * @returns Class, optional offscreen style, and whether screenshot privacy must keep the guest paintable.
+ */
+export function benchSurfaceInstancePresentation(input: {
+  readonly state: "active" | "parked"
+  readonly target: "browser" | "other"
+  readonly os: "macos" | "other"
+}): TBenchSurfaceInstancePresentation {
+  const keepWebviewPaintable = input.os === "macos" && input.target === "browser"
+  if (input.state === "active") {
+    return {
+      className: ACTIVE_SURFACE_CLASS,
+      style: undefined,
+      keepWebviewPaintable,
+    }
+  }
+  if (keepWebviewPaintable) {
+    return {
+      className: PARKED_PAINTABLE_BROWSER_CLASS,
+      style: {
+        position: "fixed",
+        left: BENCH_WEBVIEW_OFFSCREEN_OFFSET_PX,
+        top: BENCH_WEBVIEW_OFFSCREEN_OFFSET_PX,
+        zIndex: -1,
+      },
+      keepWebviewPaintable: true,
+    }
+  }
+  return {
+    className: PARKED_SURFACE_CLASS,
+    style: undefined,
+    keepWebviewPaintable: false,
+  }
+}
+
+const BENCH_WEBVIEW_OFFSCREEN_OFFSET_PROPERTY = "--bench-webview-offscreen-offset"
+
+function benchSurfaceInstanceDomStyle(
+  presentation: TBenchSurfaceInstancePresentation,
+): CSSProperties | undefined {
+  if (!presentation.keepWebviewPaintable && presentation.style === undefined) return undefined
+  const style: CSSProperties &
+    Partial<Record<typeof BENCH_WEBVIEW_OFFSCREEN_OFFSET_PROPERTY, string>> = {
+    ...presentation.style,
+  }
+  if (presentation.keepWebviewPaintable) {
+    style[BENCH_WEBVIEW_OFFSCREEN_OFFSET_PROPERTY] = `${BENCH_WEBVIEW_OFFSCREEN_OFFSET_PX}px`
+  }
+  return style
 }
 
 /**
@@ -88,6 +174,7 @@ export function BenchSurfaceHost(props: {
   }
   const activeInstance = instances.find((instance) => instance.key === activeKey)
   const instancesByKey = new Map(instances.map((instance) => [instance.key, instance]))
+  const os = usePlatform().os === "macos" ? "macos" : "other"
 
   return (
     <div
@@ -100,6 +187,11 @@ export function BenchSurfaceHost(props: {
         const instance = instancesByKey.get(key)
         if (!instance) return null
         const active = instance.key === activeKey
+        const presentation = benchSurfaceInstancePresentation({
+          state: active ? "active" : "parked",
+          target: instance.target.type === "browser" ? "browser" : "other",
+          os,
+        })
         const surface = (
           <BenchSurfaceActivityProvider value={active && props.benchVisible}>
             {props.renderSurface(instance.target)}
@@ -111,13 +203,13 @@ export function BenchSurfaceHost(props: {
             data-component="bench-surface-instance"
             data-target-key={instance.key}
             data-surface-active={active ? "true" : "false"}
+            {...(presentation.keepWebviewPaintable
+              ? { "data-keep-webview-paintable": "true" }
+              : {})}
             aria-hidden={active ? undefined : true}
             {...(active ? {} : { inert: "" })}
-            className={
-              active
-                ? "h-full min-h-0 w-full min-w-0"
-                : "pointer-events-none invisible absolute inset-0 h-full w-full opacity-0"
-            }
+            className={presentation.className}
+            style={benchSurfaceInstanceDomStyle(presentation)}
           >
             {props.renderContext({
               active,
