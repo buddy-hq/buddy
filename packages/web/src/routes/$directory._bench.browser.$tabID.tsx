@@ -9,6 +9,7 @@ import {
 
 type BrowserBenchSearch = {
   url?: string
+  profile?: string
   [BENCH_CHAT_SEARCH_PARAM]?: BenchChatLayoutMode
 }
 
@@ -26,9 +27,11 @@ export const Route = createFileRoute("/$directory/_bench/browser/$tabID")({
   validateSearch: (search: TIncomingSearch): BrowserBenchSearch => {
     const chatLayoutMode = readBenchChatLayoutMode(search[BENCH_CHAT_SEARCH_PARAM])
     const url = parseTSearchString(search.url)
+    const profile = parseTSearchString(search.profile)
     return Object.assign(
       {},
       url ? { url } : undefined,
+      profile ? { profile } : undefined,
       chatLayoutMode ? { [BENCH_CHAT_SEARCH_PARAM]: chatLayoutMode } : undefined,
     )
   },

@@ -1,3 +1,57 @@
 :root[data-bench-capture-privacy="true"] webview[data-browser-tab-id] {
   visibility: hidden !important;
 }
+
+/* Electron 43+ on macOS can permanently blank a guest after visibility:hidden.
+   Keep marked webviews paintable and move them offscreen during screenshot capture.
+   Production webviews use `absolute inset-0`; leaving right/bottom at 0 with a
+   -100000px origin would stretch the guest to ~100000px. */
+:root[data-bench-capture-privacy="true"] [data-keep-webview-paintable] webview[data-browser-tab-id] {
+  visibility: visible !important;
+  position: fixed !important;
+  top: var(--bench-webview-offscreen-offset, -100000px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: var(--bench-webview-offscreen-offset, -100000px) !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  pointer-events: none !important;
+}
+
+.browser-loading-bar {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.browser-loading-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 35%;
+  background: var(--icon-interactive-base);
+  animation: browser-loading-bar 1.2s ease-in-out infinite;
+}
+
+@keyframes browser-loading-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .browser-loading-bar::after {
+    width: 100%;
+    opacity: 0.5;
+    animation: none;
+  }
+}

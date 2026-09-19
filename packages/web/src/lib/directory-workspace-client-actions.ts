@@ -28,6 +28,11 @@ import {
   type BenchRouteSnapshot,
 } from "@/state/directory-workspace-store"
 import { getPlatform } from "@/context/platform"
+import { withInAppBrowserProfile } from "@/lib/bench-targets"
+import {
+  useInAppBrowserSettingsStore,
+  waitForInAppBrowserSettingsHydration,
+} from "@/state/in-app-browser-settings-store"
 import { workspaceChatKeyForSession } from "@/lib/workspace-chat-key"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 
@@ -291,6 +296,15 @@ function readBenchClientAction<TValue>(value: TValue): BenchClientActionV2 | und
       autoOpen,
     },
   }
+}
+
+async function resolvePresentedTarget(target: BenchTarget): Promise<BenchTarget | null> {
+  if (target.type !== "browser" || target.profileID !== undefined) return target
+  if (!(await waitForInAppBrowserSettingsHydration())) return null
+  return withInAppBrowserProfile(
+    target,
+    useInAppBrowserSettingsStore.getState().defaultProfileID,
+  )
 }
 
 function readBenchClientLease<TValue>(value: TValue): BenchClientLease | undefined {
@@ -758,6 +772,13 @@ export class DirectoryWorkspaceClientActionLedger {
       action,
       activeSessionID,
     })
+    const presentTarget =
+      action.command.type === "present"
+        ? await resolvePresentedTarget(action.command.target)
+        : undefined
+    if (action.command.type === "present" && presentTarget === null) {
+      return { outcome: "failed", reason: "navigation_failed" }
+    }
     if (action.sessionID !== activeSessionID) {
       const autoOpen = bestEffortAutoOpenIdentity(action)
       if (
@@ -765,13 +786,13 @@ export class DirectoryWorkspaceClientActionLedger {
         action.command.type === "present" &&
         action.acknowledgement === "best-effort"
       ) {
-        const defaults = resolveBenchSurfaceDefaults(action.command.target)
+        const defaults = resolveBenchSurfaceDefaults(presentTarget ?? action.command.target)
         return completionFromResult(
           await this.#controller.execute(
             {
               type: "present-background",
               chatKey: workspaceChatKeyForSession(action.sessionID),
-              target: action.command.target,
+              target: presentTarget ?? action.command.target,
               mode: defaults.mode,
             },
             { origin: "auto-open", autoOpen },
@@ -805,19 +826,19 @@ export class DirectoryWorkspaceClientActionLedger {
     if (action.command.type === "capture_bench_screenshot") {
       return captureVisibleBench(action.command)
     }
-    if (action.command.target.type === "browser" && !getPlatform().inAppBrowser) {
+    if (presentTarget?.type === "browser" && !getPlatform().inAppBrowser) {
       return { outcome: "failed", reason: "navigation_failed" }
     }
     const autoOpen = bestEffortAutoOpenIdentity(action)
     const whiteboardClaimKey = whiteboardForegroundClaimKey(action)
     if (whiteboardClaimKey && !this.#claimWhiteboardForeground(whiteboardClaimKey)) {
-      const defaults = resolveBenchSurfaceDefaults(action.command.target)
+      const defaults = resolveBenchSurfaceDefaults(presentTarget ?? action.command.target)
       return completionFromResult(
         await this.#controller.execute(
           {
             type: "present-background",
             chatKey: workspaceChatKeyForSession(action.sessionID),
-            target: action.command.target,
+            target: presentTarget ?? action.command.target,
             mode: defaults.mode,
           },
           { origin: "auto-open", autoOpen },
@@ -832,7 +853,7 @@ export class DirectoryWorkspaceClientActionLedger {
       {
         type: "present",
         directory: action.directory,
-        target: action.command.target,
+        target: presentTarget ?? action.command.target,
         mode: BENCH_MODE_REQUEST_POLICY,
       },
       {

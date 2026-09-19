@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { createBrowserPlatform, setRuntimePlatform } from "../src/context/platform"
+import { parseInAppBrowserProfileID } from "@buddy/browser-contract/profiles"
+import {
+  createBrowserPlatform,
+  setRuntimePlatform,
+  type InAppBrowserPlatform,
+} from "../src/context/platform"
 import {
   BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
@@ -24,6 +29,8 @@ import {
   type DrawerKind,
   type EffectiveWorkspaceProjection,
 } from "../src/state/directory-workspace-store"
+import { DEFAULT_IN_APP_BROWSER_SETTINGS } from "../src/lib/in-app-browser-settings"
+import { useInAppBrowserSettingsStore } from "../src/state/in-app-browser-settings-store"
 
 const DIRECTORY = "/workspace/client-actions"
 const SESSION_ID = "session-client-actions"
@@ -291,6 +298,91 @@ describe("DirectoryWorkspaceClientActionLedger", () => {
         completion: { outcome: "failed", reason: "navigation_failed" },
       },
     ])
+  })
+
+  test("stamps the hydrated default Browser profile at execution and preserves an explicit one", async () => {
+    const defaultProfileID = parseInAppBrowserProfileID("work")
+    const explicitProfileID = parseInAppBrowserProfileID("school")
+    if (!defaultProfileID || !explicitProfileID) throw new Error("Invalid test profile ID")
+    const settings = useInAppBrowserSettingsStore.getState()
+    settings.addProfile({ id: defaultProfileID, name: "Work" })
+    settings.addProfile({ id: explicitProfileID, name: "School" })
+    settings.setDefaultProfileID(defaultProfileID)
+    // SAFETY: This ledger test exercises capability gating only; it never invokes Browser methods.
+    const inAppBrowser = {} as InAppBrowserPlatform
+    setRuntimePlatform({
+      ...createBrowserPlatform(),
+      platform: "desktop",
+      inAppBrowser,
+    })
+    try {
+      const harness = createHarness()
+      const action = benchAction({ actionID: "action-browser-default-profile" })
+      await harness.ledger.handle({
+        ...action,
+        command: { type: "present", target: BROWSER_TARGET, autoOpen: null },
+      })
+      await harness.ledger.handle({
+        ...action,
+        actionID: "action-browser-explicit-profile",
+        command: {
+          type: "present",
+          target: { ...BROWSER_TARGET, profileID: explicitProfileID },
+          autoOpen: null,
+        },
+      })
+
+      expect(harness.executed.map((command) => command.type === "present" && command.target)).toEqual(
+        [
+          { ...BROWSER_TARGET, profileID: defaultProfileID },
+          { ...BROWSER_TARGET, profileID: explicitProfileID },
+        ],
+      )
+    } finally {
+      useInAppBrowserSettingsStore.setState(DEFAULT_IN_APP_BROWSER_SETTINGS)
+      setRuntimePlatform(createBrowserPlatform())
+    }
+  })
+
+  test("does not execute an unstamped Browser target after settings hydration fails", async () => {
+    const persist = useInAppBrowserSettingsStore.persist
+    const originalStorage = persist.getOptions().storage
+    if (!originalStorage) throw new Error("Expected Browser settings storage")
+    persist.setOptions({
+      storage: {
+        ...originalStorage,
+        getItem: async () => {
+          throw new Error("settings unavailable")
+        },
+      },
+    })
+    // SAFETY: This ledger test exercises capability gating only; it never invokes Browser methods.
+    const inAppBrowser = {} as InAppBrowserPlatform
+    setRuntimePlatform({
+      ...createBrowserPlatform(),
+      platform: "desktop",
+      inAppBrowser,
+    })
+    try {
+      await persist.rehydrate()
+      const harness = createHarness()
+      const action = benchAction({ actionID: "action-browser-hydration-failed" })
+
+      await harness.ledger.handle({
+        ...action,
+        command: { type: "present", target: BROWSER_TARGET, autoOpen: null },
+      })
+
+      expect(harness.executed).toEqual([])
+      expect(harness.completions[0]?.completion).toEqual({
+        outcome: "failed",
+        reason: "navigation_failed",
+      })
+    } finally {
+      persist.setOptions({ storage: originalStorage })
+      await persist.rehydrate()
+      setRuntimePlatform(createBrowserPlatform())
+    }
   })
 
   test("records observed workspace state for a superseded required action", async () => {

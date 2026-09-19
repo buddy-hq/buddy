@@ -1,30 +1,66 @@
 import { z } from "zod"
 import {
   type InAppBrowserFavicon,
+  isAllowedInAppBrowserUrl,
   isInAppBrowserTargetUrl,
   normalizeInAppBrowserTitle,
 } from "@buddy/browser-contract"
 import type { InAppBrowserTabRuntime } from "@/state/in-app-browser-tabs-store"
 
 const IN_APP_BROWSER_ABORTED_LOAD_ERROR_CODE = -3
-const IN_APP_BROWSER_GENERIC_LOAD_ERROR = "The page could not be loaded."
+const UNKNOWN_LOAD_FAILURE: InAppBrowserLoadFailure = { code: 0, description: "", url: null }
 
 const inAppBrowserFailedLoadEventSchema = z.object({
   errorCode: z.number(),
   errorDescription: z.string(),
   isMainFrame: z.boolean(),
+  validatedURL: z.string().optional(),
 })
 
-export function inAppBrowserMainFrameLoadFailure(event: Event): string | null {
+const inAppBrowserStartedNavigationEventSchema = z.object({
+  isMainFrame: z.boolean(),
+  url: z.string(),
+})
+
+export type InAppBrowserLoadFailure = {
+  code: number
+  description: string
+  url: string | null
+}
+
+export function inAppBrowserMainFrameLoadFailure(event: Event): InAppBrowserLoadFailure | null {
   const result = inAppBrowserFailedLoadEventSchema.safeParse(event)
-  if (!result.success) return IN_APP_BROWSER_GENERIC_LOAD_ERROR
+  if (!result.success) return UNKNOWN_LOAD_FAILURE
   if (
     !result.data.isMainFrame ||
     result.data.errorCode === IN_APP_BROWSER_ABORTED_LOAD_ERROR_CODE
   ) {
     return null
   }
-  return result.data.errorDescription || IN_APP_BROWSER_GENERIC_LOAD_ERROR
+  return {
+    code: result.data.errorCode,
+    description: result.data.errorDescription,
+    url:
+      result.data.validatedURL && isInAppBrowserTargetUrl(result.data.validatedURL)
+        ? result.data.validatedURL
+        : null,
+  }
+}
+
+export function inAppBrowserMainFrameNavigationStart(event: Event): string | null {
+  const result = inAppBrowserStartedNavigationEventSchema.safeParse(event)
+  if (!result.success || !result.data.isMainFrame) return null
+  return isInAppBrowserTargetUrl(result.data.url) ? result.data.url : null
+}
+
+export function shouldApplyInAppBrowserSnapshot(input: {
+  pendingUrl: string | null
+  pendingNavigationObserved: boolean
+  observedUrl: string
+  confirmedNavigation: boolean
+}): boolean {
+  if (!input.pendingUrl || input.observedUrl === input.pendingUrl) return true
+  return input.confirmedNavigation && input.pendingNavigationObserved
 }
 
 export type InAppBrowserWebviewStateReader = {
@@ -45,6 +81,16 @@ export function inAppBrowserRuntimeAfterLoadStopped(
   current: InAppBrowserTabRuntime,
   observed: InAppBrowserTabRuntime | undefined,
 ): InAppBrowserTabRuntime {
+  if (current.error) {
+    return {
+      ...(observed ?? current),
+      url: current.url,
+      title: current.title,
+      favicon: current.favicon,
+      loading: false,
+      error: current.error,
+    }
+  }
   return {
     ...(observed ?? current),
     loading: false,
@@ -62,6 +108,20 @@ export function inAppBrowserFaviconForUrl(
   } catch {
     return null
   }
+}
+
+/**
+ * Store a guest-captured favicon on the tab runtime.
+ *
+ * Main already binds `pageUrl` to the guest document origin. Requiring the typed
+ * or pre-redirect runtime URL to match drops icons for redirects such as
+ * gmail.com → mail.google.com.
+ */
+export function inAppBrowserRuntimeAfterFavicon(
+  current: InAppBrowserTabRuntime,
+  favicon: InAppBrowserFavicon,
+): InAppBrowserTabRuntime {
+  return { ...current, favicon }
 }
 
 export function readInAppBrowserWebviewSnapshot(
@@ -82,7 +142,13 @@ export function readInAppBrowserWebviewSnapshot(
         loading: webview.isLoading(),
         canGoBack: webview.canGoBack(),
         canGoForward: webview.canGoForward(),
-        favicon: inAppBrowserFaviconForUrl(current.favicon, url),
+        // Keep the captured icon until an HTTP document is committed. Filtering
+        // against the typed/pre-redirect URL (gmail.com vs mail.google.com) or
+        // about:blank during load is what left Gmail on the globe fallback.
+        favicon:
+          webview.isLoading() || !isAllowedInAppBrowserUrl(observedUrl)
+            ? current.favicon
+            : inAppBrowserFaviconForUrl(current.favicon, observedUrl),
       },
     }
   } catch {

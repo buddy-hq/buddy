@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import {
   Button,
   Command,
@@ -13,9 +13,16 @@ import {
   cn,
 } from "@buddy/ui"
 import { IN_APP_BROWSER_BLANK_URL } from "@buddy/browser-contract"
+import type { InAppBrowserProfileID } from "@buddy/browser-contract/profiles"
 import { Globe, PlusIcon } from "@/icons/app-icons"
 import { usePlatform } from "@/context/platform"
 import { BENCH_MODE_REQUEST_POLICY } from "@/lib/bench-navigation"
+import { createInAppBrowserBenchTarget } from "@/lib/bench-targets"
+import { newTabInAppBrowserProfiles } from "@/lib/in-app-browser-settings"
+import {
+  useInAppBrowserSettingsHydrated,
+  useInAppBrowserSettingsStore,
+} from "@/state/in-app-browser-settings-store"
 import {
   NOTEBOOK_SEARCH_FILTER_ALL,
   NOTEBOOK_SEARCH_MAX_QUERY_LENGTH,
@@ -43,11 +50,12 @@ const NEW_TAB_RECENT_LIMIT = 8
 const NEW_TAB_SKELETON_ROWS = 4
 const NEW_BROWSER_TAB_SEARCH_TERMS = ["browser", "new tab", "web"]
 
-export function benchNewBrowserTabMatchesQuery(query: string): boolean {
+export function benchNewBrowserTabMatchesQuery(query: string, profileName = ""): boolean {
   const normalized = query.trim().toLowerCase()
   return (
     normalized.length === 0 ||
-    NEW_BROWSER_TAB_SEARCH_TERMS.some((term) => term.includes(normalized))
+    NEW_BROWSER_TAB_SEARCH_TERMS.some((term) => term.includes(normalized)) ||
+    profileName.toLowerCase().includes(normalized)
   )
 }
 
@@ -92,10 +100,19 @@ function BenchNewTabSearch(props: BenchNewTabSearchProps) {
   const openTarget = useRightWorkspaceOpen({ mode: BENCH_MODE_REQUEST_POLICY })
   const showingRecents = !search.hasQuery
   const results = showingRecents ? search.recents : search.results
-  const showBrowser = benchNewBrowserTabIsVisible({
-    browserAvailable: platform.inAppBrowser !== undefined,
-    query,
-  })
+  const userProfiles = useInAppBrowserSettingsStore((state) => state.userProfiles)
+  const defaultProfileID = useInAppBrowserSettingsStore((state) => state.defaultProfileID)
+  const settingsHydrated = useInAppBrowserSettingsHydrated()
+  const browserAvailable = platform.inAppBrowser !== undefined
+  const browserProfiles = useMemo(
+    () =>
+      browserAvailable && settingsHydrated
+        ? newTabInAppBrowserProfiles(userProfiles, defaultProfileID).filter((profile) =>
+            benchNewBrowserTabMatchesQuery(query, profile.name),
+          )
+        : [],
+    [browserAvailable, defaultProfileID, query, settingsHydrated, userProfiles],
+  )
 
   // The picker outlives the request: dismissing it up front would throw away
   // the query along with the popover on an open that never landed a tab.
@@ -106,15 +123,11 @@ function BenchNewTabSearch(props: BenchNewTabSearchProps) {
     if (rightWorkspaceOpenSettled(outcome)) props.onOpened()
   }
 
-  async function openBrowser() {
+  async function openBrowser(profileID: InAppBrowserProfileID) {
     const outcome = await openTarget({
       type: "object",
       directory: props.directory,
-      target: {
-        type: "browser",
-        tabID: crypto.randomUUID(),
-        url: IN_APP_BROWSER_BLANK_URL,
-      },
+      target: createInAppBrowserBenchTarget(IN_APP_BROWSER_BLANK_URL, profileID),
     })
     if (rightWorkspaceOpenSettled(outcome)) props.onOpened()
   }
@@ -193,20 +206,21 @@ function BenchNewTabSearch(props: BenchNewTabSearchProps) {
         onValueChange={setQuery}
       />
       <CommandList className="max-h-80 px-1 pb-1">
-        {showBrowser ? (
+        {browserProfiles.map((profile, index) => (
           <CommandItem
-            value="new-browser-tab"
+            key={profile.id}
+            value={`new-browser-tab:${profile.id}`}
             data-action="bench-new-browser-tab"
-            className="mt-1"
-            onSelect={() => void openBrowser()}
+            className={index === 0 ? "mt-1" : undefined}
+            onSelect={() => void openBrowser(profile.id)}
           >
             <Globe className="size-3.5 shrink-0 text-icon-base" aria-hidden />
             <span className="min-w-0 flex-1 truncate">Browser</span>
             <CommandShortcut className="text-[11px] tracking-normal text-text-weaker">
-              New tab
+              {profile.name}
             </CommandShortcut>
           </CommandItem>
-        ) : null}
+        ))}
         {renderBody()}
       </CommandList>
     </Command>

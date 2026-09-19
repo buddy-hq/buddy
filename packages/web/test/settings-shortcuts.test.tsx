@@ -15,7 +15,6 @@ function desktopPlatform(os: "macos" | "windows" | "linux"): Platform {
     forward: () => undefined,
     notify: async () => undefined,
     inAppBrowser: {
-      partition: "test",
       webPreferences: "",
       onMessage: () => () => undefined,
       onFavicon: () => () => undefined,
