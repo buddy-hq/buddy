@@ -37,7 +37,9 @@ export function createInAppBrowserProfileID(): InAppBrowserProfileID {
   return brandProfileID(crypto.randomUUID())
 }
 
-export function parseInAppBrowserProfileID<TValue>(value: TValue): InAppBrowserProfileID | undefined {
+export function parseInAppBrowserProfileID<TValue>(
+  value: TValue,
+): InAppBrowserProfileID | undefined {
   const text = parseString(value)
   return text !== undefined && PROFILE_ID_PATTERN.test(text) ? brandProfileID(text) : undefined
 }

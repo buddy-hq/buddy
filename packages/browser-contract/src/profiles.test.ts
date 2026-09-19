@@ -30,7 +30,11 @@ describe("Browser profile partitions", () => {
 
   test("maps each partition back to exactly one profile", () => {
     const work = profileID("work")
-    for (const id of [DEFAULT_IN_APP_BROWSER_PROFILE_ID, INCOGNITO_IN_APP_BROWSER_PROFILE_ID, work]) {
+    for (const id of [
+      DEFAULT_IN_APP_BROWSER_PROFILE_ID,
+      INCOGNITO_IN_APP_BROWSER_PROFILE_ID,
+      work,
+    ]) {
       expect(parseInAppBrowserPartition(inAppBrowserProfilePartition(id))).toBe(id)
     }
     expect(parseInAppBrowserPartition("persist:buddy-browser-profile-default")).toBeUndefined()

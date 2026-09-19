@@ -55,7 +55,8 @@ export type BrowserImportResult =
 const BROWSER_IMPORT_REASON_DESCRIPTIONS = {
   notInstalled: "This browser isn't installed on this computer.",
   needsKeychainApproval: "Allow Keychain access when macOS asks, then try again.",
-  keychainItemMissing: "The browser's cookie key isn't in your Keychain. Open that browser once, then try again.",
+  keychainItemMissing:
+    "The browser's cookie key isn't in your Keychain. Open that browser once, then try again.",
   needsFullDiskAccess:
     "Give Buddy Full Disk Access in System Settings > Privacy & Security, then try again.",
   browserRunning: "Quit the browser first so its cookies can be read.",
@@ -65,7 +66,8 @@ const BROWSER_IMPORT_REASON_DESCRIPTIONS = {
   unknownSourceProfile: "That browser profile no longer exists.",
   sessionUnavailable: "The Buddy browser profile couldn't be opened.",
   profileNotSaved: "The cookies were imported, but the new profile couldn't be saved. Try again.",
-  profileLimitReached: "You've reached the profile limit. Delete a profile or import into an existing one.",
+  profileLimitReached:
+    "You've reached the profile limit. Delete a profile or import into an existing one.",
   appBoundEncryptionUnsupported:
     "This browser protects its cookies with Windows App-Bound Encryption, so another app can't import them. Sign in manually in Buddy instead.",
   windowsDataProtectionUnavailable:
@@ -73,7 +75,9 @@ const BROWSER_IMPORT_REASON_DESCRIPTIONS = {
   readFailed: "The browser's cookies couldn't be read.",
 } as const satisfies Record<BrowserImportFailureReason, string>
 
-export function parseBrowserImportSourceID<TValue>(value: TValue): BrowserImportSourceID | undefined {
+export function parseBrowserImportSourceID<TValue>(
+  value: TValue,
+): BrowserImportSourceID | undefined {
   return BROWSER_IMPORT_SOURCE_IDS.find((id) => id === value)
 }
 

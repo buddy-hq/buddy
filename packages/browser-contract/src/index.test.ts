@@ -61,9 +61,9 @@ describe("Browser shortcut contract", () => {
     const modL = shortcutInput({ key: "l", code: "KeyL" })
     expect(resolveAppShortcutID(modL, "macos")).toBe("composer.focus")
     expect(resolveInAppBrowserShortcutID(modL, "macos")).toBe("focusAddress")
-    expect(
-      resolveInAppBrowserShortcutID({ ...modL, meta: false, control: true }, "windows"),
-    ).toBe("focusAddress")
+    expect(resolveInAppBrowserShortcutID({ ...modL, meta: false, control: true }, "windows")).toBe(
+      "focusAddress",
+    )
   })
 
   test("resolves reload and zoom on either layout key or physical key", () => {
@@ -71,11 +71,14 @@ describe("Browser shortcut contract", () => {
       "reload",
     )
     expect(
-      resolveInAppBrowserShortcutID(shortcutInput({ key: "+", code: "Equal", shift: true }), "macos"),
+      resolveInAppBrowserShortcutID(
+        shortcutInput({ key: "+", code: "Equal", shift: true }),
+        "macos",
+      ),
     ).toBe("zoomIn")
-    expect(
-      resolveInAppBrowserShortcutID(shortcutInput({ key: "-", code: "Minus" }), "macos"),
-    ).toBe("zoomOut")
+    expect(resolveInAppBrowserShortcutID(shortcutInput({ key: "-", code: "Minus" }), "macos")).toBe(
+      "zoomOut",
+    )
     expect(
       resolveInAppBrowserShortcutID(shortcutInput({ key: "0", code: "Digit0" }), "macos"),
     ).toBe("zoomReset")
@@ -83,7 +86,10 @@ describe("Browser shortcut contract", () => {
 
   test("leaves other chords with the page", () => {
     expect(
-      resolveInAppBrowserShortcutID(shortcutInput({ key: "R", code: "KeyR", shift: true }), "macos"),
+      resolveInAppBrowserShortcutID(
+        shortcutInput({ key: "R", code: "KeyR", shift: true }),
+        "macos",
+      ),
     ).toBeUndefined()
     expect(
       resolveInAppBrowserShortcutID(shortcutInput({ key: "l", code: "KeyL", alt: true }), "macos"),

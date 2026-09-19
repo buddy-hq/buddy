@@ -131,7 +131,9 @@ export type InAppBrowserZoomFactor = (typeof IN_APP_BROWSER_ZOOM_FACTORS)[number
 
 export const DEFAULT_IN_APP_BROWSER_ZOOM_FACTOR: InAppBrowserZoomFactor = 1
 
-export function parseInAppBrowserZoomFactor<TValue>(value: TValue): InAppBrowserZoomFactor | undefined {
+export function parseInAppBrowserZoomFactor<TValue>(
+  value: TValue,
+): InAppBrowserZoomFactor | undefined {
   return IN_APP_BROWSER_ZOOM_FACTORS.find((factor) => factor === value)
 }
 
@@ -148,7 +150,9 @@ export type InAppBrowserAppearance = "system" | "light" | "dark"
 
 export const DEFAULT_IN_APP_BROWSER_APPEARANCE: InAppBrowserAppearance = "system"
 
-export function parseInAppBrowserAppearance<TValue>(value: TValue): InAppBrowserAppearance | undefined {
+export function parseInAppBrowserAppearance<TValue>(
+  value: TValue,
+): InAppBrowserAppearance | undefined {
   if (value === "system") return "system"
   if (value === "light") return "light"
   if (value === "dark") return "dark"
