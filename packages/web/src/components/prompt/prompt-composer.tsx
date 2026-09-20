@@ -165,6 +165,16 @@ const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set([
   NOTE_SLASH_COMMAND_NAME,
 ])
 const DRAFT_STORE_SYNC_DELAY_MS = 250
+/**
+ * Identity tags for the draft snapshots the editor itself produced.
+ *
+ * While someone types, the contenteditable is the live truth and `draft` state lands behind it
+ * (debounced store writes plus a transition). Tagging the snapshot keeps that provenance attached
+ * to the exact object that commits, so usePromptEditorSync can tell "my own draft, just late" from
+ * "someone replaced the draft" — a flag flipped on a ref cannot, because it is read at effect time
+ * and so reports the newest keystroke rather than the snapshot being committed.
+ */
+const COMPOSER_ORIGINATED_DRAFTS = new WeakSet<PromptDraftState>()
 const CURSOR_NAVIGATION_KEYS = new Set([
   "ArrowLeft",
   "ArrowRight",
@@ -371,7 +381,6 @@ export function PromptComposer(props: PromptComposerProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const modelNativeTriggerRef = useRef<HTMLSelectElement>(null)
   const modelRadixTriggerRef = useRef<HTMLButtonElement>(null)
-  const mirrorInputRef = useRef(false)
   const historyApplyingRef = useRef(false)
   const previousBusyRef = useRef(props.isBusy)
   const promptKey = useMemo(
@@ -385,6 +394,8 @@ export function PromptComposer(props: PromptComposerProps) {
   const [draft, setDraft] = useState(() => storeDraft)
   const draftRef = useRef(draft)
   const pendingStoreDraftRef = useRef<Omit<PromptDraftState, "updatedAt"> | undefined>(undefined)
+  // The last draft this composer pushed into the store, so its own echo is recognisable.
+  const lastStoreWriteRef = useRef<PromptDraftState | undefined>(undefined)
   const storeSyncTimerRef = useRef<number | undefined>(undefined)
   const draftRenderTimerRef = useRef<number | undefined>(undefined)
   const readLiveDraftRef = useRef<() => Omit<PromptDraftState, "updatedAt">>(() => ({
@@ -632,7 +643,13 @@ export function PromptComposer(props: PromptComposerProps) {
 
   useEffect(() => {
     if (arePromptDraftContentsEqual(draftRef.current, storeDraft)) return
+    // Our own debounced write echoing back after further keystrokes landed. The editor and
+    // draftRef are ahead of it by design, so adopting it would rewind the live draft — and with
+    // it the editor DOM and caret — to whatever was on screen when the write was queued.
+    const ownWrite = lastStoreWriteRef.current
+    if (ownWrite && arePromptDraftContentsEqual(ownWrite, storeDraft)) return
     pendingStoreDraftRef.current = undefined
+    lastStoreWriteRef.current = undefined
     if (storeSyncTimerRef.current !== undefined) {
       window.clearTimeout(storeSyncTimerRef.current)
       storeSyncTimerRef.current = undefined
@@ -684,7 +701,7 @@ export function PromptComposer(props: PromptComposerProps) {
   // When the draft changes from outside the editor (session switch, clear,
   // history), usePromptEditorSync re-renders the editor DOM; realign the
   // autocomplete snapshot from that freshly rendered DOM. Editor-originated
-  // changes skip this path (mirror flag) — handleEditorInput already synced
+  // changes skip this path (draft provenance) — handleEditorInput already synced
   // synchronously — so the debounced draft can never stomp the live snapshot
   // with stale text mid-typing.
   const setCursorOffsetFromEditorSync = useCallback(
@@ -697,7 +714,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
   usePromptEditorSync({
     editorRef,
-    mirrorInputRef,
+    composerOriginated: COMPOSER_ORIGINATED_DRAFTS.has(draft),
     draft: {
       ...draft,
       value: draftEditorValue,
@@ -731,6 +748,7 @@ export function PromptComposer(props: PromptComposerProps) {
     if (!pending) return
 
     pendingStoreDraftRef.current = undefined
+    lastStoreWriteRef.current = normalizePromptDraft(pending)
     replaceDraft(promptKey, pending)
   }, [promptKey, replaceDraft])
 
@@ -763,8 +781,8 @@ export function PromptComposer(props: PromptComposerProps) {
       syncMode: "immediate" | "debounced" = "immediate",
       renderPriority: "sync" | "transition" = "sync",
     ) => {
-      mirrorInputRef.current = true
       const nextDraft = normalizePromptDraft(draftState)
+      COMPOSER_ORIGINATED_DRAFTS.add(nextDraft)
       draftRef.current = nextDraft
 
       if (renderPriority === "sync") {
@@ -1395,6 +1413,7 @@ export function PromptComposer(props: PromptComposerProps) {
     }
     renderEditorAtCursor([], 0)
     pendingStoreDraftRef.current = undefined
+    lastStoreWriteRef.current = undefined
     if (storeSyncTimerRef.current !== undefined) {
       window.clearTimeout(storeSyncTimerRef.current)
       storeSyncTimerRef.current = undefined
