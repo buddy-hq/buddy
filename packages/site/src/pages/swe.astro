@@ -1,0 +1,1135 @@
+---
+/**
+ * /swe — the course page for the free, in-person "Agentic Software Engineering"
+ * workshop offered to Bengaluru CS/IT departments.
+ *
+ * The reader is a head of department who clicked through from an outreach
+ * email. The page has one job: make it easy to say "yes, we'll host it".
+ * Every CTA is the same mailto, and nothing here asks for a date — scheduling
+ * happens by email after the yes. It stands alone: no site header or footer.
+ */
+import { Image } from "astro:assets"
+import Landing from "../layouts/Landing.astro"
+import instructorPhoto from "../assets/swe/prashant.jpg"
+
+export const prerender = true
+
+const CONTACT_EMAIL = "prashant.bhudwal@gmail.com"
+const LINKEDIN_URL = "https://www.linkedin.com/in/prashantbhudwal"
+
+const HOST_SUBJECT = "Hosting Agentic Software Engineering at our college"
+const HOST_BODY = [
+  "Hi Prashant,",
+  "",
+  "We would like to host the Agentic Software Engineering workshop for our students.",
+  "",
+  "College:",
+  "Department:",
+  "Approximate number of students:",
+  "",
+  "Thanks,",
+].join("\n")
+const HOST_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(HOST_SUBJECT)}&body=${encodeURIComponent(HOST_BODY)}`
+
+const seo = {
+  title: "Agentic Software Engineering · Free in-person workshop for CS/IT students",
+  description:
+    "A free, two-hour, hands-on workshop for 2nd–4th year CS/IT students in Bengaluru. How LLMs and coding agents work, and how to build software with them. Taught by Prashant Bhudwal.",
+}
+
+const facts = [
+  { label: "Format", value: "Hands-on workshop, in person at your campus in Bengaluru" },
+  { label: "Duration", value: "~2 hours · 90 min + 30 min Q&A" },
+  { label: "Audience", value: "2nd–4th year CS/IT students" },
+  { label: "Level", value: "Beginner friendly" },
+] as const
+
+const outline = [
+  {
+    part: "Part 1",
+    title: "LLM basics: tokens, context and caching",
+    minutes: 20,
+    topics: [
+      "What tokens are, and how token counts affect cost and response time",
+      "Context windows: what the model can and cannot see",
+      "Prompt caching: when reusing context reduces cost",
+    ],
+  },
+  {
+    part: "Part 2",
+    title: "The agent loop",
+    minutes: 20,
+    topics: [
+      "From chat to agent: a model that can act",
+      "Tools, tool calls, and reading the results back",
+      "Feedback loops: tests, errors, and self-correction",
+    ],
+  },
+  {
+    part: "Part 3",
+    title: "Hands-on: build with coding agents",
+    minutes: 30,
+    topics: [
+      "Students build a small feature end to end with an agent, alongside Prashant",
+      "Debugging and iterating: when to steer and when to take over",
+      "OpenCode, Codex, and Claude Code side by side",
+    ],
+  },
+  {
+    part: "Part 4",
+    title: "How agents connect to documents, tools and browsers",
+    minutes: 20,
+    topics: [
+      "RAG: giving an agent your own documents",
+      "Agent skills and MCP servers",
+      "Agent CLIs and TUIs, computer-use and browser-use",
+    ],
+  },
+  {
+    part: "Q&A",
+    title: "Open questions",
+    minutes: 30,
+    topics: ["Careers, internships, tools, and anything students want to ask"],
+  },
+] as const
+
+const loopSteps = [
+  { label: "Context", sub: "Read the task and the code", x: 110, y: 80, delay: 0 },
+  { label: "Model", sub: "Decide the next step", x: 410, y: 80, delay: 2 },
+  { label: "Tools", sub: "Edit files, run commands", x: 410, y: 260, delay: 4 },
+  { label: "Feedback", sub: "Check tests and errors", x: 110, y: 260, delay: 6 },
+] as const
+
+const totalMinutes = outline.reduce((sum, item) => sum + item.minutes, 0)
+
+const audience = [
+  "2nd, 3rd and 4th year CS and IT students",
+  "AI/DS, ECE and allied branches welcome",
+  "Faculty welcome too",
+] as const
+
+const prerequisites = [
+  "Can write a basic program in any language",
+  "No machine learning background needed",
+  "Bring a laptop if you have one; pairs work fine",
+] as const
+
+const faqs = [
+  {
+    q: "Why is this free?",
+    a: "Prashant is offering this session free to share practical experience building AI software with students. There is no session fee or travel charge for the college.",
+  },
+  {
+    q: "What do we need to arrange?",
+    a: "A lab or hall with Wi-Fi and power sockets, a projector with HDMI, and the students. Students bring laptops if they have them; pairs work fine.",
+  },
+  {
+    q: "How many students can attend?",
+    a: "Classrooms and larger groups are welcome. We will agree the participation format with your department.",
+  },
+  {
+    q: "When can the workshop happen?",
+    a: "Whenever it fits your academic calendar. Say yes, and Prashant will work out a date with you directly.",
+  },
+] as const
+---
+
+<Landing title={seo.title} description={seo.description}>
+  <header class="swe-header">
+    <div class="container swe-header__inner">
+      <span class="swe-header__title">Agentic Software Engineering</span>
+      <a href={HOST_HREF} class="btn-cta">Host this workshop</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="swe-hero" data-analytics-section="swe_hero">
+      <div class="container swe-hero__grid">
+        <div class="swe-hero__copy">
+          <h1 class="swe-hero__title">Agentic Software Engineering</h1>
+          <p class="swe-hero__lede">
+            A free, two-hour workshop for CS and IT students, delivered in person at your campus in Bengaluru. Students
+            learn how coding agents use context, tools and feedback, then practise building and debugging a small feature.
+          </p>
+
+          <div class="swe-hero__instructor">
+            <Image
+              src={instructorPhoto}
+              alt=""
+              class="swe-avatar"
+              width={80}
+              height={80}
+              loading="eager"
+            />
+            <p>
+              Taught by <strong>Prashant Bhudwal</strong>
+              <span>Software engineer · Bengaluru</span>
+            </p>
+          </div>
+
+          <div class="swe-hero__actions">
+            <a href={HOST_HREF} class="btn-cta swe-btn-lg">Host this at your college</a>
+            <a href="#outline" class="btn-secondary swe-btn-lg">See the outline</a>
+          </div>
+        </div>
+
+        <figure class="swe-cover" aria-label="Diagram: the agent loop of context, model, tools, and feedback">
+          <div class="swe-loop">
+            <div class="swe-loop__bar">
+              <span>The agent loop</span>
+              <span class="swe-loop__tag">Part 2 of the session</span>
+            </div>
+            <svg class="swe-loop__svg" viewBox="0 0 520 340" role="img" aria-hidden="true">
+              <path class="swe-loop__track" d="M110 80 H410 V260 H110 Z" />
+              <path class="swe-loop__arrow" d="M254 74 L262 80 L254 86" />
+              <path class="swe-loop__arrow" d="M404 166 L410 174 L416 166" />
+              <path class="swe-loop__arrow" d="M266 254 L258 260 L266 266" />
+              <path class="swe-loop__arrow" d="M104 174 L110 166 L116 174" />
+
+              <circle class="swe-loop__dot" r="5">
+                <animateMotion
+                  dur="8s"
+                  repeatCount="indefinite"
+                  path="M110 80 H410 V260 H110 Z"
+                  keyPoints="0;0.3125;0.5;0.8125;1"
+                  keyTimes="0;0.25;0.5;0.75;1"
+                  calcMode="linear"></animateMotion>
+              </circle>
+
+              <text class="swe-loop__center" x="260" y="164" text-anchor="middle">Repeat until</text>
+              <text class="swe-loop__center" x="260" y="186" text-anchor="middle">the task is done</text>
+
+              {
+                loopSteps.map((step) => (
+                  <g class="swe-loop__node" style={`--delay: ${step.delay}s`}>
+                    <rect class="swe-loop__base" x={step.x - 92} y={step.y - 34} width="184" height="68" rx="12" />
+                    <rect x={step.x - 92} y={step.y - 34} width="184" height="68" rx="12" />
+                    <text class="swe-loop__label" x={step.x} y={step.y - 4} text-anchor="middle">
+                      {step.label}
+                    </text>
+                    <text class="swe-loop__sub" x={step.x} y={step.y + 17} text-anchor="middle">
+                      {step.sub}
+                    </text>
+                  </g>
+                ))
+              }
+            </svg>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <nav class="swe-subnav" aria-label="On this page">
+      <div class="container swe-subnav__inner">
+        <a href="#outline">Outline</a>
+        <a href="#instructor">Instructor</a>
+        <a href="#faq">FAQ</a>
+      </div>
+    </nav>
+
+    <div class="container swe-layout">
+      <div class="swe-main">
+        <section id="outline" class="swe-section" data-analytics-section="swe_outline">
+          <p class="swe-kicker">What students will learn</p>
+          <div class="swe-outline__head">
+            <h2 class="swe-h2">90-minute workshop + 30-minute Q&amp;A</h2>
+            <p class="swe-outline__total" data-numeric>
+              {outline.length} parts · {totalMinutes} min
+            </p>
+          </div>
+
+          <div class="swe-outline">
+            {
+              outline.map((item, index) => (
+                <details class="swe-module" open={index === 0}>
+                  <summary>
+                    <span class="swe-module__part">{item.part}</span>
+                    <span class="swe-module__title">{item.title}</span>
+                    <span class="swe-module__time" data-numeric>
+                      {item.minutes} min
+                    </span>
+                    <svg
+                      class="swe-chevron"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.25"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </summary>
+                  <ul class="swe-module__topics">
+                    {item.topics.map((topic) => (
+                      <li>{topic}</li>
+                    ))}
+                  </ul>
+                </details>
+              ))
+            }
+          </div>
+
+          <div class="swe-audience">
+            <div>
+              <h3>Who should attend</h3>
+              <ul>
+                {audience.map((item) => <li>{item}</li>)}
+              </ul>
+            </div>
+            <div>
+              <h3>Prerequisites</h3>
+              <ul>
+                {prerequisites.map((item) => <li>{item}</li>)}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="instructor" class="swe-section" data-analytics-section="swe_instructor">
+          <p class="swe-kicker">Instructor</p>
+          <div class="swe-instructor">
+            <Image
+              src={instructorPhoto}
+              alt="Prashant Bhudwal"
+              class="swe-instructor__photo"
+              width={320}
+              height={320}
+            />
+            <div class="swe-instructor__body">
+              <h2 class="swe-h2 swe-instructor__name">Prashant Bhudwal</h2>
+              <p class="swe-instructor__role">Software engineer · Bengaluru</p>
+              <p class="swe-instructor__bio">
+                Prashant is a Bengaluru-based software engineer who builds AI applications. He builds Buddy, a desktop
+                AI agent based on OpenCode, with custom tools, memory and skills. Previously, he co-founded FalconAI, a
+                school AI platform that reached more than 250 teachers. He has also taught more than 100 classes at
+                Genius Learning Labs and trained 25 teachers through Medal.
+              </p>
+
+              <p class="swe-showcase">
+                Work showcased at OpenAI Codex Meetup, Microsoft LocalHost, and AgentCon Bangalore.
+              </p>
+
+              <a href={LINKEDIN_URL} class="btn-secondary swe-linkedin" target="_blank" rel="noopener noreferrer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path
+                    d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12ZM7.12 20.45H3.56V9h3.56v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0Z"
+                  />
+                </svg>
+                LinkedIn
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section id="faq" class="swe-section" data-analytics-section="swe_faq">
+          <p class="swe-kicker">FAQ</p>
+          <h2 class="swe-h2">Questions from departments</h2>
+          <div class="swe-faq">
+            {
+              faqs.map((item) => (
+                <details class="swe-faq__item">
+                  <summary>
+                    {item.q}
+                    <svg
+                      class="swe-chevron"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.25"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </summary>
+                  <p>{item.a}</p>
+                </details>
+              ))
+            }
+          </div>
+        </section>
+      </div>
+
+      <aside class="swe-aside" aria-label="Workshop summary">
+        <div class="swe-card">
+          <p class="swe-card__price">Free</p>
+          <p class="swe-card__sub">for your college and your students</p>
+          <a href={HOST_HREF} class="btn-cta swe-btn-lg swe-card__cta">Host this at your college</a>
+          <dl class="swe-card__facts">
+            {
+              facts.map((fact) => (
+                <div>
+                  <dt>{fact.label}</dt>
+                  <dd>{fact.value}</dd>
+                </div>
+              ))
+            }
+          </dl>
+        </div>
+      </aside>
+    </div>
+
+    <section class="swe-closing" data-analytics-section="swe_closing">
+      <div class="container swe-closing__inner">
+        <h2 class="swe-closing__title">Bring this workshop to your students.</h2>
+        <p class="swe-closing__sub">Free, two hours, at your campus in Bengaluru. Reply to confirm your interest—no date needed yet; we’ll arrange the details together.</p>
+        <a href={HOST_HREF} class="btn-cta swe-btn-lg">Host this at your college</a>
+      </div>
+    </section>
+  </main>
+</Landing>
+
+<style>
+  /* === Header === */
+  .swe-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: var(--surface-sticky);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 1px 0 var(--border-weak);
+  }
+
+  .swe-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+  }
+
+  .swe-header__title {
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--fg-strong);
+  }
+
+  .swe-btn-lg {
+    padding: 11px 20px;
+    font-size: var(--text-base);
+    justify-content: center;
+  }
+
+  /* === Hero === */
+  .swe-hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding-block: clamp(3.5rem, 8vw, 6rem) clamp(3rem, 6vw, 4.5rem);
+  }
+
+  /* The same floor the home hero stands on (`.mockup-glow` in Hero.astro): page
+     ground rising to aurora violet at the section's bottom edge, with a wide
+     radial dimming the outer corners. Violet, not accent, so it reads as
+     atmosphere rather than more CTA. */
+  .swe-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        52.5% 57.5% at 50% 100%,
+        transparent 0%,
+        color-mix(in oklab, var(--surface-page) 50%, transparent) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        var(--surface-page) 10%,
+        color-mix(in oklab, var(--aurora-base) 62%, var(--surface-page)) 100%
+      );
+  }
+
+  .swe-hero__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: clamp(2rem, 5vw, 4.5rem);
+    align-items: center;
+  }
+
+  .swe-hero__title {
+    font-size: clamp(2.5rem, 5.4vw, 4.25rem);
+    font-weight: 560;
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    color: var(--fg-strong);
+    text-wrap: balance;
+    margin-bottom: var(--space-6);
+  }
+
+  .swe-hero__lede {
+    font-size: var(--text-xl);
+    line-height: 1.45;
+    color: var(--fg-weak);
+    max-width: 34ch;
+    text-wrap: pretty;
+    margin-bottom: var(--space-8);
+  }
+
+  .swe-hero__instructor {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-8);
+  }
+
+  .swe-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border-base);
+  }
+
+  .swe-hero__instructor p {
+    display: flex;
+    flex-direction: column;
+    font-size: var(--text-sm);
+    line-height: 1.35;
+    color: var(--fg-weak);
+  }
+
+  .swe-hero__instructor strong {
+    color: var(--fg-strong);
+    font-weight: 600;
+  }
+
+  .swe-hero__instructor span {
+    color: var(--fg-weaker);
+  }
+
+  .swe-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  /* === Hero cover: the agent loop ===
+     A dot travels the loop; each node lights up as the dot reaches it. The
+     motion path is timed so every edge takes 2s, which lets the four nodes
+     share one keyframe offset by 0/2/4/6s. */
+  .swe-cover {
+    margin: 0;
+  }
+
+  .swe-loop {
+    border-radius: 14px;
+    border: 1px solid var(--border-base);
+    background: var(--chrome-panel);
+    box-shadow: var(--shadow-overlay);
+    overflow: hidden;
+  }
+
+  .swe-loop__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 12px 18px;
+    background: var(--chrome-bar);
+    border-bottom: 1px solid var(--border-weak);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--fg-strong);
+  }
+
+  .swe-loop__tag {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 400;
+    color: var(--fg-weaker);
+  }
+
+  .swe-loop__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    padding: var(--space-4) var(--space-2);
+  }
+
+  .swe-loop__track {
+    fill: none;
+    stroke: var(--border-strong);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 6;
+  }
+
+  .swe-loop__arrow {
+    fill: none;
+    stroke: var(--fg-weaker);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .swe-loop__dot {
+    fill: var(--accent-base);
+  }
+
+  .swe-loop__center {
+    font-family: var(--font-body);
+    font-size: 14px;
+    fill: var(--fg-weaker);
+  }
+
+  /* Opaque underlay so the travelling dot never shows through the tinted active fill. */
+  .swe-loop__node .swe-loop__base {
+    fill: var(--chrome-panel);
+    stroke: none;
+    animation: none;
+  }
+
+  .swe-loop__node rect {
+    fill: var(--chrome-bar);
+    stroke: var(--border-base);
+    stroke-width: 1;
+    animation: swe-node 8s var(--delay) infinite;
+  }
+
+  .swe-loop__label {
+    font-family: var(--font-body);
+    font-size: 17px;
+    font-weight: 600;
+    fill: var(--fg-strong);
+  }
+
+  .swe-loop__sub {
+    font-family: var(--font-body);
+    font-size: 13px;
+    fill: var(--fg-weak);
+  }
+
+  @keyframes swe-node {
+    0%,
+    16% {
+      fill: var(--accent-weak);
+      stroke: var(--accent-base);
+    }
+    26%,
+    100% {
+      fill: var(--chrome-bar);
+      stroke: var(--border-base);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .swe-loop__dot {
+      display: none;
+    }
+  }
+
+  /* The diagram scales down with the viewport; on phones drop the sub-lines and
+     enlarge the labels so they stay readable. */
+  @media (max-width: 520px) {
+    .swe-loop__sub {
+      display: none;
+    }
+
+    .swe-loop__label {
+      font-size: 24px;
+      transform: translateY(12px);
+    }
+
+    .swe-loop__center {
+      font-size: 18px;
+    }
+  }
+
+  /* === Sub-navigation === */
+  .swe-subnav {
+    position: sticky;
+    top: 64px;
+    z-index: 90;
+    background-color: var(--surface-sticky);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border-weak);
+    border-bottom: 1px solid var(--border-weak);
+  }
+
+  .swe-subnav__inner {
+    display: flex;
+    gap: var(--space-6);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .swe-subnav a {
+    padding: 14px 0;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--fg-weak);
+    text-decoration: none;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition:
+      color 160ms var(--ease-out),
+      border-color 160ms var(--ease-out);
+  }
+
+  .swe-subnav a.is-active {
+    color: var(--fg-strong);
+    border-bottom-color: var(--accent-base);
+  }
+
+  /* === Two-column body === */
+  .swe-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: clamp(2rem, 5vw, 5rem);
+    align-items: start;
+  }
+
+  .swe-main {
+    min-width: 0;
+  }
+
+  .swe-section {
+    padding-block: clamp(3rem, 6vw, 4.5rem);
+    border-bottom: 1px solid var(--border-weak);
+    scroll-margin-top: 120px;
+  }
+
+  .swe-section:last-child {
+    border-bottom: none;
+  }
+
+  .swe-kicker {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--accent-base);
+    margin-bottom: var(--space-3);
+  }
+
+  .swe-h2 {
+    font-size: clamp(1.625rem, 1.3rem + 1.2vw, 2.25rem);
+    font-weight: 540;
+    line-height: 1.15;
+    letter-spacing: -0.022em;
+    color: var(--fg-strong);
+    text-wrap: balance;
+    margin-bottom: var(--space-8);
+  }
+
+  /* === Audience === */
+  .swe-audience {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+    margin-top: var(--space-10);
+  }
+
+  .swe-audience h3 {
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--fg-strong);
+    margin-bottom: var(--space-3);
+  }
+
+  .swe-audience ul {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-left: 1.1em;
+    color: var(--fg-weak);
+  }
+
+  .swe-audience li::marker {
+    color: var(--fg-weaker);
+  }
+
+  /* === Outline === */
+  .swe-outline__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .swe-outline__total {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--fg-weaker);
+    margin-bottom: var(--space-8);
+  }
+
+  .swe-outline {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-base);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface-base);
+  }
+
+  .swe-module + .swe-module {
+    border-top: 1px solid var(--border-weak);
+  }
+
+  .swe-module summary,
+  .swe-faq__item summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .swe-module summary::-webkit-details-marker,
+  .swe-faq__item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .swe-module summary {
+    padding: var(--space-5) var(--space-6);
+  }
+
+  .swe-module__part {
+    flex: 0 0 4.5rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--fg-weaker);
+  }
+
+  .swe-module__title {
+    flex: 1;
+    font-size: var(--text-lg);
+    font-weight: 560;
+    color: var(--fg-strong);
+  }
+
+  .swe-module__time {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--fg-weak);
+  }
+
+  .swe-chevron {
+    flex-shrink: 0;
+    color: var(--fg-weaker);
+    transition: transform 200ms var(--ease-out);
+  }
+
+  details[open] > summary .swe-chevron {
+    transform: rotate(180deg);
+  }
+
+  .swe-module__topics {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: 0 var(--space-6) var(--space-6) calc(var(--space-6) + 4.5rem + var(--space-4));
+    list-style: none;
+    color: var(--fg-weak);
+  }
+
+  .swe-module__topics li {
+    position: relative;
+  }
+
+  .swe-module__topics li::before {
+    content: "";
+    position: absolute;
+    left: -1.1rem;
+    top: 0.7em;
+    width: 6px;
+    height: 1px;
+    background: var(--fg-weaker);
+  }
+
+  /* === Instructor === */
+  .swe-instructor {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: start;
+  }
+
+  .swe-instructor__photo {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 16px;
+    border: 1px solid var(--border-base);
+  }
+
+  .swe-instructor__name {
+    margin-bottom: var(--space-1);
+  }
+
+  .swe-instructor__role {
+    color: var(--fg-weaker);
+    margin-bottom: var(--space-6);
+  }
+
+  .swe-instructor__bio {
+    max-width: 60ch;
+    font-size: var(--text-lg);
+    line-height: 1.6;
+    color: var(--fg-base);
+  }
+
+  .swe-showcase {
+    margin-top: var(--space-6);
+    font-size: var(--text-sm);
+    color: var(--fg-weak);
+  }
+
+  .swe-linkedin {
+    gap: var(--space-2);
+    margin-top: var(--space-6);
+  }
+
+  /* === FAQ === */
+  .swe-faq {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .swe-faq__item {
+    border-bottom: 1px solid var(--border-weak);
+  }
+
+  .swe-faq__item:first-child {
+    border-top: 1px solid var(--border-weak);
+  }
+
+  .swe-faq__item summary {
+    justify-content: space-between;
+    padding-block: var(--space-5);
+    font-size: var(--text-lg);
+    font-weight: 500;
+    color: var(--fg-strong);
+  }
+
+  .swe-faq__item p {
+    max-width: 64ch;
+    padding-bottom: var(--space-6);
+    line-height: 1.6;
+    color: var(--fg-weak);
+  }
+
+  /* === Summary card === */
+  .swe-aside {
+    position: sticky;
+    top: 136px;
+    padding-block: clamp(3rem, 6vw, 4.5rem);
+  }
+
+  .swe-card {
+    padding: var(--space-6);
+    border-radius: 16px;
+    border: 1px solid var(--border-base);
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-raised);
+  }
+
+  .swe-card__price {
+    font-size: var(--text-4xl);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--fg-strong);
+  }
+
+  .swe-card__sub {
+    margin-top: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--fg-weak);
+  }
+
+  .swe-card__cta {
+    display: flex;
+    width: 100%;
+    margin-block: var(--space-6);
+  }
+
+  .swe-card__facts {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .swe-card__facts div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-block: var(--space-3);
+    border-top: 1px solid var(--border-weak);
+  }
+
+  .swe-card__facts dt {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--fg-weaker);
+  }
+
+  .swe-card__facts dd {
+    font-size: var(--text-sm);
+    color: var(--fg-strong);
+  }
+
+  /* === Closing CTA === */
+  .swe-closing {
+    border-top: 1px solid var(--border-weak);
+    padding-block: clamp(4.5rem, 10vw, 7.5rem);
+  }
+
+  .swe-closing__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .swe-closing__title {
+    max-width: 20ch;
+    font-size: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
+    font-weight: 560;
+    line-height: 1.08;
+    letter-spacing: -0.028em;
+    color: var(--fg-strong);
+    text-wrap: balance;
+    margin-bottom: var(--space-4);
+  }
+
+  .swe-closing__sub {
+    max-width: 44ch;
+    text-wrap: balance;
+    font-size: var(--text-lg);
+    color: var(--fg-weak);
+    margin-bottom: var(--space-8);
+  }
+
+  /* === Hover (pointer devices only) === */
+  @media (hover: hover) and (pointer: fine) {
+    .swe-subnav a:hover {
+      color: var(--fg-strong);
+    }
+
+    .swe-module summary:hover .swe-module__title,
+    .swe-faq__item summary:hover {
+      color: var(--accent-base);
+    }
+  }
+
+  /* === Responsive === */
+  @media (max-width: 1024px) {
+    .swe-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .swe-aside {
+      position: static;
+      order: -1;
+      padding-top: var(--space-10);
+    }
+
+    /* The hero CTAs sit directly above; a third copy here is noise. */
+    .swe-card__cta {
+      display: none;
+    }
+
+    .swe-card__sub {
+      margin-bottom: var(--space-4);
+    }
+
+    .swe-card__facts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      column-gap: var(--space-6);
+    }
+  }
+
+  @media (max-width: 880px) {
+    .swe-hero__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .swe-header__title {
+      font-size: var(--text-sm);
+    }
+
+    .swe-header .btn-cta {
+      padding: 7px 12px;
+    }
+
+    .swe-audience {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .swe-instructor {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .swe-instructor__photo {
+      max-width: 160px;
+    }
+
+
+    .swe-module summary {
+      flex-wrap: wrap;
+      gap: var(--space-1) var(--space-3);
+      padding: var(--space-4) var(--space-5);
+    }
+
+    .swe-module__part {
+      flex-basis: 100%;
+    }
+
+    .swe-module__title {
+      font-size: var(--text-base);
+    }
+
+    .swe-module__topics {
+      padding: 0 var(--space-5) var(--space-5) calc(var(--space-5) + 1.1rem);
+    }
+
+    .swe-hero__actions .swe-btn-lg {
+      flex: 1 1 100%;
+    }
+  }
+</style>
+
+<script>
+  // Highlight the sub-nav link for the section currently in view.
+  const subnavLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>(".swe-subnav a"))
+  const targets = subnavLinks
+    .map((link) => document.querySelector<HTMLElement>(link.getAttribute("href") ?? ""))
+    .filter((el): el is HTMLElement => el !== null)
+
+  const setActive = (id: string) => {
+    for (const link of subnavLinks) {
+      link.classList.toggle("is-active", link.getAttribute("href") === `#${id}`)
+    }
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) setActive(entry.target.id)
+      }
+    },
+    { rootMargin: "-140px 0px -60% 0px" },
+  )
+
+  for (const target of targets) observer.observe(target)
+</script>
