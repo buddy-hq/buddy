@@ -1,4 +1,4 @@
-import { useEffect, type MutableRefObject, type RefObject } from "react"
+import { useEffect, type RefObject } from "react"
 import {
   arePromptPartsEqual,
   collectPromptParts,
@@ -11,7 +11,12 @@ import type { PromptComposerPart } from "./prompt-types"
 
 type UsePromptEditorSyncProps = {
   editorRef: RefObject<HTMLDivElement | null>
-  mirrorInputRef: MutableRefObject<boolean>
+  /**
+   * Whether this exact draft snapshot came from the editor itself. Composer-originated
+   * drafts are already on screen, so the contenteditable — not the draft — is the live
+   * truth and must not be rebuilt under the caret.
+   */
+  composerOriginated: boolean
   draft: {
     value: string
     parts: PromptComposerPart[]
@@ -23,25 +28,21 @@ type UsePromptEditorSyncProps = {
 }
 
 export function usePromptEditorSync(props: UsePromptEditorSyncProps) {
-  const { draft, editorRef, knownAgents, mirrorInputRef, setCursorOffset, skillPresentation } =
+  const { composerOriginated, draft, editorRef, knownAgents, setCursorOffset, skillPresentation } =
     props
 
   useEffect(() => {
     const editor = editorRef.current
     if (!editor) return
 
+    // Draft state lands behind the editor on purpose (debounced writes, transitions), so a
+    // composer-originated snapshot routinely describes text the typist has already moved past.
+    // Rendering it would rebuild the DOM from stale parts and drop the caret at a stale offset.
+    if (composerOriginated) return
+
     const nextParts =
       draft.parts.length > 0 ? draft.parts : createPromptPartsFromValue(draft.value, knownAgents)
     const domParts = collectPromptParts(editor)
-
-    if (mirrorInputRef.current) {
-      mirrorInputRef.current = false
-      // Composer-originated changes already live in the contenteditable, but an
-      // external draft replacement can arrive before this mirror flag is
-      // consumed. Skip only when the DOM actually matches the incoming draft.
-      if (arePromptPartsEqual(domParts, nextParts)) return
-    }
-
     const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
     const editorFocused = document.activeElement === editor
 
@@ -63,12 +64,12 @@ export function usePromptEditorSync(props: UsePromptEditorSyncProps) {
     }
     setCursorOffset(nextCursor)
   }, [
+    composerOriginated,
     draft.cursor,
     draft.parts,
     draft.value,
     editorRef,
     knownAgents,
-    mirrorInputRef,
     setCursorOffset,
     skillPresentation,
   ])

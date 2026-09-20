@@ -2,24 +2,33 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act, type MutableRefObject } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { usePromptEditorSync } from "../src/components/prompt/use-prompt-editor-sync"
+import type { PromptComposerPart } from "../src/components/prompt/prompt-types"
 
 const RESTORED_TEXT = "what is this"
+const LAGGING_TEXT = "what is this th"
+const TYPED_TEXT = "what is this thing"
+
+function textParts(text: string): PromptComposerPart[] {
+  return [{ type: "text", text }]
+}
 
 function PromptEditorSyncHarness(props: {
   editorRef: MutableRefObject<HTMLDivElement | null>
-  mirrorInputRef: MutableRefObject<boolean>
+  composerOriginated: boolean
+  draftText: string
+  onCursorOffset: (cursor: number) => void
 }) {
   usePromptEditorSync({
     editorRef: props.editorRef,
-    mirrorInputRef: props.mirrorInputRef,
+    composerOriginated: props.composerOriginated,
     draft: {
-      value: RESTORED_TEXT,
-      parts: [{ type: "text", text: RESTORED_TEXT }],
-      cursor: RESTORED_TEXT.length,
+      value: props.draftText,
+      parts: textParts(props.draftText),
+      cursor: props.draftText.length,
     },
     knownAgents: new Set(),
     skillPresentation: () => undefined,
-    setCursorOffset: () => undefined,
+    setCursorOffset: props.onCursorOffset,
   })
 
   return (
@@ -52,16 +61,56 @@ describe("prompt editor sync", () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
-  test("renders an external draft when a stale mirror flag finds different DOM", async () => {
+  test("renders a draft the editor did not produce", async () => {
     const editorRef: MutableRefObject<HTMLDivElement | null> = { current: null }
-    const mirrorInputRef = { current: true }
+    const cursorOffsets: number[] = []
 
     await act(async () => {
-      root.render(<PromptEditorSyncHarness editorRef={editorRef} mirrorInputRef={mirrorInputRef} />)
+      root.render(
+        <PromptEditorSyncHarness
+          editorRef={editorRef}
+          composerOriginated={false}
+          draftText={RESTORED_TEXT}
+          onCursorOffset={(cursor) => cursorOffsets.push(cursor)}
+        />,
+      )
       await Promise.resolve()
     })
 
     expect(editorRef.current?.textContent).toBe(RESTORED_TEXT)
-    expect(mirrorInputRef.current).toBe(false)
+    expect(cursorOffsets).toEqual([RESTORED_TEXT.length])
+  })
+
+  test("leaves the editor alone when its own draft lands behind what was typed", async () => {
+    const editorRef: MutableRefObject<HTMLDivElement | null> = { current: null }
+    const cursorOffsets: number[] = []
+    const render = (draftText: string) =>
+      root.render(
+        <PromptEditorSyncHarness
+          editorRef={editorRef}
+          composerOriginated
+          draftText={draftText}
+          onCursorOffset={(cursor) => cursorOffsets.push(cursor)}
+        />,
+      )
+
+    await act(async () => {
+      render(RESTORED_TEXT)
+      await Promise.resolve()
+    })
+
+    // The typist keeps going while the debounced draft is still in flight, so the
+    // contenteditable runs ahead of every snapshot the composer has committed.
+    const editor = editorRef.current
+    if (!editor) throw new Error("editor did not mount")
+    editor.textContent = TYPED_TEXT
+
+    await act(async () => {
+      render(LAGGING_TEXT)
+      await Promise.resolve()
+    })
+
+    expect(editor.textContent).toBe(TYPED_TEXT)
+    expect(cursorOffsets).toEqual([])
   })
 })
