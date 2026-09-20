@@ -206,17 +206,18 @@ function BenchNewTabSearch(props: BenchNewTabSearchProps) {
   const defaultSearchEngine = useInAppBrowserSettingsStore((state) => state.defaultSearchEngine)
   const settingsHydrated = useInAppBrowserSettingsHydrated()
   const browserAvailable = platform.inAppBrowser !== undefined
-  const browserProfiles = useMemo(
-    () =>
-      browserAvailable && settingsHydrated && normalizedQuery.length === 0
-        ? newTabInAppBrowserProfiles(userProfiles, defaultProfileID)
-        : [],
-    [browserAvailable, defaultProfileID, normalizedQuery.length, settingsHydrated, userProfiles],
-  )
-  const defaultProfileName =
-    newTabInAppBrowserProfiles(userProfiles, defaultProfileID).find(
-      (profile) => profile.id === defaultProfileID,
-    )?.name ?? "Default"
+  const profileOptions = useMemo(() => {
+    const profiles = newTabInAppBrowserProfiles(userProfiles, defaultProfileID)
+    return {
+      profiles,
+      defaultProfileName:
+        profiles.find((profile) => profile.id === defaultProfileID)?.name ?? "Default",
+    }
+  }, [defaultProfileID, userProfiles])
+  const browserProfiles =
+    browserAvailable && settingsHydrated && normalizedQuery.length === 0
+      ? profileOptions.profiles
+      : []
   const history = useInAppBrowserHistoryStore(
     (state) => state.byDirectory[props.directory] ?? NO_BROWSER_HISTORY,
   )
@@ -298,7 +299,7 @@ function BenchNewTabSearch(props: BenchNewTabSearchProps) {
           title={action.title}
           description={action.description}
           url={action.url}
-          profileName={defaultProfileName}
+          profileName={profileOptions.defaultProfileName}
           search={action.kind === "search"}
         />
       </CommandItem>
@@ -317,7 +318,7 @@ function BenchNewTabSearch(props: BenchNewTabSearchProps) {
         title={entry.title || inAppBrowserDisplayUrl(entry.url)}
         description={inAppBrowserDisplayUrl(entry.url)}
         url={entry.url}
-        profileName={defaultProfileName}
+        profileName={profileOptions.defaultProfileName}
       />
     </CommandItem>
   ))
@@ -353,7 +354,7 @@ function BenchNewTabSearch(props: BenchNewTabSearchProps) {
         value={query}
         maxLength={IN_APP_BROWSER_URL_MAX_LENGTH}
         placeholder="Open a file or URL…"
-        disabled={opening}
+        readOnly={opening}
         onValueChange={setQuery}
       />
       <CommandList className="max-h-80 px-1 pb-1">

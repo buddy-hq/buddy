@@ -46,7 +46,7 @@ describe("Browser settings", () => {
       }),
     ).toEqual({
       linkTarget: "browser",
-      defaultSearchEngine: "duckduckgo",
+      defaultSearchEngine: "google",
       defaultZoomFactor: 1,
       defaultAppearance: "system",
       defaultProfileID: DEFAULT_IN_APP_BROWSER_PROFILE_ID,

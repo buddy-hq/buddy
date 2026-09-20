@@ -1,6 +1,11 @@
 import { inAppBrowserDisplayUrl } from "@buddy/browser-contract"
 import type { InAppBrowserHistoryEntry } from "@/lib/in-app-browser-history"
-import { normalizeRelativePath, workspaceRelativeFilePath } from "@/lib/workspace-file-paths"
+import {
+  fileExtensionFromPath,
+  fileNameFromPath,
+  normalizeRelativePath,
+  workspaceRelativeFilePath,
+} from "@/lib/workspace-file-paths"
 import {
   inAppBrowserSearchEngineLabel,
   resolveInAppBrowserInput,
@@ -68,10 +73,10 @@ export type BenchNewTabBrowserInputAction = {
 
 function hasNotebookFileExtension(input: string): boolean {
   const path = input.split(/[?#]/u, 1)[0] ?? input
-  const name = path.split(/[\\/]/u).at(-1) ?? path
-  const dotIndex = name.lastIndexOf(".")
-  if (dotIndex < 0 || dotIndex === name.length - 1) return false
-  return NOTEBOOK_FILE_EXTENSIONS.has(name.slice(dotIndex + 1).toLowerCase())
+  const extension = fileExtensionFromPath(path)
+  if (extension) return NOTEBOOK_FILE_EXTENSIONS.has(extension)
+  const name = fileNameFromPath(path).toLowerCase()
+  return name.startsWith(".") && NOTEBOOK_FILE_EXTENSIONS.has(name.slice(1))
 }
 
 /** Paths that should never be sent to a web search provider. */
@@ -106,7 +111,8 @@ export function resolveBenchNewTabBrowserInputAction(
   if (resolution.kind === "url") {
     return {
       kind: resolution.kind,
-      placement: hasNotebookFileExtension(input) ? "fallback" : "primary",
+      placement:
+        !/^https?:\/\//iu.test(input) && hasNotebookFileExtension(input) ? "fallback" : "primary",
       url: resolution.url,
       title: input,
       description: inAppBrowserDisplayUrl(resolution.url),

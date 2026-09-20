@@ -17,7 +17,7 @@ Buddy provides a real browser inside Bench. The user controls the page. The agen
 - Once loaded, the live page title and favicon replace the blank label and globe. The tab tries the
   session-captured favicon, then the committed page origin's `/favicon.ico`, then the globe.
 - The native New tab field and address field use the configured search engine for ordinary words and
-  phrases. DuckDuckGo is the default and Google is available in Browser settings.
+  phrases. Google is the default and DuckDuckGo is available in Browser settings.
 - Address fields accept HTTP(S) URLs (localhost defaults to HTTP; other bare hosts default to HTTPS).
   Explicit unsupported schemes remain blocked instead of becoming search queries.
 - `file:`, `data:`, `javascript:`, and external application links are blocked.

@@ -16,6 +16,18 @@ describe("Bench new-tab Browser option", () => {
       title: "example.com/docs",
       description: "https://example.com/docs",
     })
+
+    for (const url of [
+      "https://arxiv.org/pdf/2301.00001.pdf",
+      "https://example.com/index.html",
+      "https://raw.githubusercontent.com/o/r/main/README.md",
+    ]) {
+      expect(resolveBenchNewTabBrowserInputAction(url, "duckduckgo")).toMatchObject({
+        kind: "url",
+        placement: "primary",
+        url,
+      })
+    }
   })
 
   test("labels ordinary text as an explicit web search", () => {
@@ -52,6 +64,10 @@ describe("Bench new-tab Browser option", () => {
       placement: "fallback",
     })
     expect(resolveBenchNewTabBrowserInputAction("src/README.md", "google")).toMatchObject({
+      kind: "url",
+      placement: "fallback",
+    })
+    expect(resolveBenchNewTabBrowserInputAction(".env", "google")).toMatchObject({
       kind: "url",
       placement: "fallback",
     })
