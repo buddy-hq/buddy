@@ -1,8 +1,8 @@
 # packages/site — AGENTS.md
 
 ## Product Status
-- Buddy is **no longer open source**. Do not mention "open source" anywhere in copy, docs, or design files.
-- Buddy is still free and local-first. The trust story is privacy + local-first + no-account, not open source.
+- Buddy is free and open source. It is accurate to describe it that way in copy, docs, and design files.
+- Buddy is local-first and requires no account. The trust story includes open source, privacy, local-first operation, and no-account use.
 
 ## Stack
 - Astro 5 + Cloudflare adapter + Starlight for /docs/
