@@ -135,7 +135,7 @@ describe("in-app browser cookie import", () => {
   test("flushes the imported jar so a crash after Done cannot drop the cookies", async () => {
     const { result, sessions } = await importIntoProfile("work", writeImportedCookie())
 
-    expect(result._tag).toBe("imported")
+    expect(result["_tag"]).toBe("imported")
     expect(sessions.byPartition.get(WORK_PARTITION)?.flushes).toBe(1)
   })
 

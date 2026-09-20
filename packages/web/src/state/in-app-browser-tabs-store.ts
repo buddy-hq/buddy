@@ -38,12 +38,12 @@ function samePageError(
   right: InAppBrowserPageError | null,
 ): boolean {
   if (left === null || right === null) return left === right
-  if (left._tag === "load-failed" && right._tag === "load-failed") {
+  if (left["_tag"] === "load-failed" && right["_tag"] === "load-failed") {
     return (
       left.url === right.url && left.code === right.code && left.description === right.description
     )
   }
-  return left._tag === right._tag
+  return left["_tag"] === right["_tag"]
 }
 
 function sameRuntime(

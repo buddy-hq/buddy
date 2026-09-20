@@ -190,9 +190,9 @@ export function ConfigureStep(props: {
 }) {
   const { target } = props
   const targetMissing =
-    target._tag === "existing" &&
+    target["_tag"] === "existing" &&
     !props.targetProfiles.some((profile) => profile.id === target.profileID)
-  const targetUncreatable = target._tag === "new" && !props.canCreateProfile
+  const targetUncreatable = target["_tag"] === "new" && !props.canCreateProfile
   const targetFeedback =
     props.targetError ??
     (targetMissing
@@ -232,7 +232,7 @@ export function ConfigureStep(props: {
           <TileGroupLabel>Into</TileGroupLabel>
           {props.canCreateProfile ? (
             <SelectableTile
-              selected={target._tag === "new"}
+              selected={target["_tag"] === "new"}
               title="New profile"
               subtitle="Created for these cookies"
               onSelect={() => props.onTargetChange({ _tag: "new" })}
@@ -241,7 +241,7 @@ export function ConfigureStep(props: {
           {props.targetProfiles.map((profile) => (
             <SelectableTile
               key={profile.id}
-              selected={target._tag === "existing" && target.profileID === profile.id}
+              selected={target["_tag"] === "existing" && target.profileID === profile.id}
               title={profile.name}
               subtitle="Existing profile"
               onSelect={() => props.onTargetChange({ _tag: "existing", profileID: profile.id })}

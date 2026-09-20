@@ -102,7 +102,7 @@ export function BrowserPageError(props: {
   error: InAppBrowserPageError | null
   onReload: () => void
 }) {
-  if (props.error?._tag === "load-failed") {
+  if (props.error?.["_tag"] === "load-failed") {
     return (
       <BrowserUnreachablePage
         url={props.error.url}
@@ -112,6 +112,6 @@ export function BrowserPageError(props: {
       />
     )
   }
-  if (props.error?._tag === "crashed") return <BrowserCrashedPage onReload={props.onReload} />
+  if (props.error?.["_tag"] === "crashed") return <BrowserCrashedPage onReload={props.onReload} />
   return null
 }

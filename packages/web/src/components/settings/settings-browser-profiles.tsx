@@ -31,10 +31,34 @@ async function createBlankProfile() {
     id: createInAppBrowserProfileID(),
     name: uniqueInAppBrowserProfileName(NEW_PROFILE_NAME, settings.userProfiles),
   })
-  if (result._tag !== "added" || (await flushInAppBrowserSettings())) return
+  if (result["_tag"] !== "added" || (await flushInAppBrowserSettings())) return
   useInAppBrowserSettingsStore.getState().removeProfile(result.profile.id)
   await flushInAppBrowserSettings()
   toast.error("Could not save the new browser profile")
+}
+
+async function renameProfile(profile: InAppBrowserProfile, name: string) {
+  useInAppBrowserSettingsStore.getState().renameProfile({ id: profile.id, name })
+  if (await flushInAppBrowserSettings()) return
+  const currentProfile = useInAppBrowserSettingsStore
+    .getState()
+    .userProfiles.find((candidate) => candidate.id === profile.id)
+  if (currentProfile?.name === name) {
+    useInAppBrowserSettingsStore.getState().renameProfile({ id: profile.id, name: profile.name })
+    await flushInAppBrowserSettings()
+  }
+  toast.error(`Could not rename ${profile.name}`)
+}
+
+async function setDefaultProfile(profile: InAppBrowserProfile) {
+  const previousDefaultProfileID = useInAppBrowserSettingsStore.getState().defaultProfileID
+  useInAppBrowserSettingsStore.getState().setDefaultProfileID(profile.id)
+  if (await flushInAppBrowserSettings()) return
+  if (useInAppBrowserSettingsStore.getState().defaultProfileID === profile.id) {
+    useInAppBrowserSettingsStore.getState().setDefaultProfileID(previousDefaultProfileID)
+    await flushInAppBrowserSettings()
+  }
+  toast.error(`Could not make ${profile.name} the default`)
 }
 
 export function BrowserProfilesSection(props: { browser: InAppBrowserPlatform }) {
@@ -60,7 +84,7 @@ export function BrowserProfilesSection(props: { browser: InAppBrowserPlatform })
   function clearProfileData(profile: InAppBrowserProfile) {
     const failed = () => toast.error(`Could not clear ${profile.name}'s data`)
     void browser.clearProfileData({ profileID: profile.id, data: "everything" }).then((result) => {
-      if (result._tag === "done") toast.success(`Cleared ${profile.name}'s cookies and cache`)
+      if (result["_tag"] === "done") toast.success(`Cleared ${profile.name}'s cookies and cache`)
       else failed()
     }, failed)
   }
@@ -72,7 +96,7 @@ export function BrowserProfilesSection(props: { browser: InAppBrowserPlatform })
       .clearProfileData({ profileID: profile.id, data: "everything" })
       .catch(() => undefined)
     setRemoving(false)
-    if (result?._tag !== "done") {
+    if (result?.["_tag"] !== "done") {
       setRemovalError("Profile data could not be deleted. Try again.")
       return
     }
@@ -81,7 +105,7 @@ export function BrowserProfilesSection(props: { browser: InAppBrowserPlatform })
     settings.removeProfile(profile.id)
     if (!(await flushInAppBrowserSettings())) {
       const restored = useInAppBrowserSettingsStore.getState().addProfile(profile)
-      if (restored._tag === "added" && wasDefault) {
+      if (restored["_tag"] === "added" && wasDefault) {
         useInAppBrowserSettingsStore.getState().setDefaultProfileID(profile.id)
       }
       await flushInAppBrowserSettings()
@@ -89,23 +113,6 @@ export function BrowserProfilesSection(props: { browser: InAppBrowserPlatform })
       return
     }
     setPendingRemoval(null)
-  }
-
-  async function renameProfile(profile: InAppBrowserProfile, name: string) {
-    useInAppBrowserSettingsStore.getState().renameProfile({ id: profile.id, name })
-    if (await flushInAppBrowserSettings()) return
-    useInAppBrowserSettingsStore.getState().renameProfile({ id: profile.id, name: profile.name })
-    await flushInAppBrowserSettings()
-    toast.error(`Could not rename ${profile.name}`)
-  }
-
-  async function setDefaultProfile(profile: InAppBrowserProfile) {
-    const previousDefaultProfileID = useInAppBrowserSettingsStore.getState().defaultProfileID
-    useInAppBrowserSettingsStore.getState().setDefaultProfileID(profile.id)
-    if (await flushInAppBrowserSettings()) return
-    useInAppBrowserSettingsStore.getState().setDefaultProfileID(previousDefaultProfileID)
-    await flushInAppBrowserSettings()
-    toast.error(`Could not make ${profile.name} the default`)
   }
 
   return (

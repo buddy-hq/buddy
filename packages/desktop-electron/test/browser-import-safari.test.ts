@@ -214,10 +214,11 @@ describe("Safari binary cookie jars", () => {
     const wrongLength = Buffer.alloc(4)
     wrongLength.writeUInt32BE(99, 0)
 
-    expect(parseBinaryCookies(Buffer.concat([file, Buffer.alloc(8)]))._tag).toBe("parsed")
+    expect(parseBinaryCookies(Buffer.concat([file, Buffer.alloc(8)]))["_tag"]).toBe("parsed")
     expect(
-      parseBinaryCookies(Buffer.concat([file, Buffer.alloc(8), propertyListLength, propertyList]))
-        ._tag,
+      parseBinaryCookies(Buffer.concat([file, Buffer.alloc(8), propertyListLength, propertyList]))[
+        "_tag"
+      ],
     ).toBe("parsed")
     expect(
       parseBinaryCookies(Buffer.concat([file, encodeCookiePage([cookie("b.test", "two")])])),
@@ -246,7 +247,7 @@ describe("Safari binary cookie jars", () => {
     ]
 
     for (const file of malformed) expect(parseBinaryCookies(file)).toEqual({ _tag: "malformed" })
-    expect(parseBinaryCookies(twoRecords)._tag).toBe("parsed")
+    expect(parseBinaryCookies(twoRecords)["_tag"]).toBe("parsed")
   })
 })
 

@@ -64,18 +64,18 @@ export function resolveBrowserImportTarget(
   newProfileID: InAppBrowserProfileID,
   targetProfiles: readonly InAppBrowserProfile[],
 ): BrowserImportTarget | undefined {
-  if (selection._tag === "new") return { _tag: "new", profileID: newProfileID }
+  if (selection["_tag"] === "new") return { _tag: "new", profileID: newProfileID }
   const profile = targetProfiles.find((candidate) => candidate.id === selection.profileID)
   return profile ? { _tag: "existing", profileID: profile.id, name: profile.name } : undefined
 }
 
 export function canCloseBrowserImportWizard(step: BrowserImportWizardStep): boolean {
-  return step._tag !== "importing"
+  return step["_tag"] !== "importing"
 }
 
 export function initialBrowserImportStep(source: BrowserImportSource): BrowserImportWizardStep {
   const { availability } = source
-  if (availability._tag === "unavailable") {
+  if (availability["_tag"] === "unavailable") {
     if (availability.reason === "browserRunning") return { _tag: "quit" }
     if (availability.reason === "needsFullDiskAccess") {
       return { _tag: "fullDiskAccess", resume: "configure", checked: false }
@@ -87,7 +87,7 @@ export function initialBrowserImportStep(source: BrowserImportSource): BrowserIm
 }
 
 export function browserImportOutcomeStep(outcome: BrowserImportOutcome): BrowserImportWizardStep {
-  if (outcome._tag === "imported") {
+  if (outcome["_tag"] === "imported") {
     return {
       _tag: "done",
       imported: outcome.imported,
@@ -113,7 +113,7 @@ export function fullDiskAccessRecheckStep(
   source: BrowserImportSource | undefined,
 ): BrowserImportWizardStep {
   const next = refreshedBrowserImportStep(source)
-  return next._tag === "fullDiskAccess" ? { ...next, checked: true } : next
+  return next["_tag"] === "fullDiskAccess" ? { ...next, checked: true } : next
 }
 
 export function refreshedBrowserImportSourceProfileID(
@@ -131,7 +131,7 @@ export function isRetryableBrowserImportReason(reason: BrowserImportFailureReaso
 export function isListedBrowserImportSource(source: BrowserImportSource): boolean {
   const { availability } = source
   return (
-    availability._tag === "available" ||
+    availability["_tag"] === "available" ||
     (availability.reason !== "notInstalled" && availability.reason !== "unsupportedPlatform")
   )
 }

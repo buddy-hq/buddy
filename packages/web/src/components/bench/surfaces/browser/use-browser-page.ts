@@ -278,7 +278,7 @@ export function useBrowserPage(input: {
       attachedWebviewRef.current = null
       setWebContentsID(null)
       const plan = planInAppBrowserCrashRecovery(crashRecoveryRef.current, Date.now())
-      if (plan._tag === "give-up") {
+      if (plan["_tag"] === "give-up") {
         updateRuntime((current) => ({ ...current, loading: false, error: { _tag: "crashed" } }))
         return
       }
@@ -338,7 +338,7 @@ export function useBrowserPage(input: {
       setNotice(null)
       const current = runtimeRef.current
       updateRuntime((current) => ({ ...current, url, loading: true, error: null }))
-      if (current.error?._tag === "crashed") {
+      if (current.error?.["_tag"] === "crashed") {
         pendingNavigationUrlRef.current = null
         pendingNavigationObservedRef.current = false
         crashRecoveryRef.current = INITIAL_IN_APP_BROWSER_CRASH_RECOVERY_STATE
@@ -372,7 +372,7 @@ export function useBrowserPage(input: {
   const submitInput = useCallback(
     (value: string): boolean => {
       const resolution = resolveInAppBrowserInput(value, input.searchEngine)
-      if (resolution._tag === "rejected") {
+      if (resolution["_tag"] === "rejected") {
         setNotice(rejectedInputNotice(resolution.reason))
         return false
       }
@@ -384,7 +384,7 @@ export function useBrowserPage(input: {
   const reload = useCallback(() => {
     setNotice(null)
     const current = runtimeRef.current
-    if (current.error?._tag !== "crashed") {
+    if (current.error?.["_tag"] !== "crashed") {
       withWebview((webview) => webview.reload())
       return
     }
@@ -396,7 +396,7 @@ export function useBrowserPage(input: {
   const hardReload = useCallback(() => {
     setNotice(null)
     const current = runtimeRef.current
-    if (current.error?._tag !== "crashed") {
+    if (current.error?.["_tag"] !== "crashed") {
       withWebview((webview) => webview.reloadIgnoringCache())
       return
     }

@@ -31,7 +31,7 @@ function logInAppBrowserAppearanceFailure(
   console.error("[in-app-browser] appearance.failed", {
     webContentsID: request.webContentsID,
     appearance: request.appearance,
-    ...(failure._tag === "command" ? { reason: failure.reason } : { cause: failure.cause }),
+    ...(failure["_tag"] === "command" ? { reason: failure.reason } : { cause: failure.cause }),
   })
 }
 
@@ -53,7 +53,7 @@ export function applyInAppBrowserAppearance(
   const pending = (async () => {
     try {
       const result = await setAppearance(request)
-      if (result._tag === "failed") {
+      if (result["_tag"] === "failed") {
         logInAppBrowserAppearanceFailure(request, { _tag: "command", reason: result.reason })
       }
     } catch (cause) {

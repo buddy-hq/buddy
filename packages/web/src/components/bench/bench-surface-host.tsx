@@ -112,6 +112,8 @@ export function BenchSurfaceHost(props: {
   directory: string
   activeTarget: BenchTabTarget | null
   retainedTargetKeys: readonly string[]
+  /** Parks the selected instance without discarding its selection or retention identity. */
+  covered?: boolean
   /**
    * Whether the Bench is actually on screen. Separate from the active target on purpose: a docked
    * Bench that the user collapsed keeps its target — and its agent-facing registration — but is not
@@ -131,7 +133,8 @@ export function BenchSurfaceHost(props: {
   /** Resolves a target to its surface. The host owns instance lifecycle, not surface resolution. */
   renderSurface: (target: BenchTabTarget) => ReactNode
 }) {
-  const activeKey = props.activeTarget ? benchTargetKey(props.activeTarget) : null
+  const selectedKey = props.activeTarget ? benchTargetKey(props.activeTarget) : null
+  const activeKey = props.covered ? null : selectedKey
   // Retention is derived during render rather than in an effect: computing it after commit would
   // render one frame in which the newly active target has no instance yet — an empty flash on the
   // exact switch this host exists to make seamless. It is held in state, not a ref, so a render
@@ -147,7 +150,7 @@ export function BenchSurfaceHost(props: {
   // The route becomes observable before the controller commits its matching tab list. Treat the
   // selected route as retained during that gap so render-time cache reconciliation cannot release
   // and immediately recreate the same instance forever.
-  if (activeKey) retainedTargetKeys.add(activeKey)
+  if (selectedKey) retainedTargetKeys.add(selectedKey)
   const releasedKeys = cache.instances
     .filter(
       (instance) => cache.directory !== props.directory || !retainedTargetKeys.has(instance.key),
@@ -180,6 +183,8 @@ export function BenchSurfaceHost(props: {
     <div
       data-component="bench-surface-host"
       data-active-target-key={activeKey ?? "none"}
+      data-selected-target-key={selectedKey ?? "none"}
+      data-covered={props.covered ? "true" : "false"}
       data-instance-count={instances.length}
       className="relative h-full min-h-0 w-full min-w-0"
     >

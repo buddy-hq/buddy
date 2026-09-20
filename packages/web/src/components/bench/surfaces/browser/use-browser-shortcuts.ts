@@ -18,7 +18,9 @@ export function useBrowserShortcuts(input: {
 }) {
   const { browser, platform, webContentsID } = input
   const handlersRef = useRef(input.handlers)
+  const activeRef = useRef(input.active)
   handlersRef.current = input.handlers
+  activeRef.current = input.active
 
   useShortcutCommand("composer.focus", () => handlersRef.current.focusAddress(), {
     enabled: input.active,
@@ -27,7 +29,9 @@ export function useBrowserShortcuts(input: {
   useEffect(() => {
     if (webContentsID === null) return
     return browser.onShortcut((message) => {
-      if (message.webContentsID === webContentsID) handlersRef.current[message.shortcut]()
+      if (activeRef.current && message.webContentsID === webContentsID) {
+        handlersRef.current[message.shortcut]()
+      }
     })
   }, [browser, webContentsID])
 

@@ -95,7 +95,7 @@ export const useInAppBrowserSettingsStore = create<InAppBrowserSettingsState>()(
       },
       addProfile(input) {
         const result = addInAppBrowserProfile(settingsOf(get()), input)
-        if (result._tag === "added") set(result.settings)
+        if (result["_tag"] === "added") set(result.settings)
         return result
       },
       renameProfile(input) {

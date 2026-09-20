@@ -23,7 +23,7 @@ function chromiumLockTargetIsHeld(target: string, host: SourceLockHost): boolean
 
 async function chromiumSingletonLockIsHeld(root: string, host: SourceLockHost): Promise<boolean> {
   const lock = await host.files.readSymlink(host.path.join(root, "SingletonLock"))
-  switch (lock._tag) {
+  switch (lock["_tag"]) {
     case "missing":
       return false
     case "unreadable":

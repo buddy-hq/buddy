@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type WebViewHTMLAttributes } from "react"
+import { useCallback, useEffect, useRef, useState, type WebViewHTMLAttributes } from "react"
 import { IN_APP_BROWSER_BLANK_URL, isAllowedInAppBrowserUrl } from "@buddy/browser-contract"
 import { Button } from "@buddy/ui"
 import {
@@ -128,9 +128,14 @@ function HydratedBrowserTab(props: {
   useBrowserBenchContext({ target, runtime })
   useBrowserVisitRecording({ directory, profileID, runtime })
 
+  useEffect(() => {
+    if (surfaceActive) return
+    withWebview((webview) => webview.blur())
+  }, [surfaceActive, withWebview])
+
   const partition = inAppBrowserProfilePartition(profileID)
   const pageUrl = runtime.url
-  const status = runtime.error?._tag === "open-failed" ? OPEN_FAILED_NOTICE : page.notice
+  const status = runtime.error?.["_tag"] === "open-failed" ? OPEN_FAILED_NOTICE : page.notice
 
   return (
     <div

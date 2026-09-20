@@ -24,7 +24,7 @@ function profileID(value: string) {
 
 function addedProfile(name: string, id: string) {
   const result = addInAppBrowserProfile(DEFAULT_IN_APP_BROWSER_SETTINGS, { id, name })
-  if (result._tag !== "added") throw new Error(`Expected ${name} to be added.`)
+  if (result["_tag"] !== "added") throw new Error(`Expected ${name} to be added.`)
   return result
 }
 

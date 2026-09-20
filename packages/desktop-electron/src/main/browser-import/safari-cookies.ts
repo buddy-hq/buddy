@@ -83,8 +83,8 @@ function parseCookiePage(page: Buffer): readonly ImportedCookie[] | undefined {
     }
     accepted.push({ start, end })
     const record = parseCookieRecord(page.subarray(start, end))
-    if (record._tag === "malformed") return undefined
-    if (record._tag === "cookie") cookies.push(record.cookie)
+    if (record["_tag"] === "malformed") return undefined
+    if (record["_tag"] === "cookie") cookies.push(record.cookie)
   }
   return cookies
 }
@@ -134,10 +134,10 @@ export async function readSafariCookies(
   jarPath: string,
 ): Promise<CookieStoreRead<"needsFullDiskAccess" | "readFailed">> {
   const read = await files.readBytes(jarPath)
-  if (read._tag === "accessDenied") return { _tag: "failed", reason: "needsFullDiskAccess" }
-  if (read._tag === "failed") return { _tag: "failed", reason: "readFailed", cause: read.cause }
+  if (read["_tag"] === "accessDenied") return { _tag: "failed", reason: "needsFullDiskAccess" }
+  if (read["_tag"] === "failed") return { _tag: "failed", reason: "readFailed", cause: read.cause }
   const parsed = parseBinaryCookies(read.bytes)
-  return parsed._tag === "parsed"
+  return parsed["_tag"] === "parsed"
     ? { _tag: "read", contents: { cookies: parsed.cookies, skipped: 0, skippedDomains: [] } }
     : { _tag: "failed", reason: "readFailed" }
 }

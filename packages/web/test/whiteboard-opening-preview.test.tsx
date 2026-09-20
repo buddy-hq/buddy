@@ -84,7 +84,7 @@ function LiveWhiteboardPreviewProbe(props: { messages: MessageWithParts[] }) {
 }
 
 describe("whiteboard opening preview", () => {
-  test("opens the loading surface before objectID or the first element arrives", async () => {
+  test("opens after the leading create discriminator and before the first element arrives", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -121,12 +121,7 @@ describe("whiteboard opening preview", () => {
       )
     })
 
-    expect(opened).toEqual([
-      {
-        type: "whiteboard-opening",
-        toolKey: ACTIVE_TOOL_KEY,
-      },
-    ])
+    expect(opened).toHaveLength(0)
 
     await act(async () => {
       root?.render(
@@ -137,10 +132,10 @@ describe("whiteboard opening preview", () => {
             messages={[
               createAssistantMessage({
                 status: "running",
-                input: { objectID: null },
+                input: { objectAction: "create" },
                 raw: JSON.stringify({
-                  elements: JSON.stringify([{ type: "rectangle", id: "first", x: 0, y: 0 }]),
-                  objectID: null,
+                  objectAction: "create",
+                  boardAction: "continue_current_board",
                 }),
                 metadata: { objectID: "reserved-object" },
               }),
@@ -214,7 +209,7 @@ describe("whiteboard opening preview", () => {
     expect(closed).toEqual([opened[0]])
   })
 
-  test("keeps an existing populated board mounted while an update streams", async () => {
+  test("never opens the transient loading state for an ordinary update", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -229,27 +224,32 @@ describe("whiteboard opening preview", () => {
       close: () => {},
     }
 
-    await act(async () => {
+    const render = (state: TJsonObject) =>
       root?.render(
         <TransientBenchSurfaceProvider value={transientValue}>
           <WhiteboardOpeningPreview
             directory={DIRECTORY}
             sessionID={SESSION_ID}
-            messages={[
-              createAssistantMessage({
-                status: "running",
-                input: { objectID: "whiteboard-object-1" },
-                raw: JSON.stringify({
-                  objectID: "whiteboard-object-1",
-                  elements: JSON.stringify([
-                    { type: "rectangle", id: "streamed-node", x: 0, y: 0 },
-                  ]),
-                }),
-              }),
-            ]}
+            messages={[createAssistantMessage(state)]}
           />
         </TransientBenchSurfaceProvider>,
       )
+
+    await act(async () => {
+      render({ status: "pending", input: {}, raw: "" })
+    })
+    expect(opened).toHaveLength(0)
+
+    await act(async () => {
+      render({
+        status: "running",
+        input: { objectAction: "update", objectID: "whiteboard-object-1" },
+        raw: JSON.stringify({
+          objectAction: "update",
+          objectID: "whiteboard-object-1",
+          elements: JSON.stringify([{ type: "rectangle", id: "streamed-node", x: 0, y: 0 }]),
+        }),
+      })
     })
 
     expect(opened).toHaveLength(0)

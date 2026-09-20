@@ -19,7 +19,7 @@ export function useClearBrowserProfileData(input: {
         else toast.error(`Could not clear ${label} for ${profileName}`)
       }
       void browser.clearProfileData({ profileID, data }).then(
-        (result) => report(result._tag === "done"),
+        (result) => report(result["_tag"] === "done"),
         () => report(false),
       )
     },
