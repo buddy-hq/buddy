@@ -7,25 +7,23 @@ import { useDirectoryWorkspaceOptional } from "../directory-chat/directory-works
 import { RubiksCube } from "@/icons/app-icons"
 import type { ChatAgentPart, ChatFilePart } from "./utils/part-guards"
 
-type HighlightSegment = { text: string; type?: "file" | "agent" | "command" }
+type HighlightSegment = { text: string; type?: "file" | "agent" | "skill" }
 
 type HighlightReference = {
   start: number
   end: number
-  type: "file" | "agent" | "command"
+  type: "file" | "agent" | "skill"
 }
 
-// A slash command / skill sits only at the very start of a message (the
-// backend contract), so a leading `/name` token followed by a space or the end
-// of the message is rendered as a pill — matching the composer's skill pill —
-// rather than raw "/docx" text. Path-like "/usr/local" never matches: the token
-// must be a bare command name terminated by whitespace or end.
-const LEADING_COMMAND_PATTERN = /^\/([A-Za-z][A-Za-z0-9_-]*)(?=\s|$)/
+// A submitted skill command sits only at the start of a message. This extracts
+// the candidate token; `InlineSkillReference` still requires a catalog match
+// before rendering a pill, so arbitrary `/text` remains ordinary prose.
+const LEADING_SKILL_PATTERN = /^\/([A-Za-z][A-Za-z0-9_-]*)(?=[^A-Za-z0-9_/\\-]|$)/
 
-function readLeadingCommandReference(text: string): HighlightReference | undefined {
-  const match = LEADING_COMMAND_PATTERN.exec(text)
+function readLeadingSkillReference(text: string): HighlightReference | undefined {
+  const match = LEADING_SKILL_PATTERN.exec(text)
   if (!match) return undefined
-  return { start: 0, end: match[0].length, type: "command" }
+  return { start: 0, end: match[0].length, type: "skill" }
 }
 
 function readSourceRange<TValue>(value: TValue): { start: number; end: number } | undefined {
@@ -91,7 +89,7 @@ function InlineFileReference({ text }: { text: string }) {
   )
 }
 
-function stripCommandPrefix(value: string) {
+function stripSkillPrefix(value: string) {
   return value.startsWith("/") ? value.slice(1) : value
 }
 
@@ -99,20 +97,21 @@ function stripCommandPrefix(value: string) {
  * The sent form of a composer skill pill, so a message shows the skill the way
  * the composer, the slash menu and the sidebar do.
  */
-function InlineCommandReference({ text }: { text: string }) {
+function InlineSkillReference({ text }: { text: string }) {
   const workspace = useDirectoryWorkspaceOptional()
   const skillPresentation = useSkillPresentationLookup(workspace?.directory)
-  const name = stripCommandPrefix(text)
+  const name = stripSkillPrefix(text)
   const presentation = skillPresentation(name)
+  if (!presentation) return <>{text}</>
 
   return (
     <span className={INLINE_REFERENCE_CLASS}>
       <SkillIconMark
-        icon={presentation?.icon}
+        icon={presentation.icon}
         className={INLINE_REFERENCE_SKILL_ICON_CLASS}
         fallback={<RubiksCube className={INLINE_REFERENCE_ICON_CLASS} />}
       />
-      <span className="truncate">{presentation?.displayName ?? name}</span>
+      <span className="truncate">{presentation.displayName}</span>
     </span>
   )
 }
@@ -125,7 +124,7 @@ export function HighlightedText({
 }: THighlightedTextProps) {
   const segments = useMemo(() => {
     const allRefs = [
-      readLeadingCommandReference(text),
+      readLeadingSkillReference(text),
       ...references.map(readFileHighlightReference),
       ...agents.map(readAgentHighlightReference),
     ]
@@ -192,8 +191,8 @@ export function HighlightedText({
       {keyedSegments.map(({ key, segment }) =>
         segment.type === "file" ? (
           <InlineFileReference key={key} text={segment.text} />
-        ) : segment.type === "command" ? (
-          <InlineCommandReference key={key} text={segment.text} />
+        ) : segment.type === "skill" ? (
+          <InlineSkillReference key={key} text={segment.text} />
         ) : (
           <span key={key} className={segment.type === "agent" ? "font-medium" : undefined}>
             {segment.text}

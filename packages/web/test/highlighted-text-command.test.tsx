@@ -9,7 +9,13 @@ import {
   TestQueryClientProvider,
 } from "./query-test-utils"
 
-describe("highlighted text leading command", () => {
+const DOCX_SKILL = {
+  name: "docx",
+  displayName: "Documents",
+  shortDescription: "Create and edit documents",
+}
+
+describe("highlighted text leading skill", () => {
   let container: HTMLDivElement
   let root: Root
   let queryClient: ReturnType<typeof createTestQueryClient>
@@ -39,14 +45,38 @@ describe("highlighted text leading command", () => {
     })
   }
 
-  test("renders a leading slash command as an icon pill without the slash", async () => {
+  test("renders a catalogued leading skill as an icon pill", async () => {
+    seedSkillPresentations(queryClient, undefined, [DOCX_SKILL])
     await render("/docx what is this")
-    // The rubiks-cube pill renders an <svg>, and the command name drops its "/".
+
     expect(container.querySelector("svg")).not.toBeNull()
-    expect(container.textContent).toBe("docx what is this")
+    expect(container.textContent).toBe("Documents what is this")
+  })
+
+  test("renders a catalogued leading skill before punctuation", async () => {
+    seedSkillPresentations(queryClient, undefined, [DOCX_SKILL])
+    await render("/docx, then summarize it")
+
+    expect(container.querySelector("svg")).not.toBeNull()
+    expect(container.textContent).toBe("Documents, then summarize it")
+  })
+
+  test("leaves an unknown leading slash token as ordinary text", async () => {
+    seedSkillPresentations(queryClient, undefined, [DOCX_SKILL])
+    await render("/anything what is this")
+
+    expect(container.querySelector("svg")).toBeNull()
+    expect(container.textContent).toBe("/anything what is this")
   })
 
   test("leaves paths and mid-text slashes as plain text", async () => {
+    seedSkillPresentations(queryClient, undefined, [
+      {
+        name: "usr",
+        displayName: "User directory",
+        shortDescription: "A skill whose name is also a path segment",
+      },
+    ])
     await render("/usr/local/bin holds it")
     expect(container.querySelector("svg")).toBeNull()
     expect(container.textContent).toBe("/usr/local/bin holds it")

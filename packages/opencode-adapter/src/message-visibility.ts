@@ -50,11 +50,15 @@ export function isHiddenFromUserMessageInfo(message: MessageVisibilityInfo): boo
   )
 }
 
+/**
+ * Returns whether a text part belongs in user-facing transcript content.
+ * OpenCode marks assistant-only context as `synthetic` and user-only display
+ * text as `ignored`, so ignored text remains visible here.
+ */
 export function isVisibleToUserTextPartInfo(part: TextPartVisibilityInfo): boolean {
   return (
     part.type === "text" &&
     part.synthetic !== true &&
-    part.ignored !== true &&
     !HiddenPromptTextPartMetadataSchema.safeParse(part.metadata).success
   )
 }
