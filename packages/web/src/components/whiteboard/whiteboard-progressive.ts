@@ -567,7 +567,6 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
     input.baseViewport ? { viewport: input.baseViewport } : undefined,
   )
   let appliedProgram = false
-  let hasStreamingTool = false
 
   for (const message of input.messages) {
     const messageAllowsStreaming =
@@ -615,7 +614,6 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
       ) {
         continue
       }
-      hasStreamingTool = true
       const program = readProgramFromRaw(toolState.raw, "streaming")
       if (program.length === 0) continue
       state = applyProgressiveProgram({
@@ -628,7 +626,6 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
   }
 
   if (!appliedProgram) return undefined
-  if (!hasStreamingTool && input.baseBoardID !== undefined) return undefined
   return toVisiblePreview(state)
 }
 

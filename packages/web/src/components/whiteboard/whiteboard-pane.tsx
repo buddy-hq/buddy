@@ -2,6 +2,7 @@ import { toast } from "@buddy/ui"
 import type { ObjectWhiteboardObjectReadResponse } from "@buddy/sdk/types"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useReducedMotion } from "motion/react"
 import { usePlatform } from "@/context/platform"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
@@ -13,6 +14,7 @@ import type {
 } from "./whiteboard-elements"
 import {
   buildProgressiveWhiteboardPreviewFromMessages,
+  buildProgressiveWhiteboardSignature,
   countCompletedWhiteboardCreate,
   hasActiveWhiteboardCreate,
   hasLatestFailedWhiteboardCreate,
@@ -20,6 +22,7 @@ import {
   resolveStickyProgressiveWhiteboardPreview,
   type ProgressiveWhiteboardPreview,
 } from "./whiteboard-progressive"
+import { useWhiteboardPresentation } from "./whiteboard-presentation"
 import { useLiveWhiteboardMessages } from "./whiteboard-live-messages"
 import { createWhiteboardShareJson } from "./whiteboard-share"
 import type {
@@ -209,6 +212,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   const previousBoardKeyRef = useRef<string>()
   const previousBusyRef = useRef(isBusy)
   const surfaceActive = useBenchSurfaceActive()
+  const reducedMotion = useReducedMotion() === true
   const settleLearnerSaveRef = useRef<() => Promise<WhiteboardLearnerSaveSettlement>>()
   const objectQuery = useQuery({
     ...whiteboardObjectQueryOptions(directory, objectID ?? ""),
@@ -255,28 +259,50 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     [messages, objectID],
   )
   const [progressivePreview, setProgressivePreview] = useState<ProgressiveWhiteboardPreview>()
+  const presentationBase = useMemo<ProgressiveWhiteboardPreview>(() => {
+    const elements = currentBoard?.elements ?? []
+    const viewport = currentBoard?.viewport
+    return Object.assign(
+      {
+        elements,
+        signature: buildProgressiveWhiteboardSignature(
+          Object.assign({ elements }, viewport ? { viewport } : undefined),
+        ),
+      },
+      viewport ? { viewport } : undefined,
+    )
+  }, [currentBoard?.elements, currentBoard?.viewport])
+  const presentedProgressivePreview = useWhiteboardPresentation({
+    base: presentationBase,
+    target: progressivePreview,
+    animate: surfaceActive && !reducedMotion,
+  })
   const shouldUseFetchedBoardDuringActiveCreate = shouldPreferFetchedBoardDuringActiveCreate({
     activeBase: activeWhiteboardBase,
     currentBoardID: currentBoard?.boardID,
     hasActiveWhiteboardCreateTool,
   })
   const displayedBoard = useMemo(() => {
-    if (currentBoard && progressivePreview && !shouldUseFetchedBoardDuringActiveCreate) {
+    if (currentBoard && presentedProgressivePreview && !shouldUseFetchedBoardDuringActiveCreate) {
       return Object.assign(
         {
           ...currentBoard,
-          elements: progressivePreview.elements,
+          elements: presentedProgressivePreview.elements,
         },
-        progressivePreview.viewport ? { viewport: progressivePreview.viewport } : undefined,
+        presentedProgressivePreview.viewport
+          ? { viewport: presentedProgressivePreview.viewport }
+          : undefined,
       )
     }
     if (currentBoard) return currentBoard
-    if (!progressivePreview) return undefined
+    if (!presentedProgressivePreview) return undefined
     return Object.assign(
-      { elements: progressivePreview.elements },
-      progressivePreview.viewport ? { viewport: progressivePreview.viewport } : undefined,
+      { elements: presentedProgressivePreview.elements },
+      presentedProgressivePreview.viewport
+        ? { viewport: presentedProgressivePreview.viewport }
+        : undefined,
     )
-  }, [currentBoard, progressivePreview, shouldUseFetchedBoardDuringActiveCreate])
+  }, [currentBoard, presentedProgressivePreview, shouldUseFetchedBoardDuringActiveCreate])
   const showOpeningAnimation = shouldShowWhiteboardOpeningAnimation({
     hasDisplayedBoard: Boolean(displayedBoard),
     hasActiveWhiteboardCreateTool,
@@ -528,7 +554,14 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
               board={displayedBoard}
               viewportOverride={canvasViewport}
               renderReportKey={renderReportKey}
-              readOnly={Boolean(progressivePreview) || hasActiveWhiteboardCreateTool}
+              progressive={
+                Boolean(progressivePreview || presentedProgressivePreview) &&
+                !shouldUseFetchedBoardDuringActiveCreate
+              }
+              readOnly={
+                Boolean(progressivePreview || presentedProgressivePreview) ||
+                hasActiveWhiteboardCreateTool
+              }
               reportReadOnlyBoard={shouldUseFetchedBoardDuringActiveCreate}
               shareAction={shareAction}
               onViewportChange={captureLiveViewport}

@@ -22,7 +22,10 @@ function WhiteboardOpeningPreview(props: WhiteboardOpeningPreviewProps) {
   const activeTool = useMemo(() => readLatestActiveWhiteboardCreate(messages), [messages])
   const previewToolKey = (() => {
     if (!activeTool) return undefined
-    if (activeTool.sessionID !== props.sessionID || activeTool.requestKind === "existing") {
+    // Tool parts start with empty input. Wait until the request resolves as a new-board create
+    // (from objectAction/create or the legacy objectID:null shape): creates still mount before any
+    // element blocks arrive, while ordinary updates never cover their already-mounted board.
+    if (activeTool.sessionID !== props.sessionID || activeTool.requestKind !== "new") {
       return undefined
     }
     return activeTool.toolKey

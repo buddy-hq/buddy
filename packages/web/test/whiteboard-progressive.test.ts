@@ -603,6 +603,42 @@ describe("whiteboard progressive drawing", () => {
     ).toEqual(["learner-edit", "new", "final-label"])
   })
 
+  test("presents a newer completed tool result even when no running snapshot rendered", () => {
+    const completedElements = JSON.stringify([
+      { type: "rectangle", id: "final", x: 160, y: 0, width: 120, height: 60 },
+    ])
+    const messages = [
+      createAssistantMessage([
+        {
+          id: "part-1",
+          sessionID: "session-1",
+          messageID: "message-1",
+          type: "tool",
+          tool: "whiteboard_create_view",
+          state: {
+            status: "completed",
+            input: {
+              boardAction: "continue_current_board",
+              elements: completedElements,
+            },
+            output: "",
+            title: "",
+            time: { start: 1, end: 2 },
+            metadata: { boardID: "01J00000000000000000000001" },
+          },
+        },
+      ]),
+    ] satisfies MessageWithParts[]
+
+    expect(
+      buildProgressiveWhiteboardPreviewFromMessages({
+        messages,
+        baseBoardID: "01H00000000000000000000000",
+        baseElements: [{ type: "rectangle", id: "persisted", x: 0, y: 0, width: 120, height: 60 }],
+      })?.elements.map((element) => element.id),
+    ).toEqual(["persisted", "final"])
+  })
+
   test("tracks completed whiteboard writes that are not fetched yet", () => {
     const messages = [
       createAssistantMessage([

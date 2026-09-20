@@ -205,6 +205,8 @@ type WhiteboardCanvasProps = {
   viewportOverride?: WhiteboardViewport
   renderReportKey?: string
   readOnly: boolean
+  /** Paint partial tool output immediately; font loading and scene settling continue underneath. */
+  progressive?: boolean
   reportReadOnlyBoard?: boolean
   shareAction?: WhiteboardCanvasShareAction
   onSave: WhiteboardLearnerSaveHandler
@@ -252,8 +254,12 @@ function prepareConvertedElements(
         }
       : element,
   )
-  return restore({ elements: normalized, files: {} }, null, null, { refreshDimensions: true })
-    .elements
+  // Excalidraw refreshes text dimensions inside its binding-repair pass, including native text
+  // whose persisted dimensions were measured before the requested font became available.
+  return restore({ elements: normalized, files: {} }, null, null, {
+    repairBindings: true,
+    refreshDimensions: true,
+  }).elements
 }
 
 function convertPreparedElements(
@@ -323,6 +329,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   const onSaveSettlerChange = props.onSaveSettlerChange
   const [fontsReady, setFontsReady] = useState(false)
   const [canvasSettled, setCanvasSettled] = useState(false)
+  const [progressiveCanvasMounted, setProgressiveCanvasMounted] = useState(false)
   const [density, setDensity] = useState<WhiteboardDensity>(WHITEBOARD_DENSITY_COMFORTABLE)
   const workspace = useDirectoryWorkspaceOptional()
   const immersive = workspace?.projection.bench.mode === BENCH_CHAT_LAYOUT_FLOATING
@@ -339,9 +346,11 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   const renderReportRef = useRef(props.onRenderReport)
   const viewportChangeRef = useRef(props.onViewportChange)
   const readOnlyRef = useRef(props.readOnly)
+  const progressiveRef = useRef(props.progressive ?? false)
   const previousReadOnlyRef = useRef(props.readOnly)
   const reportReadOnlyBoardRef = useRef(props.reportReadOnlyBoard ?? false)
   const fontsReadyRef = useRef(false)
+  const appliedFontRevisionRef = useRef(0)
   const boardIDRef = useRef(props.board.boardID)
   const pendingBoardIDRef = useRef(props.board.boardID)
   const lastRenderReportSignatureRef = useRef<string>()
@@ -357,11 +366,17 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   const saveSchedulerRef = useRef(
     createWhiteboardLearnerSaveScheduler({ delayMs: LEARNER_EDIT_DEBOUNCE_MS }),
   )
+  // Font readiness changes the conversion even when a progressive canvas was already visible.
+  const canvasReadiness = fontsReady
+    ? "fonts-ready"
+    : props.progressive || progressiveCanvasMounted
+      ? "fallback-fonts"
+      : "waiting"
   const conversion = useMemo<{
     elements: OrderedExcalidrawElement[]
     warning?: string
   }>(() => {
-    if (!fontsReady) return { elements: [] }
+    if (canvasReadiness === "waiting") return { elements: [] }
     const prepared = toEditorElementConversion(props.board.elements)
     try {
       const converted = prepareConvertedElements(convertPreparedElements(prepared))
@@ -375,7 +390,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
         warning: `Whiteboard rendering skipped invalid element data: ${error instanceof Error ? error.message : String(error)}`,
       }
     }
-  }, [fontsReady, props.board.elements])
+  }, [canvasReadiness, props.board.elements])
   const elements = conversion.elements
   latestElementsRef.current = elements
   const viewport = props.viewportOverride ?? props.board.viewport
@@ -595,6 +610,10 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   }, [props.readOnly])
 
   useEffect(() => {
+    progressiveRef.current = props.progressive ?? false
+  }, [props.progressive])
+
+  useEffect(() => {
     reportReadOnlyBoardRef.current = props.reportReadOnlyBoard ?? false
     scheduleRenderReport()
   }, [props.reportReadOnlyBoard, scheduleRenderReport])
@@ -655,10 +674,11 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   useEffect(() => {
     baselineRef.current = elementVersionSignature(elements)
     const wasReadOnly = previousReadOnlyRef.current
-    previousReadOnlyRef.current = props.readOnly
     const api = apiRef.current
     if (!api) return
     if (initialViewportScenePendingRef.current) return
+    previousReadOnlyRef.current = props.readOnly
+    const shouldApplyFontRevision = fontsReady && appliedFontRevisionRef.current < 1
     const currentElements = api.getSceneElements()
     const remoteSceneUpdate = resolveWhiteboardRemoteSceneUpdate({
       currentElementSignature: elementVersionSignature(currentElements),
@@ -666,18 +686,24 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
       wasReadOnly,
       isReadOnly: props.readOnly,
     })
-    if (remoteSceneUpdate.shouldApply) {
+    // Progressive text can first paint with fallback fonts. Font readiness is a durable revision,
+    // not a one-render edge: if the API or initial scene is not ready yet, a later settled render
+    // still reapplies the measured scene exactly once.
+    if (remoteSceneUpdate.shouldApply || shouldApplyFontRevision) {
       // Excalidraw can emit delayed onChange callbacks after updateScene. Keep autosave disarmed
       // until settleScene captures the normalized scene as the new learner-edit baseline.
       autosaveReadyRef.current = false
       applySceneToApi(
         api,
-        remoteSceneUpdate.preserveCurrentElements ? [...currentElements] : elements,
+        !shouldApplyFontRevision && remoteSceneUpdate.preserveCurrentElements
+          ? [...currentElements]
+          : elements,
         "mounted-update",
       )
+      if (shouldApplyFontRevision) appliedFontRevisionRef.current = 1
     }
     if (props.readOnly) {
-      if (props.reportReadOnlyBoard) {
+      if (props.reportReadOnlyBoard || shouldApplyFontRevision) {
         settleScene(api)
       }
       return
@@ -686,7 +712,9 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
     settleScene(api)
   }, [
     applySceneToApi,
+    canvasSettled,
     elements,
+    fontsReady,
     props.board.boardID,
     props.readOnly,
     props.reportReadOnlyBoard,
@@ -696,6 +724,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   const setApi = useCallback(
     (api: ExcalidrawImperativeAPI) => {
       apiRef.current = api
+      if (progressiveRef.current) setProgressiveCanvasMounted(true)
       setCanvasSettled(false)
       cancelPendingInitialViewportFrame()
       cancelPendingInitialViewportFallback()
@@ -846,13 +875,15 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
       className="relative h-full w-full overflow-hidden"
     >
       <style>{WHITEBOARD_CANVAS_CSS}</style>
-      {!fontsReady || !canvasSettled ? <WhiteboardCanvasSettlingCover /> : null}
+      {!progressiveCanvasMounted && !props.progressive && (!fontsReady || !canvasSettled) ? (
+        <WhiteboardCanvasSettlingCover />
+      ) : null}
       {conversion.warning ? (
         <div className="absolute top-3 left-3 z-10 max-w-md rounded-md border border-border-warning-base/60 bg-surface-warning-weak/95 px-3 py-2 text-xs text-text-base shadow-sm">
           {conversion.warning}
         </div>
       ) : null}
-      {fontsReady ? (
+      {canvasReadiness !== "waiting" ? (
         <div className="h-full w-full">
           <Excalidraw
             excalidrawAPI={setApi}
