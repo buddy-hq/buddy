@@ -12,18 +12,23 @@ Buddy provides a real browser inside Bench. The user controls the page. The agen
 - Browser profiles have separate Chromium sessions. Persistent profiles keep sign-ins across app
   restarts; Incognito is discarded when Buddy quits.
 - The toolbar contains an address field, Back, Forward, and Reload.
-- A blank tab is labeled **New tab**, shows a globe, and omits `about:blank` from the address field.
+- A blank tab is labeled **New tab**, shows a globe, omits `about:blank` from the address field, and
+  presents a native search surface above recently visited pages.
 - Once loaded, the live page title and favicon replace the blank label and globe. The tab tries the
   session-captured favicon, then the committed page origin's `/favicon.ico`, then the globe.
-- Address field accepts HTTP(S) URLs (localhost defaults to HTTP; other bare hosts default to HTTPS).
+- The native New tab field and address field use the configured search engine for ordinary words and
+  phrases. DuckDuckGo is the default and Google is available in Browser settings.
+- Address fields accept HTTP(S) URLs (localhost defaults to HTTP; other bare hosts default to HTTPS).
+  Explicit unsupported schemes remain blocked instead of becoming search queries.
 - `file:`, `data:`, `javascript:`, and external application links are blocked.
 - OAuth-style `new-window` popups open as hardened child windows. Other allowed HTTP(S) popup
   navigations load in the current Browser tab.
 - Downloads use Chromium's normal download flow.
 - Clipboard read/sanitized write, notifications, and geolocation are allowed. Camera, microphone,
   screen capture, and other unlisted permissions are denied.
-- Settings can create, remove, and select profiles; clear profile cookies/cache; and import cookies
-  from supported installed browsers. Import failures must produce user feedback and structured logs.
+- Settings can choose the default search engine; create, remove, and select profiles; clear profile
+  cookies/cache; and import cookies from supported installed browsers. Import failures must produce
+  user feedback and structured logs.
 - Acceptance pages: Buddy web dev server (local); `https://hibuddy.in` (public authenticated).
 
 ## Agent contract
@@ -92,3 +97,4 @@ Browser v1 is complete when verified on macOS and Windows:
    with feedback.
 7. HTML widget flow is completely unaffected.
 8. Blank tabs show **New tab** / globe; loaded pages show live title / favicon.
+9. New tab and address-bar searches use the selected engine without weakening URL scheme blocking.

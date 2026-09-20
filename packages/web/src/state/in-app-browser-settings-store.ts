@@ -15,6 +15,7 @@ import {
   type InAppBrowserLinkTarget,
   type InAppBrowserSettings,
 } from "@/lib/in-app-browser-settings"
+import type { InAppBrowserSearchEngine } from "@/lib/in-app-browser-search"
 
 const IN_APP_BROWSER_SETTINGS_STORAGE_KEY = "buddy.in-app-browser.v1"
 const IN_APP_BROWSER_SETTINGS_STORAGE_FILE = "buddy.in-app-browser.dat"
@@ -52,6 +53,7 @@ function finishHydration<TError>(attempt: number, error: TError): void {
 
 type InAppBrowserSettingsState = InAppBrowserSettings & {
   setLinkTarget(linkTarget: InAppBrowserLinkTarget): void
+  setDefaultSearchEngine(defaultSearchEngine: InAppBrowserSearchEngine): void
   setDefaultZoomFactor(defaultZoomFactor: InAppBrowserZoomFactor): void
   setDefaultAppearance(defaultAppearance: InAppBrowserAppearance): void
   setDefaultProfileID(defaultProfileID: InAppBrowserProfileID): void
@@ -63,6 +65,7 @@ type InAppBrowserSettingsState = InAppBrowserSettings & {
 function settingsOf(state: InAppBrowserSettingsState): InAppBrowserSettings {
   return {
     linkTarget: state.linkTarget,
+    defaultSearchEngine: state.defaultSearchEngine,
     defaultZoomFactor: state.defaultZoomFactor,
     defaultAppearance: state.defaultAppearance,
     defaultProfileID: state.defaultProfileID,
@@ -76,6 +79,9 @@ export const useInAppBrowserSettingsStore = create<InAppBrowserSettingsState>()(
       ...DEFAULT_IN_APP_BROWSER_SETTINGS,
       setLinkTarget(linkTarget) {
         set({ linkTarget })
+      },
+      setDefaultSearchEngine(defaultSearchEngine) {
+        set({ defaultSearchEngine })
       },
       setDefaultZoomFactor(defaultZoomFactor) {
         set({ defaultZoomFactor })

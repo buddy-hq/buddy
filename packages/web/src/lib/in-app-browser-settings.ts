@@ -18,11 +18,17 @@ import {
   type InAppBrowserProfileID,
 } from "@buddy/browser-contract/profiles"
 import { parseTJsonObject } from "@/components/chat/tools/types"
+import {
+  DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE,
+  parseInAppBrowserSearchEngine,
+  type InAppBrowserSearchEngine,
+} from "@/lib/in-app-browser-search"
 
 export type InAppBrowserLinkTarget = "system" | "browser"
 
 export type InAppBrowserSettings = {
   readonly linkTarget: InAppBrowserLinkTarget
+  readonly defaultSearchEngine: InAppBrowserSearchEngine
   readonly defaultZoomFactor: InAppBrowserZoomFactor
   readonly defaultAppearance: InAppBrowserAppearance
   readonly defaultProfileID: InAppBrowserProfileID
@@ -31,6 +37,7 @@ export type InAppBrowserSettings = {
 
 export const DEFAULT_IN_APP_BROWSER_SETTINGS: InAppBrowserSettings = {
   linkTarget: "system",
+  defaultSearchEngine: DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE,
   defaultZoomFactor: DEFAULT_IN_APP_BROWSER_ZOOM_FACTOR,
   defaultAppearance: DEFAULT_IN_APP_BROWSER_APPEARANCE,
   defaultProfileID: DEFAULT_IN_APP_BROWSER_PROFILE_ID,
@@ -99,6 +106,9 @@ export function parseInAppBrowserSettings<TValue>(value: TValue): InAppBrowserSe
   const defaultProfileID = parseInAppBrowserProfileID(record.defaultProfileID)
   return {
     linkTarget: record.linkTarget === "browser" ? "browser" : "system",
+    defaultSearchEngine:
+      parseInAppBrowserSearchEngine(record.defaultSearchEngine) ??
+      DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE,
     defaultZoomFactor:
       parseInAppBrowserZoomFactor(record.defaultZoomFactor) ?? DEFAULT_IN_APP_BROWSER_ZOOM_FACTOR,
     defaultAppearance:

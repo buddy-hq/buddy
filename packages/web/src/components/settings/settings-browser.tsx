@@ -14,6 +14,10 @@ import {
 } from "@buddy/ui"
 import { usePlatform } from "@/context/platform"
 import {
+  IN_APP_BROWSER_SEARCH_ENGINE_OPTIONS,
+  parseInAppBrowserSearchEngine,
+} from "@/lib/in-app-browser-search"
+import {
   flushInAppBrowserSettings,
   retryInAppBrowserSettingsHydration,
   useInAppBrowserSettingsHydrated,
@@ -35,6 +39,10 @@ const APPEARANCE_OPTIONS: readonly SelectOption[] = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ]
+
+const SEARCH_ENGINE_OPTIONS: readonly SelectOption[] = IN_APP_BROWSER_SEARCH_ENGINE_OPTIONS.map(
+  (engine) => ({ value: engine.id, label: engine.label }),
+)
 
 const LINK_TARGET_OPTIONS: readonly SelectOption[] = [
   { value: "system", label: "Your default browser" },
@@ -77,12 +85,39 @@ function BrowserSettingSelect(props: {
 
 function BrowserDefaultsSection() {
   const settingsHydrated = useInAppBrowserSettingsHydrated()
+  const defaultSearchEngine = useInAppBrowserSettingsStore((state) => state.defaultSearchEngine)
   const defaultZoomFactor = useInAppBrowserSettingsStore((state) => state.defaultZoomFactor)
   const defaultAppearance = useInAppBrowserSettingsStore((state) => state.defaultAppearance)
   const linkTarget = useInAppBrowserSettingsStore((state) => state.linkTarget)
 
   return (
     <SettingsSection title="Defaults">
+      <SettingsRow
+        title="Search engine"
+        description="Used for searches from New tab and the address bar."
+        control={
+          <BrowserSettingSelect
+            label="Default search engine"
+            value={defaultSearchEngine}
+            options={SEARCH_ENGINE_OPTIONS}
+            disabled={!settingsHydrated}
+            onValueChange={(value) => {
+              const searchEngine = parseInAppBrowserSearchEngine(value)
+              if (searchEngine) {
+                const store = useInAppBrowserSettingsStore.getState()
+                const previous = store.defaultSearchEngine
+                store.setDefaultSearchEngine(searchEngine)
+                flushBrowserDefault({
+                  isCurrent: () =>
+                    useInAppBrowserSettingsStore.getState().defaultSearchEngine === searchEngine,
+                  revert: () =>
+                    useInAppBrowserSettingsStore.getState().setDefaultSearchEngine(previous),
+                })
+              }
+            }}
+          />
+        }
+      />
       <SettingsRow
         title="Zoom"
         description="Page zoom applied to new browser tabs."

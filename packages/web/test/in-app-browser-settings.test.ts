@@ -33,6 +33,7 @@ describe("Browser settings", () => {
     expect(
       parseInAppBrowserSettings({
         linkTarget: "browser",
+        defaultSearchEngine: "askjeeves",
         defaultZoomFactor: 1.3,
         defaultAppearance: "sepia",
         defaultProfileID: "work",
@@ -45,6 +46,7 @@ describe("Browser settings", () => {
       }),
     ).toEqual({
       linkTarget: "browser",
+      defaultSearchEngine: "duckduckgo",
       defaultZoomFactor: 1,
       defaultAppearance: "system",
       defaultProfileID: DEFAULT_IN_APP_BROWSER_PROFILE_ID,
@@ -73,10 +75,34 @@ describe("Browser settings", () => {
 
   test("moves the default back to Default when its profile is removed", () => {
     const { settings, profile } = addedProfile("Work", "work")
-    const withWorkDefault = { ...settings, defaultProfileID: profile.id }
-    expect(removeInAppBrowserProfile(withWorkDefault, profile.id)).toEqual(
-      DEFAULT_IN_APP_BROWSER_SETTINGS,
-    )
+    const withWorkDefault = {
+      ...settings,
+      defaultProfileID: profile.id,
+      defaultSearchEngine: "google" as const,
+    }
+    expect(removeInAppBrowserProfile(withWorkDefault, profile.id)).toEqual({
+      ...DEFAULT_IN_APP_BROWSER_SETTINGS,
+      defaultSearchEngine: "google",
+    })
+  })
+
+  test("parses a supported search engine without disturbing other defaults", () => {
+    expect(parseInAppBrowserSettings({ defaultSearchEngine: "google" })).toEqual({
+      ...DEFAULT_IN_APP_BROWSER_SETTINGS,
+      defaultSearchEngine: "google",
+    })
+  })
+
+  test("keeps the selected search engine across the store persistence boundary", () => {
+    const partialize = useInAppBrowserSettingsStore.persist.getOptions().partialize
+    if (!partialize) throw new Error("Expected Browser settings persistence projection")
+    const persisted = partialize({
+      ...useInAppBrowserSettingsStore.getState(),
+      defaultSearchEngine: "google",
+    })
+
+    expect(persisted).toMatchObject({ defaultSearchEngine: "google" })
+    expect(parseInAppBrowserSettings(persisted).defaultSearchEngine).toBe("google")
   })
 
   test("reports failed asynchronous hydration instead of waiting forever", async () => {
