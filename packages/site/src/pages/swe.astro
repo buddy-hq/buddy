@@ -5,8 +5,8 @@
  *
  * The reader is a head of department who clicked through from an outreach
  * email. The page has one job: make it easy to say "yes, we'll host it".
- * Every CTA is the same mailto, and nothing here asks for a date — scheduling
- * happens by email after the yes. It stands alone: no site header or footer.
+ * Every CTA opens the same hosting form in a new tab. It stands alone: no site
+ * header or footer.
  */
 import { Image } from "astro:assets"
 import Landing from "../layouts/Landing.astro"
@@ -14,22 +14,10 @@ import instructorPhoto from "../assets/swe/prashant.jpg"
 
 export const prerender = true
 
-const CONTACT_EMAIL = "prashant.bhudwal@gmail.com"
 const LINKEDIN_URL = "https://www.linkedin.com/in/prashantbhudwal"
 
-const HOST_SUBJECT = "Hosting Agentic Software Engineering at our college"
-const HOST_BODY = [
-  "Hi Prashant,",
-  "",
-  "We would like to host the Agentic Software Engineering workshop for our students.",
-  "",
-  "College:",
-  "Department:",
-  "Approximate number of students:",
-  "",
-  "Thanks,",
-].join("\n")
-const HOST_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(HOST_SUBJECT)}&body=${encodeURIComponent(HOST_BODY)}`
+const HOST_HREF =
+  "https://docs.google.com/forms/d/e/1FAIpQLScJk7Xb2nM36Kibk8jqXKj4OJhGx5e0cGBlMnNpQFINEoNhMw/viewform?usp=sharing&ouid=115831738253025073148"
 
 const seo = {
   title: "Agentic Software Engineering · Free in-person workshop for CS/IT students",
@@ -138,7 +126,7 @@ const faqs = [
   <header class="swe-header">
     <div class="container swe-header__inner">
       <span class="swe-header__title">Agentic Software Engineering</span>
-      <a href={HOST_HREF} class="btn-cta">Host this workshop</a>
+      <a href={HOST_HREF} class="btn-cta" target="_blank" rel="noopener noreferrer">Host this workshop</a>
     </div>
   </header>
 
@@ -168,7 +156,7 @@ const faqs = [
           </div>
 
           <div class="swe-hero__actions">
-            <a href={HOST_HREF} class="btn-cta swe-btn-lg">Host this at your college</a>
+            <a href={HOST_HREF} class="btn-cta swe-btn-lg" target="_blank" rel="noopener noreferrer">Host this at your college</a>
             <a href="#outline" class="btn-secondary swe-btn-lg">See the outline</a>
           </div>
         </div>
@@ -361,7 +349,7 @@ const faqs = [
         <div class="swe-card">
           <p class="swe-card__price">Free</p>
           <p class="swe-card__sub">for your college and your students</p>
-          <a href={HOST_HREF} class="btn-cta swe-btn-lg swe-card__cta">Host this at your college</a>
+          <a href={HOST_HREF} class="btn-cta swe-btn-lg swe-card__cta" target="_blank" rel="noopener noreferrer">Host this at your college</a>
           <dl class="swe-card__facts">
             {
               facts.map((fact) => (
@@ -380,7 +368,7 @@ const faqs = [
       <div class="container swe-closing__inner">
         <h2 class="swe-closing__title">Bring this workshop to your students.</h2>
         <p class="swe-closing__sub">Free, two hours, at your campus in Bengaluru. Reply to confirm your interest—no date needed yet; we’ll arrange the details together.</p>
-        <a href={HOST_HREF} class="btn-cta swe-btn-lg">Host this at your college</a>
+        <a href={HOST_HREF} class="btn-cta swe-btn-lg" target="_blank" rel="noopener noreferrer">Host this at your college</a>
       </div>
     </section>
   </main>
