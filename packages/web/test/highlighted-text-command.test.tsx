@@ -53,6 +53,14 @@ describe("highlighted text leading skill", () => {
     expect(container.textContent).toBe("Documents what is this")
   })
 
+  test("renders a catalogued leading skill before punctuation", async () => {
+    seedSkillPresentations(queryClient, undefined, [DOCX_SKILL])
+    await render("/docx, then summarize it")
+
+    expect(container.querySelector("svg")).not.toBeNull()
+    expect(container.textContent).toBe("Documents, then summarize it")
+  })
+
   test("leaves an unknown leading slash token as ordinary text", async () => {
     seedSkillPresentations(queryClient, undefined, [DOCX_SKILL])
     await render("/anything what is this")
@@ -62,6 +70,13 @@ describe("highlighted text leading skill", () => {
   })
 
   test("leaves paths and mid-text slashes as plain text", async () => {
+    seedSkillPresentations(queryClient, undefined, [
+      {
+        name: "usr",
+        displayName: "User directory",
+        shortDescription: "A skill whose name is also a path segment",
+      },
+    ])
     await render("/usr/local/bin holds it")
     expect(container.querySelector("svg")).toBeNull()
     expect(container.textContent).toBe("/usr/local/bin holds it")

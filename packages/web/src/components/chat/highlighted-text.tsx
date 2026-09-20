@@ -18,7 +18,7 @@ type HighlightReference = {
 // A submitted skill command sits only at the start of a message. This extracts
 // the candidate token; `InlineSkillReference` still requires a catalog match
 // before rendering a pill, so arbitrary `/text` remains ordinary prose.
-const LEADING_SKILL_PATTERN = /^\/([A-Za-z][A-Za-z0-9_-]*)(?=\s|$)/
+const LEADING_SKILL_PATTERN = /^\/([A-Za-z][A-Za-z0-9_-]*)(?=[^A-Za-z0-9_/\\-]|$)/
 
 function readLeadingSkillReference(text: string): HighlightReference | undefined {
   const match = LEADING_SKILL_PATTERN.exec(text)
