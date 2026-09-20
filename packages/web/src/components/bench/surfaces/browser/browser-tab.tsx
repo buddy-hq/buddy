@@ -8,6 +8,7 @@ import {
 import { usePlatform, type InAppBrowserPlatform } from "@/context/platform"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import type { BenchTarget } from "@/lib/bench-navigation"
+import { inAppBrowserSearchEngineLabel } from "@/lib/in-app-browser-search"
 import { BrowserAddressBar } from "./browser-address-bar"
 import { BrowserPageError } from "./browser-error-page"
 import { BrowserMoreMenu } from "./browser-more-menu"
@@ -80,6 +81,8 @@ function HydratedBrowserTab(props: {
   const platform = usePlatform()
   const surfaceActive = useBenchSurfaceActive()
   const defaultProfileID = useInAppBrowserSettingsStore((state) => state.defaultProfileID)
+  const defaultSearchEngine = useInAppBrowserSettingsStore((state) => state.defaultSearchEngine)
+  const searchEngineLabel = inAppBrowserSearchEngineLabel(defaultSearchEngine)
   const [profileID] = useState(() => target.profileID ?? defaultProfileID)
   const profileName = useBrowserProfileName(profileID)
   const [addressFocusRequest, setAddressFocusRequest] = useState(0)
@@ -95,6 +98,7 @@ function HydratedBrowserTab(props: {
   const page = useBrowserPage({
     tabID: target.tabID,
     initialUrl: target.url,
+    searchEngine: defaultSearchEngine,
     browser,
     onAttached: synchronizeAttachedState,
   })
@@ -145,7 +149,8 @@ function HydratedBrowserTab(props: {
         <BrowserAddressBar
           pageUrl={pageUrl}
           focusRequest={addressFocusRequest}
-          onNavigate={page.navigate}
+          searchEngineLabel={searchEngineLabel}
+          onSubmitInput={page.submitInput}
           onOpenExternal={
             isAllowedInAppBrowserUrl(pageUrl) ? () => platform.openLink(pageUrl) : undefined
           }
@@ -186,7 +191,12 @@ function HydratedBrowserTab(props: {
           data-browser-tab-id={target.tabID}
         />
         {pageUrl === IN_APP_BROWSER_BLANK_URL && runtime.error === null ? (
-          <BrowserNewTabPage directory={directory} onOpen={page.navigate} />
+          <BrowserNewTabPage
+            directory={directory}
+            searchEngineLabel={searchEngineLabel}
+            onSubmitInput={page.submitInput}
+            onOpenUrl={page.navigateUrl}
+          />
         ) : null}
         <BrowserPageError error={runtime.error} onReload={page.reload} />
         <BrowserZoomBadge zoomFactor={controls.zoomFactor} />

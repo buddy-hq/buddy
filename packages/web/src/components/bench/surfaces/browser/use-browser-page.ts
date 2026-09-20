@@ -11,6 +11,11 @@ import {
   planInAppBrowserCrashRecovery,
 } from "@/lib/in-app-browser-crash-recovery"
 import {
+  resolveInAppBrowserInput,
+  type InAppBrowserSearchEngine,
+  type RejectedInAppBrowserInput,
+} from "@/lib/in-app-browser-search"
+import {
   createInAppBrowserNavigationTracker,
   inAppBrowserMainFrameLoadFailure,
   inAppBrowserMainFrameNavigationStart,
@@ -28,9 +33,17 @@ import type { InAppBrowserWebview, WithInAppBrowserWebview } from "./in-app-brow
 
 const INVALID_ADDRESS_NOTICE = "Enter a valid HTTP or HTTPS address."
 
+function rejectedInputNotice(reason: RejectedInAppBrowserInput["reason"]): string {
+  if (reason === "empty") return "Enter a search or address."
+  if (reason === "too-long") return "That search or address is too long."
+  if (reason === "unsupported-protocol") return "This address type is not supported."
+  return INVALID_ADDRESS_NOTICE
+}
+
 export function useBrowserPage(input: {
   tabID: string
   initialUrl: string
+  searchEngine: InAppBrowserSearchEngine
   browser: InAppBrowserPlatform
   onAttached: (webview: InAppBrowserWebview, webContentsID: number) => void
 }) {
@@ -320,13 +333,8 @@ export function useBrowserPage(input: {
     }
   }, [])
 
-  const navigate = useCallback(
-    (address: string): boolean => {
-      const url = normalizeInAppBrowserUrl(address)
-      if (!url) {
-        setNotice(INVALID_ADDRESS_NOTICE)
-        return false
-      }
+  const commitNavigation = useCallback(
+    (url: string): boolean => {
       setNotice(null)
       const current = runtimeRef.current
       updateRuntime((current) => ({ ...current, url, loading: true, error: null }))
@@ -347,6 +355,30 @@ export function useBrowserPage(input: {
       return true
     },
     [loadNavigation, restartWebview, updateRuntime],
+  )
+
+  const navigateUrl = useCallback(
+    (address: string): boolean => {
+      const url = normalizeInAppBrowserUrl(address)
+      if (!url) {
+        setNotice(INVALID_ADDRESS_NOTICE)
+        return false
+      }
+      return commitNavigation(url)
+    },
+    [commitNavigation],
+  )
+
+  const submitInput = useCallback(
+    (value: string): boolean => {
+      const resolution = resolveInAppBrowserInput(value, input.searchEngine)
+      if (resolution._tag === "rejected") {
+        setNotice(rejectedInputNotice(resolution.reason))
+        return false
+      }
+      return commitNavigation(resolution.url)
+    },
+    [commitNavigation, input.searchEngine],
   )
 
   const reload = useCallback(() => {
@@ -381,7 +413,8 @@ export function useBrowserPage(input: {
     runtime,
     notice,
     withWebview,
-    navigate,
+    navigateUrl,
+    submitInput,
     reload,
     hardReload,
   }

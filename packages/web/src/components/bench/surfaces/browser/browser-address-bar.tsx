@@ -12,7 +12,8 @@ function addressFor(pageUrl: string): string {
 export function BrowserAddressBar(props: {
   pageUrl: string
   focusRequest: number
-  onNavigate: (address: string) => boolean
+  searchEngineLabel: string
+  onSubmitInput: (address: string) => boolean
   onOpenExternal?: () => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -31,7 +32,7 @@ export function BrowserAddressBar(props: {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const address = draft ?? addressFor(props.pageUrl)
-    if (address.trim() === "" || !props.onNavigate(address)) return
+    if (address.trim() === "" || !props.onSubmitInput(address)) return
     setDraft(null)
     inputRef.current?.blur()
   }
@@ -48,8 +49,8 @@ export function BrowserAddressBar(props: {
     <form className="group/address relative flex min-w-0 flex-1 items-center" onSubmit={submit}>
       <Input
         ref={inputRef}
-        aria-label="Address"
-        placeholder="Search or enter URL"
+        aria-label={`Search with ${props.searchEngineLabel} or enter an address`}
+        placeholder={`Search with ${props.searchEngineLabel} or enter URL`}
         value={draft ?? addressFor(props.pageUrl)}
         autoCapitalize="none"
         autoCorrect="off"

@@ -1,7 +1,8 @@
-import { useMemo } from "react"
+import { useMemo, useState, type FormEvent } from "react"
+import { Button, Input } from "@buddy/ui"
 import { inAppBrowserDisplayUrl } from "@buddy/browser-contract"
 import { BrowserFaviconImage } from "@/components/bench/surfaces/browser/browser-favicon-image"
-import { Globe, XIcon } from "@/icons/app-icons"
+import { Globe, SearchIcon, XIcon } from "@/icons/app-icons"
 import { inAppBrowserFaviconImageSources } from "@/lib/in-app-browser-favicon"
 import type { InAppBrowserHistoryEntry } from "@/lib/in-app-browser-history"
 import { useInAppBrowserHistoryStore } from "@/state/in-app-browser-history-store"
@@ -46,22 +47,63 @@ function BrowserRecentPage(props: {
   )
 }
 
-export function BrowserNewTabPage(props: { directory: string; onOpen: (url: string) => void }) {
+export function BrowserNewTabPage(props: {
+  directory: string
+  searchEngineLabel: string
+  onSubmitInput: (value: string) => boolean
+  onOpenUrl: (url: string) => void
+}) {
   const { directory } = props
+  const [query, setQuery] = useState("")
   const history = useInAppBrowserHistoryStore(
     (state) => state.byDirectory[directory] ?? NO_RECENT_PAGES,
   )
   const recentPages = useMemo(() => history.slice(0, RECENT_PAGES_SHOWN), [history])
 
+  function submitSearch(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault()
+    if (!props.onSubmitInput(query)) return
+    setQuery("")
+  }
+
   return (
     <div className="absolute inset-0 overflow-y-auto bg-background-base">
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-1 px-8 py-12">
+      <div className="mx-auto flex w-full max-w-xl flex-col gap-8 px-8 py-14">
+        <section className="flex flex-col gap-2">
+          <form className="relative" onSubmit={submitSearch}>
+            <SearchIcon
+              aria-hidden
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-icon-base"
+            />
+            <Input
+              aria-label={`Search with ${props.searchEngineLabel}`}
+              placeholder={`Search with ${props.searchEngineLabel}`}
+              autoFocus
+              value={query}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-10 rounded-xl bg-surface-base pl-10 pr-10 text-sm shadow-sm"
+              onChange={(event) => setQuery(event.currentTarget.value)}
+            />
+            <Button
+              type="submit"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Submit search"
+              disabled={!query.trim()}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2"
+            >
+              <SearchIcon className="size-3.5" />
+            </Button>
+          </form>
+        </section>
         {recentPages.length === 0 ? (
-          <p className="pt-16 text-center text-sm text-text-weak">
-            Enter an address to start browsing.
+          <p className="pt-8 text-center text-sm text-text-weak">
+            Recently visited pages will appear here.
           </p>
         ) : (
-          <>
+          <section>
             <h2 className="px-2 text-[11px] font-medium uppercase tracking-wider text-text-weaker">
               Recently visited
             </h2>
@@ -70,7 +112,7 @@ export function BrowserNewTabPage(props: { directory: string; onOpen: (url: stri
                 <BrowserRecentPage
                   key={entry.url}
                   entry={entry}
-                  onOpen={() => props.onOpen(entry.url)}
+                  onOpen={() => props.onOpenUrl(entry.url)}
                   onRemove={() =>
                     useInAppBrowserHistoryStore
                       .getState()
@@ -79,7 +121,7 @@ export function BrowserNewTabPage(props: { directory: string; onOpen: (url: stri
                 />
               ))}
             </ul>
-          </>
+          </section>
         )}
       </div>
     </div>
