@@ -40,8 +40,13 @@ async function createBlankProfile() {
 async function renameProfile(profile: InAppBrowserProfile, name: string) {
   useInAppBrowserSettingsStore.getState().renameProfile({ id: profile.id, name })
   if (await flushInAppBrowserSettings()) return
-  useInAppBrowserSettingsStore.getState().renameProfile({ id: profile.id, name: profile.name })
-  await flushInAppBrowserSettings()
+  const currentProfile = useInAppBrowserSettingsStore
+    .getState()
+    .userProfiles.find((candidate) => candidate.id === profile.id)
+  if (currentProfile?.name === name) {
+    useInAppBrowserSettingsStore.getState().renameProfile({ id: profile.id, name: profile.name })
+    await flushInAppBrowserSettings()
+  }
   toast.error(`Could not rename ${profile.name}`)
 }
 
@@ -49,8 +54,10 @@ async function setDefaultProfile(profile: InAppBrowserProfile) {
   const previousDefaultProfileID = useInAppBrowserSettingsStore.getState().defaultProfileID
   useInAppBrowserSettingsStore.getState().setDefaultProfileID(profile.id)
   if (await flushInAppBrowserSettings()) return
-  useInAppBrowserSettingsStore.getState().setDefaultProfileID(previousDefaultProfileID)
-  await flushInAppBrowserSettings()
+  if (useInAppBrowserSettingsStore.getState().defaultProfileID === profile.id) {
+    useInAppBrowserSettingsStore.getState().setDefaultProfileID(previousDefaultProfileID)
+    await flushInAppBrowserSettings()
+  }
   toast.error(`Could not make ${profile.name} the default`)
 }
 
