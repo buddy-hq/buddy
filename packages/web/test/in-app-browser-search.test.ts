@@ -15,7 +15,7 @@ function resolvedUrl(input: string, engine: "duckduckgo" | "google"): URL {
 
 describe("in-app Browser search", () => {
   test("parses only supported persisted search providers", () => {
-    expect(DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE).toBe("duckduckgo")
+    expect(DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE).toBe("google")
     expect(parseInAppBrowserSearchEngine("duckduckgo")).toBe("duckduckgo")
     expect(parseInAppBrowserSearchEngine("google")).toBe("google")
     expect(parseInAppBrowserSearchEngine("askjeeves")).toBeUndefined()
@@ -31,6 +31,15 @@ describe("in-app Browser search", () => {
     expect(google.origin).toBe("https://www.google.com")
     expect(google.pathname).toBe("/search")
     expect(google.searchParams.get("q")).toBe("weather today")
+
+    for (const query of [
+      "TypeError: cannot read properties of undefined",
+      "error: build failed",
+      "note: see reference",
+      "TODO: ship it",
+    ]) {
+      expect(resolvedUrl(query, "duckduckgo").searchParams.get("q")).toBe(query)
+    }
   })
 
   test("round-trips Unicode and query punctuation without manual encoding", () => {
@@ -74,6 +83,16 @@ describe("in-app Browser search", () => {
       kind: "url",
       url: "https://intranet/admin",
     })
+    expect(resolveInAppBrowserInput("Intranet/admin", "duckduckgo")).toEqual({
+      _tag: "resolved",
+      kind: "url",
+      url: "https://intranet/admin",
+    })
+    expect(resolveInAppBrowserInput("BuildServer:3000/dashboard", "duckduckgo")).toEqual({
+      _tag: "resolved",
+      kind: "url",
+      url: "https://buildserver:3000/dashboard",
+    })
   })
 
   test("searches ambiguous single-label hosts, email addresses, and search operators", () => {
@@ -86,6 +105,9 @@ describe("in-app Browser search", () => {
       kind: "search",
     })
     for (const query of ["site:example.com", "site:example.com cats", "after:2020"]) {
+      expect(resolvedUrl(query, "google").searchParams.get("q")).toBe(query)
+    }
+    for (const query of ["3.5", "1.2", "24/7", "TCP/IP"]) {
       expect(resolvedUrl(query, "google").searchParams.get("q")).toBe(query)
     }
   })

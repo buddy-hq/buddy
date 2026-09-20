@@ -9,8 +9,8 @@ export const IN_APP_BROWSER_SEARCH_ENGINE_OPTIONS = [
 /** Stable identifier for an in-app Browser search provider. */
 export type InAppBrowserSearchEngine = (typeof IN_APP_BROWSER_SEARCH_ENGINE_OPTIONS)[number]["id"]
 
-/** Privacy-oriented search provider used until the user chooses another provider. */
-export const DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE: InAppBrowserSearchEngine = "duckduckgo"
+/** Search provider used until the user chooses another provider. */
+export const DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE: InAppBrowserSearchEngine = "google"
 
 /** Successfully resolved user input. */
 export type ResolvedInAppBrowserInput = {
@@ -55,6 +55,7 @@ const KNOWN_UNSUPPORTED_PROTOCOLS = new Set([
   "mailto",
   "sms",
   "tel",
+  "vbscript",
 ])
 
 function isProtocolControlCodeUnit(codeUnit: number): boolean {
@@ -92,6 +93,9 @@ function explicitProtocol(value: string): string | undefined {
   }
   // A numeric suffix is a bare host port (for example localhost:3000), not a URL scheme.
   if (/^\d+(?:[/?#]|$)/u.test(remainder)) return undefined
+  // URI schemes cannot contain raw whitespace. Treat an unknown `word: phrase` prefix as query
+  // punctuation while the explicit blocked protocols above remain blocked regardless of spacing.
+  if (/\s/u.test(remainder)) return undefined
   return protocol
 }
 
@@ -107,8 +111,34 @@ function looksLikeEmailAddress(value: string): boolean {
   return addressDelimiterIndex < 0 || atIndex < addressDelimiterIndex
 }
 
+function bareAddressHostname(value: string): string {
+  const authority = value.split(/[/?#]/u, 1)[0] ?? value
+  if (authority.startsWith("[")) return authority
+  return authority.replace(/:\d+$/u, "")
+}
+
+function looksLikeIpv4Shorthand(value: string): boolean {
+  const hostname = bareAddressHostname(value)
+  if (!/^\d+(?:\.\d+)*$/u.test(hostname)) return false
+  const octets = hostname.split(".")
+  return octets.length !== 4 || octets.some((octet) => Number(octet) > 255)
+}
+
+function looksLikeAcronymPathQuery(value: string): boolean {
+  const authority = value.split(/[/?#]/u, 1)[0] ?? value
+  if (/:\d+$/u.test(authority)) return false
+  return /^[A-Z][A-Z\d.+-]*\/[A-Z][A-Z\d.+-]*(?:[/?#]|$)/u.test(value)
+}
+
 function looksLikeBareAddress(value: string, normalizedUrl: string): boolean {
-  if (/\s/u.test(value) || looksLikeEmailAddress(value)) return false
+  if (
+    /\s/u.test(value) ||
+    looksLikeEmailAddress(value) ||
+    looksLikeIpv4Shorthand(value) ||
+    looksLikeAcronymPathQuery(value)
+  ) {
+    return false
+  }
   try {
     const hostname = new URL(normalizedUrl).hostname.toLowerCase().replace(/^\[|\]$/gu, "")
     return (
