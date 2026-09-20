@@ -8,6 +8,11 @@ import {
   BUDDY_PROMPT_PART_METADATA_KEY,
   TEXT_FILE_ATTACHMENT_PART_TYPE,
 } from "../src/components/prompt/prompt-types"
+import {
+  createTestQueryClient,
+  seedSkillPresentations,
+  TestQueryClientProvider,
+} from "./query-test-utils"
 import { createMessageWithParts, createUserMessageInfo } from "./test-utils"
 
 const SESSION_ID = "ses_native_resource"
@@ -16,10 +21,12 @@ const UPLOADED_PDF_PATH = "/notebook/uploads/Lesson--abcdefghij.pdf"
 
 describe("user section native resources", () => {
   let container: HTMLDivElement
+  let queryClient: ReturnType<typeof createTestQueryClient> | undefined
   let root: Root
 
   beforeEach(() => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    queryClient = undefined
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -27,6 +34,7 @@ describe("user section native resources", () => {
 
   afterEach(async () => {
     await act(async () => root.unmount())
+    queryClient?.clear()
     container.remove()
   })
 
@@ -83,6 +91,53 @@ describe("user section native resources", () => {
     ).toHaveLength(1)
     expect(container.textContent).not.toContain("Attached native learning resource metadata")
     expect(container.querySelector('[data-action="message-add-note"]')).toBeNull()
+  })
+
+  test("renders user-only slash command text while hiding its model-only context", async () => {
+    const commandQueryClient = createTestQueryClient()
+    queryClient = commandQueryClient
+    seedSkillPresentations(commandQueryClient, undefined, [
+      {
+        name: "whiteboard-authoring",
+        displayName: "Whiteboard",
+        shortDescription: "Create and update the whiteboard",
+      },
+    ])
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: MESSAGE_ID, sessionID: SESSION_ID }),
+      [
+        {
+          id: "prt_command_display",
+          sessionID: SESSION_ID,
+          messageID: MESSAGE_ID,
+          type: "text",
+          text: "/whiteboard-authoring explain the payment flow",
+          ignored: true,
+        },
+        {
+          id: "prt_command_context",
+          sessionID: SESSION_ID,
+          messageID: MESSAGE_ID,
+          type: "text",
+          text: "Expanded whiteboard skill instructions",
+          synthetic: true,
+        },
+      ],
+    )
+
+    await act(async () => {
+      root.render(
+        <TestQueryClientProvider queryClient={commandQueryClient}>
+          <TooltipProvider>
+            <UserSection userMessage={message} providers={[]} />
+          </TooltipProvider>
+        </TestQueryClientProvider>,
+      )
+    })
+
+    expect(container.textContent).toContain("Whiteboard")
+    expect(container.textContent).toContain("explain the payment flow")
+    expect(container.textContent).not.toContain("Expanded whiteboard skill instructions")
   })
 
   test("renders text files as chips while keeping their decoded contents out of the transcript", async () => {
