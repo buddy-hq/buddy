@@ -9,7 +9,7 @@ import {
 
 function resolvedUrl(input: string, engine: "duckduckgo" | "google"): URL {
   const result = resolveInAppBrowserInput(input, engine)
-  if (result._tag !== "resolved") throw new Error(`Expected ${input} to resolve.`)
+  if (result["_tag"] !== "resolved") throw new Error(`Expected ${input} to resolve.`)
   return new URL(result.url)
 }
 

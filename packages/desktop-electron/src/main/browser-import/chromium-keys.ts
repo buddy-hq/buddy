@@ -55,7 +55,7 @@ async function readMacKey(
     location.macKeychain.service,
     location.macKeychain.account,
   )
-  if (outcome._tag === "failed") return keyReadFailed(outcome.reason, outcome.cause)
+  if (outcome["_tag"] === "failed") return keyReadFailed(outcome.reason, outcome.cause)
   const key = pbkdf2Sync(outcome.value, MAC_KEY_SALT, MAC_KEY_ITERATIONS, MAC_KEY_LENGTH, "sha1")
   return { _tag: "key", key: { algorithm: "aes-128-cbc", key } }
 }
@@ -88,7 +88,7 @@ async function readWindowsKey(
   const encrypted = parseWindowsEncryptedKey(localState)
   if (encrypted === undefined) return keyReadFailed("readFailed")
   const outcome = await host.unprotectWindowsData(encrypted)
-  if (outcome._tag === "failed") {
+  if (outcome["_tag"] === "failed") {
     return keyReadFailed("windowsDataProtectionUnavailable", outcome.cause)
   }
   const key = Buffer.from(outcome.bytes)

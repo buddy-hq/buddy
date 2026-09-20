@@ -36,7 +36,7 @@ function registerImportedProfile(
     id: profileID,
     name: uniqueInAppBrowserProfileName(source.name, settings.userProfiles),
   })
-  if (result._tag === "added") return { _tag: "registered", name: result.profile.name }
+  if (result["_tag"] === "added") return { _tag: "registered", name: result.profile.name }
   return {
     _tag: "rejected",
     reason: result.reason === "limit-reached" ? "profileLimitReached" : "profileNotSaved",
@@ -82,7 +82,7 @@ export function useBrowserProfileImport(browser: InAppBrowserPlatform) {
         if (!(await waitForInAppBrowserSettingsHydration())) {
           return { _tag: "blocked", reason: "readFailed" }
         }
-        if (target._tag === "existing" && !findProfile(target.profileID)) {
+        if (target["_tag"] === "existing" && !findProfile(target.profileID)) {
           return { _tag: "blocked", reason: "readFailed" }
         }
         const result = await browser.importCookies({
@@ -90,24 +90,24 @@ export function useBrowserProfileImport(browser: InAppBrowserPlatform) {
           sourceProfileID: input.sourceProfileID,
           profileID: target.profileID,
         })
-        if (result._tag === "failed") return { _tag: "blocked", reason: result.reason }
+        if (result["_tag"] === "failed") return { _tag: "blocked", reason: result.reason }
         const imported = {
           _tag: "imported" as const,
           imported: result.imported,
           skipped: result.skipped,
           skippedDomains: result.skippedDomains,
         }
-        if (target._tag === "existing") {
+        if (target["_tag"] === "existing") {
           return findProfile(target.profileID)
             ? { ...imported, targetName: target.name }
             : { _tag: "blocked", reason: "readFailed" }
         }
         if (result.imported === 0) return { ...imported, targetName: source.name }
         const registration = registerImportedProfile(source, target.profileID)
-        if (registration._tag === "registered" && (await flushInAppBrowserSettings())) {
+        if (registration["_tag"] === "registered" && (await flushInAppBrowserSettings())) {
           return { ...imported, targetName: registration.name }
         }
-        if (registration._tag === "registered") {
+        if (registration["_tag"] === "registered") {
           useInAppBrowserSettingsStore.getState().removeProfile(target.profileID)
           await flushInAppBrowserSettings()
         }
@@ -118,7 +118,7 @@ export function useBrowserProfileImport(browser: InAppBrowserPlatform) {
           })
         return {
           _tag: "blocked",
-          reason: registration._tag === "registered" ? "profileNotSaved" : registration.reason,
+          reason: registration["_tag"] === "registered" ? "profileNotSaved" : registration.reason,
         }
       } catch (error) {
         console.error("[browser-import] Import request failed", error)

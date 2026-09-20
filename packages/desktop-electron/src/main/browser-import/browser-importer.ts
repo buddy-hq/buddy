@@ -201,7 +201,7 @@ export function createBrowserImporter(host: BrowserImportHost): BrowserImporter 
       return Promise.all(
         BROWSER_IMPORT_SOURCES.map(async (definition): Promise<BrowserImportSource> => {
           const assessment = await assessSource(definition)
-          return assessment._tag === "available"
+          return assessment["_tag"] === "available"
             ? {
                 id: definition.id,
                 name: definition.name,
@@ -229,7 +229,7 @@ export function createBrowserImporter(host: BrowserImportHost): BrowserImporter 
           })
         }
         const assessment = await assessSource(definition)
-        if (assessment._tag === "unavailable") {
+        if (assessment["_tag"] === "unavailable") {
           return failedImport({
             sourceID: request.sourceID,
             reason: assessment.reason,
@@ -261,7 +261,7 @@ export function createBrowserImporter(host: BrowserImportHost): BrowserImporter 
           })
         }
         const read = await readSourceCookies(definition, assessment.userDataDirectory, databasePath)
-        if (read._tag === "failed") {
+        if (read["_tag"] === "failed") {
           return failedImport({
             sourceID: request.sourceID,
             reason: read.reason,

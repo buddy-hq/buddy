@@ -112,7 +112,7 @@ export function BrowserImportWizard(props: {
           setSourceProfileID(refreshedProfileID)
         }
         const next = fullDiskAccessRecheckStep(refreshed)
-        if (resume === "import" && next._tag === "configure") {
+        if (resume === "import" && next["_tag"] === "configure") {
           runImportWithSourceProfileID(refreshedProfileID)
           return
         }
@@ -126,7 +126,7 @@ export function BrowserImportWizard(props: {
   }
 
   function renderStep() {
-    switch (step._tag) {
+    switch (step["_tag"]) {
       case "quit":
         return (
           <QuitStep

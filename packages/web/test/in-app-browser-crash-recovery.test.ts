@@ -7,7 +7,7 @@ import {
 
 function restartState(state: InAppBrowserCrashRecoveryState, now: number) {
   const plan = planInAppBrowserCrashRecovery(state, now)
-  if (plan._tag !== "restart") throw new Error("Expected a restart.")
+  if (plan["_tag"] !== "restart") throw new Error("Expected a restart.")
   return plan
 }
 

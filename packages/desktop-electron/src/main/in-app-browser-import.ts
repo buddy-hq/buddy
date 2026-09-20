@@ -82,7 +82,7 @@ export async function importInAppBrowserCookies(
   if (!profileID) return { _tag: "failed", reason: "sessionUnavailable" }
   const cookies = deps.sessions.fromPartition(inAppBrowserProfilePartition(profileID)).cookies
   const result = await deps.importCookies({ sourceID, sourceProfileID, cookies, logger })
-  if (result._tag !== "imported") return result
+  if (result["_tag"] !== "imported") return result
   try {
     await cookies.flushStore()
   } catch {

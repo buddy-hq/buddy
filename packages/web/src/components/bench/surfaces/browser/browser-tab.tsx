@@ -135,7 +135,7 @@ function HydratedBrowserTab(props: {
 
   const partition = inAppBrowserProfilePartition(profileID)
   const pageUrl = runtime.url
-  const status = runtime.error?._tag === "open-failed" ? OPEN_FAILED_NOTICE : page.notice
+  const status = runtime.error?.["_tag"] === "open-failed" ? OPEN_FAILED_NOTICE : page.notice
 
   return (
     <div

@@ -139,7 +139,7 @@ async function decryptChromiumValue(
   if (prefix === "v11") return { _tag: "skipped" }
   if (adapter.platform === "win32") {
     const outcome = await adapter.unprotectWindowsData(record)
-    if (outcome._tag === "failed") return { _tag: "skipped" }
+    if (outcome["_tag"] === "failed") return { _tag: "skipped" }
     const value = stripDomainBinding(Buffer.from(outcome.bytes), host, schemaVersion)
     return value === undefined ? { _tag: "skipped" } : { _tag: "value", value }
   }
@@ -201,9 +201,9 @@ async function decryptChromiumCookieRecords(
             records.schemaVersion,
             host,
           )
-    if (valueRead._tag !== "value") {
+    if (valueRead["_tag"] !== "value") {
       skipped += 1
-      if (valueRead._tag === "appBound") appBoundSkipped += 1
+      if (valueRead["_tag"] === "appBound") appBoundSkipped += 1
       skippedDomains.add(row.host_key.replace(/^\./u, ""))
       continue
     }
@@ -239,7 +239,7 @@ export async function readChromiumCookies(
     openDatabase: host.openDatabase,
     read: readChromiumCookieRecords,
   })
-  if (snapshot._tag === "failed") {
+  if (snapshot["_tag"] === "failed") {
     return { _tag: "failed", reason: "readFailed", cause: snapshot.cause }
   }
   const requiresMasterKey = snapshot.value.rows.some(
@@ -248,7 +248,7 @@ export async function readChromiumCookies(
   let key: ChromiumCookieKey | undefined
   if (requiresMasterKey) {
     const keyRead = await readChromiumCookieKey(host, source)
-    if (keyRead._tag === "failed") return keyRead
+    if (keyRead["_tag"] === "failed") return keyRead
     key = keyRead.key
   }
   return decryptChromiumCookieRecords(snapshot.value, key, host)
