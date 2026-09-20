@@ -20,6 +20,7 @@ import { BenchSurfaceRenderer } from "@/components/bench/bench-surface-renderer"
 import { BenchTabs } from "@/components/bench/bench-tabs"
 import {
   TransientBenchSurfaceProvider,
+  TransientBenchSurfaceStack,
   closeTransientBenchSurface,
   resolveTransientBenchSurfaceLayoutMode,
   type TransientBenchSurface,
@@ -681,7 +682,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     requestPromptComposerFocus(currentDirectory)
   }, [currentDirectory])
   const browserAddressShortcutActive =
-    presentation.benchVisible && presentation.benchTarget?.type === "browser"
+    presentation.benchVisible &&
+    !transientBenchActive &&
+    presentation.benchTarget?.type === "browser"
   useShortcutCommand("composer.focus", handleFocusComposer, {
     enabled: !browserAddressShortcutActive,
   })
@@ -838,6 +841,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
 
   const activeBenchTargetKey = workspace.projection.bench.targetKey ?? CLOSED_BENCH_TARGET_KEY
   const activeBenchTarget = benchRuntimeState?.target ?? null
+  // A transient preview covers the Bench but must not replace its selected target. The host parks
+  // that selection separately so route-commit retention and mounted surface identity survive.
+  const persistentBenchVisible = presentation.benchVisible && !transientBenchActive
   const renderBenchSurface = useCallback(
     (target: BenchTabTarget) => (
       <BenchSurfaceRenderer
@@ -871,7 +877,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         <BenchRouteContextProvider
           state={contentState}
           active={input.active}
-          visible={presentation.benchVisible}
+          visible={persistentBenchVisible}
           activeSessionID={activeSessionID}
           fallbackProvider={fallbackContextProvider}
           setMode={setBenchMode}
@@ -884,7 +890,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     [
       activeSessionID,
       fallbackContextProvider,
-      presentation.benchVisible,
+      persistentBenchVisible,
       setBenchMode,
       setFloatingChatSubstate,
     ],
@@ -898,8 +904,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       <BenchSurfaceHost
         directory={currentDirectory}
         activeTarget={activeBenchTarget}
+        covered={transientBenchActive}
         retainedTargetKeys={retainedBenchTargetKeys}
-        benchVisible={presentation.benchVisible}
+        benchVisible={persistentBenchVisible}
         activeRuntimeState={benchRuntimeState}
         renderContext={renderBenchContext}
         renderSurface={renderBenchSurface}
@@ -1003,17 +1010,10 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                 : handleRightWorkspaceCollapse,
             }}
             bench={
-              transientBenchActive ? (
-                <div
-                  ref={setTransientBenchHost}
-                  data-component="transient-bench-surface-host"
-                  className="h-full min-h-0 w-full min-w-0 bg-background-base"
-                />
-              ) : (
-                // The chat transition no longer swaps in a blank frame. Unmounting the workspace
-                // here destroyed every kept-alive surface on every switch, which is exactly the
-                // rebuild this host exists to prevent. During a transition the projection has no
-                // active target, so BenchSurfaceHost shows nothing while parked surfaces survive.
+              <TransientBenchSurfaceStack
+                active={transientBenchActive}
+                hostRef={setTransientBenchHost}
+              >
                 <DirectoryChatRightWorkspace
                   directory={currentDirectory}
                   sessionID={controller.mainPaneProps.chatState.sessionID}
@@ -1037,7 +1037,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                   bench={benchOutlet}
                   presentation={presentation}
                 />
-              )
+              </TransientBenchSurfaceStack>
             }
             threadBrowserProps={
               presentation.controls.showThreadBrowserInPane

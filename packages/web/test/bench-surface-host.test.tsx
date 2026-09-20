@@ -116,11 +116,13 @@ async function renderHost(
   activationIdentity?: string,
   retainedTargets: readonly BenchTarget[] = [FIRST_TARGET, SECOND_TARGET],
   platform?: Platform,
+  covered = false,
 ) {
   const host = (
     <BenchSurfaceHost
       directory="/workspace"
       activeTarget={target}
+      covered={covered}
       retainedTargetKeys={retainedTargets.map(benchTargetKey)}
       benchVisible={benchVisible}
       activeRuntimeState={undefined}
@@ -326,6 +328,28 @@ describe("BenchSurfaceHost", () => {
         .querySelector(`[data-testid="surface-${benchTargetKey(FIRST_TARGET)}"]`)
         ?.getAttribute("data-runtime-active"),
     ).toBe("true")
+    expect(mountCounts.get(benchTargetKey(FIRST_TARGET))).toBe(1)
+  })
+
+  test("parks a covered selection without losing or remounting its retained instance", async () => {
+    mountCounts.clear()
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await renderHost(FIRST_TARGET, true, undefined, [])
+    const originalInstance = instanceForTarget(FIRST_TARGET)
+
+    await renderHost(FIRST_TARGET, false, undefined, [], undefined, true)
+
+    const coveredInstance = instanceForTarget(FIRST_TARGET)
+    expect(coveredInstance).toBe(originalInstance)
+    expect(coveredInstance?.getAttribute("data-surface-active")).toBe("false")
+    expect(coveredInstance?.hasAttribute("inert")).toBeTrue()
+
+    await renderHost(FIRST_TARGET, true, undefined, [], undefined, false)
+    expect(instanceForTarget(FIRST_TARGET)).toBe(originalInstance)
     expect(mountCounts.get(benchTargetKey(FIRST_TARGET))).toBe(1)
   })
 

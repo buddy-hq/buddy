@@ -74,4 +74,43 @@ describe("Browser shortcut ownership", () => {
     act(dispatchFocusCommand)
     expect(addressFocusCount).toBe(1)
   })
+
+  test("ignores Electron-forwarded guest shortcuts while its surface is parked", async () => {
+    let forwardedShortcut: Parameters<InAppBrowserPlatform["onShortcut"]>[0] | undefined
+    let reloadCount = 0
+    const forwardingBrowser: InAppBrowserPlatform = {
+      ...browser,
+      onShortcut: (callback) => {
+        forwardedShortcut = callback
+        return () => undefined
+      },
+    }
+
+    function Probe(props: { active: boolean }) {
+      useBrowserShortcuts({
+        browser: forwardingBrowser,
+        active: props.active,
+        platform: "macos",
+        webContentsID: 42,
+        handlers: {
+          reload: () => {
+            reloadCount += 1
+          },
+          focusAddress: () => undefined,
+          zoomIn: () => undefined,
+          zoomOut: () => undefined,
+          zoomReset: () => undefined,
+        },
+      })
+      return null
+    }
+
+    await act(async () => root.render(<Probe active={false} />))
+    forwardedShortcut?.({ webContentsID: 42, shortcut: "reload" })
+    expect(reloadCount).toBe(0)
+
+    await act(async () => root.render(<Probe active />))
+    forwardedShortcut?.({ webContentsID: 42, shortcut: "reload" })
+    expect(reloadCount).toBe(1)
+  })
 })
