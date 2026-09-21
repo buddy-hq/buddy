@@ -21,7 +21,12 @@ const STROKE_MAX_CHROMA = 0.14
 const TEXT_MIN_LIGHTNESS = 0.86
 const TEXT_MAX_CHROMA = 0.08
 const MAX_CHANNEL = 255
-const LIGHT_CANVAS: ParsedColor = { alpha: 1, red: MAX_CHANNEL, green: MAX_CHANNEL, blue: MAX_CHANNEL }
+const LIGHT_CANVAS: ParsedColor = {
+  alpha: 1,
+  red: MAX_CHANNEL,
+  green: MAX_CHANNEL,
+  blue: MAX_CHANNEL,
+}
 const COLOR_PROBE_SENTINEL = "#010203"
 const STYLE_LINE_PATTERN = /^\s*(?:style|classDef|linkStyle)\s/u
 const STYLE_COLOR_PATTERN =
