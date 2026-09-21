@@ -1,5 +1,6 @@
-const MERMAID_RENDERER_VERSION = "11.12.0" as const
-const MERMAID_RENDER_CONFIG_VERSION = 3
+import { version as MERMAID_RENDERER_VERSION } from "mermaid/package.json"
+
+const MERMAID_RENDER_CONFIG_VERSION = 4
 
 type MermaidThemeTokens = {
   backgroundBase: string

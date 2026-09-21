@@ -12,6 +12,7 @@ import {
 } from "./persisted-renders"
 import { sanitizeMermaidSvg } from "./svg-sanitize"
 import { normalizeMermaidSvgContrast, type MermaidContrastAdjustment } from "./svg-contrast"
+import { adaptMermaidSourceColors } from "./theme-colors"
 import { scheduleMermaidRender } from "./scheduler"
 
 type MermaidRenderResult = {
@@ -166,7 +167,9 @@ async function browserRenderMermaidSvg(input: {
 
   const renderID = `buddy_mermaid_${input.sourceHash}_${renderCounter}`
   renderCounter += 1
-  const rendered = parseMermaidRenderOutput(await runtime.render(renderID, input.source))
+  const rendered = parseMermaidRenderOutput(
+    await runtime.render(renderID, adaptMermaidSourceColors(input.source, theme)),
+  )
   const rawSvg = rendered.svg
   const bindFunctions = rendered.bindFunctions
 

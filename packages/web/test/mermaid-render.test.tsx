@@ -13,6 +13,7 @@ import {
   renderMermaidSvg,
 } from "../src/components/media/renderers/mermaid/lib/render"
 import { startMermaidAutoRepair } from "../src/components/media/renderers/mermaid/lib/persisted-renders"
+import { createMermaidThemeConfig } from "../src/components/media/renderers/mermaid/lib/theme"
 import { scheduleMermaidRender } from "../src/components/media/renderers/mermaid/lib/scheduler"
 import type { MessagePart } from "../src/state/chat-types"
 import { parseRequestUrl, setBuddyTestGlobal, TEST_MERMAID_RUNTIME_KEY } from "./parse-test-values"
@@ -157,6 +158,39 @@ describe("mermaid render pipeline", () => {
 
   test("does not return cached svg for empty source", () => {
     expect(readCachedMermaidSvg({ source: "   " })).toBeUndefined()
+  })
+
+  test("renders model colors adapted to dark themes", async () => {
+    const renderedSources: string[] = []
+    setBuddyTestGlobal(TEST_MERMAID_RUNTIME_KEY, {
+      initialize: () => {},
+      render: async (_id: string, source: string) => {
+        renderedSources.push(source)
+        return { svg: '<svg xmlns="http://www.w3.org/2000/svg"><g class="node"></g></svg>' }
+      },
+    })
+
+    await renderMermaidSvg({
+      priority: 0,
+      source: "flowchart TD\n  A --> B\n  style A fill:#e8f5e9,stroke:#2e7d32",
+      themeConfig: createMermaidThemeConfig({
+        backgroundBase: "#101116",
+        surfaceBase: "#16171d",
+        surfaceRaisedBase: "#131419",
+        surfaceWeak: "#1d1e25",
+        borderBase: "#34353d",
+        textBase: "#e5e7eb",
+        textStrong: "#f9fafb",
+        textWeak: "#9ca3af",
+        textInvertBase: "#111827",
+        textInteractiveBase: "#60a5fa",
+      }),
+    })
+
+    expect(renderedSources).toHaveLength(1)
+    expect(renderedSources[0]).toContain("style A fill:#")
+    expect(renderedSources[0]).not.toContain("#e8f5e9")
+    expect(renderedSources[0]).not.toContain("#2e7d32")
   })
 
   test("starts auto repair for persisted failed renders when the object is eligible", () => {
