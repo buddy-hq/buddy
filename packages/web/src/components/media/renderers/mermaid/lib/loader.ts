@@ -4,6 +4,7 @@ type TMermaidInitializeConfig = {
   startOnLoad: boolean
   securityLevel: "strict"
   suppressErrorRendering: boolean
+  secure: string[]
   theme?: "base"
   themeVariables?: TMermaidThemeVariables
   deterministicIds?: boolean
@@ -24,6 +25,18 @@ type MermaidRuntime = {
 }
 
 const TEST_MERMAID_RUNTIME_KEY = "__BUDDY_TEST_MERMAID_RUNTIME__"
+const MERMAID_SECURE_CONFIG_KEYS = [
+  "secure",
+  "securityLevel",
+  "startOnLoad",
+  "maxTextSize",
+  "suppressErrorRendering",
+  "maxEdges",
+  "theme",
+  "themeVariables",
+  "themeCSS",
+  "darkMode",
+]
 
 type TGlobalTestMermaidRuntime = typeof globalThis & {
   readonly [TEST_MERMAID_RUNTIME_KEY]?: MermaidRuntime
@@ -42,6 +55,7 @@ function createRuntimeConfig(input?: {
         startOnLoad: false,
         securityLevel: "strict" as const,
         suppressErrorRendering: true,
+        secure: [...MERMAID_SECURE_CONFIG_KEYS],
       },
       input?.themeVariables
         ? {
