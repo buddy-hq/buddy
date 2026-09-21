@@ -4,8 +4,10 @@ import {
   isMacUpdateAvailable,
   parseMacInstallerResult,
   resolveDefaultMacMetadataUrl,
-  resolveMacRecoveryMetadataUrls,
+  resolveMacVersionedMetadataUrls,
 } from "../src/main/custom-mac-updater"
+import { createSerialRunner } from "../src/main/serial-runner"
+import { createUpdateService } from "../src/main/update-service"
 import { resolveMacOsReleaseArtifactFilename } from "../src/shared/release-asset-names"
 import { createTestFetch } from "./helpers/fetch"
 
@@ -26,6 +28,7 @@ afterEach(() => {
 function createTestCustomMacUpdater(input: {
   onDownload?: (version: string) => void
   versions: readonly string[]
+  withoutArchiveAt?: readonly number[]
 }) {
   const architecture = process.arch
   if (architecture !== "arm64" && architecture !== "x64") {
@@ -59,29 +62,29 @@ function createTestCustomMacUpdater(input: {
         return `/tmp/${version}.zip`
       },
       fetchManifest: async () => {
-        const version = input.versions[manifestChecks]
+        const checkIndex = manifestChecks
+        const version = input.versions[checkIndex]
         manifestChecks += 1
         if (!version) {
           throw new Error("Missing test update version")
         }
         return {
-          files: [
-            {
-              sha512: "unused-test-digest",
-              size: TEST_ARCHIVE_SIZE_BYTES,
-              url: resolveMacOsReleaseArtifactFilename(version, architecture, "zip"),
-            },
-          ],
+          files: input.withoutArchiveAt?.includes(checkIndex)
+            ? []
+            : [
+                {
+                  sha512: "unused-test-digest",
+                  size: TEST_ARCHIVE_SIZE_BYTES,
+                  url: resolveMacOsReleaseArtifactFilename(version, architecture, "zip"),
+                },
+              ],
           version,
         }
       },
     },
   )
 
-  return {
-    getManifestChecks: () => manifestChecks,
-    updater,
-  }
+  return { updater }
 }
 
 describe("isMacUpdateAvailable", () => {
@@ -141,35 +144,10 @@ describe("custom mac updater refresh", () => {
     )
   })
 
-  test("replaces a downloaded update when a newer manifest appears", async () => {
-    const versions = [FIRST_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION]
+  test("checking reports a newer build without downloading it", async () => {
     const downloadedVersions: string[] = []
-    const { getManifestChecks, updater } = createTestCustomMacUpdater({
-      onDownload: (version) => downloadedVersions.push(version),
-      versions,
-    })
-
-    await expect(updater.checkForUpdate({ ring: "preview" })).resolves.toEqual({
-      updateAvailable: true,
-      version: FIRST_UPDATE_VERSION,
-    })
-    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(true)
-    await expect(updater.checkForUpdate({ ring: "preview" })).resolves.toEqual({
-      updateAvailable: true,
-      version: REPLACEMENT_UPDATE_VERSION,
-    })
-    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(false)
-    expect(updater.isUpdateReady(REPLACEMENT_UPDATE_VERSION)).toBe(true)
-    await expect(updater.checkForUpdate({ ring: "preview" })).resolves.toEqual({
-      updateAvailable: true,
-      version: REPLACEMENT_UPDATE_VERSION,
-    })
-    expect(getManifestChecks()).toBe(versions.length)
-    expect(downloadedVersions).toEqual([FIRST_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION])
-  })
-
-  test("keeps a downloaded update ready when manifest revalidation fails", async () => {
     const { updater } = createTestCustomMacUpdater({
+      onDownload: (version) => downloadedVersions.push(version),
       versions: [FIRST_UPDATE_VERSION],
     })
 
@@ -177,15 +155,159 @@ describe("custom mac updater refresh", () => {
       updateAvailable: true,
       version: FIRST_UPDATE_VERSION,
     })
+    expect(downloadedVersions).toEqual([])
+    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(false)
+  })
+
+  test("downloads the build a check offered and makes it installable", async () => {
+    const downloadedVersions: string[] = []
+    const { updater } = createTestCustomMacUpdater({
+      onDownload: (version) => downloadedVersions.push(version),
+      versions: [FIRST_UPDATE_VERSION, FIRST_UPDATE_VERSION],
+    })
+
+    await updater.checkForUpdate({ ring: "preview" })
+    await expect(
+      updater.downloadUpdate({ ring: "preview", version: FIRST_UPDATE_VERSION }),
+    ).resolves.toEqual({ updateAvailable: true, version: FIRST_UPDATE_VERSION })
+
+    expect(downloadedVersions).toEqual([FIRST_UPDATE_VERSION])
+    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(true)
+  })
+
+  test("rejects manifest drift instead of downloading a replacement build", async () => {
+    const downloadedVersions: string[] = []
+    const { updater } = createTestCustomMacUpdater({
+      onDownload: (version) => downloadedVersions.push(version),
+      versions: [FIRST_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION],
+    })
+
+    await updater.checkForUpdate({ ring: "preview" })
+    await expect(
+      updater.downloadUpdate({ ring: "preview", version: FIRST_UPDATE_VERSION }),
+    ).resolves.toEqual({ failed: true, updateAvailable: false })
+
+    expect(downloadedVersions).toEqual([])
+    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(false)
+    expect(updater.isUpdateReady(REPLACEMENT_UPDATE_VERSION)).toBe(false)
+  })
+
+  test("does not download the same build twice", async () => {
+    const downloadedVersions: string[] = []
+    const { updater } = createTestCustomMacUpdater({
+      onDownload: (version) => downloadedVersions.push(version),
+      versions: [FIRST_UPDATE_VERSION, FIRST_UPDATE_VERSION],
+    })
+
+    await updater.downloadUpdate({ ring: "preview", version: FIRST_UPDATE_VERSION })
+    await updater.downloadUpdate({ ring: "preview", version: FIRST_UPDATE_VERSION })
+
+    expect(downloadedVersions).toEqual([FIRST_UPDATE_VERSION])
+  })
+
+  test("does not reuse a same-version archive from another ring", async () => {
+    const downloadedVersions: string[] = []
+    const { updater } = createTestCustomMacUpdater({
+      onDownload: (version) => downloadedVersions.push(version),
+      versions: [FIRST_UPDATE_VERSION, FIRST_UPDATE_VERSION],
+    })
+
+    await updater.downloadUpdate({ ring: "preview", version: FIRST_UPDATE_VERSION })
+    await updater.downloadUpdate({ ring: "stable", version: FIRST_UPDATE_VERSION })
+
+    expect(downloadedVersions).toEqual([FIRST_UPDATE_VERSION, FIRST_UPDATE_VERSION])
+  })
+
+  test("drops a downloaded build once a newer one is published", async () => {
+    const downloadedVersions: string[] = []
+    const { updater } = createTestCustomMacUpdater({
+      onDownload: (version) => downloadedVersions.push(version),
+      versions: [FIRST_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION],
+    })
+
+    await updater.downloadUpdate({ ring: "preview", version: FIRST_UPDATE_VERSION })
+    await expect(updater.checkForUpdate({ ring: "preview" })).resolves.toEqual({
+      updateAvailable: true,
+      version: REPLACEMENT_UPDATE_VERSION,
+    })
+    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(false)
+
+    await updater.downloadUpdate({ ring: "preview", version: REPLACEMENT_UPDATE_VERSION })
+    expect(updater.isUpdateReady(REPLACEMENT_UPDATE_VERSION)).toBe(true)
+    expect(downloadedVersions).toEqual([FIRST_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION])
+  })
+
+  test("keeps a downloaded update ready when manifest revalidation fails", async () => {
+    const { updater } = createTestCustomMacUpdater({
+      versions: [FIRST_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION],
+      withoutArchiveAt: [1],
+    })
+
+    await updater.downloadUpdate({ ring: "preview", version: FIRST_UPDATE_VERSION })
     await expect(updater.checkForUpdate({ ring: "preview" })).resolves.toEqual({
       failed: true,
       updateAvailable: false,
     })
     expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(true)
   })
+
+  test("withdraws the install offer when a later check invalidates the staged update", async () => {
+    const { updater } = createTestCustomMacUpdater({
+      versions: [FIRST_UPDATE_VERSION, FIRST_UPDATE_VERSION, CURRENT_VERSION],
+    })
+    const installAttempts: string[] = []
+    const service = createUpdateService({
+      currentVersion: CURRENT_VERSION,
+      ring: "preview",
+      supported: true,
+      mechanics: {
+        checkLatest: async ({ ring }) => {
+          const result = await updater.checkForUpdate({ ring })
+          if (result.updateAvailable) return { kind: "available", version: result.version }
+          if (result.failed) return { kind: "failed" }
+          if (result.blocked) return { kind: "blocked" }
+          return { kind: "up-to-date" }
+        },
+        download: async ({ ring, version, onProgress }) => {
+          const result = await updater.downloadUpdate({ ring, version, onProgress })
+          if (!result.updateAvailable) return { kind: "failed" }
+          return { kind: "downloaded", version: result.version }
+        },
+        install: async ({ version }) => {
+          installAttempts.push(version)
+          return updater.isUpdateReady(version) ? { kind: "started" } : { kind: "failed" }
+        },
+      },
+      dependencies: {
+        runExclusive: createSerialRunner().runExclusive,
+        readReleaseNotes: async () => [],
+        persistRing: () => undefined,
+        discardReadyUpdate: () => undefined,
+        reportUnexpectedError: () => undefined,
+        scheduleOnce: () => () => undefined,
+        scheduleRecurring: () => () => undefined,
+        now: () => new Date("2026-09-21T10:00:00.000Z"),
+      },
+    })
+
+    await service.check()
+    await service.download()
+    expect(service.getState().activity).toEqual({
+      status: "downloaded",
+      version: FIRST_UPDATE_VERSION,
+    })
+    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(true)
+
+    const state = await service.check()
+
+    expect(state.activity).toEqual({ status: "up-to-date" })
+    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(false)
+    await service.install()
+    expect(installAttempts).toEqual([])
+  })
 })
 
-describe("resolveMacRecoveryMetadataUrls", () => {
+describe("resolveMacVersionedMetadataUrls", () => {
   test("resolves stable and preview metadata urls by update ring", async () => {
     await expect(resolveDefaultMacMetadataUrl("stable")).resolves.toBe(
       `https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/latest-macos-${process.arch}.json`,
@@ -211,7 +333,7 @@ describe("resolveMacRecoveryMetadataUrls", () => {
   })
 
   test("tries target-specific manifest before pre-migration manifest", () => {
-    expect(resolveMacRecoveryMetadataUrls(ROLLBACK_VERSION)).toEqual([
+    expect(resolveMacVersionedMetadataUrls(ROLLBACK_VERSION)).toEqual([
       `https://github.com/prashantbhudwal/buddy-releases/releases/download/v${ROLLBACK_VERSION}/latest-macos-${process.arch}.json`,
       `https://github.com/prashantbhudwal/buddy-releases/releases/download/v${ROLLBACK_VERSION}/latest-mac.json`,
     ])

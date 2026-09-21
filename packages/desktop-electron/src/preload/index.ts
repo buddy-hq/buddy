@@ -214,17 +214,16 @@ const api: ElectronAPI = {
   setTitlebar: (theme) => ipcRenderer.invoke("set-titlebar", theme),
   loadingWindowComplete: () => ipcRenderer.send("loading-window-complete"),
   getAppVersion: () => appVersion,
-  runUpdater: (alertOnFail) => ipcRenderer.invoke("run-updater", alertOnFail),
-  checkUpdate: () => ipcRenderer.invoke("check-update"),
-  getUpdateProgress: () => ipcRenderer.invoke("get-update-progress"),
-  getUpdateRing: () => ipcRenderer.invoke("get-update-ring"),
-  onUpdateProgress: (cb) => {
-    const handler = (_: IpcRendererEvent, snapshot: Parameters<typeof cb>[0]) => cb(snapshot)
-    ipcRenderer.on("update-progress", handler)
-    return () => ipcRenderer.removeListener("update-progress", handler)
+  getUpdateState: () => ipcRenderer.invoke("update-get-state"),
+  onUpdateState: (cb) => {
+    const handler = (_: IpcRendererEvent, state: Parameters<typeof cb>[0]) => cb(state)
+    ipcRenderer.on("update-state", handler)
+    return () => ipcRenderer.removeListener("update-state", handler)
   },
-  setUpdateRing: (ring) => ipcRenderer.invoke("set-update-ring", ring),
-  installUpdate: () => ipcRenderer.invoke("install-update"),
+  checkUpdate: () => ipcRenderer.invoke("update-check"),
+  downloadUpdate: () => ipcRenderer.invoke("update-download"),
+  installUpdate: () => ipcRenderer.invoke("update-install"),
+  setUpdateRing: (ring) => ipcRenderer.invoke("update-set-ring", ring),
   setBackgroundColor: (color) => ipcRenderer.invoke("set-background-color", color),
   getPathForFile: (file) => {
     try {

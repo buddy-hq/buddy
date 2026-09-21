@@ -1,4 +1,4 @@
-import type { UpdateProgressSnapshot, UpdateRing } from "../shared/update-state"
+import type { UpdateRing, UpdateState } from "@buddy/update-contract"
 import type {
   InAppBrowserAppearanceRequest,
   InAppBrowserAudioMessage,
@@ -114,18 +114,12 @@ export type ElectronAPI = {
   setTitlebar: (theme: TitlebarTheme) => Promise<void>
   loadingWindowComplete: () => void
   getAppVersion: () => string | undefined
-  runUpdater: (alertOnFail: boolean) => Promise<void>
-  checkUpdate: () => Promise<{
-    blocked?: boolean
-    updateAvailable: boolean
-    version?: string
-    failed?: boolean
-  }>
-  getUpdateProgress: () => Promise<UpdateProgressSnapshot>
-  getUpdateRing: () => Promise<UpdateRing>
-  onUpdateProgress: (cb: (snapshot: UpdateProgressSnapshot) => void) => () => void
-  setUpdateRing: (ring: UpdateRing) => Promise<void>
-  installUpdate: () => Promise<void>
+  getUpdateState: () => Promise<UpdateState>
+  onUpdateState: (cb: (state: UpdateState) => void) => () => void
+  checkUpdate: () => Promise<UpdateState>
+  downloadUpdate: () => Promise<UpdateState>
+  installUpdate: () => Promise<UpdateState>
+  setUpdateRing: (ring: UpdateRing) => Promise<UpdateState>
   setBackgroundColor: (color: string) => Promise<void>
   getPathForFile: (file: File) => string
   consumeDroppedFilePaths: () => string[]

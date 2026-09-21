@@ -56,6 +56,7 @@
     "@buddy/script": "workspace:*",
     "@buddy/sdk": "workspace:*",
     "@buddy/ui": "workspace:*",
+    "@buddy/update-contract": "workspace:*",
     "@buddy/web": "workspace:*",
     "@parcel/watcher": "2.5.1",
     "@tailwindcss/vite": "^4.1.18",

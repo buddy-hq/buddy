@@ -205,6 +205,7 @@ export {
   PencilIcon,
   PinIcon,
   PlusIcon,
+  RefreshIcon,
   SearchXIcon,
   SettingsIcon,
   SlidersHorizontalIcon,

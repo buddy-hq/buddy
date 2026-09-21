@@ -35,26 +35,6 @@ import {
   SettingsSection,
 } from "@/components/settings/settings-primitives"
 
-/**
- * Two settings controls that both use a "pick one of two" pattern, and both
- * mis-state what the pick costs.
- *
- * Updates · the channel is a segmented ToggleGroup. Verified in
- * `settings-updates-section.tsx` and `desktop-electron/src/main/index.ts:922`:
- * choosing Preview calls `onCheckForUpdates()`, and on macOS the check *is* the
- * download — `checkCustomMacUpdate` streams progress inside `checkForUpdate`.
- * So a control shaped like a view switch pulls a release candidate onto the
- * machine. `autoUpdater.allowDowngrade = false`, so flipping back to Stable does
- * not undo it. Nothing in the row says any of that.
- *
- * Buddy mode · `FieldLabel` carries `has-data-checked:bg-surface-interactive-weak`
- * (`ui/components/ui/field.tsx:103`). At option-tile scale that tint is a hint; at
- * card scale it floods ~200×70px with brand purple, and the unselected card —
- * transparent, hairline border — reads as disabled rather than as a peer.
- *
- * Everything below is a prototype. No platform calls; state is local.
- */
-
 const CURRENT_VERSION = "0.14.2"
 const PENDING_VERSION = "0.15.0"
 const PREVIEW_PENDING_VERSION = "0.15.0-rc.1"
@@ -63,11 +43,6 @@ type EaselPart = "updates" | "mode"
 
 type UpdateChannel = "stable" | "preview"
 
-/**
- * The six states the panel can be in. `up-to-date` is not an updater status — it
- * is the component's memory of the last `checkUpdate()` return, which today only
- * survives as a toast.
- */
 type UpdateState = "idle" | "checking" | "downloading" | "ready" | "error" | "up-to-date"
 
 type BuddyMode = "learn" | "teach"
@@ -639,18 +614,18 @@ type LedgerEntry = {
 }
 
 const UPDATER_LEDGER: LedgerEntry[] = [
-  { field: "Current version", source: "platform.version", available: true },
-  { field: "Channel", source: "getUpdateRing() / setUpdateRing()", available: true },
-  { field: "Status", source: "UpdateProgressSnapshot.status", available: true },
-  { field: "Percent, bytes, rate", source: "UpdateProgressSnapshot", available: true },
-  { field: "Pending version", source: "UpdateProgressSnapshot.version", available: true },
-  { field: "Install / restart", source: "platform.update() + platform.restart()", available: true },
-  { field: "Last checked at", source: "no field on any snapshot", available: false },
-  { field: "Release notes", source: "never returned to the renderer", available: false },
+  { field: "Current version", source: "UpdateState.currentVersion", available: true },
+  { field: "Channel", source: "UpdateState.ring / setUpdateRing()", available: true },
+  { field: "Status", source: "UpdateState.activity.status", available: true },
+  { field: "Percent, bytes, rate", source: "UpdateState.activity.progress", available: true },
+  { field: "Pending version", source: "UpdateState.activity.version", available: true },
+  { field: "Install / restart", source: "installUpdate()", available: true },
+  { field: "Last checked at", source: "UpdateState.checkedAt", available: true },
+  { field: "Release notes", source: "UpdateState.releaseNotes", available: true },
   {
     field: "Latest available version, before downloading",
-    source: "the check is the download",
-    available: false,
+    source: 'activity.status === "available"',
+    available: true,
   },
 ]
 
