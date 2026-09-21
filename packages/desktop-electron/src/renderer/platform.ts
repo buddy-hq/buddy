@@ -3,10 +3,10 @@ import { IN_APP_BROWSER_WEB_PREFERENCES } from "@buddy/browser-contract"
 import { readBuddyRendererGlobals } from "../shared/parse-external"
 import {
   checkForUpdate,
-  getUpdateProgress,
-  getUpdateRing,
+  downloadUpdate,
+  getUpdateState,
   installPendingUpdate,
-  onUpdateProgress,
+  onUpdateState,
   setUpdateRing,
 } from "./updater"
 
@@ -216,23 +216,23 @@ export function createDesktopPlatform(): Platform {
       await window.api.killBackendUtility().catch(() => undefined)
       window.api.relaunch()
     },
+    getUpdateState() {
+      return getUpdateState()
+    },
+    onUpdateState(cb) {
+      return onUpdateState(cb)
+    },
     checkUpdate() {
       return checkForUpdate()
     },
-    getUpdateProgress() {
-      return getUpdateProgress()
+    downloadUpdate() {
+      return downloadUpdate()
     },
-    getUpdateRing() {
-      return getUpdateRing()
-    },
-    onUpdateProgress(cb) {
-      return onUpdateProgress(cb)
+    installUpdate() {
+      return installPendingUpdate()
     },
     setUpdateRing(ring) {
       return setUpdateRing(ring)
-    },
-    async update() {
-      await installPendingUpdate()
     },
     openLink(url: string) {
       window.api.openLink(url)

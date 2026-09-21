@@ -1,5 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react"
 import { createJSONStorage, type StateStorage } from "zustand/middleware"
+import type { UpdateRing, UpdateState } from "@buddy/update-contract"
 import { browserLocalStorage } from "@/state/parse-external"
 import type {
   InAppBrowserAppearance,
@@ -31,27 +32,6 @@ export type MarkdownPdfExportInput = {
   html: string
   directory: string
   defaultPath: string
-}
-
-export type UpdateCheckResult =
-  | { status: "disabled" }
-  | { status: "up-to-date" }
-  | { status: "blocked" }
-  | { status: "ready"; version?: string }
-  | { status: "error"; stage: "check" | "download" }
-
-export type UpdateRing = "stable" | "preview"
-
-export type UpdateProgressSnapshot = {
-  bytesPerSecond?: number
-  errorStage?: "check" | "download" | "install"
-  message?: string
-  percent?: number
-  ring: UpdateRing
-  status: "idle" | "checking" | "downloading" | "ready" | "installing" | "error"
-  totalBytes?: number
-  transferredBytes?: number
-  version?: string
 }
 
 export type BenchCaptureRectangle = {
@@ -89,12 +69,12 @@ export type Platform = {
   back(): void
   forward(): void
   notify(title: string, description?: string, href?: string): Promise<void>
-  checkUpdate?(): Promise<UpdateCheckResult>
-  getUpdateProgress?(): Promise<UpdateProgressSnapshot>
-  getUpdateRing?(): Promise<UpdateRing>
-  onUpdateProgress?(cb: (snapshot: UpdateProgressSnapshot) => void): () => void
-  setUpdateRing?(ring: UpdateRing): Promise<void>
-  update?(): Promise<void>
+  getUpdateState?(): Promise<UpdateState>
+  onUpdateState?(cb: (state: UpdateState) => void): () => void
+  checkUpdate?(): Promise<UpdateState>
+  downloadUpdate?(): Promise<UpdateState>
+  installUpdate?(): Promise<UpdateState>
+  setUpdateRing?(ring: UpdateRing): Promise<UpdateState>
   parseMarkdown?(markdown: string): Promise<string>
   captureBenchScreenshot?(rectangle: BenchCaptureRectangle): Promise<string>
   inAppBrowser?: InAppBrowserPlatform

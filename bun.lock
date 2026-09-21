@@ -123,6 +123,7 @@
         "@buddy/script": "workspace:*",
         "@buddy/sdk": "workspace:*",
         "@buddy/ui": "workspace:*",
+        "@buddy/update-contract": "workspace:*",
         "@buddy/web": "workspace:*",
         "@parcel/watcher": "2.5.1",
         "@tailwindcss/vite": "^4.1.18",
@@ -239,6 +240,12 @@
         "typescript": "^5.0.0",
       },
     },
+    "packages/update-contract": {
+      "name": "@buddy/update-contract",
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/videos": {
       "name": "@buddy/videos",
       "dependencies": {
@@ -266,6 +273,7 @@
         "@buddy/reader-contract": "workspace:*",
         "@buddy/sdk": "workspace:*",
         "@buddy/ui": "workspace:*",
+        "@buddy/update-contract": "workspace:*",
         "@buddy/workspace-file-policy": "workspace:*",
         "@codemirror/language": "6.12.3",
         "@codemirror/state": "6.6.0",
@@ -1701,6 +1709,8 @@
     "@buddy/site": ["@buddy/site@workspace:packages/site"],
 
     "@buddy/ui": ["@buddy/ui@workspace:packages/ui"],
+
+    "@buddy/update-contract": ["@buddy/update-contract@workspace:packages/update-contract"],
 
     "@buddy/videos": ["@buddy/videos@workspace:packages/videos"],
 

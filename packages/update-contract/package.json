@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/package",
+  "name": "@buddy/update-contract",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/update-state.ts",
+    "./release-notes": "./src/release-notes.ts"
+  },
+  "scripts": {
+    "test": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts",
+    "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
+    "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

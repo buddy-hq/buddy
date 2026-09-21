@@ -1,19 +1,12 @@
 import "../happydom"
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, spyOn, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import {
-  PlatformProvider,
-  type Platform,
-  type UpdateProgressSnapshot,
-  type UpdateRing,
-} from "../src/context/platform"
+import type { UpdateRing, UpdateState } from "@buddy/update-contract"
+import { toast } from "@buddy/ui"
+import { PlatformProvider, type Platform } from "../src/context/platform"
 import { UpdatesSettingsSection } from "../src/components/settings/settings-updates-section"
-import {
-  resolveUpdateBanner,
-  useUpdateSettings,
-  type UpdateSettings,
-} from "../src/components/settings/use-update-settings"
+import { useUpdateControl } from "../src/components/updates/use-update-control"
 import {
   CAPABILITY_FALLBACK_SETTINGS_TAB,
   DEFAULT_SETTINGS_TAB,
@@ -26,18 +19,28 @@ import { t } from "../src/i18n"
 
 const BANNER_SELECTOR = '[data-action="settings-update-banner"]'
 const BANNER_ACTION_SELECTOR = '[data-action="settings-update-banner-action"]'
+const INSTALL_CONFIRM_SELECTOR = '[data-action="update-install-confirm"]'
 
-function createDesktopUpdatePlatform(input?: {
-  onCheck?: () => void
-  onSetRing?: (ring: UpdateRing) => void
-  onUpdate?: () => void
-}) {
-  let ring: UpdateRing = "stable"
-  let progress: UpdateProgressSnapshot = {
+function idleState(ring: UpdateRing = "stable"): UpdateState {
+  return {
+    revision: 0,
     ring,
-    status: "idle",
+    currentVersion: "0.14.2",
+    activity: { status: "idle" },
+    releaseNotes: [],
   }
-  const listeners = new Set<(snapshot: UpdateProgressSnapshot) => void>()
+}
+
+function createDesktopUpdatePlatform(input?: { onCheck?: UpdateState; ringSaveError?: Error }) {
+  let state = idleState()
+  const listeners = new Set<(next: UpdateState) => void>()
+  const calls = { checks: 0, installs: 0, rings: new Array<UpdateRing>() }
+
+  const publish = (next: UpdateState) => {
+    state = { ...next, revision: state.revision + 1 }
+    for (const listener of listeners) listener(state)
+    return state
+  }
 
   const platform: Platform = {
     platform: "desktop",
@@ -47,47 +50,39 @@ function createDesktopUpdatePlatform(input?: {
     back: () => undefined,
     forward: () => undefined,
     notify: async () => undefined,
-    checkUpdate: async () => {
-      input?.onCheck?.()
-      return { status: "up-to-date" }
-    },
-    getUpdateProgress: async () => progress,
-    getUpdateRing: async () => ring,
-    onUpdateProgress: (cb) => {
+    getUpdateState: async () => state,
+    onUpdateState: (cb) => {
       listeners.add(cb)
       return () => {
         listeners.delete(cb)
       }
     },
-    setUpdateRing: async (nextRing) => {
-      ring = nextRing
-      progress = {
-        ring,
-        status: "idle",
-      }
-      input?.onSetRing?.(nextRing)
+    checkUpdate: async () => {
+      calls.checks += 1
+      return publish(input?.onCheck ?? { ...state, activity: { status: "up-to-date" } })
     },
-    update: async () => {
-      input?.onUpdate?.()
+    downloadUpdate: async () => state,
+    installUpdate: async () => {
+      calls.installs += 1
+      return state
+    },
+    setUpdateRing: async (ring) => {
+      if (input?.ringSaveError) throw input.ringSaveError
+      calls.rings.push(ring)
+      return publish(idleState(ring))
     },
   }
 
-  return {
-    emitProgress(snapshot: UpdateProgressSnapshot) {
-      progress = snapshot
-      for (const listener of listeners) {
-        listener(snapshot)
-      }
-    },
-    platform,
-  }
+  return { calls, platform, publish }
 }
 
-let capturedSettings: UpdateSettings | undefined
-
-function UpdateSettingsProbe() {
-  capturedSettings = useUpdateSettings()
-  return null
+function RingChangeProbe() {
+  const { setRing } = useUpdateControl()
+  return (
+    <button type="button" data-action="change-ring-probe" onClick={() => void setRing("preview")}>
+      Change ring
+    </button>
+  )
 }
 
 describe("settings updates", () => {
@@ -101,7 +96,6 @@ describe("settings updates", () => {
     root = null
     container?.remove()
     container = null
-    capturedSettings = undefined
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
@@ -200,97 +194,70 @@ describe("settings updates", () => {
     )
   })
 
-  test("shows the running version and no status strip while the updater is idle", async () => {
+  function render(platform: Platform) {
     const testRoot = mount()
-    const updatePlatform = createDesktopUpdatePlatform()
-
-    await act(async () => {
+    return act(async () => {
       testRoot.render(
-        <PlatformProvider value={updatePlatform.platform}>
+        <PlatformProvider value={platform}>
           <UpdatesSettingsSection />
         </PlatformProvider>,
       )
     })
+  }
+
+  test("shows the running version and no status strip while the updater is idle", async () => {
+    const updatePlatform = createDesktopUpdatePlatform()
+    await render(updatePlatform.platform)
 
     expect(container?.textContent).toContain("0.14.2")
+    expect(container?.textContent).toContain("Not checked yet")
     expect(container?.querySelector(BANNER_SELECTOR)).toBeNull()
   })
 
-  test("saves the channel and checks immediately when Preview is selected", async () => {
-    const testRoot = mount()
-
-    let checkCount = 0
-    let savedRing: UpdateRing | undefined
-    const updatePlatform = createDesktopUpdatePlatform({
-      onCheck: () => {
-        checkCount += 1
-      },
-      onSetRing: (ring) => {
-        savedRing = ring
-      },
-    })
-
-    await act(async () => {
-      testRoot.render(
-        <PlatformProvider value={updatePlatform.platform}>
-          <UpdateSettingsProbe />
-        </PlatformProvider>,
-      )
-    })
-
-    await act(async () => {
-      await capturedSettings?.changeRing("preview")
-    })
-
-    expect(savedRing).toBe("preview")
-    expect(checkCount).toBe(1)
-    expect(capturedSettings?.ring).toBe("preview")
-  })
-
   test("reports an up-to-date check in the status strip", async () => {
-    const testRoot = mount()
     const updatePlatform = createDesktopUpdatePlatform()
+    await render(updatePlatform.platform)
 
     await act(async () => {
-      testRoot.render(
-        <PlatformProvider value={updatePlatform.platform}>
-          <UpdatesSettingsSection />
-        </PlatformProvider>,
-      )
+      container?.querySelector<HTMLButtonElement>('[data-action="settings-check-updates"]')?.click()
     })
 
-    const checkButton = container?.querySelector<HTMLButtonElement>(
-      '[data-action="settings-check-updates"]',
-    )
-    expect(checkButton).not.toBeNull()
-
-    await act(async () => {
-      checkButton?.click()
-    })
-
+    expect(updatePlatform.calls.checks).toBe(1)
     expect(container?.querySelector(BANNER_SELECTOR)?.textContent).toContain("Buddy is up to date")
   })
 
-  test("shows inline download progress snapshots", async () => {
-    const testRoot = mount()
-    const updatePlatform = createDesktopUpdatePlatform()
+  test("offers a download rather than downloading when a check finds an update", async () => {
+    const updatePlatform = createDesktopUpdatePlatform({
+      onCheck: {
+        ...idleState(),
+        activity: { status: "available", version: "0.15.0" },
+        checkedAt: new Date().toISOString(),
+      },
+    })
+    await render(updatePlatform.platform)
 
     await act(async () => {
-      testRoot.render(
-        <PlatformProvider value={updatePlatform.platform}>
-          <UpdatesSettingsSection />
-        </PlatformProvider>,
-      )
+      container?.querySelector<HTMLButtonElement>('[data-action="settings-check-updates"]')?.click()
     })
 
+    const banner = container?.querySelector(BANNER_SELECTOR)
+    expect(banner?.textContent).toContain("Buddy 0.15.0 is available")
+    expect(container?.querySelector(BANNER_ACTION_SELECTOR)?.textContent).toBe("Download")
+    expect(container?.textContent).toContain("Last checked")
+  })
+
+  test("shows inline download progress", async () => {
+    const updatePlatform = createDesktopUpdatePlatform()
+    await render(updatePlatform.platform)
+
     await act(async () => {
-      updatePlatform.emitProgress({
-        percent: 42,
-        ring: "preview",
-        status: "downloading",
-        totalBytes: 100,
-        transferredBytes: 42,
-        version: "0.15.0",
+      updatePlatform.publish({
+        ...idleState(),
+        activity: {
+          status: "downloading",
+          version: "0.15.0",
+          progress: { percent: 42, transferredBytes: 42, totalBytes: 100 },
+        },
       })
     })
 
@@ -299,34 +266,16 @@ describe("settings updates", () => {
     expect(banner?.textContent).toContain("42%")
   })
 
-  test("installs from the status strip once an update is ready", async () => {
-    const testRoot = mount()
-    let updateCount = 0
-    const updatePlatform = createDesktopUpdatePlatform({
-      onUpdate: () => {
-        updateCount += 1
-      },
-    })
+  test("asks before restarting to install, and installs only once confirmed", async () => {
+    const updatePlatform = createDesktopUpdatePlatform()
+    await render(updatePlatform.platform)
 
     await act(async () => {
-      testRoot.render(
-        <PlatformProvider value={updatePlatform.platform}>
-          <UpdatesSettingsSection />
-        </PlatformProvider>,
-      )
-    })
-
-    await act(async () => {
-      updatePlatform.emitProgress({
-        percent: 100,
-        ring: "stable",
-        status: "ready",
-        version: "0.15.0",
+      updatePlatform.publish({
+        ...idleState(),
+        activity: { status: "downloaded", version: "0.15.0" },
       })
     })
-
-    const banner = container?.querySelector(BANNER_SELECTOR)
-    expect(banner?.textContent).toContain("Buddy 0.15.0 is ready")
 
     const installButton = container?.querySelector<HTMLButtonElement>(BANNER_ACTION_SELECTOR)
     expect(installButton?.textContent).toBe("Restart to install")
@@ -335,55 +284,53 @@ describe("settings updates", () => {
       installButton?.click()
     })
 
-    expect(updateCount).toBe(1)
-  })
-})
+    expect(updatePlatform.calls.installs).toBe(0)
+    expect(document.body.textContent).toContain("Restart to install Buddy 0.15.0?")
 
-describe("update banner resolution", () => {
-  test("stays silent while the updater is idle and nothing has been checked", () => {
-    expect(
-      resolveUpdateBanner({
-        progress: { ring: "stable", status: "idle" },
-        checking: false,
-        installFailed: false,
-      }),
-    ).toBeUndefined()
-  })
-
-  test("prefers live progress over the last check result", () => {
-    const banner = resolveUpdateBanner({
-      progress: { ring: "stable", status: "ready", version: "0.15.0" },
-      lastCheck: { status: "up-to-date" },
-      checking: true,
-      installFailed: false,
+    await act(async () => {
+      document.body.querySelector<HTMLButtonElement>(INSTALL_CONFIRM_SELECTOR)?.click()
     })
 
-    expect(banner?.tone).toBe("positive")
-    expect(banner?.action).toBe("install")
-    expect(banner?.title).toBe("Buddy 0.15.0 is ready")
+    expect(updatePlatform.calls.installs).toBe(1)
   })
 
-  test("surfaces a failed install ahead of the ready snapshot it came from", () => {
-    const banner = resolveUpdateBanner({
-      progress: { ring: "stable", status: "ready", version: "0.15.0" },
-      checking: false,
-      installFailed: true,
+  test("keeps the restart offer after a failed install and labels it a retry", async () => {
+    const updatePlatform = createDesktopUpdatePlatform()
+    await render(updatePlatform.platform)
+
+    await act(async () => {
+      updatePlatform.publish({
+        ...idleState(),
+        activity: { status: "downloaded", version: "0.15.0" },
+        failure: { stage: "install" },
+      })
     })
 
-    expect(banner?.tone).toBe("critical")
-    expect(banner?.action).toBe("install")
+    const banner = container?.querySelector(BANNER_SELECTOR)
+    expect(banner?.getAttribute("data-tone")).toBe("critical")
+    expect(banner?.textContent).toContain("Couldn't install the update")
+    expect(container?.querySelector(BANNER_ACTION_SELECTOR)?.textContent).toBe("Try again")
   })
 
-  test("offers a retry when a check fails", () => {
-    const banner = resolveUpdateBanner({
-      progress: { ring: "stable", status: "idle" },
-      lastCheck: { status: "error", stage: "download" },
-      checking: false,
-      installFailed: false,
+  test("reports a channel persistence failure", async () => {
+    const errorToast = spyOn(toast, "error").mockImplementation(() => "test-toast")
+    const updatePlatform = createDesktopUpdatePlatform({
+      ringSaveError: new Error("store unavailable"),
+    })
+    const testRoot = mount()
+    await act(async () => {
+      testRoot.render(
+        <PlatformProvider value={updatePlatform.platform}>
+          <RingChangeProbe />
+        </PlatformProvider>,
+      )
     })
 
-    expect(banner?.tone).toBe("critical")
-    expect(banner?.action).toBe("retry")
-    expect(banner?.title).toBe("Found an update, but download failed")
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>('[data-action="change-ring-probe"]')?.click()
+    })
+
+    expect(errorToast).toHaveBeenCalledWith("Failed to save update channel")
+    errorToast.mockRestore()
   })
 })

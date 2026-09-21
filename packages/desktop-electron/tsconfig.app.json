@@ -18,7 +18,6 @@
   "include": [
     "src/renderer/**/*",
     "src/shared/parse-external.ts",
-    "src/shared/update-state.ts",
     "../web/src/**/*"
   ]
 }

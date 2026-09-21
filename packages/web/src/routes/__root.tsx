@@ -1,27 +1,24 @@
 import { z } from "zod"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 import type { QueryClient } from "@tanstack/react-query"
-import { createRootRouteWithContext, Outlet, useLocation } from "@tanstack/react-router"
+import {
+  createRootRouteWithContext,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "@tanstack/react-router"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { DesktopTitlebarContentProvider } from "@/components/layout/desktop-titlebar-content"
 import { WorkspaceFileOpenDialog } from "@/components/files/workspace-file-open-dialog"
 import { BuddyDevTools } from "@/components/debug/buddy-devtools"
+import { UpdateMenuCommandHandler } from "@/components/updates/update-menu-command-handler"
 import { language } from "@/context/language"
-import { usePlatform } from "@/context/platform"
 import {
   BENCH_CHAT_LAYOUT_FLOATING,
   BENCH_CHAT_SEARCH_PARAM,
   isBenchRoutePathname,
   readBenchChatLayoutMode,
 } from "@/lib/bench-navigation"
-import {
-  createDesktopUpdateNotificationTracker,
-  type DesktopUpdateNotificationTracker,
-} from "@/lib/desktop-update-notification-tracker"
-import { showDesktopUpdateProgressToast, showDesktopUpdateToast } from "../lib/desktop-updates"
-
-const RELEASE_UPDATE_POLL_INTERVAL_MS = 10 * 60 * 1000
-const DOCUMENT_VISIBILITY_VISIBLE = "visible"
 
 type TIncomingSearchValue = string | number | boolean
 type TIncomingSearch = {
@@ -56,94 +53,11 @@ function readSearchParam<T>(search: T, key: string): TIncomingSearchValue | unde
   return value
 }
 
-function ReleaseUpdateWatcher() {
-  const platform = usePlatform()
-  const notificationTrackerRef = useRef<DesktopUpdateNotificationTracker | null>(null)
-  if (notificationTrackerRef.current === null) {
-    notificationTrackerRef.current = createDesktopUpdateNotificationTracker()
-  }
-  const notificationTracker = notificationTrackerRef.current
-
-  useEffect(() => {
-    if (!platform.checkUpdate || !platform.update || !platform.restart) return
-
-    let interval: ReturnType<typeof setInterval> | undefined
-    let cancelled = false
-    let checking = false
-
-    const poll = async () => {
-      if (cancelled || checking) {
-        return
-      }
-
-      checking = true
-      const next = await platform.checkUpdate?.().catch(() => null)
-      checking = false
-
-      if (cancelled || next?.status !== "ready") return
-
-      const notification = notificationTracker.begin(next.version)
-      if (!notification) return
-
-      showDesktopUpdateToast({
-        platform,
-        version: notification.version,
-        onDeferred: () => {
-          notificationTracker.clear(notification)
-        },
-        onInstallFailed: () => {
-          notificationTracker.clear(notification)
-        },
-      })
-    }
-
-    const pollWhenVisible = () => {
-      if (document.visibilityState !== DOCUMENT_VISIBILITY_VISIBLE) {
-        return
-      }
-
-      void poll()
-    }
-
-    void poll()
-    interval = setInterval(() => {
-      pollWhenVisible()
-    }, RELEASE_UPDATE_POLL_INTERVAL_MS)
-    window.addEventListener("focus", pollWhenVisible)
-    document.addEventListener("visibilitychange", pollWhenVisible)
-
-    return () => {
-      cancelled = true
-      if (interval !== undefined) {
-        clearInterval(interval)
-      }
-      window.removeEventListener("focus", pollWhenVisible)
-      document.removeEventListener("visibilitychange", pollWhenVisible)
-    }
-  }, [notificationTracker, platform])
-
-  useEffect(() => {
-    if (!platform.onUpdateProgress) return
-    return platform.onUpdateProgress((progress) => {
-      if (
-        progress.status === "downloading" ||
-        progress.status === "idle" ||
-        progress.status === "installing" ||
-        (progress.status === "error" && progress.version !== undefined)
-      ) {
-        notificationTracker.reset()
-      }
-      showDesktopUpdateProgressToast({ progress })
-    })
-  }, [notificationTracker, platform])
-
-  return null
-}
-
 function RootLayout() {
   const [desktopTitlebarContentTarget, setDesktopTitlebarContentTarget] =
     useState<HTMLDivElement | null>(null)
   const location = useLocation()
+  const navigate = useNavigate()
   const isOnboarding = location.pathname.startsWith("/onboarding")
   const isDirectoryChat = location.pathname !== "/chat" && location.pathname.endsWith("/chat")
   const isBenchRoute = isBenchRoutePathname(location.pathname)
@@ -153,10 +67,16 @@ function RootLayout() {
   const isFloatingBench = isBenchRoute && benchChatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
   const isDockedBench = isBenchRoute && !isFloatingBench
   const isSettings = location.pathname === "/settings"
+  const openUpdateSurface = useCallback(
+    async () => {
+      await navigate({ to: "/settings", search: { tab: "about" } })
+    },
+    [navigate],
+  )
 
   return (
     <div className="h-full overflow-hidden bg-background-base text-text-base flex min-h-0 flex-col">
-      <ReleaseUpdateWatcher />
+      <UpdateMenuCommandHandler openUpdateSurface={openUpdateSurface} />
       <WorkspaceFileOpenDialog />
       {!isOnboarding && !isDirectoryChat && !isDockedBench && !isSettings && (
         <DesktopTitlebar
