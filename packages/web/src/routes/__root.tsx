@@ -67,12 +67,9 @@ function RootLayout() {
   const isFloatingBench = isBenchRoute && benchChatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
   const isDockedBench = isBenchRoute && !isFloatingBench
   const isSettings = location.pathname === "/settings"
-  const openUpdateSurface = useCallback(
-    async () => {
-      await navigate({ to: "/settings", search: { tab: "about" } })
-    },
-    [navigate],
-  )
+  const openUpdateSurface = useCallback(async () => {
+    await navigate({ to: "/settings", search: { tab: "about" } })
+  }, [navigate])
 
   return (
     <div className="h-full overflow-hidden bg-background-base text-text-base flex min-h-0 flex-col">

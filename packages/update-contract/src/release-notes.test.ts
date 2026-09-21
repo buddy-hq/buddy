@@ -62,7 +62,11 @@ describe("published release bodies become plain text", () => {
   })
 
   test("long lines are truncated to a readable length", () => {
-    const note = parseReleaseNote({ version: "1.1.0", url: RELEASE_URL, body: `- ${"a".repeat(400)}` })
+    const note = parseReleaseNote({
+      version: "1.1.0",
+      url: RELEASE_URL,
+      body: `- ${"a".repeat(400)}`,
+    })
     const [item] = note.items
 
     expect(item).toBeDefined()

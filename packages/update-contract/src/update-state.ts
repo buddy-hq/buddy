@@ -199,10 +199,7 @@ export function completeCheckBlocked(
   }
 }
 
-export function failCheck(
-  state: UpdateState,
-  input: { readonly checkedAt: string },
-): UpdateState {
+export function failCheck(state: UpdateState, input: { readonly checkedAt: string }): UpdateState {
   if (state.activity.status === "unsupported") return state
   const failure: UpdateFailure = { stage: "check" }
   if (state.activity.status === "available" || state.activity.status === "downloaded") {
@@ -260,10 +257,7 @@ export function failDownload(state: UpdateState): UpdateState {
   }
 }
 
-export function beginInstall(
-  state: UpdateState,
-  input: { readonly version: string },
-): UpdateState {
+export function beginInstall(state: UpdateState, input: { readonly version: string }): UpdateState {
   if (state.activity.status === "unsupported") return state
   return {
     ...state,

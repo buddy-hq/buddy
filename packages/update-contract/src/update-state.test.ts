@@ -173,7 +173,6 @@ describe("switching release ring", () => {
     expect(pendingUpdateVersion(state)).toBeUndefined()
     expect(state.checkedAt).toBeUndefined()
   })
-
 })
 
 describe("published state ordering", () => {

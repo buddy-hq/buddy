@@ -121,9 +121,7 @@ describe("sidebar update button", () => {
   })
 
   test("describes the action it will perform after an unrelated check failure", () => {
-    expect(describeUpdateHint("install", { stage: "check" })).toBe(
-      "Click to restart and install",
-    )
+    expect(describeUpdateHint("install", { stage: "check" })).toBe("Click to restart and install")
     expect(describeUpdateHint("download", { stage: "check" })).toBe("Click to download")
   })
 

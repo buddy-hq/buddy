@@ -106,9 +106,7 @@ function UpdateBannerStrip(props: { banner: UpdateBanner; onAction: () => void }
             <p className="truncate text-[13px] font-medium tracking-[-0.01em]">
               {props.banner.title}
             </p>
-            {props.banner.detail ? (
-              <p className="truncate text-xs">{props.banner.detail}</p>
-            ) : null}
+            {props.banner.detail ? <p className="truncate text-xs">{props.banner.detail}</p> : null}
           </div>
         </div>
         {props.banner.actionLabel ? (

@@ -42,7 +42,12 @@ import {
   cn,
 } from "@buddy/ui"
 import { language } from "@/context/language"
-import { PlatformProvider, setRuntimePlatform, usePlatform, type Platform } from "@/context/platform"
+import {
+  PlatformProvider,
+  setRuntimePlatform,
+  usePlatform,
+  type Platform,
+} from "@/context/platform"
 import { SettingsIcon } from "@/components/layout/sidebar-icons"
 import { UpdatesSettingsSection } from "@/components/settings/settings-updates-section"
 import { UpdateReleaseNotes } from "@/components/updates/update-release-notes"
@@ -390,7 +395,11 @@ function createSimulatedShell(initialScript: FlowScript): SimulatedShell {
       case "available": {
         const version = nextMinorVersion(state.currentVersion)
         return commit(
-          completeCheckAvailable(state, { version, checkedAt, releaseNotes: [releaseFor(version)] }),
+          completeCheckAvailable(state, {
+            version,
+            checkedAt,
+            releaseNotes: [releaseFor(version)],
+          }),
         )
       }
       case "up-to-date":
@@ -492,9 +501,7 @@ function TooltipStill(props: { children: ReactNode }) {
 
 function HoverCardStill(props: { children: ReactNode }) {
   return (
-    <div className={cn(HOVER_CARD_SURFACE, "flex w-72 flex-col gap-2.5 p-3")}>
-      {props.children}
-    </div>
+    <div className={cn(HOVER_CARD_SURFACE, "flex w-72 flex-col gap-2.5 p-3")}>{props.children}</div>
   )
 }
 
@@ -509,7 +516,9 @@ function RestartConfirmation(props: { confirmation: UpdateInstallConfirmation })
           <AlertDialogTitle>
             {language.t("updates.confirm.title", { version: confirmation.version })}
           </AlertDialogTitle>
-          <AlertDialogDescription>{language.t("updates.confirm.description")}</AlertDialogDescription>
+          <AlertDialogDescription>
+            {language.t("updates.confirm.description")}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel variant="outline" size="default">
@@ -603,7 +612,10 @@ function SidebarPlaceholderRows() {
   return (
     <div aria-hidden className="flex min-h-0 flex-1 flex-col gap-0.5 px-1.5 py-3">
       {["Photosynthesis notes", "Essay outline", "Chapter 4 flashcards"].map((title) => (
-        <div key={title} className="truncate rounded-lg px-2 py-1.5 text-sm font-light text-text-weak">
+        <div
+          key={title}
+          className="truncate rounded-lg px-2 py-1.5 text-sm font-light text-text-weak"
+        >
           {title}
         </div>
       ))}

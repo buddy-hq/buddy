@@ -866,7 +866,8 @@ export const dict = {
   "updates.status.idle": "Check for updates",
   "updates.status.installing": "Installing Buddy {{version}}…",
   "updates.status.upToDate": "Buddy is up to date",
-  "updates.toast.downloadedDescription": "Restart from the update button in the sidebar to install it.",
+  "updates.toast.downloadedDescription":
+    "Restart from the update button in the sidebar to install it.",
   "updates.toast.downloadedTitle": "Buddy {{version}} is ready",
   "settings.general.appSection": "App",
   "settings.general.defaultsSection": "Defaults",

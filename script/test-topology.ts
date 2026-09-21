@@ -38,6 +38,12 @@ export const TEST_OWNERS: readonly TestOwner[] = [
     workingDirectory: "packages/citation-contract",
   },
   {
+    id: "update-contract",
+    root: "packages/update-contract",
+    runCommand: ["bun", "run", "test"],
+    workingDirectory: "packages/update-contract",
+  },
+  {
     id: "backend",
     root: "packages/buddy/test",
     runCommand: ["bun", "run", "test"],

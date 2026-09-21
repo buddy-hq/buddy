@@ -35,9 +35,7 @@ export type UpdateDownloadOutcome =
   | { readonly kind: "downloaded"; readonly version: string }
   | { readonly kind: "failed" }
 
-export type UpdateInstallOutcome =
-  | { readonly kind: "started" }
-  | { readonly kind: "failed" }
+export type UpdateInstallOutcome = { readonly kind: "started" } | { readonly kind: "failed" }
 
 /**
  * Platform-specific update operations. Calls already hold the update lock, and

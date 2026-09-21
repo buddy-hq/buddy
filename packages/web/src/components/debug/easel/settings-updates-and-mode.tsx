@@ -624,7 +624,7 @@ const UPDATER_LEDGER: LedgerEntry[] = [
   { field: "Release notes", source: "UpdateState.releaseNotes", available: true },
   {
     field: "Latest available version, before downloading",
-    source: "activity.status === \"available\"",
+    source: 'activity.status === "available"',
     available: true,
   },
 ]
