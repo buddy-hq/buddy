@@ -14,8 +14,8 @@ import {
   SignedUpdateFetchError,
 } from "./update-common"
 import { compareVersions } from "./recovery-policy-core"
-import type { UpdateRing } from "../shared/update-state"
-import { UPDATE_RING_STABLE } from "../shared/update-state"
+import type { UpdateRing } from "@buddy/update-contract"
+import { UPDATE_RING_STABLE } from "@buddy/update-contract"
 import {
   resolveMacOsReleaseArtifactFilename,
   resolveMacOsUpdateManifestFilename,
@@ -83,9 +83,25 @@ export type MacUpdateDownloadProgress = {
 }
 
 type CheckForUpdateInput = {
-  onProgress?: (progress: MacUpdateDownloadProgress) => void
   ring?: UpdateRing
 }
+
+type DownloadUpdateInput = {
+  onProgress?: (progress: MacUpdateDownloadProgress) => void
+  ring?: UpdateRing
+  version: string
+}
+
+type ResolvedMacUpdate =
+  | { kind: "none" }
+  | { kind: "blocked" }
+  | { kind: "downloaded"; version: string }
+  | { kind: "available"; version: string; entry: FileEntry }
+
+type ManifestTarget =
+  | { kind: "latest"; ring: UpdateRing }
+  | { kind: "pinned"; ring: UpdateRing; version: string }
+  | { kind: "recovery"; version: string }
 
 export type MacInstallerResult = {
   exitCode?: number
@@ -138,9 +154,21 @@ export function createCustomMacUpdater(
 ) {
   let pendingUpdate: PendingMacUpdate | null = null
   const checkForUpdateTasks = new Map<UpdateRing, Promise<MacUpdaterResult>>()
+  const downloadTasks = new Map<string, Promise<MacUpdaterResult>>()
   const checkForVersionTasks = new Map<string, Promise<MacUpdaterResult>>()
 
+  const resolveTarget = async (target: ManifestTarget): Promise<ResolvedMacUpdate> =>
+    await resolveManifestUpdate({
+      dependencies,
+      options,
+      pendingUpdate,
+      target,
+    })
+
   return {
+    clearPendingUpdate(): void {
+      pendingUpdate = null
+    },
     isUpdateReady(expectedVersion: string): boolean {
       return pendingUpdate?.version === expectedVersion
     },
@@ -155,18 +183,19 @@ export function createCustomMacUpdater(
         return await existingTask
       }
 
-      const metadataUrl = options.metadataUrl ?? (await resolveDefaultMacMetadataUrl(ring))
-      const task = checkManifestForUpdate({
-        dependencies,
-        metadataUrls: [metadataUrl],
-        onProgress: input.onProgress,
-        options,
-        pendingUpdate,
-        ring,
-        setPendingUpdate: (update) => {
-          pendingUpdate = update
-        },
-      })
+      const task = resolveTarget({ kind: "latest", ring })
+        .then((resolved): MacUpdaterResult => {
+          if (resolved.kind === "none") {
+            pendingUpdate = null
+            return { updateAvailable: false }
+          }
+          if (resolved.kind === "blocked") {
+            pendingUpdate = null
+            return { blocked: true, updateAvailable: false }
+          }
+          if (resolved.kind === "available") pendingUpdate = null
+          return { updateAvailable: true, version: resolved.version }
+        })
         .catch((error): MacUpdaterResult => {
           options.logger.error("custom mac update check failed", error)
           return { updateAvailable: false, failed: true }
@@ -178,12 +207,52 @@ export function createCustomMacUpdater(
       checkForUpdateTasks.set(ring, task)
       return await task
     },
+    async downloadUpdate(input: DownloadUpdateInput): Promise<MacUpdaterResult> {
+      if (!options.packaged) {
+        return { updateAvailable: false }
+      }
+
+      const ring = input.ring ?? UPDATE_RING_STABLE
+      const taskKey = `${ring}:${input.version}`
+      const existingTask = downloadTasks.get(taskKey)
+      if (existingTask) {
+        return await existingTask
+      }
+
+      const task = resolveTarget({ kind: "pinned", ring, version: input.version })
+        .then(async (resolved): Promise<MacUpdaterResult> => {
+          if (resolved.kind === "none") return { updateAvailable: false }
+          if (resolved.kind === "blocked") return { blocked: true, updateAvailable: false }
+          if (resolved.kind === "downloaded") {
+            return { updateAvailable: true, version: resolved.version }
+          }
+
+          const archivePath = await dependencies.downloadArchive(
+            resolved.entry,
+            resolved.version,
+            options,
+            input.onProgress,
+          )
+          pendingUpdate = { ring, version: resolved.version, archivePath }
+          return { updateAvailable: true, version: resolved.version }
+        })
+        .catch((error): MacUpdaterResult => {
+          options.logger.error("custom mac update download failed", error)
+          return { updateAvailable: false, failed: true }
+        })
+        .finally(() => {
+          downloadTasks.delete(taskKey)
+        })
+
+      downloadTasks.set(taskKey, task)
+      return await task
+    },
     async checkForVersion(version: string): Promise<MacUpdaterResult> {
       if (!options.packaged) {
         return { updateAvailable: false }
       }
 
-      if (pendingUpdate?.version === version) {
+      if (pendingUpdate?.ring === UPDATE_RING_STABLE && pendingUpdate.version === version) {
         if (options.isVersionBlocked?.(pendingUpdate.version)) {
           return { blocked: true, updateAvailable: false }
         }
@@ -201,16 +270,13 @@ export function createCustomMacUpdater(
 
       const task = checkManifestForUpdate({
         dependencies,
-        expectedVersion: version,
-        metadataUrls: options.metadataUrl
-          ? [options.metadataUrl]
-          : resolveMacRecoveryMetadataUrls(version),
         options,
         pendingUpdate,
         ring: UPDATE_RING_STABLE,
         setPendingUpdate: (update) => {
           pendingUpdate = update
         },
+        target: { kind: "recovery", version },
       })
         .catch((error): MacUpdaterResult => {
           options.logger.error("custom mac recovery update check failed", error)
@@ -268,75 +334,107 @@ function waitForInstallerLaunch(child: ReturnType<typeof spawn>): Promise<void> 
   })
 }
 
-async function checkManifestForUpdate(input: {
+async function resolveManifestUrls(
+  target: ManifestTarget,
+  options: CreateCustomMacUpdaterOptions,
+): Promise<readonly string[]> {
+  if (options.metadataUrl) return [options.metadataUrl]
+  if (target.kind === "latest") return [await resolveDefaultMacMetadataUrl(target.ring)]
+  return resolveMacVersionedMetadataUrls(target.version)
+}
+
+async function resolveManifestUpdate(input: {
   dependencies: CustomMacUpdaterDependencies
-  expectedVersion?: string
-  metadataUrls: readonly string[]
-  onProgress?: (progress: MacUpdateDownloadProgress) => void
   options: CreateCustomMacUpdaterOptions
   pendingUpdate: PendingMacUpdate | null
-  ring: UpdateRing
-  setPendingUpdate: (update: PendingMacUpdate | null) => void
-}): Promise<MacUpdaterResult> {
-  const metadata = await input.dependencies.fetchManifest(input.metadataUrls, input.options)
-  if (input.expectedVersion !== undefined && metadata.version !== input.expectedVersion) {
+  target: ManifestTarget
+}): Promise<ResolvedMacUpdate> {
+  const { target } = input
+  const metadataUrls = await resolveManifestUrls(target, input.options)
+  const metadata = await input.dependencies.fetchManifest(metadataUrls, input.options)
+  if (target.kind !== "latest" && metadata.version !== target.version) {
     throw new Error(
-      `Recovery manifest version mismatch: expected ${input.expectedVersion}, got ${metadata.version}`,
+      `Update manifest version mismatch: expected ${target.version}, got ${metadata.version}`,
     )
   }
 
   if (
     !isMacUpdateAvailable({
       currentVersion: input.options.currentVersion,
-      expectedVersion: input.expectedVersion,
+      expectedVersion: target.kind === "recovery" ? target.version : undefined,
       nextVersion: metadata.version,
     })
   ) {
-    input.setPendingUpdate(null)
-    return { updateAvailable: false }
+    return { kind: "none" }
   }
 
   if (input.options.isVersionBlocked?.(metadata.version)) {
-    input.setPendingUpdate(null)
     input.options.logger.warn("custom mac updater suppressed blocked update", {
       version: metadata.version,
     })
-    return { updateAvailable: false, blocked: true }
+    return { kind: "blocked" }
   }
 
-  if (input.pendingUpdate?.version === metadata.version) {
-    return {
-      updateAvailable: true,
-      version: input.pendingUpdate.version,
-    }
+  if (
+    input.pendingUpdate?.ring === manifestTargetRing(target) &&
+    input.pendingUpdate.version === metadata.version
+  ) {
+    return { kind: "downloaded", version: metadata.version }
   }
-
-  input.setPendingUpdate(null)
 
   const entry = resolveArchiveEntry(metadata.version, metadata.files)
   if (!entry) {
     input.options.logger.warn("custom mac updater could not find a matching archive", {
-      metadataUrls: input.metadataUrls,
+      metadataUrls,
     })
-    return { updateAvailable: false, failed: true }
+    throw new Error(`No macOS archive published for version ${metadata.version}`)
+  }
+
+  return { kind: "available", version: metadata.version, entry }
+}
+
+async function checkManifestForUpdate(input: {
+  dependencies: CustomMacUpdaterDependencies
+  onProgress?: (progress: MacUpdateDownloadProgress) => void
+  options: CreateCustomMacUpdaterOptions
+  pendingUpdate: PendingMacUpdate | null
+  ring: UpdateRing
+  setPendingUpdate: (update: PendingMacUpdate | null) => void
+  target: ManifestTarget
+}): Promise<MacUpdaterResult> {
+  const resolved = await resolveManifestUpdate(input)
+  if (resolved.kind === "none") {
+    input.setPendingUpdate(null)
+    return { updateAvailable: false }
+  }
+  if (resolved.kind === "blocked") {
+    input.setPendingUpdate(null)
+    return { blocked: true, updateAvailable: false }
+  }
+  if (resolved.kind === "downloaded") {
+    return { updateAvailable: true, version: resolved.version }
   }
 
   const archivePath = await input.dependencies.downloadArchive(
-    entry,
-    metadata.version,
+    resolved.entry,
+    resolved.version,
     input.options,
     input.onProgress,
   )
   input.setPendingUpdate({
     ring: input.ring,
-    version: metadata.version,
+    version: resolved.version,
     archivePath,
   })
 
   return {
     updateAvailable: true,
-    version: metadata.version,
+    version: resolved.version,
   }
+}
+
+function manifestTargetRing(target: ManifestTarget): UpdateRing {
+  return target.kind === "recovery" ? UPDATE_RING_STABLE : target.ring
 }
 
 async function fetchLatestManifest(
@@ -610,7 +708,7 @@ export async function resolveDefaultMacMetadataUrl(
   })
 }
 
-export function resolveMacRecoveryMetadataUrls(version: string): readonly string[] {
+export function resolveMacVersionedMetadataUrls(version: string): readonly string[] {
   return resolveVersionedReleaseAssetUrls({
     legacyFilename: LEGACY_MACOS_UPDATE_MANIFEST_FILENAME,
     primaryFilename: resolveMacMetadataFilename(),

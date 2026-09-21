@@ -32,6 +32,7 @@
     "@buddy/reader-contract": "workspace:*",
     "@buddy/sdk": "workspace:*",
     "@buddy/ui": "workspace:*",
+    "@buddy/update-contract": "workspace:*",
     "@buddy/workspace-file-policy": "workspace:*",
     "@codemirror/language": "6.12.3",
     "@codemirror/state": "6.6.0",

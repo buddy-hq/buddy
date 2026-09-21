@@ -53,6 +53,7 @@ import type {
   SortMode,
 } from "./chat-left-sidebar/types"
 import { SettingsIcon } from "./sidebar-icons"
+import { UpdateStatusButton } from "@/components/updates/update-status-button"
 import { getFilename } from "./sidebar-helpers"
 import { ensureTeacherStandards, shouldAutoSetupTeacherStandards } from "@/lib/teacher-standards"
 import { disconnectObsidianVault, obsidianVaultQueryKeys } from "@/state/obsidian-vault-query"
@@ -614,16 +615,19 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           {props.footer !== undefined ? (
             props.footer
           ) : (
-            <Button
-              data-action="left-sidebar-open-settings"
-              variant="ghost"
-              size="sm"
-              className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
-              onClick={props.onOpenSettings}
-            >
-              <SettingsIcon className="size-3.5" />
-              Settings
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                data-action="left-sidebar-open-settings"
+                variant="ghost"
+                size="sm"
+                className="h-9 min-w-0 flex-1 justify-start rounded-lg px-2 text-sm font-medium text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
+                onClick={props.onOpenSettings}
+              >
+                <SettingsIcon className="size-3.5" />
+                Settings
+              </Button>
+              <UpdateStatusButton />
+            </div>
           )}
         </footer>
       )}

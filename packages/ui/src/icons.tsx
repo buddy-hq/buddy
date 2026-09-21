@@ -56,6 +56,7 @@ import {
   PencilEdit02Icon as PencilEdit02IconData,
   BotIcon as BotIconData,
   SettingsIcon as SettingsIconData,
+  Refresh03Icon as Refresh03IconData,
 } from "@hugeicons/core-free-icons"
 
 export type IconProps = Omit<ComponentPropsWithoutRef<typeof HugeiconsIcon>, "icon">
@@ -100,6 +101,8 @@ export const Clock3Icon = createIcon(Clock3IconData, "Clock3Icon")
 export const CopyIcon = createIcon(CopyIconData, "CopyIcon")
 /** Hugeicons free download-1 (`Download01Icon`). */
 export const DownloadIcon = createIcon(Download01IconData, "DownloadIcon")
+/** Hugeicons free refresh-03 (`Refresh03Icon`). */
+export const RefreshIcon = createIcon(Refresh03IconData, "RefreshIcon")
 export const EllipsisIcon = createIcon(EllipsisIconData, "EllipsisIcon")
 export const ExpandIcon = createIcon(ArrowExpandIconData, "ExpandIcon")
 export const FolderIcon = createIcon(FolderIconData, "FolderIcon")

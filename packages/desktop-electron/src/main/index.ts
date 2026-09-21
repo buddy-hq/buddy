@@ -90,21 +90,27 @@ import {
   resolveVersionedReleaseAssetUrls,
   SignedUpdateFetchError,
 } from "./update-common"
-import {
-  createReadyUpdateStore,
-  createUpdateCheckCoordinator,
-  isReadyUpdateCurrent,
-} from "./update-check-coordinator"
+import { createReadyUpdateStore, isReadyUpdateCurrent } from "./update-ready-store"
 import { compareVersions } from "./recovery-policy-core"
 import { watchBackendDevelopmentReloadSignal } from "./backend-development-reload"
-import type {
-  UpdateProgressErrorStage,
-  UpdateProgressSnapshot,
-  UpdateRing,
-} from "../shared/update-state"
+import type { UpdateDownloadProgress, UpdateRing, UpdateState } from "@buddy/update-contract"
 import { parseTErrorCode, parseTPortedAddress } from "../shared/parse-external"
-import { UPDATE_RING_PREVIEW, createIdleUpdateProgress, isUpdateRing } from "../shared/update-state"
+import {
+  UPDATE_CHECK_MENU_COMMAND,
+  UPDATE_RING_PREVIEW,
+  createUpdateState,
+} from "@buddy/update-contract"
 import { getUpdateRing, setUpdateRing as persistUpdateRing } from "./update-ring"
+import { fetchReleaseNotes } from "./release-notes-source"
+import { createSerialRunner } from "./serial-runner"
+import {
+  createUpdateService,
+  type UpdateCheckOutcome,
+  type UpdateDownloadOutcome,
+  type UpdateInstallOutcome,
+  type UpdateMechanics,
+  type UpdateService,
+} from "./update-service"
 import {
   createWindowsUpdateFeedProviderOptions,
   startWindowsUpdateFeed,
@@ -126,7 +132,6 @@ const SECONDARY_DIALOG_RESPONSE = 1
 const STARTUP_FAILURE_UPDATE_CHECK_BUTTONS = ["Check for Update", "Quit"] as const
 const STARTUP_FAILURE_UPDATE_INSTALL_BUTTONS = ["Install and Restart", "Quit"] as const
 const STARTUP_FAILURE_UPDATE_MISSING_BUTTONS = ["Open Download Page", "Quit"] as const
-const UPDATE_READY_RESTART_BUTTONS = ["Restart", "Later"] as const
 const BLOCKED_UPDATE_DIALOG_MESSAGE = "No updates available at this time."
 
 app.setName(resolveAppName(app.isPackaged))
@@ -146,9 +151,11 @@ let applicationQuitting = false
 let stopBackendDevelopmentReloadWatcher: (() => void) | undefined
 let updaterEnabled = UPDATER_ENABLED
 let customMacUpdater: ReturnType<typeof createCustomMacUpdater> | null = null
-let updateProgress: UpdateProgressSnapshot = createIdleUpdateProgress(getUpdateRing())
+let updateService: UpdateService | undefined
+let stopUpdatePolling: (() => void) | undefined
 let activeWindowsDownload:
   | {
+      onProgress: (progress: UpdateDownloadProgress) => void
       ring: UpdateRing
       version: string
     }
@@ -177,7 +184,7 @@ const loadingComplete = defer<void>()
 const serverReady = defer<ServerReadyData>()
 const pendingDeepLinks: string[] = []
 const readyUpdateStore = createReadyUpdateStore()
-const updateCheckCoordinator = createUpdateCheckCoordinator<UpdateCheckResult>(runLatestUpdateCheck)
+const updateRunner = createSerialRunner()
 
 setupApplication()
 
@@ -250,6 +257,8 @@ function setupApplication() {
       await reportPreviousMacInstallerResult()
     }
     updaterEnabled = await setupAutoUpdater()
+    updateService = createUpdateServiceForApp()
+    updateService.subscribe(broadcastUpdateState)
     setDockIcon()
     await initialize()
   })
@@ -267,62 +276,6 @@ function focusMainWindow() {
   if (!mainWindow) return
   mainWindow.show()
   mainWindow.focus()
-}
-
-function setUpdateProgress(snapshot: UpdateProgressSnapshot): void {
-  updateProgress = {
-    ...snapshot,
-    percent: normalizeUpdatePercent(snapshot.percent),
-  }
-  mainWindow?.webContents.send("update-progress", updateProgress)
-}
-
-function getUpdateProgress(): UpdateProgressSnapshot {
-  return updateProgress
-}
-
-function saveUpdateRing(ring: UpdateRing): void {
-  if (!isUpdateRing(ring)) {
-    throw new Error(`Invalid update ring: ${String(ring)}`)
-  }
-
-  persistUpdateRing(ring)
-  const activeProgressStatus =
-    updateProgress.status === "checking" ||
-    updateProgress.status === "downloading" ||
-    updateProgress.status === "installing"
-  if (
-    updateProgress.status === "idle" ||
-    updateProgress.status === "error" ||
-    (updateProgress.ring !== ring && !activeProgressStatus)
-  ) {
-    setUpdateProgress(createIdleUpdateProgress(ring))
-  }
-}
-
-function normalizeUpdatePercent(percent: number | undefined): number | undefined {
-  if (percent === undefined || !Number.isFinite(percent)) {
-    return undefined
-  }
-
-  return Math.min(100, Math.max(0, percent))
-}
-
-function setUpdateIdle(ring: UpdateRing): void {
-  setUpdateProgress(createIdleUpdateProgress(ring))
-}
-
-function setUpdateError(input: {
-  ring: UpdateRing
-  stage: UpdateProgressErrorStage
-  version?: string
-}): void {
-  setUpdateProgress({
-    errorStage: input.stage,
-    ring: input.ring,
-    status: "error",
-    version: input.version,
-  })
 }
 
 function setInitStep(step: InitStep) {
@@ -405,6 +358,8 @@ async function initialize() {
 
     mainWindow = createMainWindow(windowGlobals)
     wireMenu()
+    stopUpdatePolling?.()
+    stopUpdatePolling = updateService?.startPolling()
 
     if (overlay) {
       overlay.close()
@@ -494,7 +449,7 @@ async function checkStartupRecoveryUpdate(): Promise<UpdateCheckResult> {
     : undefined
 
   if (!target) {
-    return await checkUpdate()
+    return await checkAndDownloadLatestUpdate()
   }
 
   const invalidReason = validateRecoveryTarget(target, app.getVersion())
@@ -663,15 +618,18 @@ function wireMenu() {
         sourceWindow instanceof BrowserWindow && !sourceWindow.isDestroyed()
           ? sourceWindow
           : (BrowserWindow.getFocusedWindow() ?? mainWindow)
-      if (targetWindow && !targetWindow.isDestroyed()) sendMenuCommand(targetWindow, id)
+      if (!targetWindow || targetWindow.isDestroyed()) return
+      if (id === UPDATE_CHECK_MENU_COMMAND) {
+        if (targetWindow.isMinimized()) targetWindow.restore()
+        targetWindow.show()
+        targetWindow.focus()
+      }
+      sendMenuCommand(targetWindow, id)
     },
     installCli: () => {
       void installCli().catch((error) => {
         logger.error("Failed to install CLI", error)
       })
-    },
-    checkForUpdates: () => {
-      void checkForUpdates(true)
     },
     reload: () => {
       mainWindow?.reload()
@@ -710,12 +668,11 @@ registerIpcHandlers({
   resolveAppPath: async (appName) => resolveAppPath(appName),
   wslPath: async (inputPath, mode) => wslPath(inputPath, mode),
   loadingWindowComplete: () => loadingComplete.resolve(),
-  runUpdater: async (alertOnFail) => checkForUpdates(alertOnFail),
-  checkUpdate: async () => checkUpdate(),
-  getUpdateProgress: () => getUpdateProgress(),
-  getUpdateRing: () => getUpdateRing(),
-  setUpdateRing: (ring) => saveUpdateRing(ring),
-  installUpdate: async () => installUpdate(),
+  getUpdateState: () => readUpdateState(),
+  checkUpdate: async () => (await updateService?.check()) ?? readUpdateState(),
+  downloadUpdate: async () => (await updateService?.download()) ?? readUpdateState(),
+  installUpdate: async () => (await updateService?.install()) ?? readUpdateState(),
+  setUpdateRing: async (ring) => (await updateService?.setRing(ring)) ?? readUpdateState(),
   setBackgroundColor: (color) => setBackgroundColor(color),
   exportMarkdownPdf: async (input) => {
     const config = embeddedBackendConfig
@@ -812,6 +769,8 @@ function beginApplicationShutdown() {
   if (applicationQuitting) return
   applicationQuitting = true
   disposeInAppBrowserSessions()
+  stopUpdatePolling?.()
+  stopUpdatePolling = undefined
   stopBackendDevelopmentReloadWatcher?.()
   stopBackendDevelopmentReloadWatcher = undefined
 }
@@ -930,116 +889,119 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
   autoUpdater.on("download-progress", (info: ProgressInfo) => {
-    if (!activeWindowsDownload) return
-    setUpdateProgress({
+    activeWindowsDownload?.onProgress({
       bytesPerSecond: info.bytesPerSecond,
       percent: info.percent,
-      ring: activeWindowsDownload.ring,
-      status: "downloading",
       totalBytes: info.total,
       transferredBytes: info.transferred,
-      version: activeWindowsDownload.version,
     })
   })
   configureDefaultElectronUpdaterProvider()
   return Promise.resolve(true)
 }
 
-async function checkUpdate(): Promise<UpdateCheckResult> {
-  if (!updaterEnabled) return { updateAvailable: false }
-  return await updateCheckCoordinator.check(getUpdateRing())
+const updateMechanics: UpdateMechanics = {
+  checkLatest: ({ ring }) => checkLatestUpdate(ring),
+  download: (input) => downloadLatestUpdate(input),
+  install: ({ version }) => installReadyUpdate(version),
 }
 
-async function runLatestUpdateCheck(ring: UpdateRing): Promise<UpdateCheckResult> {
-  if (process.platform === "darwin" && customMacUpdater) {
-    return await checkCustomMacUpdate(ring)
-  }
+function createUpdateServiceForApp(): UpdateService {
+  return createUpdateService({
+    currentVersion: app.getVersion(),
+    ring: getUpdateRing(),
+    supported: updaterEnabled,
+    mechanics: updateMechanics,
+    dependencies: {
+      runExclusive: (run) => updateRunner.runExclusive(run),
+      now: () => new Date(),
+      persistRing: (ring) => persistUpdateRing(ring),
+      discardReadyUpdate: () => {
+        readyUpdateStore.clear()
+        customMacUpdater?.clearPendingUpdate()
+      },
+      reportUnexpectedError: ({ operation, cause }) => {
+        logger.error(`update ${operation} rejected unexpectedly`, cause)
+      },
+      scheduleOnce: (run, delayMs) => {
+        const timer = setTimeout(() => void run(), delayMs)
+        return () => clearTimeout(timer)
+      },
+      scheduleRecurring: (run, intervalMs) => {
+        const timer = setInterval(() => void run(), intervalMs)
+        return () => clearInterval(timer)
+      },
+      readReleaseNotes: (input) => fetchReleaseNotes({ ...input, logger }),
+    },
+  })
+}
 
+function readUpdateState(): UpdateState {
+  return (
+    updateService?.getState() ??
+    createUpdateState({
+      currentVersion: app.getVersion(),
+      ring: getUpdateRing(),
+      supported: false,
+    })
+  )
+}
+
+function broadcastUpdateState(state: UpdateState): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.webContents.send("update-state", state)
+  }
+}
+
+async function checkLatestUpdate(ring: UpdateRing): Promise<UpdateCheckOutcome> {
+  if (!updaterEnabled) return { kind: "up-to-date" }
+
+  if (process.platform === "darwin" && customMacUpdater) {
+    return toCheckOutcome(await customMacUpdater.checkForUpdate({ ring }), ring)
+  }
   return await checkWindowsUpdate(ring)
 }
 
-function setReadyUpdate(ring: UpdateRing, version: string): void {
-  readyUpdateStore.set({ ring, version })
-}
-
-async function checkCustomMacUpdate(ring: UpdateRing): Promise<UpdateCheckResult> {
-  const updater = customMacUpdater
-  if (!updater) {
-    setUpdateIdle(ring)
-    return { updateAvailable: false }
-  }
-
-  const previousReadyUpdate = readyUpdateStore.get()
-  let downloadStarted = false
-  setUpdateProgress({
-    ring,
-    status: "checking",
-  })
-
-  const result = await updater.checkForUpdate({
-    onProgress: (progress) => {
-      downloadStarted = true
-      setUpdateProgress({
-        bytesPerSecond: progress.bytesPerSecond,
-        percent: progress.percent,
-        ring,
-        status: "downloading",
-        totalBytes: progress.totalBytes,
-        transferredBytes: progress.transferredBytes,
-      })
-    },
-    ring,
-  })
-
-  if (result.updateAvailable) {
-    setReadyUpdate(ring, result.version)
-    setUpdateProgress({
-      percent: 100,
-      ring,
-      status: "ready",
-      version: result.version,
-    })
-    return result
-  }
-
-  const previousUpdateStillReady =
-    previousReadyUpdate?.ring === ring && updater.isUpdateReady(previousReadyUpdate.version)
-  if (!previousUpdateStillReady) {
+function toCheckOutcome(result: UpdateCheckResult, ring: UpdateRing): UpdateCheckOutcome {
+  if (result.failed) return { kind: "failed" }
+  if (result.blocked) {
     readyUpdateStore.take(ring)
+    return { kind: "blocked" }
   }
-
-  if (result.failed) {
-    const errorStage: UpdateProgressErrorStage = downloadStarted ? "download" : "check"
-    setUpdateError(
-      Object.assign(
-        {
-          ring,
-          stage: errorStage,
-        },
-        !previousUpdateStillReady && previousReadyUpdate?.ring === ring
-          ? { version: previousReadyUpdate.version }
-          : undefined,
-      ),
-    )
-    return result
+  if (!result.updateAvailable || !result.version) {
+    readyUpdateStore.take(ring)
+    return { kind: "up-to-date" }
   }
-
-  setUpdateIdle(ring)
-  return result
+  return { kind: "available", version: result.version }
 }
 
-async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> {
-  const previousReadyUpdate = readyUpdateStore.get()
+async function downloadLatestUpdate(input: {
+  ring: UpdateRing
+  version: string
+  onProgress: (progress: UpdateDownloadProgress) => void
+}): Promise<UpdateDownloadOutcome> {
+  if (!updaterEnabled) return { kind: "failed" }
+
+  if (process.platform === "darwin" && customMacUpdater) {
+    const result = await customMacUpdater.downloadUpdate({
+      onProgress: input.onProgress,
+      ring: input.ring,
+      version: input.version,
+    })
+    if (!result.updateAvailable || !result.version) return { kind: "failed" }
+    readyUpdateStore.set({ ring: input.ring, version: result.version })
+    return { kind: "downloaded", version: result.version }
+  }
+
+  return await downloadWindowsUpdate(input)
+}
+
+async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckOutcome> {
   let signedFeed: SignedWindowsUpdateFeed | undefined
-  let downloadStarted = false
-  setUpdateProgress({
-    ring,
-    status: "checking",
-  })
 
   try {
     signedFeed = await configureSignedWindowsUpdateFeed(undefined, ring)
-    const version = signedFeed.version
+    const { version } = signedFeed
 
     if (compareVersions(version, app.getVersion()) <= 0) {
       readyUpdateStore.take(ring)
@@ -1048,37 +1010,49 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
         ring,
         version,
       })
-      setUpdateIdle(ring)
-      return { updateAvailable: false }
+      return { kind: "up-to-date" }
     }
 
     if (isUpdateVersionBlocked(version)) {
       readyUpdateStore.take(ring)
       logger.warn("update check suppressed blocked version", { version })
-      setUpdateIdle(ring)
-      return { blocked: true, updateAvailable: false }
+      return { kind: "blocked" }
     }
 
-    if (isReadyUpdateCurrent(previousReadyUpdate, ring, version)) {
-      setReadyUpdate(ring, version)
-      setUpdateProgress({
-        percent: 100,
-        ring,
-        status: "ready",
-        version,
-      })
-      return { updateAvailable: true, version }
+    return { kind: "available", version }
+  } catch (error) {
+    logger.error("update check failed", error)
+    return { kind: "failed" }
+  } finally {
+    await closeWindowsUpdateFeed(signedFeed)
+    configureDefaultElectronUpdaterProvider()
+  }
+}
+
+async function downloadWindowsUpdate(input: {
+  ring: UpdateRing
+  version: string
+  onProgress: (progress: UpdateDownloadProgress) => void
+}): Promise<UpdateDownloadOutcome> {
+  const previousReadyUpdate = readyUpdateStore.get()
+  let signedFeed: SignedWindowsUpdateFeed | undefined
+
+  try {
+    signedFeed = await configureSignedWindowsUpdateFeed(input.version, input.ring)
+    const { version } = signedFeed
+
+    if (isReadyUpdateCurrent(previousReadyUpdate, input.ring, version)) {
+      return { kind: "downloaded", version }
     }
 
-    readyUpdateStore.take(ring)
-    autoUpdater.allowPrerelease = ring === UPDATE_RING_PREVIEW
+    readyUpdateStore.take(input.ring)
+    autoUpdater.allowPrerelease = input.ring === UPDATE_RING_PREVIEW
     autoUpdater.allowDowngrade = false
 
     const result = await autoUpdater.checkForUpdates()
     const resolvedVersion = result?.updateInfo?.version
     if (result?.isUpdateAvailable === false || !resolvedVersion) {
-      setUpdateIdle(ring)
-      return { updateAvailable: false }
+      return { kind: "failed" }
     }
 
     if (resolvedVersion !== version) {
@@ -1086,44 +1060,16 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
         resolvedVersion,
         signedManifestVersion: version,
       })
-      setUpdateError({ ring, stage: "check", version: resolvedVersion })
-      return { updateAvailable: false, failed: true }
+      return { kind: "failed" }
     }
 
-    downloadStarted = true
-    activeWindowsDownload = { ring, version }
-    setUpdateProgress({
-      percent: 0,
-      ring,
-      status: "downloading",
-      transferredBytes: 0,
-      version,
-    })
+    activeWindowsDownload = { onProgress: input.onProgress, ring: input.ring, version }
     await autoUpdater.downloadUpdate()
-    setReadyUpdate(ring, version)
-    setUpdateProgress({
-      percent: 100,
-      ring,
-      status: "ready",
-      version,
-    })
-    return {
-      updateAvailable: true,
-      version,
-    }
+    readyUpdateStore.set({ ring: input.ring, version })
+    return { kind: "downloaded", version }
   } catch (error) {
-    logger.error("update check failed", error)
-    const errorStage: UpdateProgressErrorStage = downloadStarted ? "download" : "check"
-    setUpdateError(
-      Object.assign(
-        {
-          ring,
-          stage: errorStage,
-        },
-        signedFeed ? { version: signedFeed.version } : undefined,
-      ),
-    )
-    return { updateAvailable: false, failed: true }
+    logger.error("update download failed", error)
+    return { kind: "failed" }
   } finally {
     activeWindowsDownload = undefined
     await closeWindowsUpdateFeed(signedFeed)
@@ -1131,10 +1077,26 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
   }
 }
 
+async function checkAndDownloadLatestUpdate(): Promise<UpdateCheckResult> {
+  if (!updaterEnabled) return { updateAvailable: false }
+
+  const ring = getUpdateRing()
+  const check = await updateRunner.runExclusive(() => checkLatestUpdate(ring))
+  if (check.kind === "failed") return { failed: true, updateAvailable: false }
+  if (check.kind === "blocked") return { blocked: true, updateAvailable: false }
+  if (check.kind === "up-to-date") return { updateAvailable: false }
+
+  const download = await updateRunner.runExclusive(() =>
+    downloadLatestUpdate({ ring, version: check.version, onProgress: () => undefined }),
+  )
+  if (download.kind === "failed") return { failed: true, updateAvailable: false }
+  return { updateAvailable: true, version: download.version }
+}
+
 async function checkUpdateForVersion(version: string): Promise<UpdateCheckResult> {
   if (!updaterEnabled) return { updateAvailable: false }
 
-  return await updateCheckCoordinator.runExclusive(() => checkUpdateForVersionNow(version))
+  return await updateRunner.runExclusive(() => checkUpdateForVersionNow(version))
 }
 
 async function checkUpdateForVersionNow(version: string): Promise<UpdateCheckResult> {
@@ -1145,38 +1107,21 @@ async function checkUpdateForVersionNow(version: string): Promise<UpdateCheckRes
   } else {
     readyUpdateStore.take(ring)
   }
-  setUpdateProgress({
-    ring,
-    status: "checking",
-    version,
-  })
 
   if (isUpdateVersionBlocked(version)) {
     logger.warn("recovery update target is blocked", { version })
-    setUpdateIdle(ring)
     return { blocked: true, updateAvailable: false }
   }
 
   if (macUpdater) {
     const result = await macUpdater.checkForVersion(version)
     if (result.updateAvailable) {
-      setReadyUpdate(ring, result.version)
-      setUpdateProgress({
-        percent: 100,
-        ring,
-        status: "ready",
-        version: result.version,
-      })
-    } else if (result.failed) {
-      setUpdateError({ ring, stage: "check", version })
-    } else {
-      setUpdateIdle(ring)
+      readyUpdateStore.set({ ring, version: result.version })
     }
     return result
   }
 
   let signedFeed: SignedWindowsUpdateFeed | undefined
-  let downloadStarted = false
   try {
     signedFeed = await configureSignedWindowsUpdateFeed(version)
     autoUpdater.allowPrerelease = true
@@ -1185,7 +1130,6 @@ async function checkUpdateForVersionNow(version: string): Promise<UpdateCheckRes
     const result = await autoUpdater.checkForUpdates()
     const resolvedVersion = result?.updateInfo?.version
     if (result?.isUpdateAvailable === false || !resolvedVersion) {
-      setUpdateIdle(ring)
       return { updateAvailable: false }
     }
 
@@ -1195,7 +1139,6 @@ async function checkUpdateForVersionNow(version: string): Promise<UpdateCheckRes
         signedManifestVersion: signedFeed.version,
         targetVersion: version,
       })
-      setUpdateError({ ring, stage: "check", version: resolvedVersion })
       return { failed: true, updateAvailable: false }
     }
 
@@ -1204,38 +1147,22 @@ async function checkUpdateForVersionNow(version: string): Promise<UpdateCheckRes
         resolvedVersion,
         targetVersion: version,
       })
-      setUpdateError({ ring, stage: "check", version: resolvedVersion })
       return { failed: true, updateAvailable: false }
     }
 
-    downloadStarted = true
-    activeWindowsDownload = { ring, version: resolvedVersion }
-    setUpdateProgress({
-      percent: 0,
+    activeWindowsDownload = {
+      onProgress: () => undefined,
       ring,
-      status: "downloading",
-      transferredBytes: 0,
       version: resolvedVersion,
-    })
+    }
     await autoUpdater.downloadUpdate()
-    setReadyUpdate(ring, resolvedVersion)
-    setUpdateProgress({
-      percent: 100,
-      ring,
-      status: "ready",
-      version: resolvedVersion,
-    })
+    readyUpdateStore.set({ ring, version: resolvedVersion })
     return {
       updateAvailable: true,
       version: resolvedVersion,
     }
   } catch (error) {
     logger.error("recovery update check failed", error)
-    setUpdateError({
-      ring,
-      stage: downloadStarted ? "download" : "check",
-      version,
-    })
     return { failed: true, updateAvailable: false }
   } finally {
     activeWindowsDownload = undefined
@@ -1349,89 +1276,36 @@ function configureDefaultElectronUpdaterProvider() {
   })
 }
 
-async function installUpdate() {
-  await updateCheckCoordinator.runExclusive(installReadyUpdate)
+async function installUpdate(): Promise<void> {
+  const readyUpdate = readyUpdateStore.get()
+  if (!readyUpdate) throw new Error("No update is ready to install")
+
+  const outcome = await updateRunner.runExclusive(() => installReadyUpdate(readyUpdate.version))
+  if (outcome.kind === "failed") {
+    throw new Error(`Failed to install update ${readyUpdate.version}`)
+  }
 }
 
-async function installReadyUpdate() {
+async function installReadyUpdate(version: string): Promise<UpdateInstallOutcome> {
   const ring = getUpdateRing()
   const readyUpdate = readyUpdateStore.get()
-  if (readyUpdate?.ring !== ring) {
-    setUpdateIdle(ring)
-    throw new Error("No update is ready for the selected update ring")
+  if (readyUpdate?.ring !== ring || readyUpdate.version !== version) {
+    logger.error("install requested without a matching downloaded update", { ring, version })
+    return { kind: "failed" }
   }
 
-  if (process.platform === "darwin" && customMacUpdater) {
-    setUpdateProgress({
-      percent: 100,
-      ring,
-      status: "installing",
-      version: readyUpdate.version,
-    })
-    try {
-      await customMacUpdater.installUpdate(readyUpdate.version)
-    } catch (error) {
-      setUpdateError({ ring, stage: "install", version: readyUpdate.version })
-      throw error
-    }
-    return
-  }
-
-  setUpdateProgress({
-    percent: 100,
-    ring,
-    status: "installing",
-    version: readyUpdate.version,
-  })
-  await killBackendUtility()
-  autoUpdater.quitAndInstall()
-}
-
-async function checkForUpdates(alertOnFail: boolean) {
-  if (!updaterEnabled) return
-
-  const result = await checkUpdate()
-  if (!result.updateAvailable) {
-    if (result.failed) {
-      if (!alertOnFail) return
-      await dialog.showMessageBox({
-        type: "error",
-        title: "Update Error",
-        message: "Update check failed.",
-      })
-      return
+  try {
+    if (process.platform === "darwin" && customMacUpdater) {
+      await customMacUpdater.installUpdate(version)
+      return { kind: "started" }
     }
 
-    if (result.blocked) {
-      if (!alertOnFail) return
-      await dialog.showMessageBox({
-        type: "info",
-        title: "Buddy",
-        message: BLOCKED_UPDATE_DIALOG_MESSAGE,
-      })
-      return
-    }
-
-    if (!alertOnFail) return
-    await dialog.showMessageBox({
-      type: "info",
-      title: "Buddy",
-      message: "No updates available.",
-    })
-    return
-  }
-
-  const response = await dialog.showMessageBox({
-    type: "info",
-    title: "Update Ready",
-    message: `Buddy ${result.version ?? ""} downloaded. Restart now?`,
-    buttons: [...UPDATE_READY_RESTART_BUTTONS],
-    defaultId: PRIMARY_DIALOG_RESPONSE,
-    cancelId: SECONDARY_DIALOG_RESPONSE,
-  })
-
-  if (response.response === PRIMARY_DIALOG_RESPONSE) {
-    await installUpdate()
+    await killBackendUtility()
+    autoUpdater.quitAndInstall()
+    return { kind: "started" }
+  } catch (error) {
+    logger.error("update install failed", error)
+    return { kind: "failed" }
   }
 }
 

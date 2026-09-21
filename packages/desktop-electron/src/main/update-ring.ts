@@ -1,5 +1,5 @@
-import type { UpdateRing } from "../shared/update-state"
-import { normalizeUpdateRing } from "../shared/update-state"
+import type { UpdateRing } from "@buddy/update-contract"
+import { normalizeUpdateRing } from "@buddy/update-contract"
 import { store } from "./store"
 
 const UPDATE_RING_STORE_KEY = "updateRing"

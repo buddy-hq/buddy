@@ -72,6 +72,7 @@ import { CommandSelectionTokensEasel } from "./easel/command-selection-tokens"
 import { ReaderLayoutConsistencyEasel } from "./easel/reader-layout-consistency"
 import { SegmentedActiveStateEasel } from "./easel/segmented-active-state"
 import { SettingsUpdatesAndModeEasel } from "./easel/settings-updates-and-mode"
+import { UpdaterSurfacesEasel } from "./easel/updater-surfaces"
 import { SelectDropdownVariantsEasel } from "./easel/select-dropdown-variants"
 import { CitationHighlightColorsEasel } from "./easel/citation-highlight-colors"
 import { ReaderHighlightStrengthsEasel } from "./easel/reader-highlight-strengths"
@@ -92,6 +93,7 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "updater-surfaces"
   | "reader-highlight-strengths"
   | "citation-highlight-colors"
   | "bench-table-restyle"
@@ -135,6 +137,12 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "updater-surfaces",
+    label: "Updater · every surface it added",
+    subtitle:
+      "Real components on a fake shell · a live flow you can press through, then the sidebar button, its hover card and Settings → About in all fourteen states, plus release notes, the restart confirmation, the ready toast and the app menu",
+  },
   {
     id: "reader-highlight-strengths",
     label: "Reader highlights · app tokens vs reader inks",
@@ -1231,7 +1239,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("bench-table-restyle")
+  const [prototype, setPrototype] = useState<EaselPrototype>("updater-surfaces")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1394,7 +1402,8 @@ export function DevToolsEaselTab(props: { directory?: string }) {
       <div
         className={cn(
           "flex min-h-0 flex-1",
-          prototype === "reader-highlight-strengths" ||
+          prototype === "updater-surfaces" ||
+            prototype === "reader-highlight-strengths" ||
             prototype === "citation-highlight-colors" ||
             prototype === "select-dropdown-variants" ||
             prototype === "location-step-options" ||
@@ -1425,6 +1434,14 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
       >
+        {prototype === "updater-surfaces" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <UpdaterSurfacesEasel />
+            </div>
+          </div>
+        ) : null}
+
         {prototype === "reader-highlight-strengths" ? (
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">

@@ -1,3 +1,5 @@
+import type { UpdateAction, UpdateRing, UpdateState } from "@buddy/update-contract"
+import { isUpdateBusy, isUpdateRing } from "@buddy/update-contract"
 import {
   Button,
   Progress,
@@ -10,20 +12,35 @@ import {
   cn,
 } from "@buddy/ui"
 import { language } from "@/context/language"
-import type { UpdateRing } from "@/context/platform"
-import { SettingsRow, SettingsSection } from "./settings-primitives"
+import { usePlatform } from "@/context/platform"
+import { formatRelativeTime } from "@/state/openai-usage-format"
+import { ConfirmUpdateInstallDialog } from "@/components/updates/confirm-update-install-dialog"
+import { UpdateReleaseNotes } from "@/components/updates/update-release-notes"
 import {
-  isUpdateRing,
-  useUpdateSettings,
-  type UpdateBanner,
-  type UpdateBannerTone,
-} from "./use-update-settings"
+  describeUpdateAction,
+  describeUpdateFailure,
+  describeUpdateStatus,
+  updateDownloadPercent,
+} from "@/components/updates/update-presentation"
+import { useUpdateControl } from "@/components/updates/use-update-control"
+import { SettingsRow, SettingsSection } from "./settings-primitives"
+
+type BannerTone = "neutral" | "positive" | "critical"
+
+type UpdateBanner = {
+  tone: BannerTone
+  title: string
+  detail?: string
+  busy: boolean
+  percent?: number
+  actionLabel?: string
+}
 
 const BANNER_SURFACE = {
   neutral: "bg-surface-weak text-text-base",
   positive: "bg-surface-success-weak text-text-on-success-weak",
   critical: "bg-surface-critical-weak text-text-on-critical-weak",
-} satisfies Record<UpdateBannerTone, string>
+} satisfies Record<BannerTone, string>
 
 const RING_LABEL_KEYS = {
   stable: "settings.updates.ringStable",
@@ -35,28 +52,43 @@ const RING_DESCRIPTION_KEYS = {
   preview: "settings.updates.channelPreviewDescription",
 } satisfies Record<UpdateRing, string>
 
-function bannerActionLabel(banner: UpdateBanner): string | undefined {
-  switch (banner.action) {
-    case "install":
-      return language.t("settings.updates.install")
-    case "retry":
-      return language.t("settings.updates.retry")
-    case undefined:
+function resolveUpdateBanner(state: UpdateState, action: UpdateAction): UpdateBanner | undefined {
+  const actionLabel = action === "check" ? undefined : describeUpdateAction(action, state.failure)
+
+  if (state.failure) {
+    return {
+      tone: "critical",
+      title: describeUpdateFailure(state.failure),
+      detail: language.t("updates.failure.detail"),
+      busy: false,
+      actionLabel: describeUpdateAction(action, state.failure),
+    }
+  }
+
+  switch (state.activity.status) {
+    case "unsupported":
+    case "idle":
       return undefined
+    case "checking":
+    case "installing":
+      return { tone: "neutral", title: describeUpdateStatus(state), busy: true }
+    case "downloading":
+      return {
+        tone: "neutral",
+        title: describeUpdateStatus(state),
+        busy: true,
+        percent: updateDownloadPercent(state),
+      }
+    case "blocked":
+      return { tone: "neutral", title: describeUpdateStatus(state), busy: false }
+    case "up-to-date":
+    case "available":
+    case "downloaded":
+      return { tone: "positive", title: describeUpdateStatus(state), busy: false, actionLabel }
   }
 }
 
-/**
- * Updater activity gets its own strip at the top of the card, and only exists
- * when there is something to say. An idle updater leaves three calm rows behind.
- */
-function UpdateBannerStrip(props: {
-  banner: UpdateBanner
-  disabled: boolean
-  onAction: () => void
-}) {
-  const actionLabel = bannerActionLabel(props.banner)
-
+function UpdateBannerStrip(props: { banner: UpdateBanner; onAction: () => void }) {
   return (
     <div
       role="status"
@@ -67,27 +99,26 @@ function UpdateBannerStrip(props: {
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-2.5">
-          {props.banner.busy ? <Spinner className="size-3.5 shrink-0" /> : null}
+          {props.banner.busy ? (
+            <Spinner className="size-3.5 shrink-0 animate-[spin_2s_linear_infinite] motion-reduce:animate-none" />
+          ) : null}
           <div className="flex min-w-0 flex-col">
             <p className="truncate text-[13px] font-medium tracking-[-0.01em]">
               {props.banner.title}
             </p>
-            {props.banner.detail ? (
-              <p className="truncate text-xs opacity-80">{props.banner.detail}</p>
-            ) : null}
+            {props.banner.detail ? <p className="truncate text-xs">{props.banner.detail}</p> : null}
           </div>
         </div>
-        {actionLabel ? (
+        {props.banner.actionLabel ? (
           <Button
             data-action="settings-update-banner-action"
             type="button"
             size="sm"
             variant="secondary"
             className="shrink-0"
-            disabled={props.disabled}
             onClick={props.onAction}
           >
-            {actionLabel}
+            {props.banner.actionLabel}
           </Button>
         ) : null}
       </div>
@@ -96,53 +127,45 @@ function UpdateBannerStrip(props: {
   )
 }
 
-/**
- * Rendered inside About rather than as a panel of its own — checking for an update is an
- * app-level chore, not a thing you go to a separate tab for.
- */
 export function UpdatesSettingsSection() {
-  const updates = useUpdateSettings()
-  const banner = updates.banner
-
-  function onBannerAction() {
-    if (banner?.action === "install") {
-      void updates.installUpdate()
-      return
-    }
-
-    void updates.checkForUpdates()
-  }
+  const platform = usePlatform()
+  const { state, action, perform, check, setRing, confirmation } = useUpdateControl()
+  const supported = state.activity.status !== "unsupported"
+  const busy = isUpdateBusy(state)
+  const banner = resolveUpdateBanner(state, action)
+  const offersUpdate = action === "download" || action === "install"
 
   return (
     <SettingsSection title={language.t("settings.updates.title")}>
-      {banner ? (
-        <UpdateBannerStrip
-          banner={banner}
-          disabled={!updates.supported || updates.busy}
-          onAction={onBannerAction}
-        />
+      {banner ? <UpdateBannerStrip banner={banner} onAction={perform} /> : null}
+
+      {offersUpdate && state.releaseNotes.length > 0 ? (
+        <div className="border-t border-border-base/60 px-4 py-3.5 sm:px-5">
+          <UpdateReleaseNotes
+            notes={state.releaseNotes}
+            onOpenRelease={(url) => platform.openLink(url)}
+          />
+        </div>
       ) : null}
 
       <SettingsRow
         title={language.t("settings.updates.versionTitle")}
         control={
           <span className="text-xs text-text-weak tabular-nums">
-            {updates.version ?? language.t("settings.updates.versionUnknown")}
+            {state.currentVersion || language.t("settings.updates.versionUnknown")}
           </span>
         }
       />
 
       <SettingsRow
         title={language.t("settings.updates.channelTitle")}
-        description={language.t(RING_DESCRIPTION_KEYS[updates.ring])}
+        description={language.t(RING_DESCRIPTION_KEYS[state.ring])}
         control={
           <Select
-            value={updates.ring}
-            disabled={!updates.supported || updates.busy}
+            value={state.ring}
+            disabled={!supported || busy}
             onValueChange={(value) => {
-              if (isUpdateRing(value)) {
-                void updates.changeRing(value)
-              }
+              if (isUpdateRing(value)) void setRing(value)
             }}
           >
             <SelectTrigger data-action="settings-update-ring" className="w-40">
@@ -159,23 +182,43 @@ export function UpdatesSettingsSection() {
       <SettingsRow
         title={language.t("settings.updates.checkTitle")}
         description={
-          updates.supported
+          supported
             ? language.t("settings.updates.checkDescription")
             : language.t("settings.updates.unavailable")
         }
         control={
-          <Button
-            data-action="settings-check-updates"
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={!updates.supported || updates.busy}
-            onClick={() => void updates.checkForUpdates()}
-          >
-            {language.t("settings.updates.checkNow")}
-          </Button>
+          <>
+            {supported ? (
+              <span className="text-xs text-text-weaker">
+                {state.checkedAt
+                  ? language.t("settings.updates.lastChecked", {
+                      time: formatRelativeTime(state.checkedAt),
+                    })
+                  : language.t("settings.updates.neverChecked")}
+              </span>
+            ) : null}
+            <Button
+              data-action="settings-check-updates"
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={!supported || busy}
+              onClick={check}
+            >
+              {language.t("settings.updates.checkNow")}
+            </Button>
+          </>
         }
       />
+
+      {confirmation.version ? (
+        <ConfirmUpdateInstallDialog
+          open={confirmation.open}
+          version={confirmation.version}
+          onOpenChange={confirmation.onOpenChange}
+          onConfirm={confirmation.onConfirm}
+        />
+      ) : null}
     </SettingsSection>
   )
 }

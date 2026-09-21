@@ -1,9 +1,9 @@
 import { latestReleaseVersionFromReleases } from "@buddy/script/release-version"
 import { verifySignedMessage } from "@buddy/script/minisign"
 import { z } from "zod"
-import type { UpdateRing } from "../shared/update-state"
+import type { UpdateRing } from "@buddy/update-contract"
 import { parseWithSchema } from "../shared/parse-external"
-import { UPDATE_RING_PREVIEW } from "../shared/update-state"
+import { UPDATE_RING_PREVIEW } from "@buddy/update-contract"
 
 const SIGNATURE_SUFFIX = ".sig"
 const GITHUB_RELEASES_API_ACCEPT_HEADER = "application/vnd.github+json"

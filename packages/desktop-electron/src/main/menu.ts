@@ -1,12 +1,12 @@
 import { app, BrowserWindow, Menu, shell } from "electron"
 import type { BaseWindow } from "electron"
+import { UPDATE_CHECK_MENU_COMMAND } from "@buddy/update-contract"
 import { createMainWindow } from "./windows"
 
 type MenuDeps = {
   updaterEnabled: boolean
   trigger: (id: string, sourceWindow: BaseWindow | undefined) => void
   installCli: () => void
-  checkForUpdates: () => void
   reload: () => void
   relaunch: () => void
 }
@@ -22,7 +22,8 @@ export function createMenu(deps: MenuDeps) {
         {
           label: "Check for Updates...",
           enabled: deps.updaterEnabled,
-          click: () => deps.checkForUpdates(),
+          click: (_menuItem, browserWindow) =>
+            deps.trigger(UPDATE_CHECK_MENU_COMMAND, browserWindow),
         },
         {
           label: "Install CLI...",

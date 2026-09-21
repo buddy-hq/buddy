@@ -1,66 +1,47 @@
-import type {
-  UpdateCheckResult,
-  UpdateProgressSnapshot,
-  UpdateRing,
-} from "@buddy/web/context/platform"
+import type { UpdateRing, UpdateState } from "@buddy/update-contract"
+import { UPDATE_RING_STABLE, createUpdateState } from "@buddy/update-contract"
 import { readBuddyRendererGlobals } from "../shared/parse-external"
 
-function isUpdaterEnabled() {
+function unsupportedState(): UpdateState {
+  return createUpdateState({
+    currentVersion: window.api.getAppVersion() ?? "",
+    ring: UPDATE_RING_STABLE,
+    supported: false,
+  })
+}
+
+function isUpdaterEnabled(): boolean {
   return readBuddyRendererGlobals(window)?.updaterEnabled === true
 }
 
-export async function checkForUpdate(): Promise<UpdateCheckResult> {
-  if (!isUpdaterEnabled()) {
-    return { status: "disabled" }
-  }
-
-  try {
-    const result = await window.api.checkUpdate()
-    if (result.failed) {
-      const progress = await window.api.getUpdateProgress().catch(() => null)
-      return {
-        status: "error",
-        stage: progress?.errorStage === "download" ? "download" : "check",
-      }
-    }
-
-    if (result.blocked) {
-      return { status: "blocked" }
-    }
-
-    if (!result.updateAvailable) {
-      return { status: "up-to-date" }
-    }
-
-    return {
-      status: "ready",
-      version: result.version,
-    }
-  } catch {
-    return {
-      status: "error",
-      stage: "check",
-    }
-  }
+export async function getUpdateState(): Promise<UpdateState> {
+  if (!isUpdaterEnabled()) return unsupportedState()
+  return await window.api.getUpdateState().catch(() => unsupportedState())
 }
 
-export async function installPendingUpdate() {
-  if (!isUpdaterEnabled()) return
-  await window.api.installUpdate()
+async function command(run: () => Promise<UpdateState>): Promise<UpdateState> {
+  if (!isUpdaterEnabled()) return unsupportedState()
+  return await run().catch(() => getUpdateState())
 }
 
-export async function getUpdateProgress(): Promise<UpdateProgressSnapshot> {
-  return await window.api.getUpdateProgress()
+export function onUpdateState(cb: (state: UpdateState) => void): () => void {
+  if (!isUpdaterEnabled()) return () => undefined
+  return window.api.onUpdateState(cb)
 }
 
-export async function getUpdateRing(): Promise<UpdateRing> {
-  return await window.api.getUpdateRing()
+export async function checkForUpdate(): Promise<UpdateState> {
+  return await command(() => window.api.checkUpdate())
 }
 
-export function onUpdateProgress(cb: (snapshot: UpdateProgressSnapshot) => void): () => void {
-  return window.api.onUpdateProgress(cb)
+export async function downloadUpdate(): Promise<UpdateState> {
+  return await command(() => window.api.downloadUpdate())
 }
 
-export async function setUpdateRing(ring: UpdateRing): Promise<void> {
-  await window.api.setUpdateRing(ring)
+export async function installPendingUpdate(): Promise<UpdateState> {
+  return await command(() => window.api.installUpdate())
+}
+
+export async function setUpdateRing(ring: UpdateRing): Promise<UpdateState> {
+  if (!isUpdaterEnabled()) return unsupportedState()
+  return await window.api.setUpdateRing(ring)
 }

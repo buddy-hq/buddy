@@ -23,7 +23,8 @@ import type {
   TitlebarTheme,
   WslConfig,
 } from "../preload/types"
-import type { UpdateProgressSnapshot, UpdateRing } from "../shared/update-state"
+import type { UpdateRing, UpdateState } from "@buddy/update-contract"
+import { normalizeUpdateRing } from "@buddy/update-contract"
 import { isValidBenchCaptureRectangle } from "./bench-capture"
 import { parseTString } from "../shared/parse-external"
 import { getStore } from "./store"
@@ -61,17 +62,11 @@ type Deps = {
   wslPath: (path: string, mode: "windows" | "linux" | null) => Promise<string>
   resolveAppPath: (appName: string) => Promise<string | null>
   loadingWindowComplete: () => void
-  runUpdater: (alertOnFail: boolean) => Promise<void> | void
-  checkUpdate: () => Promise<{
-    blocked?: boolean
-    updateAvailable: boolean
-    version?: string
-    failed?: boolean
-  }>
-  getUpdateProgress: () => UpdateProgressSnapshot
-  getUpdateRing: () => UpdateRing
-  setUpdateRing: (ring: UpdateRing) => void
-  installUpdate: () => Promise<void> | void
+  getUpdateState: () => UpdateState
+  checkUpdate: () => Promise<UpdateState>
+  downloadUpdate: () => Promise<UpdateState>
+  installUpdate: () => Promise<UpdateState>
+  setUpdateRing: (ring: UpdateRing) => Promise<UpdateState>
   setBackgroundColor: (color: string) => void
   exportMarkdownPdf: (input: MarkdownPdfExportInput) => Promise<string | null>
   setInAppBrowserAppearance: (
@@ -123,16 +118,13 @@ export function registerIpcHandlers(deps: Deps) {
     deps.resolveAppPath(appName),
   )
   ipcMain.on("loading-window-complete", () => deps.loadingWindowComplete())
-  ipcMain.handle("run-updater", (_event: IpcMainInvokeEvent, alertOnFail: boolean) =>
-    deps.runUpdater(alertOnFail),
+  ipcMain.handle("update-get-state", () => deps.getUpdateState())
+  ipcMain.handle("update-check", () => deps.checkUpdate())
+  ipcMain.handle("update-download", () => deps.downloadUpdate())
+  ipcMain.handle("update-install", () => deps.installUpdate())
+  ipcMain.handle("update-set-ring", (_event: IpcMainInvokeEvent, ring: UpdateRing) =>
+    deps.setUpdateRing(normalizeUpdateRing(ring)),
   )
-  ipcMain.handle("check-update", () => deps.checkUpdate())
-  ipcMain.handle("get-update-progress", () => deps.getUpdateProgress())
-  ipcMain.handle("get-update-ring", () => deps.getUpdateRing())
-  ipcMain.handle("set-update-ring", (_event: IpcMainInvokeEvent, ring: UpdateRing) =>
-    deps.setUpdateRing(ring),
-  )
-  ipcMain.handle("install-update", () => deps.installUpdate())
   ipcMain.handle("set-background-color", (_event: IpcMainInvokeEvent, color: string) =>
     deps.setBackgroundColor(color),
   )
