@@ -372,6 +372,18 @@ describe("message prompt resource references", () => {
           selector: { version: 1 as const, start: 20, end: 40, prefix: "", suffix: "" },
         },
       },
+      {
+        schemaVersion: CITATION_SCHEMA_VERSION,
+        id: "citation-3",
+        excerpt: "Third exact excerpt",
+        source: {
+          kind: "web" as const,
+          url: "https://example.com/article",
+          profileID: "default",
+          selector: { version: 1 as const, start: 5, end: 24, prefix: "Lead ", suffix: "" },
+        },
+        presentation: { title: "Article" },
+      },
     ]
 
     expect(

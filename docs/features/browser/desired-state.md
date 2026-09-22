@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Buddy provides a real browser inside Bench. The user controls the page. The agent knows which browser pages exist and can open links for the user, but cannot read or operate the page.
+Buddy provides a real browser inside Bench. The user controls the page. The agent knows which browser pages exist and can open links for the user, but cannot read or operate the page. The user can cite selected page text into the chat.
 
 ## Product contract
 
@@ -45,13 +45,31 @@ inapp_browser_open({ url })
 
 Validates the URL, creates and selects a new visible Browser Bench tab, and never replaces the active user page. The agent cannot inspect DOM contents, capture screenshots, click, type, scroll, run JavaScript, or access console/network data.
 
+## Citations
+
+Browser text is cited like document, reader, and chat text, as a `web` citation source:
+
+- Selecting page text shows the standard Cite button; the page's context menu also offers
+  **Cite in Chat**. Citing adds a quote chip and opens its comment editor while the page keeps the
+  text marked.
+- The citation stores the excerpt, a drift-tolerant text selector, the committed page URL read by
+  Electron main, the Browser profile, the page title, and the nearest headings. Page text leaves
+  the page only when the user cites it.
+- The model receives the excerpt, URL, title, and section in the standard `<buddy_citation>` block.
+  It still cannot read the page.
+- Opening a web quote switches to a Browser tab in the current chat that shows the page, or opens
+  a new tab in the cited profile (Default when that profile was removed), then scrolls to and
+  briefly highlights the text. It never replaces the user's current page.
+- Quote details offer **Open in system browser** with a `#:~:text=` link.
+- Text inside iframes, canvas-rendered pages, and the PDF viewer cannot be cited.
+
 ## Ownership
 
 | Owner | Responsibility |
 | --- | --- |
 | Bench | Tab identity, chat ownership, selection, visibility, and agent turn context |
-| Browser web UI | Toolbar, navigation controls, loading/failure feedback, and `<webview>` element |
-| Electron | Guest registration, profile sessions, permissions, popups, downloads, crashes, favicons, and cookie import |
+| Browser web UI | Toolbar, navigation controls, loading/failure feedback, `<webview>` element, and the Cite button |
+| Electron | Guest registration, profile sessions, permissions, popups, downloads, crashes, favicons, cookie import, and citation capture, marking, and reveal |
 | Browser feature | `inapp_browser_open`, URL validation, agent-facing contract |
 
 The browser page is embedded with Electron's `<webview>` to compose cleanly with Bench's React layout and floating chat without native-view stacking issues.
@@ -61,7 +79,8 @@ The browser page is embedded with Electron's `<webview>` to compose cleanly with
 T3code is the reference implementation (`apps/{web,desktop,server}/src/preview`, `apps/server/src/mcp/toolkits/preview`). Deliberate Buddy differences:
 
 - Named persistent partitions plus an ephemeral Incognito partition.
-- `contextIsolation` enabled (no picker or automation preload injected in v1).
+- `contextIsolation` enabled. The only guest preload handles mouse navigation, blocked links, and
+  text citations; there is no picker or automation preload.
 - `inapp_browser_open` uses Bench's client-action channel (automation broker deferred).
 - Excluded from saved workspace state (temporary tabs).
 - Native Electron user agent retained: rewriting it breaks browser-integrity checks such as

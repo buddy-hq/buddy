@@ -181,7 +181,7 @@ export type PromptReadingSelectionPart = {
   locationLabel?: string
 }
 
-export type PromptSelectionContextSource = "reading" | "markdown" | "message"
+export type PromptSelectionContextSource = "reading" | "markdown" | "message" | "web"
 
 export type PromptReadingSelectionContextPart = {
   type: typeof SELECTION_CONTEXT_PART_TYPE
@@ -281,6 +281,7 @@ export function promptPartFromCitation(citation: Citation): PromptCitationContex
       presentation?.headingPath ? { headingPath: [...presentation.headingPath] } : undefined,
     )
   }
+  if (citation.source.kind === "web") return { ...common, source: "web" }
   return {
     ...common,
     source: "message",

@@ -1,7 +1,7 @@
 import { useLayoutEffect, useState, type RefObject } from "react"
 import type { Citation, CitationTextSelector } from "@buddy/citation-contract"
 import type { StagedQuote } from "@/lib/citations/staged-quotes"
-import { resolveRenderedTextRange } from "@/lib/citations/rendered-text"
+import { resolveRenderedTextRange } from "@buddy/citation-contract/rendered-text"
 import type { QuoteCommentAnchor } from "./quote-comment-markers"
 
 const EMPTY_ANCHORS: readonly QuoteCommentAnchor[] = []

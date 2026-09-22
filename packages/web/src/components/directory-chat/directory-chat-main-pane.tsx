@@ -64,18 +64,35 @@ import {
   type ComposerAccessoryLayout,
 } from "@/components/prompt/composer-accessory-layout"
 import { useGameStore } from "@/state/game-store"
-import type { Citation } from "@buddy/citation-contract"
+import type { Citation, WebCitationSource } from "@buddy/citation-contract"
+import { citationTextFragmentUrl } from "@buddy/citation-contract/text-fragment"
 import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer-live-draft"
 import { appendCitationToDraft } from "@/components/readers/utils/reading-selection-draft"
 import { requestCitationComment, type CitationCommentSource } from "@/lib/citations/comment-request"
-import { registerCitationNavigationHandler } from "@/lib/citations/navigation"
+import {
+  registerCitationNavigationHandler,
+  type CitationNavigationResult,
+} from "@/lib/citations/navigation"
+import { citationSurfaceRevealer } from "@/lib/citations/surface-revealers"
 import { fileNameFromPath } from "@/lib/workspace-file-paths"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
+  BENCH_MODE_REQUEST_POLICY,
   BENCH_WORKSPACE_ROOT_NOTEBOOK,
+  createInAppBrowserBenchTarget,
+  benchTargetKey,
   useOpenBench,
+  type BenchOpenRequest,
   type BenchTarget,
+  type OpenBenchResult,
 } from "@/lib/bench-navigation"
+import {
+  readingResourceBenchTarget,
+  type OpenReadingResource,
+} from "@/lib/use-open-reading-resource"
+import { useDirectoryWorkspaceOptional } from "@/components/directory-chat/directory-workspace-context"
+import { resolveWebCitationTarget, webCitationRevealer } from "@/lib/in-app-browser-citations"
+import { waitForInAppBrowserSettingsHydration } from "@/state/in-app-browser-settings-store"
 
 type PromptComposerProps = Omit<
   ComponentProps<typeof PromptComposer>,
@@ -103,7 +120,7 @@ type DirectoryChatMainPaneProps = {
   onTranscriptScrollGeometryChange?: (element: HTMLElement) => void
   markTranscriptProgrammaticScroll?: (element: HTMLElement, top: number) => void
   onOpenSession: (sessionID: string) => void
-  onOpenResource: (directory: string, resource: ResourceReadingTarget) => void
+  onOpenResource: OpenReadingResource
   onForkMessage?: (input: { sessionID: string; messageID?: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onQuoteMessage?: (input: { sessionID: string; messageID: string; text: string }) => void
@@ -148,6 +165,7 @@ export type CitationSourceOpenTarget =
       replacesTarget: Extract<BenchTarget, { type: "workspace-file" }>
     }
   | { kind: "reading"; path: string }
+  | { kind: "web"; source: WebCitationSource }
 
 export function resolveCitationSourceOpenTarget(
   citation: Citation,
@@ -166,7 +184,46 @@ export function resolveCitationSourceOpenTarget(
     }
   }
   if (source.kind === "reading" && source.path) return { kind: "reading", path: source.path }
+  if (source.kind === "web") return { kind: "web", source }
   return undefined
+}
+
+type CitationSurfaceOpenResult = Pick<OpenBenchResult, "outcome">
+
+function revealInOpenedSurface(
+  citation: Citation,
+  surface: BenchTarget,
+  opened: CitationSurfaceOpenResult,
+): CitationNavigationResult | Promise<boolean> {
+  if (opened.outcome !== "committed") return false
+  const reveal = citationSurfaceRevealer(benchTargetKey(surface))
+  return reveal ? reveal(citation) : "pending"
+}
+
+export async function openCitationSurface(input: {
+  citation: Citation
+  target: Exclude<CitationSourceOpenTarget, { kind: "web" }>
+  directory: string
+  openBench: (request: BenchOpenRequest) => Promise<CitationSurfaceOpenResult>
+  openResource: (
+    directory: string,
+    resource: ResourceReadingTarget,
+  ) => Promise<CitationSurfaceOpenResult>
+}): Promise<CitationNavigationResult> {
+  const { citation, directory, target } = input
+  if (target.kind === "markdown") {
+    const opened = await input.openBench({
+      directory,
+      target: target.target,
+      replacesTarget: target.replacesTarget,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+      autoOpen: null,
+    })
+    return revealInOpenedSurface(citation, target.target, opened)
+  }
+  const resource = { path: target.path, name: fileNameFromPath(target.path) }
+  const opened = await input.openResource(directory, resource)
+  return revealInOpenedSurface(citation, readingResourceBenchTarget(resource), opened)
 }
 
 const EMPTY_CHAT_LAYOUT_MEASUREMENTS: ChatLayoutMeasurements = {
@@ -268,6 +325,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   const location = useLocation()
   const platform = usePlatform()
   const openBench = useOpenBench()
+  const workspace = useDirectoryWorkspaceOptional()
   const {
     directory,
     chatState,
@@ -384,23 +442,45 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       registerCitationNavigationHandler(async (citation) => {
         const target = resolveCitationSourceOpenTarget(citation)
         if (!target) return false
-        if (target.kind === "markdown") {
+        if (target.kind === "web") {
+          if (!platform.inAppBrowser || !workspace) {
+            platform.openLink(
+              citationTextFragmentUrl({
+                url: target.source.url,
+                excerpt: citation.excerpt,
+                selector: target.source.selector,
+              }),
+            )
+            return true
+          }
+          await waitForInAppBrowserSettingsHydration()
+          const { profileID, openTab } = resolveWebCitationTarget({
+            workspace: workspace.store.getState(),
+            source: target.source,
+          })
+          const browserTarget =
+            openTab ?? createInAppBrowserBenchTarget(target.source.url, profileID)
           const result = await openBench({
             directory,
-            target: target.target,
-            replacesTarget: target.replacesTarget,
-            mode: BENCH_CHAT_LAYOUT_DOCKED,
+            target: browserTarget,
+            mode: BENCH_MODE_REQUEST_POLICY,
             autoOpen: null,
           })
-          return result.outcome === "committed" ? "pending" : false
+          if (result.outcome !== "committed") return false
+          const reveal = webCitationRevealer(browserTarget.tabID)
+          if (!reveal) return "pending"
+          void reveal({ ...citation, source: target.source })
+          return true
         }
-        void onOpenResource(directory, {
-          path: target.path,
-          name: fileNameFromPath(target.path),
+        return openCitationSurface({
+          citation,
+          target,
+          directory,
+          openBench,
+          openResource: onOpenResource,
         })
-        return "pending"
       }),
-    [directory, onOpenResource, openBench],
+    [directory, onOpenResource, openBench, platform, workspace],
   )
 
   // The prompt composer publishes its attachment API here so files dropped

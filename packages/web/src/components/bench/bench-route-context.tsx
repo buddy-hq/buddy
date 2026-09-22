@@ -214,6 +214,10 @@ export function useBenchRouteContext() {
   return value
 }
 
+export function useBenchRouteContextOptional() {
+  return useContext(BenchRouteContext)
+}
+
 export function useRegisterBenchContextProvider(input: BenchContextProviderRegistration): void {
   const benchContext = useBenchRouteContext()
   const registerSurface = benchContext.registerSurface

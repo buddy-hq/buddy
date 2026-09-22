@@ -164,7 +164,7 @@ export async function resolveCitationProviderLocation(
   const session =
     context.sessionID === undefined ? undefined : { currentSessionID: context.sessionID }
   const { source } = citation
-  if (source.kind === "chat") return Object.assign({}, session)
+  if (source.kind === "chat" || source.kind === "web") return Object.assign({}, session)
   const absolutePath = await workspaceSourcePath(source, context.directory)
   if (!absolutePath) return Object.assign({}, session)
   if (source.kind === "reading") return Object.assign({ absolutePath }, session)

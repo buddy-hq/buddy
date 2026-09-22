@@ -16,6 +16,7 @@ import { BrowserNewTabPage } from "./browser-new-tab-page"
 import { BrowserProfileLabel, BrowserToolbar } from "./browser-toolbar"
 import { BrowserZoomBadge } from "./browser-zoom-badge"
 import { useBrowserBenchContext } from "./use-browser-bench-context"
+import { useBrowserCitations } from "./use-browser-citations"
 import { useBrowserPage } from "./use-browser-page"
 import { useBrowserPageControls } from "./use-browser-page-controls"
 import { useBrowserProfileName } from "./use-browser-profile-name"
@@ -86,6 +87,7 @@ function HydratedBrowserTab(props: {
   const [profileID] = useState(() => target.profileID ?? defaultProfileID)
   const profileName = useBrowserProfileName(profileID)
   const [addressFocusRequest, setAddressFocusRequest] = useState(0)
+  const pageAreaRef = useRef<HTMLDivElement>(null)
   const attachedStateSynchronizerRef = useRef<
     ((webview: InAppBrowserWebview, webContentsID: number, observedPageUrl: string) => void) | null
   >(null)
@@ -128,6 +130,17 @@ function HydratedBrowserTab(props: {
   })
   useBrowserBenchContext({ target, runtime })
   useBrowserVisitRecording({ directory, profileID, runtime })
+  const citationToolbar = useBrowserCitations({
+    directory,
+    target,
+    browser,
+    profileID,
+    webContentsID: page.webContentsID,
+    runtime,
+    zoomFactor: controls.zoomFactor,
+    surfaceActive,
+    pageAreaRef,
+  })
 
   useEffect(() => {
     if (surfaceActive) return
@@ -185,7 +198,7 @@ function HydratedBrowserTab(props: {
           {status}
         </div>
       ) : null}
-      <div className="relative min-h-0 flex-1">
+      <div ref={pageAreaRef} className="relative min-h-0 flex-1">
         <webview
           key={`${partition}:${page.webviewKey}`}
           ref={page.setWebviewRef}
@@ -207,6 +220,7 @@ function HydratedBrowserTab(props: {
         <BrowserPageError error={runtime.error} onReload={page.reload} />
         <BrowserZoomBadge zoomFactor={controls.zoomFactor} />
       </div>
+      {citationToolbar}
     </div>
   )
 }

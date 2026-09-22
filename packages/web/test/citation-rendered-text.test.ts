@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import {
   captureRenderedTextSelection,
+  captureTrimmedRenderedTextSelection,
   resolveRenderedTextRange,
-} from "@/lib/citations/rendered-text"
+} from "@buddy/citation-contract/rendered-text"
 import { CITATION_HIGHLIGHT_NAME, revealCitationRange } from "@/lib/citations/highlight"
 
 afterEach(() => {
@@ -74,5 +75,29 @@ describe("citation rendered text", () => {
     root.innerHTML = "<p>New intro. Alpha <strong>selected</strong> text.</p>"
     const resolved = resolveRenderedTextRange(root, captured.excerpt, captured.selector)
     expect(resolved?.toString()).toBe("selected text")
+  })
+
+  test("trims page-formatting whitespace from a web selection and still resolves it", () => {
+    const root = document.createElement("article")
+    root.innerHTML = "<p>Lead in.</p>\n    <p>Plants turn\n      light into energy.</p>"
+    document.body.append(root)
+
+    const first = requireTextNode(root.querySelector("p"))
+    const second = requireTextNode(root.querySelectorAll("p").item(1))
+    const range = document.createRange()
+    range.setStart(first, first.length)
+    range.setEnd(second, "Plants turn".length)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    const captured = captureTrimmedRenderedTextSelection(root, selection)
+    expect(captured?.excerpt).toBe("Plants turn")
+    if (!captured) throw new Error("expected the trimmed selection to be captured")
+
+    root.insertAdjacentHTML("afterbegin", "<p>A new banner. Plants turn heads.</p>")
+    const resolved = resolveRenderedTextRange(root, captured.excerpt, captured.selector)
+    expect(resolved?.toString()).toBe("Plants turn")
+    expect(resolved?.startContainer).toBe(second)
   })
 })

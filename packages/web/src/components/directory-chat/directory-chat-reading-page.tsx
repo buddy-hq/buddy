@@ -33,9 +33,10 @@ import {
 } from "@/state/resources-query"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { addResource, rebuildResource, type ResourceRecord } from "@/state/resource-actions"
-import type { BenchTarget } from "@/lib/bench-navigation"
+import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
 import { stringifyError } from "@/lib/api-client"
 import { registerCitationNavigationHandler } from "@/lib/citations/navigation"
+import { registerCitationSurfaceRevealer } from "@/lib/citations/surface-revealers"
 import { useReadingMarginMarks } from "@/components/citations/use-reading-margin-marks"
 
 type DirectoryChatReadingPageProps = {
@@ -358,16 +359,23 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   )
   const { marginMarks, renderMarginMarks } = useReadingMarginMarks(ownsReadingSource)
 
-  useEffect(
-    () =>
-      registerCitationNavigationHandler(async (citation) => {
-        if (citation.source.kind !== "reading" || !ownsReadingSource(citation.source)) return false
-        const reader = readerRef.current
-        if (!readerReady || !reader?.getSnapshot()) return false
-        return reader.goToText(citation.source.anchor)
-      }),
-    [ownsReadingSource, readerReady],
-  )
+  const citationSurfaceKey = benchTargetKey(props.target)
+  useEffect(() => {
+    const revealCitation = async (citation: Citation) => {
+      if (citation.source.kind !== "reading" || !ownsReadingSource(citation.source)) return false
+      const reader = readerRef.current
+      if (!readerReady || !reader?.getSnapshot()) return false
+      return reader.goToText(citation.source.anchor)
+    }
+    const unregisterNavigation = registerCitationNavigationHandler(revealCitation)
+    const unregisterRevealer = readerReady
+      ? registerCitationSurfaceRevealer(citationSurfaceKey, revealCitation)
+      : undefined
+    return () => {
+      unregisterNavigation()
+      unregisterRevealer?.()
+    }
+  }, [citationSurfaceKey, ownsReadingSource, readerReady])
 
   if (controller.status === "invalid") {
     return <DirectoryInvalidNotebook />

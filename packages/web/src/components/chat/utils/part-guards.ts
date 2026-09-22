@@ -18,6 +18,7 @@ import {
   type PromptReadingSelectionContextPart,
   type PromptMarkdownSelectionContextPart,
   type PromptSelectionContextPart,
+  type PromptSelectionContextSource,
 } from "@/components/prompt/prompt-types"
 import { parseTString } from "../tools/types"
 
@@ -39,7 +40,7 @@ export type ChatToolPart = MessagePart & SdkToolPart
 export type ChatReadingSelectionPart = MessagePart & {
   type: typeof READING_SELECTION_PART_TYPE | typeof SELECTION_CONTEXT_PART_TYPE
   text: string
-  source?: "reading" | "markdown" | "message"
+  source?: PromptSelectionContextSource
   comment?: string
   citation?: Citation
   selectionKey?: string

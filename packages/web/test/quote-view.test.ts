@@ -54,6 +54,25 @@ describe("quote view", () => {
     expect(view.comment).toBeUndefined()
   })
 
+  test("labels a web quote with its page title, then its host", () => {
+    const source = {
+      kind: "web" as const,
+      url: "https://en.wikipedia.org/wiki/Photosynthesis",
+      selector: SELECTOR,
+    }
+    const titled = quoteView({
+      text: "Excerpt",
+      source: "web",
+      citation: { ...citation({ source }), presentation: { title: "Photosynthesis" } },
+    })
+    expect(titled).toMatchObject({ kind: "web", label: "Photosynthesis" })
+    expect(titled.path).toBeUndefined()
+
+    expect(
+      quoteView({ text: "Excerpt", source: "web", citation: citation({ source }) }).label,
+    ).toBe("en.wikipedia.org")
+  })
+
   test("labels a whole-message note quote as a quoted message", () => {
     const view = quoteView({ text: "kill the server it started", source: "message" })
 
