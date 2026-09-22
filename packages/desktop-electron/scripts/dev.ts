@@ -19,6 +19,10 @@ import { ensureGeneratedSdk, generatedSdkFreshnessInput } from "./dev-sdk"
 import { prepareMacDevElectronExecutable } from "./mac-dev-electron-app"
 import { BUDDY_DEV_INSTANCE_NAME_ENV, formatBuddyDevAppName } from "../src/shared/dev-app-name"
 import { BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES } from "@buddy/script/backend-node-runtime"
+import {
+  applyDesktopDevTerminalTitle,
+  resolveDesktopDevBranchName,
+} from "./dev-terminal-title"
 
 const DEV_COMMAND = "electron-vite"
 const DEV_ARGUMENTS = ["dev"] as const
@@ -51,6 +55,8 @@ const backendWatchSubscriptions: ParcelWatcher.AsyncSubscription[] = []
 
 const packageRoot = path.resolve(import.meta.dir, "..")
 const repoRoot = path.resolve(packageRoot, "..", "..")
+const devInstanceName = resolveDesktopDevBranchName(repoRoot)
+applyDesktopDevTerminalTitle({ repoRoot, branchName: devInstanceName })
 const backendDir = path.resolve(packageRoot, "../buddy")
 const sdkDir = path.resolve(packageRoot, "../sdk")
 const backendWatchRoots = backendDevelopmentWatchRoots(repoRoot)
@@ -72,19 +78,6 @@ const backendReloadAcknowledgementPath = backendReloadSignalPath
   : undefined
 const electronViteBinPath = path.resolve(packageRoot, "node_modules/.bin/electron-vite")
 const desktopChannel = readBuddyReleaseChannel()
-
-function resolveDevInstanceName() {
-  try {
-    const result = execFileSync("git", ["branch", "--show-current"], {
-      encoding: "utf8",
-      cwd: repoRoot,
-    })
-    const branch = result.trim()
-    return branch || path.basename(repoRoot)
-  } catch {
-    return path.basename(repoRoot)
-  }
-}
 
 function resolveShellPath() {
   if (process.platform === "win32") return process.env.PATH
@@ -140,7 +133,6 @@ function killStaleDesktopDevProcesses() {
   }
 }
 
-const devInstanceName = resolveDevInstanceName()
 const sourceElectronExecutablePath = resolveElectronBin(packageRoot)
 const macDevElectronExecutablePath = prepareMacDevElectronExecutable({
   appName: formatBuddyDevAppName(devInstanceName),
