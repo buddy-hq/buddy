@@ -45,7 +45,7 @@ export function useBrowserPage(input: {
   initialUrl: string
   searchEngine: InAppBrowserSearchEngine
   browser: InAppBrowserPlatform
-  onAttached: (webview: InAppBrowserWebview, webContentsID: number) => void
+  onAttached: (webview: InAppBrowserWebview, webContentsID: number, observedPageUrl: string) => void
 }) {
   const { tabID, browser, onAttached } = input
   const webviewRef = useRef<InAppBrowserWebview | null>(null)
@@ -59,6 +59,7 @@ export function useBrowserPage(input: {
   const [webContentsID, setWebContentsID] = useState<number | null>(null)
   const [webviewGeneration, setWebviewGeneration] = useState(0)
   const [webviewSource, setWebviewSource] = useState(input.initialUrl)
+  const [observedPageUrl, setObservedPageUrl] = useState(input.initialUrl)
   const [notice, setNotice] = useState<string | null>(null)
   const [runtime, setRuntimeState] = useState<InAppBrowserTabRuntime>(() => ({
     url: input.initialUrl,
@@ -149,7 +150,8 @@ export function useBrowserPage(input: {
       const snapshot = readInAppBrowserWebviewSnapshot(webview, runtimeRef.current)
       if (!snapshot) return
       attachedWebviewRef.current = webview
-      onAttached(webview, snapshot.webContentsID)
+      setObservedPageUrl(snapshot.runtime.url)
+      onAttached(webview, snapshot.webContentsID, snapshot.runtime.url)
       setWebContentsID(snapshot.webContentsID)
       const pendingUrl = pendingNavigationUrlRef.current
       if (pendingUrl && snapshot.runtime.url !== pendingUrl) {
@@ -204,6 +206,7 @@ export function useBrowserPage(input: {
         pendingNavigationStartedRef.current = false
         pendingNavigationObservedRef.current = false
       }
+      if (snapshot) setObservedPageUrl(snapshot.runtime.url)
       updateRuntime(() => inAppBrowserRuntimeAfterLoadStopped(current, snapshot?.runtime))
     }
     const didNavigate = () => {
@@ -227,6 +230,7 @@ export function useBrowserPage(input: {
         pendingNavigationStartedRef.current = false
         pendingNavigationObservedRef.current = false
       }
+      if (snapshot) setObservedPageUrl(snapshot.runtime.url)
       updateRuntime(() => next)
     }
     const pageTitleUpdated = () => {
@@ -243,7 +247,10 @@ export function useBrowserPage(input: {
       ) {
         return
       }
-      if (snapshot) updateRuntime(() => snapshot.runtime)
+      if (snapshot) {
+        setObservedPageUrl(snapshot.runtime.url)
+        updateRuntime(() => snapshot.runtime)
+      }
     }
     const didFailLoad = (event: Event) => {
       const failure = inAppBrowserMainFrameLoadFailure(event)
@@ -410,6 +417,7 @@ export function useBrowserPage(input: {
     webviewKey: webviewGeneration,
     webviewSource,
     webContentsID,
+    observedPageUrl,
     runtime,
     notice,
     withWebview,

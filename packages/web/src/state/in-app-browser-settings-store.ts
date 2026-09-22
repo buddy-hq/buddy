@@ -2,7 +2,10 @@ import { useSyncExternalStore } from "react"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import type { InAppBrowserAppearance, InAppBrowserZoomFactor } from "@buddy/browser-contract"
-import type { InAppBrowserProfileID } from "@buddy/browser-contract/profiles"
+import {
+  INCOGNITO_IN_APP_BROWSER_PROFILE_ID,
+  type InAppBrowserProfileID,
+} from "@buddy/browser-contract/profiles"
 import { createPlatformJsonStorage, getPlatform } from "@/context/platform"
 import {
   addInAppBrowserProfile,
@@ -16,6 +19,12 @@ import {
   type InAppBrowserSettings,
 } from "@/lib/in-app-browser-settings"
 import type { InAppBrowserSearchEngine } from "@/lib/in-app-browser-search"
+import {
+  withInAppBrowserHostZoomFactor,
+  withoutInAppBrowserHostZoomFactor,
+  withoutInAppBrowserProfileZoomFactors,
+  type InAppBrowserZoomHost,
+} from "@/lib/in-app-browser-zoom"
 
 const IN_APP_BROWSER_SETTINGS_STORAGE_KEY = "buddy.in-app-browser.v1"
 const IN_APP_BROWSER_SETTINGS_STORAGE_FILE = "buddy.in-app-browser.dat"
@@ -55,6 +64,12 @@ type InAppBrowserSettingsState = InAppBrowserSettings & {
   setLinkTarget(linkTarget: InAppBrowserLinkTarget): void
   setDefaultSearchEngine(defaultSearchEngine: InAppBrowserSearchEngine): void
   setDefaultZoomFactor(defaultZoomFactor: InAppBrowserZoomFactor): void
+  setHostZoomFactor(input: {
+    profileID: InAppBrowserProfileID
+    host: InAppBrowserZoomHost
+    zoomFactor: InAppBrowserZoomFactor
+  }): void
+  clearHostZoomFactor(input: { profileID: InAppBrowserProfileID; host: InAppBrowserZoomHost }): void
   setDefaultAppearance(defaultAppearance: InAppBrowserAppearance): void
   setDefaultProfileID(defaultProfileID: InAppBrowserProfileID): void
   addProfile(input: { id: string; name: string }): AddInAppBrowserProfileResult
@@ -67,9 +82,20 @@ function settingsOf(state: InAppBrowserSettingsState): InAppBrowserSettings {
     linkTarget: state.linkTarget,
     defaultSearchEngine: state.defaultSearchEngine,
     defaultZoomFactor: state.defaultZoomFactor,
+    zoomFactorsByProfile: state.zoomFactorsByProfile,
     defaultAppearance: state.defaultAppearance,
     defaultProfileID: state.defaultProfileID,
     userProfiles: state.userProfiles,
+  }
+}
+
+function persistedSettingsOf(state: InAppBrowserSettingsState): InAppBrowserSettings {
+  return {
+    ...settingsOf(state),
+    zoomFactorsByProfile: withoutInAppBrowserProfileZoomFactors(
+      state.zoomFactorsByProfile,
+      INCOGNITO_IN_APP_BROWSER_PROFILE_ID,
+    ),
   }
 }
 
@@ -85,6 +111,28 @@ export const useInAppBrowserSettingsStore = create<InAppBrowserSettingsState>()(
       },
       setDefaultZoomFactor(defaultZoomFactor) {
         set({ defaultZoomFactor })
+      },
+      setHostZoomFactor(input) {
+        set((state) => {
+          const zoomFactorsByProfile = withInAppBrowserHostZoomFactor(
+            state.zoomFactorsByProfile,
+            input,
+          )
+          return zoomFactorsByProfile === state.zoomFactorsByProfile
+            ? state
+            : { zoomFactorsByProfile }
+        })
+      },
+      clearHostZoomFactor(input) {
+        set((state) => {
+          const zoomFactorsByProfile = withoutInAppBrowserHostZoomFactor(
+            state.zoomFactorsByProfile,
+            input,
+          )
+          return zoomFactorsByProfile === state.zoomFactorsByProfile
+            ? state
+            : { zoomFactorsByProfile }
+        })
       },
       setDefaultAppearance(defaultAppearance) {
         set({ defaultAppearance })
@@ -108,7 +156,7 @@ export const useInAppBrowserSettingsStore = create<InAppBrowserSettingsState>()(
     {
       name: IN_APP_BROWSER_SETTINGS_STORAGE_KEY,
       storage: createPlatformJsonStorage(IN_APP_BROWSER_SETTINGS_STORAGE_FILE),
-      partialize: settingsOf,
+      partialize: persistedSettingsOf,
       merge: (persisted, current) => ({ ...current, ...parseInAppBrowserSettings(persisted) }),
       onRehydrateStorage: () => {
         const attempt = beginHydration()
