@@ -16,7 +16,7 @@ function decodePath(value: string): string {
   }
 }
 
-function referencePath(value: string): string {
+export function referencePath(value: string): string {
   const queryIndex = value.indexOf("?")
   const fragmentIndex = value.indexOf("#")
   const end = [queryIndex, fragmentIndex]

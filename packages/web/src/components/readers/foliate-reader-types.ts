@@ -5,7 +5,12 @@ import type {
   FoliateNavigationTarget,
   FoliateTocItem,
 } from "foliate-js/view.js"
-import type { ReaderMarginMark, ReaderMarginMarkPosition, ReaderSource } from "./reader-types"
+import type {
+  ReaderExternalLinkOptions,
+  ReaderMarginMark,
+  ReaderMarginMarkPosition,
+  ReaderSource,
+} from "./reader-types"
 import type { CitationCommentSource } from "@/lib/citations/comment-request"
 
 export type { FoliateNavigationTarget }
@@ -186,7 +191,7 @@ export interface FoliateReaderProps {
     commentSource?: CitationCommentSource,
   ) => void
   onChatSelectionRemoved?: (selectionKey: string) => void
-  onOpenExternalLink?: (href: string) => void
+  onOpenExternalLink?: (href: string, options: ReaderExternalLinkOptions) => void
   onError?: (error: Error) => void
   onAnnotationsChange?: (annotations: ReaderAnnotation[]) => void
   marginMarks?: readonly ReaderMarginMark[]

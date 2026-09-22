@@ -43,6 +43,7 @@ import {
 } from "./pdf-outline"
 import type {
   PdfReaderMode,
+  ReaderExternalLinkOptions,
   ReaderMetadataRow,
   ReaderNavigationItem,
   ReaderSearchResult,
@@ -88,7 +89,7 @@ type PdfViewerSessionCallbacks = {
   onTextLayerRendered: (pageIndex: number) => void
   onPassword: (updatePassword: (password: string) => void, reason: number) => void
   onLayoutFallback: (message: string | null) => void
-  onExternalLink?: (href: string) => boolean
+  onExternalLink?: (href: string, options: ReaderExternalLinkOptions) => boolean
   onError: (error: Error) => void
 }
 
@@ -568,7 +569,7 @@ export class PdfViewerSession {
         const rawHref = link?.getAttribute("href")
         if (!link || !rawHref || rawHref.startsWith("#")) return
         event.preventDefault()
-        this.#openExternalLink(link.href)
+        this.#openExternalLink(link.href, { modified: event.metaKey || event.ctrlKey })
       },
       { signal },
     )
@@ -841,7 +842,7 @@ export class PdfViewerSession {
       return
     }
     if (target.kind === "external") {
-      this.#openExternalLink(target.href)
+      this.#openExternalLink(target.href, { modified: false })
       return
     }
     await this.#linkService.goToDestination(toPdfJsLinkDestination(target.destination))
@@ -1091,8 +1092,8 @@ export class PdfViewerSession {
     }
   }
 
-  #openExternalLink(href: string): void {
-    if (this.#callbacks.onExternalLink?.(href) === true) return
+  #openExternalLink(href: string, options: ReaderExternalLinkOptions): void {
+    if (this.#callbacks.onExternalLink?.(href, options) === true) return
     this.#container.ownerDocument.defaultView?.open(
       href,
       PDFJS_EXTERNAL_LINK_TARGET,

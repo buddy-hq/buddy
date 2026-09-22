@@ -6,6 +6,7 @@ import { markdownContentHash } from "./markdown-content-hash"
 import { buddyMathExtension, hasOpenStreamingMath } from "./markdown-math"
 import { resolveBundledShikiLanguage } from "./markdown-shiki-language"
 import { parseTString } from "@/components/chat/tools/types"
+import { windowsDriveFileUrl } from "@/lib/markdown-file-links"
 
 type ParsedCodeToken = {
   raw: string
@@ -515,10 +516,11 @@ function createParser(options: { suppressMathErrors?: boolean }) {
   return new Marked(
     {
       renderer: {
-        link({ href, title, text }) {
+        link({ href, title, tokens }) {
+          const text = this.parser.parseInline(tokens)
           const titleAttr = title ? ` title="${title}"` : ""
           if (!isExternalHttpLink(href)) {
-            return `<a href="${href}"${titleAttr}>${text}</a>`
+            return `<a href="${windowsDriveFileUrl(href) ?? href}"${titleAttr}>${text}</a>`
           }
           return `<a href="${href}"${titleAttr} class="external-link" target="_blank" rel="noopener noreferrer">${text}</a>`
         },

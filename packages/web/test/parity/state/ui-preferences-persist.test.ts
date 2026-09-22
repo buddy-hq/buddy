@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { createScopedCache } from "../../../src/lib/scoped-cache"
+import {
+  markOneTimeNoticeSeen,
+  ONE_TIME_NOTICE_LINK_DESTINATION,
+  ONE_TIME_NOTICE_NOTES_LOCATION_INTRO,
+  shouldShowOneTimeNotice,
+} from "../../../src/state/one-time-notices"
 import { UI_PREFERENCES_STORAGE_KEY, useUiPreferences } from "../../../src/state/ui-preferences"
 import { parsePersistedStoreState } from "../../parse-test-values"
 
@@ -12,6 +18,8 @@ function resetUiPreferences() {
     chatLeftSidebarWidth: 344,
     settingsSidebarWidth: 344,
     teacherStandardsAutoSetupComplete: false,
+    openExternalFilesWithoutAsking: false,
+    seenNotices: {},
   })
 }
 
@@ -31,6 +39,8 @@ describe("ui preference persistence parity", () => {
     state.setChatLeftSidebarWidth(280)
     state.setSettingsSidebarWidth(320)
     state.setTeacherStandardsAutoSetupComplete(true)
+    state.setOpenExternalFilesWithoutAsking(true)
+    state.markNoticeSeen("link-destination")
 
     const raw = localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
     expect(raw).toBeTruthy()
@@ -44,6 +54,8 @@ describe("ui preference persistence parity", () => {
       chatLeftSidebarWidth: 280,
       settingsSidebarWidth: 320,
       teacherStandardsAutoSetupComplete: true,
+      openExternalFilesWithoutAsking: true,
+      seenNotices: { "link-destination": true },
     })
     expect(parsedState?.togglePinned).toBeUndefined()
     expect(parsedState?.rightSidebarOpen).toBeUndefined()
@@ -101,10 +113,42 @@ describe("ui preference persistence parity", () => {
     expect(next.settingsSidebarWidth).toBe(412)
     expect(next.collapsedChatSidebarDirectories).toEqual({})
     expect(next.teacherStandardsAutoSetupComplete).toBe(false)
+    expect(next.openExternalFilesWithoutAsking).toBe(false)
+    expect(next.seenNotices).toEqual({})
     expect("rightSidebarOpen" in next).toBe(false)
     expect("rightSidebarWidth" in next).toBe(false)
     expect("rightSidebarTab" in next).toBe(false)
     expect("rightWorkspaceLastSelectorByDirectory" in next).toBe(false)
+  })
+})
+
+describe("one-time notices", () => {
+  test("carries the notes intro flag into the seen notices record", () => {
+    localStorage.setItem(
+      UI_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        state: { notesLocationIntroSeen: true, seenNotices: { "retired-notice": true } },
+        version: 20,
+      }),
+    )
+
+    void useUiPreferences.persist.rehydrate()
+
+    const next = useUiPreferences.getState()
+    expect(Object.keys(next.seenNotices).toSorted()).toEqual([
+      "notes-location-intro",
+      "retired-notice",
+    ])
+    expect("notesLocationIntroSeen" in next).toBe(false)
+  })
+
+  test("shows a notice until it is marked seen", () => {
+    expect(shouldShowOneTimeNotice(ONE_TIME_NOTICE_LINK_DESTINATION)).toBe(true)
+
+    markOneTimeNoticeSeen(ONE_TIME_NOTICE_LINK_DESTINATION)
+
+    expect(shouldShowOneTimeNotice(ONE_TIME_NOTICE_LINK_DESTINATION)).toBe(false)
+    expect(shouldShowOneTimeNotice(ONE_TIME_NOTICE_NOTES_LOCATION_INTRO)).toBe(true)
   })
 })
 

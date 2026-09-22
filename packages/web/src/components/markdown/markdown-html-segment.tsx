@@ -3,17 +3,16 @@ import DOMPurify from "dompurify"
 import morphdom from "morphdom"
 import "katex/dist/katex.min.css"
 import "@/components/chat/tools/text-shimmer.css"
-import { toast } from "@buddy/ui"
 import { resolveFileTypeIconUrl } from "@/components/files/file-type-icon"
+import { createAppIconElement, githubIconData, globeIconData } from "@/icons/app-icons"
+import { inAppBrowserOriginFaviconUrl } from "@/lib/in-app-browser-favicon"
+import { markdownFileLinkPath } from "@/lib/markdown-file-links"
 import {
-  buildPresentedMediaFileActionInput,
   findPresentedMediaCandidateMatches,
   isLikelyPresentedMediaPathCandidate,
   normalizePresentedMediaCandidatePath,
-  resolvePresentedMediaPathInfo,
 } from "@/lib/presented-media"
-import { useWorkspaceFileOpen, type WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
-import { usePlatform } from "@/context/platform"
+import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import { getServerConnection } from "@/context/server"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import {
@@ -32,10 +31,25 @@ import { shouldResetCodeTokens, type RenderedCodeState } from "./markdown-code-s
 import type { MarkdownToken, MarkdownWorkerState } from "./markdown-worker-protocol"
 import { markdownContentHash } from "./markdown-content-hash"
 import { hasOpenStreamingMath } from "./markdown-math"
+import { useMarkdownFileLinkOpen } from "./use-markdown-file-link-open"
 import { browserWindow } from "@/state/parse-external"
+
+const LOCAL_FILE_URL_PATTERN = /file:/iu
+const URL_IGNORED_CHARACTERS_PATTERN = /[\t\n\r]/gu
+const NON_LOADING_ATTRIBUTE_PATTERN = /^(?:alt|title|aria-.+)$/u
+
+function removeLocalFileReferences(node: Element) {
+  for (const attribute of Array.from(node.attributes)) {
+    if (node instanceof HTMLAnchorElement && attribute.name === "href") continue
+    if (NON_LOADING_ATTRIBUTE_PATTERN.test(attribute.name)) continue
+    const value = attribute.value.replace(URL_IGNORED_CHARACTERS_PATTERN, "")
+    if (LOCAL_FILE_URL_PATTERN.test(value)) node.removeAttribute(attribute.name)
+  }
+}
 
 if (browserWindow() !== undefined && DOMPurify.isSupported) {
   DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
+    removeLocalFileReferences(node)
     if (node instanceof HTMLAnchorElement) {
       if (node.target !== "_blank") return
 
@@ -55,10 +69,15 @@ if (browserWindow() !== undefined && DOMPurify.isSupported) {
   })
 }
 
+const MARKDOWN_ALLOWED_URI_PATTERN =
+  /^(?:(?:(?:f|ht)tps?|file|mailto|tel|callto|sms|cid|xmpp|matrix):|[^a-z]|[a-z+.-]+(?:[^a-z+.:-]|$))/iu
+
 const sanitizeConfig = {
   USE_PROFILES: { html: true, mathMl: true, svg: true },
   SANITIZE_NAMED_PROPS: true,
+  ALLOWED_URI_REGEXP: MARKDOWN_ALLOWED_URI_PATTERN,
   FORBID_TAGS: ["style"],
+  FORBID_ATTR: ["data-presented-media-path"],
   FORBID_CONTENTS: ["style", "script"],
 }
 
@@ -102,8 +121,9 @@ const markdownClassName = [
   "[&_pre_code]:border-0 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit",
   "[&_pre]:overflow-auto [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden",
   // Links and tables must contain pathological long output inside the chat column.
-  "[&_a]:break-words [&_a]:no-underline [&_a:hover]:underline [&_a:hover]:underline-offset-2",
+  "[&_a]:break-words [&_a]:no-underline [&_a:not(.presented-media-link):hover]:underline [&_a:not(.presented-media-link):hover]:underline-offset-2",
   "[&_a.external-link:hover>code]:underline [&_a.external-link:hover>code]:underline-offset-2",
+  "[&_a.presented-media-link]:text-text-base",
   "[&_table]:block [&_table]:w-full [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse",
   // katex
   "[&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:[scrollbar-width:none] [&_.katex-display::-webkit-scrollbar]:hidden",
@@ -141,6 +161,10 @@ const copyIconPath =
 const checkIconPath =
   '<path d="M5 11.9657L8.37838 14.7529L15 5.83398" stroke="currentColor" stroke-linecap="square"/>'
 const codeUrlPattern = /^https?:\/\/[^\s<>()`"']+$/u
+const LINK_FAVICON_CLASS = "block size-full shrink-0 select-none"
+const LINK_FAVICON_RETRY_MS = 10 * 60 * 1000
+const linkFaviconFailedAt = new Map<string, number>()
+const linkTextSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 
 function codeUrl(text: string) {
   const href = text.trim().replace(/[),.;!?]+$/g, "")
@@ -179,15 +203,14 @@ function createCopyIcon(path: string, slot: string) {
 function createPresentedMediaIcon(path: string) {
   const icon = document.createElement("span")
   icon.setAttribute("data-slot", "presented-media-icon")
-  icon.className =
-    "pointer-events-none inline-flex size-3.5 shrink-0 items-center justify-center relative top-px"
+  icon.className = "pointer-events-none flex size-[1.17em] shrink-0 items-center justify-center"
 
   const fileName = presentedMediaLinkLabel(path)
   const image = document.createElement("img")
   image.setAttribute("alt", "")
   image.setAttribute("aria-hidden", "true")
   image.setAttribute("src", resolveFileTypeIconUrl({ fileName }))
-  image.className = "size-3.5 object-contain"
+  image.className = "size-full object-contain"
   icon.appendChild(image)
   return icon
 }
@@ -196,7 +219,7 @@ function decoratePresentedMediaLink(link: HTMLAnchorElement, filePath: string) {
   link.href = filePath
   link.setAttribute("data-presented-media-path", filePath)
   link.className =
-    "presented-media-link mx-1 inline-flex max-w-full items-baseline gap-1.5 align-baseline text-text-interactive-base no-underline hover:underline hover:decoration-dotted hover:underline-offset-2"
+    "presented-media-link inline-flex h-[1.41em] max-w-full items-center gap-[0.33em] rounded-[0.5em] border border-border-base bg-surface-weak px-[0.5em] align-middle text-[0.86em] font-medium leading-none text-text-base no-underline transition-colors hover:border-border-hover"
   link.removeAttribute("target")
   link.removeAttribute("rel")
   link.setAttribute("title", filePath)
@@ -211,15 +234,76 @@ function decoratePresentedMediaLink(link: HTMLAnchorElement, filePath: string) {
   const label = presentedMediaLinkLabel(filePath)
   const existingLabel = link.querySelector('[data-slot="presented-media-label"]')
   if (existingLabel instanceof HTMLElement) {
-    existingLabel.className = "min-w-0 whitespace-normal [overflow-wrap:anywhere]"
+    existingLabel.className = "min-w-0 truncate leading-tight"
     existingLabel.textContent = label
   } else {
     const labelNode = document.createElement("span")
     labelNode.setAttribute("data-slot", "presented-media-label")
-    labelNode.className = "min-w-0 whitespace-normal [overflow-wrap:anywhere]"
+    labelNode.className = "min-w-0 truncate leading-tight"
     labelNode.textContent = label
     link.appendChild(labelNode)
   }
+}
+
+function hasRecentLinkFaviconFailure(faviconUrl: string) {
+  const failedAt = linkFaviconFailedAt.get(faviconUrl)
+  if (failedAt === undefined) return false
+  if (Date.now() - failedAt < LINK_FAVICON_RETRY_MS) return true
+  linkFaviconFailedAt.delete(faviconUrl)
+  return false
+}
+
+function linkFaviconGlyph(hostname: string, faviconUrl: string) {
+  if (hostname === "github.com" || hostname.endsWith(".github.com")) return githubIconData
+  if (hasRecentLinkFaviconFailure(faviconUrl)) return globeIconData
+  return undefined
+}
+
+function createLinkFavicon(hostname: string, faviconUrl: string) {
+  const icon = document.createElement("span")
+  icon.setAttribute("data-slot", "link-favicon")
+  icon.setAttribute("aria-hidden", "true")
+  icon.className = "ms-[0.25em] me-[0.2em] inline-flex size-3.5 [vertical-align:-0.125em]"
+
+  const glyph = linkFaviconGlyph(hostname, faviconUrl)
+  if (glyph) {
+    icon.appendChild(createAppIconElement(glyph, LINK_FAVICON_CLASS))
+    return icon
+  }
+
+  const image = document.createElement("img")
+  image.setAttribute("alt", "")
+  image.setAttribute("loading", "lazy")
+  image.setAttribute("draggable", "false")
+  image.className = `${LINK_FAVICON_CLASS} rounded-sm`
+  image.addEventListener("error", () => {
+    linkFaviconFailedAt.set(faviconUrl, Date.now())
+    image.replaceWith(createAppIconElement(globeIconData, LINK_FAVICON_CLASS))
+  })
+  image.setAttribute("src", faviconUrl)
+  icon.appendChild(image)
+  return icon
+}
+
+function leadingLinkText(text: string) {
+  const protocol = /^https?:\/\//iu.exec(text)?.[0]
+  if (protocol) return protocol
+  const [firstGrapheme] = linkTextSegmenter.segment(text)
+  return firstGrapheme?.segment ?? ""
+}
+
+function prependLinkFavicon(link: HTMLAnchorElement, favicon: HTMLElement) {
+  const first = link.firstChild
+  if (!(first instanceof Text) || !first.data) {
+    link.prepend(favicon)
+    return
+  }
+  const leading = leadingLinkText(first.data)
+  const lead = document.createElement("span")
+  lead.className = "whitespace-nowrap"
+  lead.append(favicon, leading)
+  first.data = first.data.slice(leading.length)
+  link.prepend(lead)
 }
 
 function createCopyButton(labels: CopyLabels) {
@@ -407,38 +491,19 @@ function ensureCodeWrapper(block: HTMLPreElement, labels: CopyLabels) {
 function markCodeLinks(root: HTMLDivElement) {
   const codeNodes = Array.from(root.querySelectorAll(":not(pre) > code"))
   for (const code of codeNodes) {
+    if (code.closest("a")) continue
     const text = code.textContent ?? ""
     const href = codeUrl(text)
     const filePath = isLikelyPresentedMediaPathCandidate(text)
       ? normalizePresentedMediaCandidatePath(text)
       : undefined
-    const parentLink =
-      code.parentElement instanceof HTMLAnchorElement &&
-      (code.parentElement.classList.contains("external-link") ||
-        code.parentElement.classList.contains("presented-media-link"))
-        ? code.parentElement
-        : null
 
     if (!href) {
-      if (!filePath) {
-        if (parentLink) parentLink.replaceWith(code)
-        continue
-      }
+      if (!filePath) continue
 
-      const link = parentLink ?? document.createElement("a")
-      if (!parentLink) {
-        code.parentNode?.replaceChild(link, code)
-      }
+      const link = document.createElement("a")
+      code.parentNode?.replaceChild(link, code)
       decoratePresentedMediaLink(link, filePath)
-
-      if (code.parentNode === link) {
-        code.remove()
-      }
-      continue
-    }
-
-    if (parentLink) {
-      parentLink.href = href
       continue
     }
 
@@ -492,14 +557,35 @@ function markTextLinks(root: HTMLDivElement) {
   }
 }
 
+function markFileLinks(root: HTMLDivElement) {
+  for (const link of Array.from(root.querySelectorAll("a"))) {
+    if (link.classList.contains("external-link") || link.querySelector("img")) continue
+    const path = markdownFileLinkPath(link.getAttribute("href") ?? "")
+    if (!path) continue
+    link.replaceChildren()
+    decoratePresentedMediaLink(link, normalizePresentedMediaCandidatePath(path))
+  }
+}
+
+function markLinkFavicons(root: HTMLDivElement) {
+  for (const link of Array.from(root.querySelectorAll<HTMLAnchorElement>("a.external-link"))) {
+    if (!link.textContent?.trim()) continue
+    const faviconUrl = inAppBrowserOriginFaviconUrl(link.href)
+    if (!faviconUrl) continue
+    prependLinkFavicon(link, createLinkFavicon(new URL(link.href).hostname, faviconUrl))
+  }
+}
+
 function decorateMarkdown(root: HTMLDivElement, labels: CopyLabels) {
   stabilizeMarkdownImages(root)
   const blocks = Array.from(root.querySelectorAll("pre"))
   for (const block of blocks) {
     ensureCodeWrapper(block, labels)
   }
+  markFileLinks(root)
   markCodeLinks(root)
   markTextLinks(root)
+  markLinkFavicons(root)
 }
 
 function setupCodeCopy(root: HTMLDivElement, labels: CopyLabels) {
@@ -747,9 +833,8 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
   const imageCleanupRef = useRef<(() => void) | undefined>(undefined)
   const copySetupTimerRef = useRef<number | undefined>(undefined)
   const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
-  const platform = usePlatform()
   const decorateRenderedRoot = props.decorateRenderedRoot
-  const { executePrimary } = useWorkspaceFileOpen(props.directory, props.onOpenResource)
+  const openFileLink = useMarkdownFileLinkOpen(props.directory, props.onOpenResource)
   const sanitizeContextKey = markdownSanitizeContextKey()
   const fullCacheKey = useMemo(
     () =>
@@ -823,32 +908,11 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
       if (!props.directory) return
       if (link.classList.contains("external-link")) return
 
-      const rawPath =
-        link.getAttribute("data-presented-media-path")?.trim() ??
-        link.getAttribute("title")?.trim() ??
-        link.getAttribute("href")?.trim()
-      if (!rawPath) return
-      if (!isLikelyPresentedMediaPathCandidate(rawPath)) return
+      const chipPath = link.getAttribute("data-presented-media-path")?.trim()
+      const path = chipPath ? chipPath : markdownFileLinkPath(link.getAttribute("href") ?? "")
+      if (!path) return
       event.preventDefault()
-      const directory = props.directory
-
-      void (async () => {
-        try {
-          const resolved = await resolvePresentedMediaPathInfo({
-            directory,
-            path: normalizePresentedMediaCandidatePath(rawPath),
-          })
-          await executePrimary(
-            buildPresentedMediaFileActionInput({
-              item: resolved,
-              canOpenDefaultApp: !!platform.openPath,
-              canReveal: !!platform.revealPath,
-            }),
-          )
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : String(error))
-        }
-      })()
+      openFileLink(path)
     }
 
     root.addEventListener("click", handleClick)
@@ -921,10 +985,8 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
   }, [
     cachedEntry,
     copyLabels,
-    executePrimary,
     fullCacheKey,
-    platform.openPath,
-    platform.revealPath,
+    openFileLink,
     props.cacheKey,
     decorateRenderedRoot,
     props.directory,

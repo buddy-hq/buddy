@@ -1,11 +1,12 @@
 import windowState from "electron-window-state"
-import { app, BrowserWindow, nativeImage, nativeTheme } from "electron"
+import { app, BrowserWindow, nativeImage, nativeTheme, shell } from "electron"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import type { TitlebarTheme } from "../preload/types"
 import { BUDDY_DEV_INSTANCE_NAME_ENV } from "../shared/dev-app-name"
 import { encodeBuddyWindowVersionArg } from "../shared/window-preload-args"
 import { wireContextMenu } from "./context-menu"
+import { wireAppWindowExternalLinks } from "./external-links"
 import { wireInAppBrowser } from "./in-app-browser"
 
 type WindowGlobals = {
@@ -127,6 +128,7 @@ export function createMainWindow(globals: WindowGlobals) {
   lockWindowTitle(win)
   loadWindow(win, "index.html")
   wireContextMenu(win)
+  wireExternalLinks(win)
   const disposeInAppBrowser = wireInAppBrowser(win)
   win.once("close", disposeInAppBrowser)
   wireZoom(win)
@@ -257,6 +259,21 @@ function resolveWindowIconUrl(win: BrowserWindow) {
   } catch {
     return undefined
   }
+}
+
+function wireExternalLinks(win: BrowserWindow) {
+  wireAppWindowExternalLinks(
+    {
+      currentUrl: () => win.webContents.getURL(),
+      setWindowOpenHandler(handler) {
+        win.webContents.setWindowOpenHandler(({ url }) => handler(url))
+      },
+      onWillNavigate(handler) {
+        win.webContents.on("will-navigate", (event) => handler(event, event.url))
+      },
+    },
+    (url) => shell.openExternal(url),
+  )
 }
 
 function wireZoom(win: BrowserWindow) {

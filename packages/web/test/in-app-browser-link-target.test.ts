@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { resolveInAppBrowserLinkDestination } from "../src/lib/in-app-browser-link-target"
+import {
+  resolveInAppBrowserLinkDestination,
+  shouldOfferInAppBrowserForLink,
+} from "../src/lib/in-app-browser-link-target"
 
 const BROWSER_PREFERRED = {
   url: "https://hibuddy.in/docs",
@@ -29,5 +32,18 @@ describe("chat link destination", () => {
     expect(resolveInAppBrowserLinkDestination({ ...BROWSER_PREFERRED, linkTarget: "system" })).toBe(
       "system",
     )
+  })
+
+  test("offers the Browser only for plain clicks it could open while links go to the system browser", () => {
+    const systemPreferred = { ...BROWSER_PREFERRED, linkTarget: "system" as const }
+    expect(shouldOfferInAppBrowserForLink(systemPreferred)).toBe(true)
+    expect(shouldOfferInAppBrowserForLink(BROWSER_PREFERRED)).toBe(false)
+    expect(shouldOfferInAppBrowserForLink({ ...systemPreferred, modified: true })).toBe(false)
+    expect(shouldOfferInAppBrowserForLink({ ...systemPreferred, browserAvailable: false })).toBe(
+      false,
+    )
+    expect(
+      shouldOfferInAppBrowserForLink({ ...systemPreferred, url: "mailto:hi@hibuddy.in" }),
+    ).toBe(false)
   })
 })

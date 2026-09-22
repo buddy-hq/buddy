@@ -10,6 +10,7 @@ import type {
   ObsidianEmbeddedMarkdownLoader,
   ObsidianWikiLinkContext,
 } from "@/components/bench/markdown/plugins/obsidian"
+import { useOpenLink, type OpenLinkOptions } from "@/components/directory-chat/use-open-link"
 import { usePlatform } from "@/context/platform"
 import {
   resolvePresentedMediaMarkdownImageSrc,
@@ -75,18 +76,19 @@ export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps
     (src: string) => resolvePresentedMediaMarkdownImageSrc({ rawUrl: props.sourceRawUrl, src }),
     [props.sourceRawUrl],
   )
+  const openExternalLink = useOpenLink(props.directory)
   const openLink = useCallback(
-    (href: string): void => {
+    (href: string, options: OpenLinkOptions): void => {
       if (href.trim().startsWith("#")) return
       const target = resolvePresentedMediaMarkdownLink(props.path, href)
       if (!target) return
       if (target.type === "external-url") {
-        platform.openLink(target.url)
+        openExternalLink(target.url, options)
       } else {
         void platform.openPath?.(target.path)
       }
     },
-    [platform, props.path],
+    [openExternalLink, platform, props.path],
   )
   const wikiLinkContext = useMemo<ObsidianWikiLinkContext>(
     () => ({

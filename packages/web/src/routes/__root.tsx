@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { DesktopTitlebarContentProvider } from "@/components/layout/desktop-titlebar-content"
+import { LinkDestinationDialog } from "@/components/directory-chat/link-destination-dialog"
+import { ExternalFileOpenDialog } from "@/components/files/external-file-open-dialog"
 import { WorkspaceFileOpenDialog } from "@/components/files/workspace-file-open-dialog"
 import { BuddyDevTools } from "@/components/debug/buddy-devtools"
 import { UpdateMenuCommandHandler } from "@/components/updates/update-menu-command-handler"
@@ -75,6 +77,8 @@ function RootLayout() {
     <div className="h-full overflow-hidden bg-background-base text-text-base flex min-h-0 flex-col">
       <UpdateMenuCommandHandler openUpdateSurface={openUpdateSurface} />
       <WorkspaceFileOpenDialog />
+      <ExternalFileOpenDialog />
+      <LinkDestinationDialog />
       {!isOnboarding && !isDirectoryChat && !isDockedBench && !isSettings && (
         <DesktopTitlebar
           showDockFloatingBench={isFloatingBench}

@@ -4,11 +4,13 @@ import { Loader2Icon } from "@/icons/app-icons"
 import { cn, toast } from "@buddy/ui"
 import { readReaderExternalLink } from "@buddy/reader-contract"
 import { readerSourceFormatFromPath } from "@buddy/workspace-file-policy"
+import { useOpenLink } from "@/components/directory-chat/use-open-link"
 import { DocumentReader } from "@/components/readers/document-reader"
 import type {
   ReaderAnnotation,
   DocumentReaderHandle,
   DocumentReaderProps,
+  ReaderExternalLinkOptions,
   ReaderRelocation,
   ReaderSelection,
   ReaderSnapshot,
@@ -17,7 +19,6 @@ import type {
 import { ReaderErrorState } from "@/components/readers/ui/reader-error-state"
 import { ResourceCover } from "@/components/resources/resource-cover"
 import { language } from "@/context/language"
-import { usePlatform } from "@/context/platform"
 import { normalizeRelativePath } from "@/lib/workspace-file-paths"
 import {
   readingResourceBlobQueryOptions,
@@ -88,7 +89,7 @@ export function buildWorkspaceReaderSourceId(input: {
 }
 
 export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReaderPaneProps) {
-  const platform = usePlatform()
+  const openLink = useOpenLink(props.directory)
   const onReadyChange = props.onReadyChange
   const [readerReadySourceKey, setReaderReadySourceKey] = useState<string | null>(null)
   const [readerErrorState, setReaderErrorState] = useState<ReaderFailureState | null>(null)
@@ -152,15 +153,15 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
   )
 
   const handleOpenExternalLink = useCallback(
-    (href: string) => {
+    (href: string, options: ReaderExternalLinkOptions) => {
       const safeHref = readReaderExternalLink(href)
       if (!safeHref) {
         toast.error("This document link type is not supported.")
         return
       }
-      platform.openLink(safeHref)
+      openLink(safeHref, options)
     },
-    [platform],
+    [openLink],
   )
 
   const handleOpeningInteractionChange = useCallback(

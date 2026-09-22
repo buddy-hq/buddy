@@ -5,6 +5,7 @@ import { immer } from "zustand/middleware/immer"
 import { z } from "zod"
 import { createPlatformJsonStorage } from "../context/platform"
 import { LEFT_SIDEBAR_DEFAULT_WIDTH_PX } from "@/lib/directory-chat/left-sidebar-layout"
+import type { OneTimeNoticeID, SeenOneTimeNotices } from "@/state/one-time-notices"
 import { parseFiniteNumber, parseWithSchema } from "./parse-external"
 
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
@@ -22,6 +23,8 @@ type TPersistedUiPreferences = {
   projectFileTreeOpen?: boolean
   teacherStandardsAutoSetupComplete?: boolean
   notesLocationIntroSeen?: boolean
+  seenNotices?: Record<string, true>
+  openExternalFilesWithoutAsking?: boolean
 }
 
 const persistedUiPreferencesSchema = z.object({
@@ -35,6 +38,8 @@ const persistedUiPreferencesSchema = z.object({
   projectFileTreeOpen: z.boolean().optional(),
   teacherStandardsAutoSetupComplete: z.boolean().optional(),
   notesLocationIntroSeen: z.boolean().optional(),
+  seenNotices: z.record(z.string(), z.literal(true)).optional(),
+  openExternalFilesWithoutAsking: z.boolean().optional(),
 })
 
 function parsePersistedUiPreferences<TValue>(value: TValue): TPersistedUiPreferences | undefined {
@@ -43,6 +48,12 @@ function parsePersistedUiPreferences<TValue>(value: TValue): TPersistedUiPrefere
 
 function readLegacyLeftSidebarWidth(state: TPersistedUiPreferences | undefined) {
   return parseFiniteNumber(state?.leftSidebarWidth) ?? LEFT_SIDEBAR_DEFAULT_WIDTH_PX
+}
+
+function migrateSeenNotices(state: TPersistedUiPreferences | undefined): SeenOneTimeNotices {
+  const seenNotices: SeenOneTimeNotices = { ...state?.seenNotices }
+  if (state?.notesLocationIntroSeen) seenNotices["notes-location-intro"] = true
+  return seenNotices
 }
 
 export type UiPreferencesStore = {
@@ -54,7 +65,8 @@ export type UiPreferencesStore = {
   settingsSidebarWidth: number
   projectFileTreeOpen: boolean
   teacherStandardsAutoSetupComplete: boolean
-  notesLocationIntroSeen: boolean
+  seenNotices: SeenOneTimeNotices
+  openExternalFilesWithoutAsking: boolean
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -67,8 +79,8 @@ export type UiPreferencesStore = {
   setSettingsSidebarWidth: (width: number) => void
   setProjectFileTreeOpen: (open: boolean) => void
   setTeacherStandardsAutoSetupComplete: (complete: boolean) => void
-  /** One-time: the first capture opens the Notes drawer so the user learns where notes live. */
-  markNotesLocationIntroSeen: () => void
+  markNoticeSeen: (id: OneTimeNoticeID) => void
+  setOpenExternalFilesWithoutAsking: (allowed: boolean) => void
 }
 
 export const useUiPreferences = create<UiPreferencesStore>()(
@@ -187,8 +199,8 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         UiPreferencesStore,
         | "teacherStandardsAutoSetupComplete"
         | "setTeacherStandardsAutoSetupComplete"
-        | "notesLocationIntroSeen"
-        | "markNotesLocationIntroSeen"
+        | "seenNotices"
+        | "markNoticeSeen"
       > = {
         teacherStandardsAutoSetupComplete: false,
         setTeacherStandardsAutoSetupComplete(complete) {
@@ -196,10 +208,22 @@ export const useUiPreferences = create<UiPreferencesStore>()(
             state.teacherStandardsAutoSetupComplete = complete
           })
         },
-        notesLocationIntroSeen: false,
-        markNotesLocationIntroSeen() {
+        seenNotices: {},
+        markNoticeSeen(id) {
           set((state) => {
-            state.notesLocationIntroSeen = true
+            state.seenNotices[id] = true
+          })
+        },
+      }
+
+      const fileLinkSlice: Pick<
+        UiPreferencesStore,
+        "openExternalFilesWithoutAsking" | "setOpenExternalFilesWithoutAsking"
+      > = {
+        openExternalFilesWithoutAsking: false,
+        setOpenExternalFilesWithoutAsking(allowed) {
+          set((state) => {
+            state.openExternalFilesWithoutAsking = allowed
           })
         },
       }
@@ -208,11 +232,12 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         ...sessionStateSlice,
         ...layoutSlice,
         ...discoverySlice,
+        ...fileLinkSlice,
       }
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 20,
+      version: 21,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = parsePersistedUiPreferences(persistedState)
@@ -226,7 +251,8 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
           projectFileTreeOpen: state?.projectFileTreeOpen ?? DEFAULT_PROJECT_FILE_TREE_OPEN,
           teacherStandardsAutoSetupComplete: state?.teacherStandardsAutoSetupComplete ?? false,
-          notesLocationIntroSeen: state?.notesLocationIntroSeen ?? false,
+          seenNotices: migrateSeenNotices(state),
+          openExternalFilesWithoutAsking: state?.openExternalFilesWithoutAsking ?? false,
         }
       },
       partialize(state) {
@@ -239,7 +265,8 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           settingsSidebarWidth: state.settingsSidebarWidth,
           projectFileTreeOpen: state.projectFileTreeOpen,
           teacherStandardsAutoSetupComplete: state.teacherStandardsAutoSetupComplete,
-          notesLocationIntroSeen: state.notesLocationIntroSeen,
+          seenNotices: state.seenNotices,
+          openExternalFilesWithoutAsking: state.openExternalFilesWithoutAsking,
         }
       },
     },

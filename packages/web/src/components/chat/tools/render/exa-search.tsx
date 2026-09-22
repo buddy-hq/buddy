@@ -49,7 +49,7 @@ export function renderExaSearchTool({ state, defaultOpen, info, icon }: ToolPart
                 href={link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block truncate text-sm text-text-interactive-base underline-offset-2 hover:underline"
+                className="external-link block truncate text-sm text-text-interactive-base underline-offset-2 hover:underline"
               >
                 {link}
               </a>

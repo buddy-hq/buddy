@@ -1,8 +1,22 @@
+import { lazy, Suspense, useState, type ReactNode } from "react"
+import { Dialog, DialogContent } from "@buddy/ui"
 import { resolveAssetUrl } from "../../../lib/resource-url"
 import type { ToolAttachment } from "./registry"
 
+const ToolAttachmentPdfPreview = lazy(async () => {
+  const module = await import("./tool-attachment-pdf-preview")
+  return { default: module.ToolAttachmentPdfPreview }
+})
+
+const TOOL_ATTACHMENT_LINK_CLASS =
+  "inline-flex rounded-md border border-border-base bg-surface-weak px-2 py-1 text-xs text-text-base hover:bg-surface-weak/80"
+
+function isInlineDataUrl(url: string) {
+  return url.startsWith("data:") || url.startsWith("blob:")
+}
+
 function resolveAttachmentUrl(url: string) {
-  if (url.startsWith("data:") || url.startsWith("blob:")) {
+  if (isInlineDataUrl(url)) {
     return url
   }
   return resolveAssetUrl(url)
@@ -10,6 +24,63 @@ function resolveAttachmentUrl(url: string) {
 
 interface ToolAttachmentGalleryProps {
   attachments: ToolAttachment[]
+}
+
+function ToolAttachmentFileLink(props: { url: string; label: string; children: ReactNode }) {
+  return (
+    <a
+      data-slot="tool-attachment-link"
+      className={TOOL_ATTACHMENT_LINK_CLASS}
+      href={props.url}
+      target="_blank"
+      rel="noreferrer"
+      download={isInlineDataUrl(props.url) ? props.label : undefined}
+    >
+      {props.children}
+    </a>
+  )
+}
+
+function ToolAttachmentPdfLink(props: {
+  attachmentID: string
+  sourceUrl: string
+  url: string
+  label: string
+}) {
+  const [previewOpen, setPreviewOpen] = useState(false)
+
+  return (
+    <>
+      <button
+        type="button"
+        data-slot="tool-attachment-link"
+        className={TOOL_ATTACHMENT_LINK_CLASS}
+        onClick={() => setPreviewOpen(true)}
+      >
+        {`Open ${props.label}`}
+      </button>
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="h-[85vh] grid-rows-[minmax(0,1fr)] overflow-hidden p-0 sm:max-w-5xl">
+          {previewOpen ? (
+            <Suspense fallback={null}>
+              <ToolAttachmentPdfPreview
+                attachmentID={props.attachmentID}
+                sourceUrl={props.sourceUrl}
+                name={props.label}
+                fallback={
+                  <ToolAttachmentFileLink url={props.url} label={props.label}>
+                    {isInlineDataUrl(props.url)
+                      ? `Download ${props.label}`
+                      : `Open ${props.label} in your browser`}
+                  </ToolAttachmentFileLink>
+                }
+              />
+            </Suspense>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
 }
 
 export function ToolAttachmentGallery({ attachments }: ToolAttachmentGalleryProps) {
@@ -42,17 +113,22 @@ export function ToolAttachmentGallery({ attachments }: ToolAttachmentGalleryProp
           )
         }
 
+        if (isPdf) {
+          return (
+            <ToolAttachmentPdfLink
+              key={attachment.id}
+              attachmentID={attachment.id}
+              sourceUrl={attachment.url}
+              url={url}
+              label={label}
+            />
+          )
+        }
+
         return (
-          <a
-            key={attachment.id}
-            data-slot="tool-attachment-link"
-            className="inline-flex rounded-md border border-border-base bg-surface-weak px-2 py-1 text-xs text-text-base hover:bg-surface-weak/80"
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {isPdf ? `Open ${label}` : label}
-          </a>
+          <ToolAttachmentFileLink key={attachment.id} url={url} label={label}>
+            {label}
+          </ToolAttachmentFileLink>
         )
       })}
     </div>

@@ -897,10 +897,10 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
           callbacksRef.current.onOpeningInteractionChange?.(true)
         },
         onLayoutFallback: setLayoutFallback,
-        onExternalLink: (href) => {
+        onExternalLink: (href, options) => {
           const handler = callbacksRef.current.onOpenExternalLink
           if (!handler) return false
-          handler(href)
+          handler(href, options)
           return true
         },
         onError: (nextError) => {

@@ -77,6 +77,7 @@ import {
 } from "@/components/bench/markdown/properties"
 import type { MarkdownBenchProperty } from "@/components/bench/markdown/property-values"
 import { CitationSelectionToolbar } from "@/components/citations/citation-selection-toolbar"
+import type { OpenLinkOptions } from "@/components/directory-chat/use-open-link"
 import {
   captureRenderedTextSelection,
   resolveRenderedTextRange,
@@ -157,7 +158,7 @@ type MarkdownBenchEditorProps = Pick<
   viewportKey?: string
   obsidianWikiLinkContext?: ObsidianWikiLinkContext
   onHistoryControlsChange?(controls: MarkdownBenchHistoryControlsState): void
-  onOpenLink?(href: string): void
+  onOpenLink?(href: string, options: OpenLinkOptions): void
   onProcessingResult?(result: MarkdownBenchProcessingResult): void
   onRenameTitle?(title: string): Promise<void>
   onCiteSelection?(
@@ -436,7 +437,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         if (!(anchor instanceof HTMLAnchorElement)) return
         const href = anchor.getAttribute("href")
         if (!href) return
-        onOpenLink(href)
+        onOpenLink(href, { modified: event.metaKey || event.ctrlKey })
         event.preventDefault()
         event.stopPropagation()
       },

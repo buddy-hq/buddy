@@ -8,7 +8,11 @@ import type { DirectoryWorkspaceLifecycleService } from "@/lib/directory-workspa
 import { createNotesBenchTarget } from "@/lib/bench-targets"
 import type { PromptStore } from "@/state/prompt-store"
 import { appQueryClient } from "@/state/query-client"
-import { useUiPreferences } from "@/state/ui-preferences"
+import {
+  markOneTimeNoticeSeen,
+  ONE_TIME_NOTICE_NOTES_LOCATION_INTRO,
+  shouldShowOneTimeNotice,
+} from "@/state/one-time-notices"
 import { WORKSPACE_DRAWER_NOTES } from "@/state/directory-workspace-store"
 import {
   annotateChatMessage,
@@ -82,9 +86,8 @@ export function useNoteCaptureWorkflow(input: NoteCaptureWorkflowInput) {
   const handleCaptureSuccess = useCallback(
     (capture: SessionNoteCapture) => {
       refreshAfterCapture(capture.note)
-      const preferences = useUiPreferences.getState()
-      if (!preferences.notesLocationIntroSeen) {
-        preferences.markNotesLocationIntroSeen()
+      if (shouldShowOneTimeNotice(ONE_TIME_NOTICE_NOTES_LOCATION_INTRO)) {
+        markOneTimeNoticeSeen(ONE_TIME_NOTICE_NOTES_LOCATION_INTRO)
         void workspaceController.execute({
           type: "open-drawer",
           drawer: WORKSPACE_DRAWER_NOTES,

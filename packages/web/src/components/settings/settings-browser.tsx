@@ -24,6 +24,7 @@ import {
   useInAppBrowserSettingsHydrationStatus,
   useInAppBrowserSettingsStore,
 } from "@/state/in-app-browser-settings-store"
+import { markOneTimeNoticeSeen, ONE_TIME_NOTICE_LINK_DESTINATION } from "@/state/one-time-notices"
 import { BrowserProfilesSection } from "./settings-browser-profiles"
 import { SettingsContent, SettingsRow, SettingsSection } from "./settings-primitives"
 
@@ -172,7 +173,7 @@ function BrowserDefaultsSection() {
       />
       <SettingsRow
         title="Open links in"
-        description="Where links in chats open. Hold ⌘ or Ctrl while clicking a link to open it in your default browser either way."
+        description="Where web links in chats, documents, PDFs and books open. Hold ⌘ or Ctrl while clicking a link to open it in your default browser either way."
         control={
           <BrowserSettingSelect
             label="Open links in"
@@ -181,6 +182,7 @@ function BrowserDefaultsSection() {
             disabled={!settingsHydrated}
             onValueChange={(value) => {
               if (value === "system" || value === "browser") {
+                markOneTimeNoticeSeen(ONE_TIME_NOTICE_LINK_DESTINATION)
                 const store = useInAppBrowserSettingsStore.getState()
                 const previous = store.linkTarget
                 store.setLinkTarget(value)
