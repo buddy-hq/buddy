@@ -233,8 +233,6 @@ function normalizedBenchClientObservedRoute(
   return { status: "open", target, mode: route.mode }
 }
 
-// The server's Bench target contract is strict. Build each variant field-by-field so client-only
-// state such as Browser profiles and Notes fragments never reaches the wire.
 function toBenchProtocolTarget(target: BenchTarget): BenchProtocolTarget {
   if (target.type === "browser") {
     return {
@@ -244,14 +242,12 @@ function toBenchProtocolTarget(target: BenchTarget): BenchProtocolTarget {
     }
   }
   if (target.type === "workspace-file") {
-    return Object.assign(
-      {
-        type: target.type,
-        path: target.path,
-        viewer: target.viewer,
-      },
-      target.root === "notes" ? { root: target.root } : undefined,
-    )
+    return {
+      type: target.type,
+      root: target.root,
+      path: target.path,
+      viewer: target.viewer,
+    }
   }
   return {
     type: target.type,
@@ -265,7 +261,6 @@ function toBenchProtocolTarget(target: BenchTarget): BenchProtocolTarget {
   }
 }
 
-// Context reports where a Browser tab is now, which can differ from the URL it was opened with.
 function withBrowserRuntimeUrl(
   target: BenchProtocolTarget,
   browserRuntime: { url: string } | undefined,
