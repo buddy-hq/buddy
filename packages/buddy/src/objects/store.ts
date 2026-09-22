@@ -625,6 +625,20 @@ async function listObjects(input: {
   }
 }
 
+async function listReadyObjectManifests(input: {
+  directory: string
+  kind: BuddyObjectKind
+}): Promise<BuddyObjectManifest[]> {
+  const scanned = await scanObjectDirectories({
+    directory: input.directory,
+    kinds: [input.kind],
+  })
+  const tombstonedIDs = new Set(scanned.tombstones.map((entry) => entry.tombstone.objectID))
+  return scanned.ready
+    .map((entry) => entry.manifest)
+    .filter((manifest) => !tombstonedIDs.has(manifest.objectID))
+}
+
 async function readObject(input: {
   directory: string
   kind: BuddyObjectKind
@@ -837,6 +851,7 @@ export {
   generateObjectID,
   isNodeErrorCode,
   listObjects,
+  listReadyObjectManifests,
   readJsonFile,
   readObject,
   readObjectJsonFile,

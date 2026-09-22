@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
+import z from "zod"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { app } from "../src/index"
 import { buildPresentedMediaObjectOutput } from "../src/learning/features/media-presentations/service/file-media"
+import { BUDDY_OBJECT_KINDS, deleteObject } from "../src/objects"
 import { createGitRepo } from "./helpers/repo"
 import { temporaryDirectory } from "./helpers/temporary-directory"
 
@@ -210,5 +212,112 @@ describe("presented media raw routes", () => {
       expect(response.headers.get("content-range")).toBe("bytes */10")
       expect(response.headers.get("content-length")).toBe("0")
     }
+  })
+})
+
+function postMediaFile(url: string, filePath: string) {
+  return app.request(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ path: filePath }),
+  })
+}
+
+async function mediaObjectID(response: Response) {
+  return z.object({ objectID: z.string() }).parse(await response.json()).objectID
+}
+
+describe("presented media file routes", () => {
+  test("resolves notebook, relative, and outside files without presenting them", async () => {
+    await using repo = await createGitRepo("buddy-presented-media-route-resolve")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-presented-media-route-resolve-",
+    })
+    const notebookPath = path.join(repo.path, "notes.md")
+    const outsidePath = path.join(localDir.path, "report.pdf")
+    await fs.writeFile(notebookPath, "# Notes")
+    await fs.writeFile(outsidePath, "report")
+    const resolveUrl = `/api/objects/media-presentation/files/resolve?directory=${encodeURIComponent(repo.path)}`
+
+    const notebook = await postMediaFile(resolveUrl, notebookPath)
+    expect(notebook.status).toBe(200)
+    expect(await notebook.json()).toMatchObject({ workspacePath: "notes.md", fileName: "notes.md" })
+
+    const outside = await postMediaFile(resolveUrl, path.relative(repo.path, outsidePath))
+    expect(outside.status).toBe(200)
+    expect(await outside.json()).toMatchObject({
+      absolutePath: await fs.realpath(outsidePath),
+      workspacePath: null,
+      fileName: "report.pdf",
+      renderMode: "pdf",
+    })
+
+    const missing = await postMediaFile(resolveUrl, path.join(localDir.path, "missing.pdf"))
+    expect(missing.status).toBe(404)
+  })
+
+  test("presents an outside file as one reusable object", async () => {
+    await using repo = await createGitRepo("buddy-presented-media-route-present")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-presented-media-route-present-",
+    })
+    const outsidePath = path.join(localDir.path, "outside.md")
+    await fs.writeFile(outsidePath, "outside notes")
+    const presentUrl = `/api/objects/media-presentation/files?directory=${encodeURIComponent(repo.path)}`
+
+    const first = await postMediaFile(presentUrl, outsidePath)
+    expect(first.status).toBe(200)
+    const { objectID } = z.object({ objectID: z.string() }).parse(await first.json())
+
+    const second = await postMediaFile(presentUrl, outsidePath)
+    expect(await second.json()).toEqual({ objectID })
+
+    const raw = await app.request(
+      `/api/objects/media-presentation/${objectID}/raw/media_item_1?directory=${encodeURIComponent(repo.path)}`,
+    )
+    expect(raw.status).toBe(200)
+    expect(await raw.text()).toBe("outside notes")
+  })
+
+  test("reuses an object the agent already presented for the same file", async () => {
+    await using repo = await createGitRepo("buddy-presented-media-route-reuse-agent")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-presented-media-route-reuse-agent-",
+    })
+    const warmPath = path.join(localDir.path, "warm.md")
+    const presentedPath = path.join(localDir.path, "presented.pdf")
+    await fs.writeFile(warmPath, "warm")
+    await fs.writeFile(presentedPath, "presented")
+    const presentUrl = `/api/objects/media-presentation/files?directory=${encodeURIComponent(repo.path)}`
+
+    expect((await postMediaFile(presentUrl, warmPath)).status).toBe(200)
+    const presented = await OpenCodeInstance.provide({
+      directory: repo.path,
+      fn: async () =>
+        buildPresentedMediaObjectOutput({ directory: repo.path, items: [{ path: presentedPath }] }),
+    })
+
+    const reopened = await postMediaFile(presentUrl, presentedPath)
+    expect(await reopened.json()).toEqual({ objectID: presented.output.objectID })
+  })
+
+  test("replaces a deleted file object with a new one", async () => {
+    await using repo = await createGitRepo("buddy-presented-media-route-deleted")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-presented-media-route-deleted-",
+    })
+    const outsidePath = path.join(localDir.path, "outside.md")
+    await fs.writeFile(outsidePath, "outside notes")
+    const presentUrl = `/api/objects/media-presentation/files?directory=${encodeURIComponent(repo.path)}`
+    const deletedID = await mediaObjectID(await postMediaFile(presentUrl, outsidePath))
+    await deleteObject({
+      directory: repo.path,
+      kind: BUDDY_OBJECT_KINDS.mediaPresentation,
+      objectID: deletedID,
+    })
+
+    const replacementID = await mediaObjectID(await postMediaFile(presentUrl, outsidePath))
+    expect(replacementID).not.toBe(deletedID)
+    expect(await mediaObjectID(await postMediaFile(presentUrl, outsidePath))).toBe(replacementID)
   })
 })
