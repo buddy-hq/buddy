@@ -46,6 +46,8 @@ type BenchEventStreamLeaseQuery = Pick<
   "workspaceInstanceID" | "connectionGeneration"
 >
 type BenchClientActionCompletion = BenchClientActionsCompleteData["body"]
+type BenchProtocolTarget = BenchContextTabSummary["target"]
+type BenchProtocolRoute = NonNullable<BenchClientActionCompletion["observedRoute"]>
 type BenchCommittedClientActionCompletion = Extract<
   BenchClientActionCompletion,
   { outcome: "committed" }
@@ -231,33 +233,57 @@ function normalizedBenchClientObservedRoute(
   return { status: "open", target, mode: route.mode }
 }
 
-function sharedBenchTarget(input: {
-  target: BenchTarget
-  browserRuntime?: { url: string; title: string; loading: boolean }
-}): BenchContextTabSummary["target"] {
-  const { target } = input
+function toBenchProtocolTarget(target: BenchTarget): BenchProtocolTarget {
   if (target.type === "browser") {
     return {
       type: target.type,
       tabID: target.tabID,
-      url: input.browserRuntime?.url ?? target.url,
+      url: target.url,
     }
   }
   if (target.type === "workspace-file") {
-    return Object.assign(
-      {
-        type: target.type,
-        path: target.path,
-        viewer: target.viewer,
-      },
-      target.root === "notes" ? { root: target.root } : undefined,
-    )
+    return {
+      type: target.type,
+      root: target.root,
+      path: target.path,
+      viewer: target.viewer,
+    }
   }
   return {
     type: target.type,
-    ref: target.ref,
+    ref: {
+      kind: target.ref.kind,
+      objectID: target.ref.objectID,
+      revisionID: target.ref.revisionID,
+      itemID: target.ref.itemID,
+    },
     viewID: target.viewID,
   }
+}
+
+function withBrowserRuntimeUrl(
+  target: BenchProtocolTarget,
+  browserRuntime: { url: string } | undefined,
+): BenchProtocolTarget {
+  if (target.type !== "browser" || !browserRuntime) return target
+  return { ...target, url: browserRuntime.url }
+}
+
+function toBenchProtocolRoute(route: BenchProtocolRoute): BenchProtocolRoute {
+  const observedRoute = normalizedBenchClientObservedRoute(route)
+  if (observedRoute.status === "closed") return observedRoute
+  return {
+    status: "open",
+    target: toBenchProtocolTarget(observedRoute.target),
+    mode: observedRoute.mode,
+  }
+}
+
+function toBenchProtocolCompletion(
+  completion: BenchClientActionCompletion,
+): BenchClientActionCompletion {
+  if (completion.observedRoute === undefined) return completion
+  return { ...completion, observedRoute: toBenchProtocolRoute(completion.observedRoute) }
 }
 
 function visibleBenchContext(input: {
@@ -946,7 +972,7 @@ export class DirectoryWorkspaceLifecycleService {
       const response = requireBuddyData(
         await getBuddyClient(this.#directory).bench.clientActions.complete({
           actionID: input.actionID,
-          body,
+          body: toBenchProtocolCompletion(body),
         }),
       )
       logBenchToggleStep("workspace-lifecycle-complete-client-action-response", () => ({
@@ -1058,12 +1084,7 @@ export class DirectoryWorkspaceLifecycleService {
                   browserRuntime?.title ??
                   this.#getTabTitle(tab) ??
                   benchTabFallbackTitle(tab.target),
-                target: sharedBenchTarget(
-                  Object.assign(
-                    { target: tab.target },
-                    browserRuntime ? { browserRuntime } : undefined,
-                  ),
-                ),
+                target: withBrowserRuntimeUrl(toBenchProtocolTarget(tab.target), browserRuntime),
               },
             ]
           })()
