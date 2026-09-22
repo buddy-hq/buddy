@@ -13,6 +13,9 @@
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
     "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
   },
+  "dependencies": {
+    "@buddy/citation-contract": "workspace:*"
+  },
   "devDependencies": {
     "@types/bun": "catalog:"
   }

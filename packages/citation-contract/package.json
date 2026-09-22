@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./rendered-text": "./src/rendered-text.ts",
+    "./selection-actions": "./src/selection-actions.ts",
+    "./text-fragment": "./src/text-fragment.ts"
   },
   "scripts": {
     "test": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts",

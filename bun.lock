@@ -25,6 +25,9 @@
     },
     "packages/browser-contract": {
       "name": "@buddy/browser-contract",
+      "dependencies": {
+        "@buddy/citation-contract": "workspace:*",
+      },
       "devDependencies": {
         "@types/bun": "catalog:",
       },
@@ -119,6 +122,7 @@
       },
       "devDependencies": {
         "@buddy/browser-contract": "workspace:*",
+        "@buddy/citation-contract": "workspace:*",
         "@buddy/reader-contract": "workspace:*",
         "@buddy/script": "workspace:*",
         "@buddy/sdk": "workspace:*",

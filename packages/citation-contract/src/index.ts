@@ -18,6 +18,8 @@ export const CITATION_TEXT_CONTEXT_LENGTH = 32
 const MAX_ID_LENGTH = 512
 const MAX_PATH_LENGTH = 32_768
 const MAX_LABEL_LENGTH = 2_048
+const MAX_WEB_URL_LENGTH = 8_192
+const WEB_CITATION_PROTOCOLS = new Set(["http:", "https:"])
 
 /** A stable selector over rendered text after whitespace normalization. */
 export type CitationTextSelector = {
@@ -55,8 +57,19 @@ export type ChatCitationSource = {
   readonly selector: CitationTextSelector
 }
 
+export type WebCitationSource = {
+  readonly kind: "web"
+  readonly url: string
+  readonly profileID?: string
+  readonly selector: CitationTextSelector
+}
+
 /** Source-specific identity and locator for a citation. */
-export type CitationSource = ReadingCitationSource | DocumentCitationSource | ChatCitationSource
+export type CitationSource =
+  | ReadingCitationSource
+  | DocumentCitationSource
+  | ChatCitationSource
+  | WebCitationSource
 
 /** Labels captured for useful display even when the original source is unavailable. */
 export type CitationPresentation = {
@@ -219,8 +232,34 @@ export function readCitationTextSelector<TValue>(value: TValue): CitationTextSel
   return { version: 1, start, end, prefix, suffix }
 }
 
+function readWebCitationUrl(value: JsonValue | undefined): string | undefined {
+  const url = readBoundedString(value, MAX_WEB_URL_LENGTH)
+  if (url === undefined) return undefined
+  try {
+    return WEB_CITATION_PROTOCOLS.has(new URL(url).protocol) ? url : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function readWebCitationSource(value: JsonObject): WebCitationSource | undefined {
+  const url = readWebCitationUrl(value.url)
+  const profileID =
+    value.profileID === undefined
+      ? undefined
+      : (readBoundedString(value.profileID, MAX_ID_LENGTH) ?? null)
+  const selector = readCitationTextSelector(value.selector)
+  if (!url || profileID === null || !selector) return undefined
+  return Object.assign(
+    { kind: "web" as const, url },
+    profileID === undefined ? undefined : { profileID },
+    { selector },
+  )
+}
+
 function readCitationSource<TValue>(value: TValue): CitationSource | undefined {
   if (!isJsonObject(value)) return undefined
+  if (value.kind === "web") return readWebCitationSource(value)
   if (value.kind === "reading") {
     const anchor = readReaderTextAnchor(value.anchor)
     const resourceKey = readOptionalBoundedString(value, "resourceKey", MAX_ID_LENGTH)
@@ -343,7 +382,7 @@ function citationSourceLines(citation: Citation, location: CitationProviderLocat
         : `## Source: an assistant reply in another conversation (session ${source.sessionID}, message ${source.messageID})`,
     ]
   }
-  const sourcePath = location.absolutePath ?? source.path
+  const sourcePath = source.kind === "web" ? source.url : (location.absolutePath ?? source.path)
   const title = presentation?.title
   const headings = presentation?.headingPath?.join(" > ")
   const lines = location.lines

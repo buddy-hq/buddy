@@ -1,3 +1,5 @@
+import type { CitationTextSelector } from "@buddy/citation-contract"
+
 // Kept for compatibility with the browser runtime already present on main. The profile-aware
 // runtime in the follow-up PR resolves named partitions through the profile contract instead.
 export const IN_APP_BROWSER_PARTITION = "persist:buddy-browser"
@@ -14,6 +16,7 @@ export const IN_APP_BROWSER_MESSAGE_CHANNEL = "inapp-browser-message"
 export const IN_APP_BROWSER_FAVICON_CHANNEL = "inapp-browser-favicon"
 export const IN_APP_BROWSER_AUDIO_CHANNEL = "inapp-browser-audio"
 export const IN_APP_BROWSER_SHORTCUT_CHANNEL = "inapp-browser-shortcut"
+export const IN_APP_BROWSER_CITATION_CHANNEL = "inapp-browser-citation"
 export type InAppBrowserMouseNavigation = {
   readonly direction: "back" | "forward"
 }
@@ -195,6 +198,74 @@ export type InAppBrowserCommandResult =
       readonly _tag: "failed"
       readonly reason: "invalid-request" | "tab-unavailable" | "operation-failed"
     }
+
+export type InAppBrowserCitationPoint = {
+  readonly x: number
+  readonly y: number
+}
+
+export type InAppBrowserCitationRect = {
+  readonly x: number
+  readonly y: number
+  readonly width: number
+  readonly height: number
+}
+
+export type InAppBrowserCitationEvent =
+  | { readonly type: "selection"; readonly point: InAppBrowserCitationPoint }
+  | { readonly type: "selection-cleared" }
+  | { readonly type: "cite-requested" }
+  | {
+      readonly type: "mark-moved"
+      readonly markID: string
+      readonly rect: InAppBrowserCitationRect
+    }
+  | { readonly type: "mark-lost"; readonly markID: string }
+
+export type InAppBrowserCitationMessage = {
+  webContentsID: number
+  event: InAppBrowserCitationEvent
+}
+
+export type InAppBrowserCitationCapture = {
+  readonly url: string
+  readonly title: string
+  readonly excerpt: string
+  readonly selector: CitationTextSelector
+  readonly headingPath?: readonly string[]
+  readonly rect: InAppBrowserCitationRect
+}
+
+export type InAppBrowserCitationCaptureRequest = {
+  webContentsID: number
+}
+
+export type InAppBrowserCitationCaptureResult =
+  | { readonly _tag: "captured"; readonly capture: InAppBrowserCitationCapture }
+  | {
+      readonly _tag: "failed"
+      readonly reason: "invalid-request" | "tab-unavailable" | "no-selection"
+    }
+
+export type InAppBrowserCitationRevealRequest = {
+  webContentsID: number
+  excerpt: string
+  selector: CitationTextSelector
+}
+
+export type InAppBrowserCitationMarkRequest = InAppBrowserCitationRevealRequest & {
+  markID: string
+}
+
+export type InAppBrowserCitationUnmarkRequest = {
+  webContentsID: number
+  markID: string
+}
+
+export type InAppBrowserCitationLocateResult =
+  | { readonly _tag: "found" }
+  | { readonly _tag: "not-found" }
+  | { readonly _tag: "failed"; readonly reason: "invalid-request" | "tab-unavailable" }
 
 export type InAppBrowserProfileData = "cookies" | "cache" | "everything"
 
