@@ -23,6 +23,11 @@ import {
   parseInAppBrowserSearchEngine,
   type InAppBrowserSearchEngine,
 } from "@/lib/in-app-browser-search"
+import {
+  parseInAppBrowserZoomFactorsByProfile,
+  withoutInAppBrowserProfileZoomFactors,
+  type InAppBrowserZoomFactorsByProfile,
+} from "@/lib/in-app-browser-zoom"
 
 export type InAppBrowserLinkTarget = "system" | "browser"
 
@@ -30,6 +35,7 @@ export type InAppBrowserSettings = {
   readonly linkTarget: InAppBrowserLinkTarget
   readonly defaultSearchEngine: InAppBrowserSearchEngine
   readonly defaultZoomFactor: InAppBrowserZoomFactor
+  readonly zoomFactorsByProfile: InAppBrowserZoomFactorsByProfile
   readonly defaultAppearance: InAppBrowserAppearance
   readonly defaultProfileID: InAppBrowserProfileID
   readonly userProfiles: readonly InAppBrowserProfile[]
@@ -39,6 +45,7 @@ export const DEFAULT_IN_APP_BROWSER_SETTINGS: InAppBrowserSettings = {
   linkTarget: "system",
   defaultSearchEngine: DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE,
   defaultZoomFactor: DEFAULT_IN_APP_BROWSER_ZOOM_FACTOR,
+  zoomFactorsByProfile: {},
   defaultAppearance: DEFAULT_IN_APP_BROWSER_APPEARANCE,
   defaultProfileID: DEFAULT_IN_APP_BROWSER_PROFILE_ID,
   userProfiles: [],
@@ -104,6 +111,10 @@ export function parseInAppBrowserSettings<TValue>(value: TValue): InAppBrowserSe
   if (!record) return DEFAULT_IN_APP_BROWSER_SETTINGS
   const userProfiles = parseUserProfiles(record.userProfiles)
   const defaultProfileID = parseInAppBrowserProfileID(record.defaultProfileID)
+  const persistentProfileIDs = [
+    DEFAULT_IN_APP_BROWSER_PROFILE_ID,
+    ...userProfiles.map((profile) => profile.id),
+  ]
   return {
     linkTarget: record.linkTarget === "browser" ? "browser" : "system",
     defaultSearchEngine:
@@ -111,6 +122,10 @@ export function parseInAppBrowserSettings<TValue>(value: TValue): InAppBrowserSe
       DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE,
     defaultZoomFactor:
       parseInAppBrowserZoomFactor(record.defaultZoomFactor) ?? DEFAULT_IN_APP_BROWSER_ZOOM_FACTOR,
+    zoomFactorsByProfile: parseInAppBrowserZoomFactorsByProfile(
+      record.zoomFactorsByProfile,
+      persistentProfileIDs,
+    ),
     defaultAppearance:
       parseInAppBrowserAppearance(record.defaultAppearance) ?? DEFAULT_IN_APP_BROWSER_APPEARANCE,
     defaultProfileID:
@@ -163,6 +178,7 @@ export function removeInAppBrowserProfile(
   return {
     ...settings,
     userProfiles: settings.userProfiles.filter((profile) => profile.id !== id),
+    zoomFactorsByProfile: withoutInAppBrowserProfileZoomFactors(settings.zoomFactorsByProfile, id),
     defaultProfileID:
       settings.defaultProfileID === id
         ? DEFAULT_IN_APP_BROWSER_PROFILE_ID

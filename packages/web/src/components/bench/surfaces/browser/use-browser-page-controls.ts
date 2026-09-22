@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react"
 import {
-  DEFAULT_IN_APP_BROWSER_ZOOM_FACTOR,
   stepInAppBrowserZoomFactor,
   type InAppBrowserAppearance,
   type InAppBrowserAppearanceRequest,
   type InAppBrowserCommandResult,
   type InAppBrowserZoomFactor,
 } from "@buddy/browser-contract"
+import type { InAppBrowserProfileID } from "@buddy/browser-contract/profiles"
 import type { InAppBrowserPlatform } from "@/context/platform"
+import { inAppBrowserHostZoomFactor, parseInAppBrowserZoomHost } from "@/lib/in-app-browser-zoom"
 import { useInAppBrowserAudioStore } from "@/state/in-app-browser-audio-store"
 import { useInAppBrowserSettingsStore } from "@/state/in-app-browser-settings-store"
 import type { WithInAppBrowserWebview } from "./in-app-browser-webview"
@@ -68,25 +69,34 @@ export function applyInAppBrowserAppearance(
 
 export function useBrowserPageControls(input: {
   tabID: string
+  profileID: InAppBrowserProfileID
   browser: InAppBrowserPlatform
   webContentsID: number | null
-  pageUrl: string
+  observedPageUrl: string
   withWebview: WithInAppBrowserWebview
 }) {
-  const { tabID, browser, webContentsID, pageUrl, withWebview } = input
-  const [zoomFactor, setZoomFactor] = useState<InAppBrowserZoomFactor>(
-    () => useInAppBrowserSettingsStore.getState().defaultZoomFactor,
+  const { tabID, profileID, browser, webContentsID, observedPageUrl, withWebview } = input
+  const zoomHost = parseInAppBrowserZoomHost(observedPageUrl)
+  const defaultZoomFactor = useInAppBrowserSettingsStore((state) => state.defaultZoomFactor)
+  const savedZoomFactor = useInAppBrowserSettingsStore((state) =>
+    zoomHost
+      ? inAppBrowserHostZoomFactor(state.zoomFactorsByProfile, profileID, zoomHost)
+      : undefined,
   )
+  const [hostlessZoomFactor, setHostlessZoomFactor] = useState<InAppBrowserZoomFactor | undefined>()
+  const zoomFactor = zoomHost
+    ? (savedZoomFactor ?? defaultZoomFactor)
+    : (hostlessZoomFactor ?? defaultZoomFactor)
   const [appearance, setAppearance] = useState<InAppBrowserAppearance>(
     () => useInAppBrowserSettingsStore.getState().defaultAppearance,
   )
   const muted = useInAppBrowserAudioStore((state) => state.byTabID[tabID]?.muted ?? false)
 
-  // Chromium resets zoom per site and per guest, so the tab's zoom is reapplied.
+  // Chromium resets zoom per site and per guest, so the profile-host preference is reapplied.
   useEffect(() => {
     if (webContentsID === null) return
     withWebview((webview) => webview.setZoomFactor(zoomFactor))
-  }, [pageUrl, webContentsID, withWebview, zoomFactor])
+  }, [observedPageUrl, webContentsID, withWebview, zoomFactor])
 
   useEffect(() => {
     if (webContentsID === null) return
@@ -108,25 +118,67 @@ export function useBrowserPageControls(input: {
 
   useEffect(() => () => useInAppBrowserAudioStore.getState().removeTab(tabID), [tabID])
 
+  const zoomFactorForPageUrl = useCallback(
+    (pageUrl: string): InAppBrowserZoomFactor => {
+      const state = useInAppBrowserSettingsStore.getState()
+      const attachedHost = parseInAppBrowserZoomHost(pageUrl)
+      return attachedHost
+        ? (inAppBrowserHostZoomFactor(state.zoomFactorsByProfile, profileID, attachedHost) ??
+            state.defaultZoomFactor)
+        : (hostlessZoomFactor ?? state.defaultZoomFactor)
+    },
+    [hostlessZoomFactor, profileID],
+  )
+
   const synchronizeAttachedState = useCallback(
-    (webview: InAppBrowserWebview, attachedWebContentsID: number): void => {
-      webview.setZoomFactor(zoomFactor)
+    (
+      webview: InAppBrowserWebview,
+      attachedWebContentsID: number,
+      attachedPageUrl: string,
+    ): void => {
+      webview.setZoomFactor(zoomFactorForPageUrl(attachedPageUrl))
       webview.setAudioMuted(muted)
       void applyInAppBrowserAppearance(browser.setAppearance, {
         webContentsID: attachedWebContentsID,
         appearance,
       })
     },
-    [appearance, browser, muted, zoomFactor],
+    [appearance, browser, muted, zoomFactorForPageUrl],
   )
 
-  const zoomIn = useCallback(() => {
-    setZoomFactor((current) => stepInAppBrowserZoomFactor(current, "in"))
-  }, [])
-  const zoomOut = useCallback(() => {
-    setZoomFactor((current) => stepInAppBrowserZoomFactor(current, "out"))
-  }, [])
-  const resetZoom = useCallback(() => setZoomFactor(DEFAULT_IN_APP_BROWSER_ZOOM_FACTOR), [])
+  const stepZoom = useCallback(
+    (direction: "in" | "out") => {
+      if (!zoomHost) {
+        setHostlessZoomFactor((current) =>
+          stepInAppBrowserZoomFactor(current ?? defaultZoomFactor, direction),
+        )
+        return
+      }
+      const state = useInAppBrowserSettingsStore.getState()
+      const current =
+        inAppBrowserHostZoomFactor(state.zoomFactorsByProfile, profileID, zoomHost) ??
+        state.defaultZoomFactor
+      const zoomFactor = stepInAppBrowserZoomFactor(current, direction)
+      if (zoomFactor === state.defaultZoomFactor) {
+        state.clearHostZoomFactor({ profileID, host: zoomHost })
+        return
+      }
+      state.setHostZoomFactor({ profileID, host: zoomHost, zoomFactor })
+    },
+    [defaultZoomFactor, profileID, zoomHost],
+  )
+  const zoomIn = useCallback(() => stepZoom("in"), [stepZoom])
+  const zoomOut = useCallback(() => stepZoom("out"), [stepZoom])
+  const resetZoom = useCallback(() => {
+    if (!zoomHost) {
+      setHostlessZoomFactor(undefined)
+      return
+    }
+    useInAppBrowserSettingsStore.getState().clearHostZoomFactor({
+      profileID,
+      host: zoomHost,
+    })
+  }, [profileID, zoomHost])
 
   return {
     zoomFactor,

@@ -87,11 +87,11 @@ function HydratedBrowserTab(props: {
   const profileName = useBrowserProfileName(profileID)
   const [addressFocusRequest, setAddressFocusRequest] = useState(0)
   const attachedStateSynchronizerRef = useRef<
-    ((webview: InAppBrowserWebview, webContentsID: number) => void) | null
+    ((webview: InAppBrowserWebview, webContentsID: number, observedPageUrl: string) => void) | null
   >(null)
   const synchronizeAttachedState = useCallback(
-    (webview: InAppBrowserWebview, webContentsID: number) => {
-      attachedStateSynchronizerRef.current?.(webview, webContentsID)
+    (webview: InAppBrowserWebview, webContentsID: number, observedPageUrl: string) => {
+      attachedStateSynchronizerRef.current?.(webview, webContentsID, observedPageUrl)
     },
     [],
   )
@@ -105,9 +105,10 @@ function HydratedBrowserTab(props: {
   const { runtime, withWebview } = page
   const controls = useBrowserPageControls({
     tabID: target.tabID,
+    profileID,
     browser,
     webContentsID: page.webContentsID,
-    pageUrl: runtime.url,
+    observedPageUrl: page.observedPageUrl,
     withWebview,
   })
   attachedStateSynchronizerRef.current = controls.synchronizeAttachedState
