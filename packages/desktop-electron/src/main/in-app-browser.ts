@@ -28,6 +28,10 @@ import {
   wireInAppBrowserHostBoundary,
   type InAppBrowserGuestBoundary,
 } from "./in-app-browser-boundary"
+import {
+  attachInAppBrowserCitations,
+  requestInAppBrowserCitation,
+} from "./in-app-browser-citations"
 import { inAppBrowserContextMenuTemplate } from "./in-app-browser-context-menu"
 import {
   sendInAppBrowserAudio,
@@ -172,7 +176,11 @@ function attachInAppBrowserFaviconCapture(webContents: WebContents): Dispose {
   }
 }
 
-function installInAppBrowserContextMenu(window: BrowserWindow, contents: WebContents): Dispose {
+function installInAppBrowserContextMenu(
+  window: BrowserWindow,
+  contents: WebContents,
+  onCite?: () => void,
+): Dispose {
   const show = (_event: ElectronEvent, params: ContextMenuParams) => {
     if (contents.isDestroyed() || window.isDestroyed()) return
     // Editing roles target the focused contents, which is Buddy until the page is focused.
@@ -185,6 +193,7 @@ function installInAppBrowserContextMenu(window: BrowserWindow, contents: WebCont
       copyImage: () => {
         if (!contents.isDestroyed()) contents.copyImageAt(params.x, params.y)
       },
+      cite: params.frame === contents.mainFrame ? onCite : undefined,
     })
     Menu.buildFromTemplate(template).popup(
       Object.assign({ window }, params.frame ? { frame: params.frame } : undefined),
@@ -252,7 +261,8 @@ function attachInAppBrowserGuestFeatures(window: BrowserWindow, guest: WebConten
   const disposers = [
     attachInAppBrowserFaviconCapture(guest),
     installInAppBrowserMouseNavigation(guest),
-    installInAppBrowserContextMenu(window, guest),
+    installInAppBrowserContextMenu(window, guest, () => requestInAppBrowserCitation(guest)),
+    attachInAppBrowserCitations(guest),
     forwardInAppBrowserAudioState(guest),
     hardenInAppBrowserPopups(guest),
     installInAppBrowserNavigationBlockedNotice(guest, () =>

@@ -5,6 +5,13 @@ import { browserLocalStorage } from "@/state/parse-external"
 import type {
   InAppBrowserAppearance,
   InAppBrowserAudioMessage,
+  InAppBrowserCitationCaptureRequest,
+  InAppBrowserCitationCaptureResult,
+  InAppBrowserCitationLocateResult,
+  InAppBrowserCitationMarkRequest,
+  InAppBrowserCitationMessage,
+  InAppBrowserCitationRevealRequest,
+  InAppBrowserCitationUnmarkRequest,
   InAppBrowserCommandResult,
   InAppBrowserFaviconMessage,
   InAppBrowserHostMessage,
@@ -88,6 +95,15 @@ export type InAppBrowserPlatform = {
   onFavicon(cb: (message: InAppBrowserFaviconMessage) => void): () => void
   onAudio(cb: (message: InAppBrowserAudioMessage) => void): () => void
   onShortcut(cb: (message: InAppBrowserShortcutMessage) => void): () => void
+  onCitation(cb: (message: InAppBrowserCitationMessage) => void): () => void
+  captureCitation(
+    input: InAppBrowserCitationCaptureRequest,
+  ): Promise<InAppBrowserCitationCaptureResult>
+  markCitation(input: InAppBrowserCitationMarkRequest): Promise<InAppBrowserCitationLocateResult>
+  unmarkCitation(input: InAppBrowserCitationUnmarkRequest): Promise<InAppBrowserCommandResult>
+  revealCitation(
+    input: InAppBrowserCitationRevealRequest,
+  ): Promise<InAppBrowserCitationLocateResult>
   setAppearance(input: {
     webContentsID: number
     appearance: InAppBrowserAppearance

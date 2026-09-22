@@ -16,7 +16,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react"
 import { cn, toast } from "@buddy/ui"
-import type { CitationTextSelector } from "@buddy/citation-contract"
+import type { Citation, CitationTextSelector } from "@buddy/citation-contract"
 import type { MarkdownBenchDocumentFormat } from "@buddy/workspace-file-policy"
 import {
   prepareMarkdownForMdxEditor,
@@ -80,9 +80,12 @@ import { CitationSelectionToolbar } from "@/components/citations/citation-select
 import {
   captureRenderedTextSelection,
   resolveRenderedTextRange,
-} from "@/lib/citations/rendered-text"
-import { observeSelectionActions } from "@/lib/citations/selection-actions"
+} from "@buddy/citation-contract/rendered-text"
+import { observeSelectionActions } from "@buddy/citation-contract/selection-actions"
 import { registerCitationNavigationHandler } from "@/lib/citations/navigation"
+import { registerCitationSurfaceRevealer } from "@/lib/citations/surface-revealers"
+import { useBenchRouteContextOptional } from "@/components/bench/bench-route-context"
+import { benchTargetKey } from "@/lib/bench-navigation"
 import { revealCitationRange } from "@/lib/citations/highlight"
 import type { CitationCommentSource } from "@/lib/citations/comment-request"
 import { rangeCitationCommentSource } from "@/lib/citations/comment-source"
@@ -168,6 +171,23 @@ const MARKDOWN_SERIALIZATION_OPTIONS = {
   listItemIndent: "one",
   resourceLink: false,
 } as const
+
+function revealDocumentCitation(
+  editorRoot: HTMLElement | null,
+  excerpt: string,
+  selector: CitationTextSelector,
+) {
+  const contentRoot = editorRoot?.querySelector<HTMLElement>('[contenteditable="true"]')
+  if (!contentRoot) return false
+  const range = resolveRenderedTextRange(contentRoot, excerpt, selector)
+  if (!range) {
+    contentRoot.scrollIntoView({ block: "center" })
+    toast.warning("The quoted text changed. Showing its source document instead.")
+    return true
+  }
+  revealCitationRange(range)
+  return true
+}
 
 export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, MarkdownBenchEditorProps>(
   function MarkdownBenchEditor(props, ref) {
@@ -388,31 +408,26 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       })
       return observer.dispose
     }, [onCiteSelection])
-    useEffect(
-      () =>
-        registerCitationNavigationHandler((citation) => {
-          if (citation.source.kind !== "document" || citation.source.path !== props.path) {
-            return false
-          }
-          const contentRoot = editorRootRef.current?.querySelector<HTMLElement>(
-            '[contenteditable="true"]',
-          )
-          if (!contentRoot) return false
-          const range = resolveRenderedTextRange(
-            contentRoot,
-            citation.excerpt,
-            citation.source.selector,
-          )
-          if (!range) {
-            contentRoot.scrollIntoView({ block: "center" })
-            toast.warning("The quoted text changed. Showing its source document instead.")
-            return true
-          }
-          revealCitationRange(range)
-          return true
-        }),
-      [props.path],
-    )
+    const benchTarget = useBenchRouteContextOptional()?.state.target
+    const citationSurfaceKey = benchTarget ? benchTargetKey(benchTarget) : undefined
+    useEffect(() => {
+      const revealCitation = (citation: Citation) =>
+        citation.source.kind === "document" && citation.source.path === props.path
+          ? revealDocumentCitation(
+              editorRootRef.current,
+              citation.excerpt,
+              citation.source.selector,
+            )
+          : false
+      const unregisterNavigation = registerCitationNavigationHandler(revealCitation)
+      const unregisterRevealer = citationSurfaceKey
+        ? registerCitationSurfaceRevealer(citationSurfaceKey, revealCitation)
+        : undefined
+      return () => {
+        unregisterNavigation()
+        unregisterRevealer?.()
+      }
+    }, [citationSurfaceKey, props.path])
     const onOpenLink = props.onOpenLink
     const openLink = useCallback(
       (event: ReactMouseEvent<HTMLDivElement>) => {

@@ -107,8 +107,8 @@ import { CitationSelectionToolbar } from "@/components/citations/citation-select
 import {
   captureRenderedTextSelection,
   resolveRenderedTextRange,
-} from "@/lib/citations/rendered-text"
-import { observeSelectionActions } from "@/lib/citations/selection-actions"
+} from "@buddy/citation-contract/rendered-text"
+import { observeSelectionActions } from "@buddy/citation-contract/selection-actions"
 import { registerCitationNavigationHandler } from "@/lib/citations/navigation"
 import { revealCitationRange } from "@/lib/citations/highlight"
 import type { CitationCommentSource } from "@/lib/citations/comment-request"

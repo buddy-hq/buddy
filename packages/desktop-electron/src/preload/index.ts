@@ -5,10 +5,12 @@ import { isFunctionValue, isObjectValue, parseTString } from "../shared/parse-ex
 import type { ElectronAPI, InitStep, SqliteMigrationProgress } from "./types"
 import {
   IN_APP_BROWSER_AUDIO_CHANNEL,
+  IN_APP_BROWSER_CITATION_CHANNEL,
   IN_APP_BROWSER_FAVICON_CHANNEL,
   IN_APP_BROWSER_MESSAGE_CHANNEL,
   IN_APP_BROWSER_SHORTCUT_CHANNEL,
   type InAppBrowserAudioMessage,
+  type InAppBrowserCitationMessage,
   type InAppBrowserFaviconMessage,
   type InAppBrowserHostMessage,
   type InAppBrowserShortcutMessage,
@@ -180,6 +182,18 @@ const api: ElectronAPI = {
     ipcRenderer.on(IN_APP_BROWSER_SHORTCUT_CHANNEL, handler)
     return () => ipcRenderer.removeListener(IN_APP_BROWSER_SHORTCUT_CHANNEL, handler)
   },
+  onInAppBrowserCitation: (cb) => {
+    const handler = (_: IpcRendererEvent, message: InAppBrowserCitationMessage) => cb(message)
+    ipcRenderer.on(IN_APP_BROWSER_CITATION_CHANNEL, handler)
+    return () => ipcRenderer.removeListener(IN_APP_BROWSER_CITATION_CHANNEL, handler)
+  },
+  captureInAppBrowserCitation: (input) =>
+    ipcRenderer.invoke("in-app-browser-capture-citation", input),
+  markInAppBrowserCitation: (input) => ipcRenderer.invoke("in-app-browser-mark-citation", input),
+  unmarkInAppBrowserCitation: (input) =>
+    ipcRenderer.invoke("in-app-browser-unmark-citation", input),
+  revealInAppBrowserCitation: (input) =>
+    ipcRenderer.invoke("in-app-browser-reveal-citation", input),
   setInAppBrowserAppearance: (input) => ipcRenderer.invoke("in-app-browser-set-appearance", input),
   clearInAppBrowserProfileData: (input) =>
     ipcRenderer.invoke("in-app-browser-clear-profile-data", input),

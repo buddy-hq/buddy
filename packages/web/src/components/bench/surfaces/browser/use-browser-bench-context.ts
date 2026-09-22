@@ -24,7 +24,7 @@ export function useBrowserBenchContext(input: {
           `loading: ${runtime.loading ? "yes" : "no"}`,
         ],
         content:
-          "This is a live Browser tab controlled by the user. The agent knows its URL and status but cannot read or operate the page.",
+          "This is a live Browser tab controlled by the user. The agent knows its URL and status but cannot read or operate the page. The user can cite selected page text into the chat; each citation carries the exact excerpt they selected and the page URL.",
         refs: [
           {
             kind: "url" as const,

@@ -1,4 +1,5 @@
 import { ipcRenderer } from "electron"
+import { installInAppBrowserCitations } from "./in-app-browser-citations"
 import { IN_APP_BROWSER_MOUSE_NAVIGATION_CHANNEL } from "../shared/in-app-browser-mouse-navigation-channel"
 import {
   IN_APP_BROWSER_NAVIGATION_BLOCKED_CHANNEL,
@@ -60,3 +61,4 @@ window.addEventListener("auxclick", suppressNavigationButton, true)
 installInAppBrowserPageNavigationGuard(window, () => {
   ipcRenderer.send(IN_APP_BROWSER_NAVIGATION_BLOCKED_CHANNEL)
 })
+installInAppBrowserCitations()

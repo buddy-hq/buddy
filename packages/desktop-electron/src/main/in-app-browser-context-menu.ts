@@ -5,13 +5,20 @@ const COPYABLE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:"])
 
 export type InAppBrowserContextMenuParams = Pick<
   ContextMenuParams,
-  "misspelledWord" | "dictionarySuggestions" | "linkURL" | "mediaType" | "editFlags"
+  | "misspelledWord"
+  | "dictionarySuggestions"
+  | "linkURL"
+  | "mediaType"
+  | "editFlags"
+  | "selectionText"
+  | "isEditable"
 >
 
 export type InAppBrowserContextMenuActions = {
   replaceMisspelling(suggestion: string): void
   copyText(text: string): void
   copyImage(): void
+  cite?: () => void
 }
 
 function isCopyableLink(url: string): boolean {
@@ -28,6 +35,11 @@ export function inAppBrowserContextMenuTemplate(
   actions: InAppBrowserContextMenuActions,
 ): MenuItemConstructorOptions[] {
   const template: MenuItemConstructorOptions[] = []
+  const cite = actions.cite
+
+  if (cite && !params.isEditable && params.selectionText.trim()) {
+    template.push({ label: "Cite in Chat", click: () => cite() }, { type: "separator" })
+  }
 
   if (params.misspelledWord) {
     const suggestions = params.dictionarySuggestions.slice(0, SPELLING_SUGGESTION_LIMIT)

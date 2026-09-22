@@ -8,10 +8,14 @@ export function observeSelectionActions(input: {
   getActionElement?: () => HTMLElement | null
   onSelection: (pointer: SelectionActionPoint | null) => void
   onDismiss: () => void
+  scrollTarget?: EventTarget
+  dismissOnBlur?: boolean
 }) {
   const document = input.element.ownerDocument
   const view = document.defaultView
   if (!view) return { selectionChanged() {}, dispose() {} }
+  const scrollTarget = input.scrollTarget ?? input.element
+  const dismissOnBlur = input.dismissOnBlur ?? true
   let pointerDown = false
   let gestureActive = false
   let dismissed = false
@@ -107,8 +111,8 @@ export function observeSelectionActions(input: {
   view.addEventListener("mouseup", onMouseUp)
   document.addEventListener("keydown", onKeyDown)
   document.addEventListener("selectionchange", onSelectionChange)
-  input.element.addEventListener("scroll", onScroll, true)
-  view.addEventListener("blur", dismiss)
+  scrollTarget.addEventListener("scroll", onScroll, true)
+  if (dismissOnBlur) view.addEventListener("blur", dismiss)
   view.addEventListener("resize", dismiss)
   return {
     selectionChanged: onSelectionChange,
@@ -120,7 +124,7 @@ export function observeSelectionActions(input: {
       view.removeEventListener("mouseup", onMouseUp)
       document.removeEventListener("keydown", onKeyDown)
       document.removeEventListener("selectionchange", onSelectionChange)
-      input.element.removeEventListener("scroll", onScroll, true)
+      scrollTarget.removeEventListener("scroll", onScroll, true)
       view.removeEventListener("blur", dismiss)
       view.removeEventListener("resize", dismiss)
     },

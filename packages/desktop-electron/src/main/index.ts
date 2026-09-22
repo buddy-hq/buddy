@@ -39,6 +39,12 @@ import { importBrowserCookies } from "./browser-import/browser-import"
 import { buildRuntimeEnvironment, installCli } from "./cli"
 import { setInAppBrowserAppearance } from "./in-app-browser-appearance"
 import {
+  captureInAppBrowserCitation,
+  markInAppBrowserCitation,
+  revealInAppBrowserCitation,
+  unmarkInAppBrowserCitation,
+} from "./in-app-browser-citations"
+import {
   checkInAppBrowserSafariFullDiskAccess,
   importInAppBrowserCookies,
   listInAppBrowserImportSources,
@@ -687,6 +693,10 @@ registerIpcHandlers({
     return exportMarkdownPdf(input, allowedRoots)
   },
   setInAppBrowserAppearance: (host, input) => setInAppBrowserAppearance(host, input),
+  captureInAppBrowserCitation: (host, input) => captureInAppBrowserCitation(host, input),
+  markInAppBrowserCitation: (host, input) => markInAppBrowserCitation(host, input),
+  unmarkInAppBrowserCitation: (host, input) => unmarkInAppBrowserCitation(host, input),
+  revealInAppBrowserCitation: (host, input) => revealInAppBrowserCitation(host, input),
   clearInAppBrowserProfileData: (input) =>
     clearInAppBrowserProfileData(input, {
       fromPartition: inAppBrowserSessionFromPartition,

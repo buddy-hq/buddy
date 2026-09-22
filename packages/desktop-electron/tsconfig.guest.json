@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"]
+  },
+  "include": [
+    "src/preload/in-app-browser.ts",
+    "src/preload/in-app-browser-citations.ts",
+    "src/shared/**/*.ts"
+  ],
+  "exclude": []
+}

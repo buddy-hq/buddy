@@ -1,8 +1,4 @@
-import {
-  createCitationTextSelector,
-  findCitationText,
-  type CitationTextSelector,
-} from "@buddy/citation-contract"
+import { createCitationTextSelector, findCitationText, type CitationTextSelector } from "./index"
 
 const CONTROL_SELECTOR = "button, input, textarea, select, [role=button], [contenteditable]"
 const EXCLUDED_SELECTOR = `${CONTROL_SELECTOR}, [hidden], [aria-hidden=true], script, style, template, noscript, svg`
@@ -76,11 +72,54 @@ function selectedBoundary(range: Range, node: Node, last: boolean): Text | null 
   return null
 }
 
+type RenderedTextCapture = { excerpt: string; selector: CitationTextSelector; range: Range }
+
+type SelectedRenderedText = {
+  stream: RenderedText
+  range: Range
+  rawStart: number
+  rawEnd: number
+}
+
+function captureRenderedTextSpan(
+  selected: SelectedRenderedText,
+  rawStart: number,
+  rawEnd: number,
+): RenderedTextCapture | undefined {
+  const selector = createCitationTextSelector(selected.stream.text, rawStart, rawEnd)
+  if (!selector) return undefined
+  return { excerpt: selected.stream.text.slice(rawStart, rawEnd), selector, range: selected.range }
+}
+
 /** Capture exact rendered text and a drift-tolerant selector from one source element. */
 export function captureRenderedTextSelection(
   root: HTMLElement,
   selection: Selection | null,
-): { excerpt: string; selector: CitationTextSelector; range: Range } | undefined {
+): RenderedTextCapture | undefined {
+  const selected = readSelectedRenderedText(root, selection)
+  return selected
+    ? captureRenderedTextSpan(selected, selected.rawStart, selected.rawEnd)
+    : undefined
+}
+
+export function captureTrimmedRenderedTextSelection(
+  root: HTMLElement,
+  selection: Selection | null,
+): RenderedTextCapture | undefined {
+  const selected = readSelectedRenderedText(root, selection)
+  if (!selected) return undefined
+  const text = selected.stream.text
+  let rawStart = selected.rawStart
+  let rawEnd = selected.rawEnd
+  while (rawStart < rawEnd && /\s/u.test(text[rawStart] ?? "")) rawStart += 1
+  while (rawEnd > rawStart && /\s/u.test(text[rawEnd - 1] ?? "")) rawEnd -= 1
+  return captureRenderedTextSpan(selected, rawStart, rawEnd)
+}
+
+function readSelectedRenderedText(
+  root: HTMLElement,
+  selection: Selection | null,
+): SelectedRenderedText | undefined {
   if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return undefined
   const range = selection.getRangeAt(0).cloneRange()
   const first = selectedBoundary(range, range.commonAncestorContainer, false)
@@ -104,9 +143,7 @@ export function captureRenderedTextSelection(
     rawEnd = chunk.start + end
   }
   if (rawStart === undefined) return undefined
-  const selector = createCitationTextSelector(stream.text, rawStart, rawEnd)
-  if (!selector) return undefined
-  return { excerpt: stream.text.slice(rawStart, rawEnd), selector, range }
+  return { stream, range, rawStart, rawEnd }
 }
 
 function rawTextOffset(text: string, normalizedOffset: number): number {

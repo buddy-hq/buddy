@@ -4,6 +4,7 @@ import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_WORKSPACE_ROOT_NOTEBOOK,
   type BenchModeRequest,
+  type BenchTarget,
 } from "@/lib/bench-targets"
 import { useOpenBench, type OpenBenchResult } from "@/lib/use-open-bench"
 import {
@@ -30,6 +31,26 @@ export type OpenReadingResourceOptions = {
   mode?: BenchModeRequest
 }
 
+export function readingResourceBenchTarget(resource: ResourceReadingTarget): BenchTarget {
+  return resource.objectID
+    ? {
+        type: "object",
+        ref: {
+          kind: "resource",
+          objectID: resource.objectID,
+          revisionID: null,
+          itemID: null,
+        },
+        viewID: "reader",
+      }
+    : {
+        type: "workspace-file",
+        root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+        path: resource.path,
+        viewer: "file",
+      }
+}
+
 /**
  * Opens a source in the reader, warming the catalog and the file bytes on the
  * way. A processed source opens as its object so the reader keeps its position;
@@ -52,23 +73,7 @@ export function useOpenReadingResource(options?: OpenReadingResourceOptions): Op
 
       return openBench({
         directory,
-        target: resource.objectID
-          ? {
-              type: "object",
-              ref: {
-                kind: "resource",
-                objectID: resource.objectID,
-                revisionID: null,
-                itemID: null,
-              },
-              viewID: "reader",
-            }
-          : {
-              type: "workspace-file",
-              root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
-              path: resource.path,
-              viewer: "file",
-            },
+        target: readingResourceBenchTarget(resource),
         mode,
         autoOpen: null,
       })

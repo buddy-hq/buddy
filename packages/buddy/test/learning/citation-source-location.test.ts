@@ -24,6 +24,21 @@ function documentCitation(input: { excerpt: string; path: string; directory?: st
 }
 
 describe("citation source location", () => {
+  test("keeps a web quote's location to its URL without reading the workspace", async () => {
+    const citation: Citation = {
+      schemaVersion: CITATION_SCHEMA_VERSION,
+      id: "citation-web",
+      excerpt: "Plants turn light into energy.",
+      source: { kind: "web", url: "https://example.com/plants", selector },
+    }
+    expect(
+      await resolveCitationProviderLocation(citation, {
+        directory: "/workspace-that-does-not-exist",
+        sessionID: "session-1",
+      }),
+    ).toEqual({ currentSessionID: "session-1" })
+  })
+
   test("finds the lines a multi-line excerpt spans", () => {
     const text =
       "# Title\n\nIntro line.\nHabits are the compound\ninterest of self-improvement.\nEnd."
