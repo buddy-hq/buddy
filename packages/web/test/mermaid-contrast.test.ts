@@ -110,4 +110,41 @@ describe("mermaid svg contrast", () => {
     expect(result.contrastAdjustments[0]?.to).toBe("#f8fafc")
     expect(result.svg).toContain("color: #f8fafc")
   })
+
+  test("keeps nested label text readable against its node fill on a dark canvas", () => {
+    const inputSvg = `
+<svg xmlns="http://www.w3.org/2000/svg" id="diagram">
+  <style>
+    #diagram .label text, #diagram span { fill: #e5e7eb; color: #e5e7eb; }
+    #diagram .node rect { fill: #16171d; }
+  </style>
+  <g class="node default">
+    <rect class="basic label-container" style="fill:#e8f5e9 !important;stroke:#2e7d32 !important" />
+    <g class="label">
+      <foreignObject width="120" height="40">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell;"><span class="nodeLabel"><p>Main folder</p></span></div>
+      </foreignObject>
+    </g>
+  </g>
+</svg>`
+
+    const result = normalizeMermaidSvgContrast({
+      backgroundColor: "#101116",
+      candidateTextColors: ["#e5e7eb", "#111827", "#ffffff"],
+      svg: inputSvg,
+      textFallbackColor: "#e5e7eb",
+    })
+
+    const paragraph = new DOMParser()
+      .parseFromString(result.svg, "image/svg+xml")
+      .querySelector("p")
+
+    expect(result.contrastAdjustments).toHaveLength(3)
+    expect(result.contrastAdjustments.map((adjustment) => adjustment.to)).toEqual([
+      "#111827",
+      "#111827",
+      "#111827",
+    ])
+    expect(paragraph?.getAttribute("style")).toBe("color: #111827")
+  })
 })
