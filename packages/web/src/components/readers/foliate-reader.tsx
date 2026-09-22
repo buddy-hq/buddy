@@ -1114,10 +1114,13 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             callbacksRef.current.onLocationChange?.(nextLocation)
           }
 
+          let linkClickModified = false
           const externalLinkListener = (event: CustomEvent<{ href: string }>) => {
             if (!callbacksRef.current.onOpenExternalLink) return
             event.preventDefault()
-            callbacksRef.current.onOpenExternalLink(event.detail.href)
+            callbacksRef.current.onOpenExternalLink(event.detail.href, {
+              modified: linkClickModified,
+            })
           }
 
           const overlayListener = (event: CustomEvent<{ index: number }>) => {
@@ -1133,6 +1136,13 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           const historyListener = () => updateHistoryState(view)
 
           const loadListener = (event: CustomEvent<{ doc: Document; index: number }>) => {
+            event.detail.doc.addEventListener(
+              "click",
+              (clickEvent) => {
+                linkClickModified = clickEvent.metaKey || clickEvent.ctrlKey
+              },
+              true,
+            )
             event.detail.doc.addEventListener(
               "wheel",
               (wheelEvent) => {

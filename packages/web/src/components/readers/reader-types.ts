@@ -63,6 +63,10 @@ export type ReaderSource =
       contentFingerprint?: string
     }
 
+export type ReaderExternalLinkOptions = {
+  readonly modified: boolean
+}
+
 export type ReaderSelection = {
   text: string
   anchor: ReaderTextAnchor
@@ -254,7 +258,7 @@ export type DocumentReaderProps = {
   onLocationChange?: (location: ReaderRelocation) => void
   onChatSelection?: (selection: ReaderSelection, commentSource?: CitationCommentSource) => void
   onChatSelectionRemoved?: (selectionKey: string) => void
-  onOpenExternalLink?: (href: string) => void
+  onOpenExternalLink?: (href: string, options: ReaderExternalLinkOptions) => void
   onOpeningInteractionChange?: (pending: boolean) => void
   onError?: (error: Error) => void
   onAnnotationsChange?: (annotations: ReaderAnnotation[]) => void

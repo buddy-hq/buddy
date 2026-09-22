@@ -42,6 +42,7 @@ import {
 } from "@/state/game-store"
 import { useGeneralSettings } from "@/state/general-settings"
 import { useGetStartedFlowStore } from "@/state/get-started-flow-store"
+import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
 import { resetNotesQueries } from "@/features/notes/queries"
 import { invalidateNotesBenchTargets } from "@/lib/directory-workspace-notes"
@@ -85,6 +86,12 @@ export function GeneralSettings() {
   const setGamePromptPreference = useGameStore((state) => state.setGamePromptPreference)
   const getStartedFlowEnabled = useGetStartedFlowStore((state) => state.enabled)
   const setGetStartedFlowEnabled = useGetStartedFlowStore((state) => state.setEnabled)
+  const openExternalFilesWithoutAsking = useUiPreferences(
+    (state) => state.openExternalFilesWithoutAsking,
+  )
+  const setOpenExternalFilesWithoutAsking = useUiPreferences(
+    (state) => state.setOpenExternalFilesWithoutAsking,
+  )
   const conciseResponses = useConciseResponseSettings()
   const queryClient = useQueryClient()
   const [changingBuddyHome, setChangingBuddyHome] = useState(false)
@@ -395,6 +402,18 @@ export function GeneralSettings() {
                 ? language.t("settings.general.notesDirectoryChanging")
                 : language.t("settings.general.notesDirectoryChange")}
             </Button>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.externalFilesTitle")}
+          description={language.t("settings.general.externalFilesDescription")}
+          control={
+            <Switch
+              data-action="settings-open-external-files-without-asking"
+              checked={openExternalFilesWithoutAsking}
+              onCheckedChange={setOpenExternalFilesWithoutAsking}
+              aria-label={language.t("settings.general.externalFilesAria")}
+            />
           }
         />
       </SettingsSection>

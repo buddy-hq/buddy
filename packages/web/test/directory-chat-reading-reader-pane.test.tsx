@@ -66,6 +66,11 @@ mock.module("@/components/readers/document-reader", () => ({
 
 mock.module("@/state/resources-query", () => ({
   isSupportedReadingResourcePath: () => true,
+  resourcesQueryOptions: (directory: string) => ({
+    queryKey: ["test-resources", directory],
+    queryFn: async () => [],
+    retry: false,
+  }),
   resourceCoverQueryOptions: (directory: string, coverRelpath: string) => ({
     queryKey: ["test-cover", directory, coverRelpath],
     queryFn: async () => null,
@@ -227,9 +232,9 @@ describe("DirectoryChatReadingReaderPane", () => {
 
     const openExternalLink = latestOpenExternalLink
     expect(openExternalLink).toBeFunction()
-    openExternalLink?.("https://example.com/reader-link")
-    openExternalLink?.("file:///Users/reader/private.txt")
-    openExternalLink?.("example-handler://run/action")
+    openExternalLink?.("https://example.com/reader-link", { modified: false })
+    openExternalLink?.("file:///Users/reader/private.txt", { modified: false })
+    openExternalLink?.("example-handler://run/action", { modified: false })
 
     expect(openedLinks).toEqual(["https://example.com/reader-link"])
   })

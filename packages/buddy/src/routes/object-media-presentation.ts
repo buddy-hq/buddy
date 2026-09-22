@@ -4,10 +4,13 @@ import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import { BuddyObjectIDSchema, mapBuddyObjectRouteError, nonEmptyString } from "../objects"
 import {
+  ensurePresentedMediaFileObject,
   PROJECT_FILE_NOT_FOUND_ERROR,
+  PresentedMediaFileInfoSchema,
   PresentedMediaValidationError,
   readPresentedMediaObjectItemAvailability,
   readPresentedMediaObjectRawResponse,
+  resolvePresentedMediaPathInfo,
 } from "../learning/features/media-presentations/service/file-media"
 
 const mediaObjectRawParamSchema = z
@@ -29,6 +32,18 @@ const mediaObjectAvailabilityResponseSchema = z
   })
   .strict()
 
+const mediaFileBodySchema = z
+  .object({
+    path: nonEmptyString,
+  })
+  .strict()
+
+const mediaFileObjectResponseSchema = z
+  .object({
+    objectID: BuddyObjectIDSchema,
+  })
+  .strict()
+
 function mapMediaObjectRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof PresentedMediaValidationError) {
     const status = error.message === PROJECT_FILE_NOT_FOUND_ERROR ? 404 : 400
@@ -38,6 +53,74 @@ function mapMediaObjectRouteError<TError>(error: TError): Response | undefined {
 }
 
 export const ObjectMediaPresentationRoutes = new Hono()
+  .post(
+    "/files/resolve",
+    describeRoute({
+      operationId: "objectMediaPresentation.resolveFile",
+      summary: "Resolve a local file path against the notebook without presenting it",
+      responses: {
+        200: {
+          description: "Resolved local file",
+          content: {
+            "application/json": {
+              schema: resolver(PresentedMediaFileInfoSchema),
+            },
+          },
+        },
+        ...routeErrors(400, 403, 404, 500),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("json", mediaFileBodySchema),
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () => {
+            const body = c.req.valid("json")
+            const info = await resolvePresentedMediaPathInfo({
+              directory: context.directory,
+              path: body.path,
+            })
+            return c.json(PresentedMediaFileInfoSchema.parse(info))
+          },
+          mapError: mapMediaObjectRouteError,
+        }),
+      ),
+  )
+  .post(
+    "/files",
+    describeRoute({
+      operationId: "objectMediaPresentation.presentFile",
+      summary: "Create or reuse a media-presentation object for one local file",
+      responses: {
+        200: {
+          description: "Media-presentation object for the file",
+          content: {
+            "application/json": {
+              schema: resolver(mediaFileObjectResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(400, 403, 404, 500),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("json", mediaFileBodySchema),
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () => {
+            const body = c.req.valid("json")
+            const object = await ensurePresentedMediaFileObject({
+              directory: context.directory,
+              path: body.path,
+            })
+            return c.json(mediaFileObjectResponseSchema.parse(object))
+          },
+          mapError: mapMediaObjectRouteError,
+        }),
+      ),
+  )
   .get(
     "/:objectID/items/:itemID/availability",
     describeRoute({

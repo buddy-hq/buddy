@@ -42,7 +42,7 @@ import { useMarkdownBenchSelectionSync } from "@/components/bench/markdown/use-s
 import { useMarkdownBenchWikiLinkContext } from "@/components/bench/markdown/use-wikilinks"
 import type { ObsidianWikiLinkContext } from "@/components/bench/markdown/plugins/obsidian"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
-import { usePlatform } from "@/context/platform"
+import { useOpenLink, type OpenLinkOptions } from "@/components/directory-chat/use-open-link"
 import { useTheme } from "@/theme"
 import { workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
 import {
@@ -105,7 +105,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const title = benchDocument.title ?? resolveMarkdownBenchNoteTitle(benchDocument.path)
   const { controller } = useDirectoryNotebookRouteContext()
   const openBenchRoute = useOpenBench()
-  const platform = usePlatform()
+  const openLink = useOpenLink(props.directory)
   const { themeId, themes } = useTheme()
   const editorRef = useRef<MarkdownBenchEditorHandle>(null)
   const [renamingTitle, setRenamingTitle] = useState(false)
@@ -242,13 +242,13 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   }, [contentThemeMode, themeId, themes])
 
   const openMarkdownLink = useCallback(
-    (href: string) => {
+    (href: string, options: OpenLinkOptions) => {
       const root =
         benchDocument.target?.type === "workspace-file" ? benchDocument.target.root : undefined
       const target = resolveMarkdownBenchLink(location.path, href, root)
       if (!target) return
       if (target.type === "external") {
-        platform.openLink(target.url)
+        openLink(target.url, options)
         return
       }
       void openBenchRoute({
@@ -266,7 +266,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         autoOpen: null,
       })
     },
-    [benchDocument.target, location.path, openBenchRoute, platform, props.directory],
+    [benchDocument.target, location.path, openBenchRoute, openLink, props.directory],
   )
 
   const isPrintView = contentThemeMode === "print"

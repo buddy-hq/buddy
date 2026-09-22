@@ -909,6 +909,10 @@ export const dict = {
   "settings.general.notesDirectoryChanging": "Changing Notes library...",
   "settings.general.notesDirectorySaved": "Notes library updated",
   "settings.general.notesDirectorySaveFailed": "Couldn't update the Notes library. Try again.",
+  "settings.general.externalFilesTitle": "Open files outside the notebook without asking",
+  "settings.general.externalFilesDescription":
+    "When a chat or document links to a file outside this notebook, show it read-only in Buddy without asking first.",
+  "settings.general.externalFilesAria": "Open files outside the notebook without asking",
   "settings.general.notificationsAgentTitle": "Agent notifications",
   "settings.general.notificationsAgentDescription":
     "Show a system notification when Buddy finishes responding or needs attention.",

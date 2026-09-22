@@ -17,7 +17,6 @@ import type {
   BrowserImportResult,
   BrowserImportSource,
 } from "@buddy/browser-contract/browser-import"
-import { READER_EXTERNAL_LINK_PROTOCOLS, readAllowedExternalLink } from "@buddy/reader-contract"
 
 import type {
   BenchCaptureRectangle,
@@ -32,6 +31,7 @@ import type {
 import type { UpdateRing, UpdateState } from "@buddy/update-contract"
 import { normalizeUpdateRing } from "@buddy/update-contract"
 import { isValidBenchCaptureRectangle } from "./bench-capture"
+import { openDesktopExternalLink } from "./external-links"
 import { parseTString } from "../shared/parse-external"
 import { getStore } from "./store"
 import {
@@ -51,7 +51,6 @@ const pickerFilters = (extensions?: string[]) => {
 }
 
 const FILE_ICON_SIZE = "normal" as const
-const DESKTOP_EXTERNAL_LINK_PROTOCOLS = [...READER_EXTERNAL_LINK_PROTOCOLS, "obsidian:"] as const
 
 type Deps = {
   killBackendUtility: () => Promise<void> | void
@@ -290,11 +289,7 @@ export function registerIpcHandlers(deps: Deps) {
   )
 
   ipcMain.on("open-link", (_event: IpcMainEvent, url: string) => {
-    const parsedUrl = parseTString(url)
-    if (parsedUrl === undefined) return
-    const safeUrl = readAllowedExternalLink(parsedUrl, DESKTOP_EXTERNAL_LINK_PROTOCOLS)
-    if (!safeUrl) return
-    void shell.openExternal(safeUrl)
+    openDesktopExternalLink(url, (safeUrl) => shell.openExternal(safeUrl))
   })
 
   ipcMain.handle(

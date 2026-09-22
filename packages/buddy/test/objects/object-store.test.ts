@@ -2,9 +2,12 @@ import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import { createToolMermaidObject } from "../../src/learning/features/diagrams/service/store"
 import {
+  BUDDY_OBJECT_KINDS,
   BuddyObjectPath,
   BuddyObjectTombstoneSchema,
+  deleteObject,
   listObjects,
+  listReadyObjectManifests,
   resolveObjectByID,
 } from "../../src/objects"
 import { tmpdir } from "../helpers/tmpdir"
@@ -27,6 +30,38 @@ describe("managed object store", () => {
 
     expect(listed.objects.map((item) => item.objectID)).toContain(object.objectID)
     await expect(fs.stat(indexPath)).rejects.toMatchObject({ code: "ENOENT" })
+  })
+
+  test("lists live manifests for one kind without deleted objects", async () => {
+    await using project = await tmpdir()
+    const createDiagram = (callID: string) =>
+      createToolMermaidObject({
+        directory: project.path,
+        sessionID: "ses_kind_manifests",
+        messageID: "msg_kind_manifests",
+        callID,
+        alt: callID,
+        source: "graph TD\nA-->B",
+      })
+    const kept = await createDiagram("call_kept")
+    const deleted = await createDiagram("call_deleted")
+    await deleteObject({
+      directory: project.path,
+      kind: BUDDY_OBJECT_KINDS.mermaid,
+      objectID: deleted.objectID,
+    })
+
+    const manifests = await listReadyObjectManifests({
+      directory: project.path,
+      kind: BUDDY_OBJECT_KINDS.mermaid,
+    })
+    const otherKind = await listReadyObjectManifests({
+      directory: project.path,
+      kind: BUDDY_OBJECT_KINDS.mediaPresentation,
+    })
+
+    expect(manifests.map((manifest) => manifest.objectID)).toEqual([kept.objectID])
+    expect(otherKind).toEqual([])
   })
 
   test("cached resolution rejects duplicate live object IDs", async () => {

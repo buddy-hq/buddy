@@ -10,6 +10,8 @@ import {
   BuddyObjectViewResponseSchema,
   MediaPresentationObjectSummarySchema,
   generateObjectID,
+  listReadyObjectManifests,
+  readObject,
   readObjectManifest,
   registerBuddyObjectKind,
   writeObjectRecord,
@@ -136,6 +138,16 @@ const PresentedMediaItemSchema = z.object({
   rawUrl: z.string().min(1),
   actionCapabilities: PresentedMediaActionCapabilitiesSchema,
   availability: PresentedMediaAvailabilitySchema,
+})
+
+const PresentedMediaFileInfoSchema = PresentedMediaItemSchema.pick({
+  absolutePath: true,
+  workspacePath: true,
+  fileName: true,
+  mediaKind: true,
+  renderMode: true,
+  mimeType: true,
+  sizeBytes: true,
 })
 
 const PresentedMediaSummarySchema = z.object({
@@ -547,6 +559,7 @@ export async function buildPresentedMediaObjectOutput(input: {
       },
     ],
   })
+  rememberPresentedMediaFileObject(workspaceBoundary, manifest)
 
   const inlineData = buildMediaGalleryData({
     directory: input.directory,
@@ -565,6 +578,95 @@ export async function buildPresentedMediaObjectOutput(input: {
     manifest,
     inlineData,
   }
+}
+
+const presentedMediaFileObjectIndexes = new Map<string, Promise<Map<string, string>>>()
+
+function singleSourcePath(manifest: BuddyObjectManifest): string | undefined {
+  if (manifest.status !== "ready" || manifest.sourceRefs.length !== 1) return undefined
+  return manifest.sourceRefs[0]?.path
+}
+
+function presentedMediaFileObjectIndex(
+  directory: string,
+  workspaceBoundary: PresentedMediaWorkspaceBoundary,
+): Promise<Map<string, string>> {
+  const key = workspaceBoundary.directoryPath
+  const cached = presentedMediaFileObjectIndexes.get(key)
+  if (cached) return cached
+  const loading = listReadyObjectManifests({
+    directory,
+    kind: BUDDY_OBJECT_KINDS.mediaPresentation,
+  }).then((manifests) => {
+    const index = new Map<string, string>()
+    for (const manifest of manifests.toSorted((left, right) =>
+      left.updatedAt.localeCompare(right.updatedAt),
+    )) {
+      const sourcePath = singleSourcePath(manifest)
+      if (sourcePath) index.set(sourcePath, manifest.objectID)
+    }
+    return index
+  })
+  presentedMediaFileObjectIndexes.set(key, loading)
+  loading.catch(() => {
+    if (presentedMediaFileObjectIndexes.get(key) === loading) {
+      presentedMediaFileObjectIndexes.delete(key)
+    }
+  })
+  return loading
+}
+
+function rememberPresentedMediaFileObject(
+  workspaceBoundary: PresentedMediaWorkspaceBoundary,
+  manifest: BuddyObjectManifest,
+): void {
+  const sourcePath = singleSourcePath(manifest)
+  if (!sourcePath) return
+  presentedMediaFileObjectIndexes.get(workspaceBoundary.directoryPath)?.then(
+    (index) => index.set(sourcePath, manifest.objectID),
+    () => undefined,
+  )
+}
+
+async function findPresentedMediaObjectForFile(input: {
+  directory: string
+  workspaceBoundary: PresentedMediaWorkspaceBoundary
+  absolutePath: string
+}): Promise<string | undefined> {
+  const index = await presentedMediaFileObjectIndex(input.directory, input.workspaceBoundary)
+  const objectID = index.get(input.absolutePath)
+  if (!objectID) return undefined
+  const current = await readObject({
+    directory: input.directory,
+    kind: BUDDY_OBJECT_KINDS.mediaPresentation,
+    objectID,
+  }).catch(() => undefined)
+  if (current?.status === "ready" && singleSourcePath(current.manifest) === input.absolutePath) {
+    return objectID
+  }
+  index.delete(input.absolutePath)
+  return undefined
+}
+
+export async function ensurePresentedMediaFileObject(input: {
+  directory: string
+  path: string
+}): Promise<{ objectID: string }> {
+  const workspaceBoundary = await resolvePresentedMediaWorkspaceBoundary(input.directory)
+  const file = await resolvePresentedMediaFile(input.directory, input.path, workspaceBoundary)
+  const existingObjectID = await findPresentedMediaObjectForFile({
+    directory: input.directory,
+    workspaceBoundary,
+    absolutePath: file.absolutePath,
+  })
+  if (existingObjectID) return { objectID: existingObjectID }
+
+  const presentation = await buildPresentedMediaObjectOutput({
+    directory: input.directory,
+    title: path.basename(file.absolutePath),
+    items: [{ path: file.absolutePath }],
+  })
+  return { objectID: presentation.output.objectID }
 }
 
 export async function readPresentedMediaObjectManifest(
@@ -697,7 +799,7 @@ export async function readPresentedMediaObjectRawResponse(input: {
   })
 }
 
-export { PresentedMediaSummarySchema }
+export { PresentedMediaFileInfoSchema, PresentedMediaSummarySchema }
 
 registerBuddyObjectKind({
   kind: BUDDY_OBJECT_KINDS.mediaPresentation,

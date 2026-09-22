@@ -28,6 +28,58 @@ describe("markdown parser", () => {
     expect(html).not.toContain('target="_blank"')
   })
 
+  test("keeps file link targets through sanitization", async () => {
+    const html = sanitizeMarkdownHtml(
+      await parseMarkdownToHtml("[package.json](file:///Users/example/buddy/package.json)"),
+    )
+
+    expect(html).toContain('<a href="file:///Users/example/buddy/package.json">package.json</a>')
+  })
+
+  test("keeps Windows drive link targets as file URLs", async () => {
+    const html = sanitizeMarkdownHtml(
+      await parseMarkdownToHtml("[report](C:\\Users\\example\\report.pdf)"),
+    )
+
+    expect(html).toContain('<a href="file:///C:/Users/example/report.pdf">report</a>')
+  })
+
+  test("keeps file URLs only on link targets", async () => {
+    const html = sanitizeMarkdownHtml(
+      await parseMarkdownToHtml(
+        [
+          "![secret](file:///Users/example/secret.png)",
+          '<img src="https://example.com/a.png" srcset="https://example.com/a.png 1x, file:///Users/example/b.png 2x">',
+          '<video poster="fi\tle:///Users/example/c.png"></video>',
+          '<svg><image href="file:///Users/example/d.png"></image></svg>',
+          '<p style="background:url(file:///Users/example/e.png)">styled</p>',
+          "[notes](file:///Users/example/notes.md)",
+        ].join("\n\n"),
+      ),
+    )
+
+    expect(html).toContain('<a href="file:///Users/example/notes.md">notes</a>')
+    expect(html).toContain('alt="secret"')
+    expect(html).toContain('src="https://example.com/a.png"')
+    expect(html.match(/file:/gu)).toHaveLength(1)
+  })
+
+  test("drops presented media paths that message content tries to set", async () => {
+    const html = sanitizeMarkdownHtml(
+      await parseMarkdownToHtml(
+        '<a data-presented-media-path="/Applications/Calculator.app">notes</a>',
+      ),
+    )
+
+    expect(html).not.toContain("data-presented-media-path")
+  })
+
+  test("renders formatting inside link text", async () => {
+    const html = await parseMarkdownToHtml("[**Docs** for `map()`](https://example.com)")
+
+    expect(html).toContain("<strong>Docs</strong> for <code>map()</code></a>")
+  })
+
   test("renders fenced code blocks with shiki", async () => {
     const html = await parseMarkdownToHtml("```ts\nconst x = 1\n```")
 

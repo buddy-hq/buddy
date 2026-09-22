@@ -61,6 +61,7 @@ import {
   FitToScreenIcon as FitToScreenIconData,
   Gamepad2Icon as Gamepad2IconData,
   GitBranchIcon as GitBranchIconData,
+  GithubIcon as GithubIconData,
   Globe02Icon as Globe02IconData,
   SplitIcon as SplitIconData,
   GraduationCapIcon as GraduationCapIconData,
@@ -259,6 +260,8 @@ export function createAppIconElement(icon: IconSvgElement, className?: string): 
 // Raw icon data for surfaces that build DOM nodes via createAppIconElement.
 export const rubiksCubeIconData = RubiksCubeIconData
 export const folderOpenIconData = FolderOpenIconData
+export const githubIconData = GithubIconData
+export const globeIconData = Globe02IconData
 
 export { HugeiconsIcon }
 export type { IconSvgElement }
