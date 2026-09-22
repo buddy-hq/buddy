@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import { INCOGNITO_IN_APP_BROWSER_PROFILE_ID } from "@buddy/browser-contract/profiles"
 import { setRuntimeServerConnection } from "../src/context/server"
 import { DirectoryWorkspaceLifecycleService } from "../src/lib/directory-workspace-lifecycle"
 import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "../src/lib/bench-leave-guard"
@@ -125,6 +126,15 @@ function readFirstPublishedTabTarget<TValue>(value: TValue): TBuddyConfigObject 
   const target = parseBuddyConfigObject(parseBuddyConfigObject(tabs[0])?.target)
   if (target === undefined) {
     throw new Error("Expected a published Bench tab target.")
+  }
+  return target
+}
+
+function readObservedRouteTarget<TValue>(value: TValue): TBuddyConfigObject {
+  const record = parseBuddyConfigObject(value)
+  const target = parseBuddyConfigObject(parseBuddyConfigObject(record?.observedRoute)?.target)
+  if (target === undefined) {
+    throw new Error("Expected a completion observed route target.")
   }
   return target
 }
@@ -1789,6 +1799,136 @@ describe("DirectoryWorkspaceLifecycleService", () => {
         }),
       ).resolves.toBe(true)
       expect(completionBodies.map((body) => body.lease?.generation)).toEqual([1, 2])
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("omits client-only target fields from client-action completions", async () => {
+    const completionBodies: unknown[] = []
+    const profiledBrowserTarget = {
+      ...BROWSER_TARGET,
+      profileID: INCOGNITO_IN_APP_BROWSER_PROFILE_ID,
+    } satisfies BenchTarget
+    const anchoredNotesTarget = {
+      type: "workspace-file",
+      root: "notes",
+      path: "docs/intro.md",
+      viewer: "markdown",
+      fragment: "installation",
+    } satisfies BenchTarget
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/client-actions/") && method === "POST") {
+          completionBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ status: "completed" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ revision: 1 }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => parkedProjectionFor(profiledBrowserTarget),
+        getTabs: () => tabsForTarget(profiledBrowserTarget),
+        getBrowserTabRuntime: () => ({
+          url: "https://hibuddy.in/redirected",
+          title: "HiBuddy",
+          loading: false,
+        }),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+
+      await expect(
+        service.completeClientAction({
+          actionID: "action-browser",
+          sessionID: "session-1",
+          getActiveSessionID: () => "session-1",
+          completion: {
+            outcome: "committed",
+            observedRoute: parkedProjectionFor(profiledBrowserTarget).route,
+            observedVisibility: "parked",
+            drawer: null,
+            changed: true,
+          },
+        }),
+      ).resolves.toBeTrue()
+      await expect(
+        service.completeClientAction({
+          actionID: "action-notes",
+          sessionID: "session-1",
+          getActiveSessionID: () => "session-1",
+          completion: {
+            outcome: "blocked",
+            reason: "leave_guard_blocked",
+            observedRoute: projectionFor(anchoredNotesTarget).route,
+            observedVisibility: "visible",
+            drawer: null,
+          },
+        }),
+      ).resolves.toBeTrue()
+
+      expect(completionBodies).toHaveLength(2)
+      expect(completionBodies[0]).toMatchObject({
+        observedRoute: {
+          status: "open",
+          target: {
+            type: "browser",
+            tabID: BROWSER_TARGET.tabID,
+            url: BROWSER_TARGET.url,
+          },
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+        },
+        context: {
+          tabs: [
+            {
+              target: {
+                type: "browser",
+                tabID: BROWSER_TARGET.tabID,
+                url: "https://hibuddy.in/redirected",
+              },
+            },
+          ],
+        },
+      })
+      expect(completionBodies.map(readObservedRouteTarget)).toEqual([
+        { type: "browser", tabID: BROWSER_TARGET.tabID, url: BROWSER_TARGET.url },
+        {
+          type: "workspace-file",
+          root: "notes",
+          path: anchoredNotesTarget.path,
+          viewer: anchoredNotesTarget.viewer,
+        },
+      ])
       await service.dispose()
     } finally {
       globalThis.fetch = previousFetch
