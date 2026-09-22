@@ -3,6 +3,12 @@ import { app, BrowserWindow, Notification, clipboard, dialog, ipcMain, shell } f
 import type { IpcMainEvent, IpcMainInvokeEvent, WebContents } from "electron"
 import type {
   InAppBrowserAppearanceRequest,
+  InAppBrowserCitationCaptureRequest,
+  InAppBrowserCitationCaptureResult,
+  InAppBrowserCitationLocateResult,
+  InAppBrowserCitationMarkRequest,
+  InAppBrowserCitationRevealRequest,
+  InAppBrowserCitationUnmarkRequest,
   InAppBrowserClearProfileDataRequest,
   InAppBrowserCommandResult,
 } from "@buddy/browser-contract"
@@ -76,6 +82,22 @@ type Deps = {
   clearInAppBrowserProfileData: (
     input: InAppBrowserClearProfileDataRequest,
   ) => Promise<InAppBrowserCommandResult>
+  captureInAppBrowserCitation: (
+    host: WebContents,
+    input: InAppBrowserCitationCaptureRequest,
+  ) => Promise<InAppBrowserCitationCaptureResult>
+  markInAppBrowserCitation: (
+    host: WebContents,
+    input: InAppBrowserCitationMarkRequest,
+  ) => Promise<InAppBrowserCitationLocateResult>
+  unmarkInAppBrowserCitation: (
+    host: WebContents,
+    input: InAppBrowserCitationUnmarkRequest,
+  ) => Promise<InAppBrowserCommandResult>
+  revealInAppBrowserCitation: (
+    host: WebContents,
+    input: InAppBrowserCitationRevealRequest,
+  ) => Promise<InAppBrowserCitationLocateResult>
   checkInAppBrowserSafariFullDiskAccess: () => Promise<boolean>
   listInAppBrowserImportSources: () => Promise<readonly BrowserImportSource[]>
   importInAppBrowserCookies: (input: BrowserImportRequest) => Promise<BrowserImportResult>
@@ -141,6 +163,26 @@ export function registerIpcHandlers(deps: Deps) {
     "in-app-browser-clear-profile-data",
     (_event: IpcMainInvokeEvent, input: InAppBrowserClearProfileDataRequest) =>
       deps.clearInAppBrowserProfileData(input),
+  )
+  ipcMain.handle(
+    "in-app-browser-capture-citation",
+    (event: IpcMainInvokeEvent, input: InAppBrowserCitationCaptureRequest) =>
+      deps.captureInAppBrowserCitation(event.sender, input),
+  )
+  ipcMain.handle(
+    "in-app-browser-mark-citation",
+    (event: IpcMainInvokeEvent, input: InAppBrowserCitationMarkRequest) =>
+      deps.markInAppBrowserCitation(event.sender, input),
+  )
+  ipcMain.handle(
+    "in-app-browser-unmark-citation",
+    (event: IpcMainInvokeEvent, input: InAppBrowserCitationUnmarkRequest) =>
+      deps.unmarkInAppBrowserCitation(event.sender, input),
+  )
+  ipcMain.handle(
+    "in-app-browser-reveal-citation",
+    (event: IpcMainInvokeEvent, input: InAppBrowserCitationRevealRequest) =>
+      deps.revealInAppBrowserCitation(event.sender, input),
   )
   ipcMain.handle("in-app-browser-check-safari-full-disk-access", () =>
     deps.checkInAppBrowserSafariFullDiskAccess(),

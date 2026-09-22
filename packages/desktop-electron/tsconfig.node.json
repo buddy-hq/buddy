@@ -33,5 +33,6 @@
     "../script/src/backend-node-runtime.ts",
     "../../script/backend-node-artifact.ts",
     "../../script/desktop-runtime-resources.ts"
-  ]
+  ],
+  "exclude": ["src/preload/in-app-browser.ts", "src/preload/in-app-browser-citations.ts"]
 }

@@ -2,6 +2,13 @@ import type { UpdateRing, UpdateState } from "@buddy/update-contract"
 import type {
   InAppBrowserAppearanceRequest,
   InAppBrowserAudioMessage,
+  InAppBrowserCitationCaptureRequest,
+  InAppBrowserCitationCaptureResult,
+  InAppBrowserCitationLocateResult,
+  InAppBrowserCitationMarkRequest,
+  InAppBrowserCitationMessage,
+  InAppBrowserCitationRevealRequest,
+  InAppBrowserCitationUnmarkRequest,
   InAppBrowserClearProfileDataRequest,
   InAppBrowserCommandResult,
   InAppBrowserFaviconMessage,
@@ -72,6 +79,19 @@ export type ElectronAPI = {
   onInAppBrowserFavicon: (cb: (message: InAppBrowserFaviconMessage) => void) => () => void
   onInAppBrowserAudio: (cb: (message: InAppBrowserAudioMessage) => void) => () => void
   onInAppBrowserShortcut: (cb: (message: InAppBrowserShortcutMessage) => void) => () => void
+  onInAppBrowserCitation: (cb: (message: InAppBrowserCitationMessage) => void) => () => void
+  captureInAppBrowserCitation: (
+    input: InAppBrowserCitationCaptureRequest,
+  ) => Promise<InAppBrowserCitationCaptureResult>
+  markInAppBrowserCitation: (
+    input: InAppBrowserCitationMarkRequest,
+  ) => Promise<InAppBrowserCitationLocateResult>
+  unmarkInAppBrowserCitation: (
+    input: InAppBrowserCitationUnmarkRequest,
+  ) => Promise<InAppBrowserCommandResult>
+  revealInAppBrowserCitation: (
+    input: InAppBrowserCitationRevealRequest,
+  ) => Promise<InAppBrowserCitationLocateResult>
   setInAppBrowserAppearance: (
     input: InAppBrowserAppearanceRequest,
   ) => Promise<InAppBrowserCommandResult>
