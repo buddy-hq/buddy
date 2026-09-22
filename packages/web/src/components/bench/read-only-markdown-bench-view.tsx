@@ -11,7 +11,7 @@ import type {
   ObsidianWikiLinkContext,
 } from "@/components/bench/markdown/plugins/obsidian"
 import { useOpenLink, type OpenLinkOptions } from "@/components/directory-chat/use-open-link"
-import { usePlatform } from "@/context/platform"
+import { useMarkdownFileLinkOpen } from "@/components/markdown/use-markdown-file-link-open"
 import {
   resolvePresentedMediaMarkdownImageSrc,
   resolvePresentedMediaMarkdownLink,
@@ -61,7 +61,6 @@ const EXTERNAL_MARKDOWN_EMBED_LOADER: ObsidianEmbeddedMarkdownLoader = {
  * This is the same editor used by notes, without save/rename. Edits are discarded.
  */
 export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps) {
-  const platform = usePlatform()
   const { themeId, themes } = useTheme()
   const contentFontScale = useMarkdownBenchPreferences((state) => state.contentFontScale)
   const contentThemeMode = useMarkdownBenchPreferences((state) => state.contentThemeMode)
@@ -77,6 +76,7 @@ export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps
     [props.sourceRawUrl],
   )
   const openExternalLink = useOpenLink(props.directory)
+  const openFileLink = useMarkdownFileLinkOpen(props.directory)
   const openLink = useCallback(
     (href: string, options: OpenLinkOptions): void => {
       if (href.trim().startsWith("#")) return
@@ -85,10 +85,10 @@ export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps
       if (target.type === "external-url") {
         openExternalLink(target.url, options)
       } else {
-        void platform.openPath?.(target.path)
+        openFileLink(target.path)
       }
     },
-    [openExternalLink, platform, props.path],
+    [openExternalLink, openFileLink, props.path],
   )
   const wikiLinkContext = useMemo<ObsidianWikiLinkContext>(
     () => ({

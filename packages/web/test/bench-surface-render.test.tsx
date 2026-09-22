@@ -23,6 +23,12 @@ import { PresentedMediaSourceViewer } from "../src/components/bench/presented-me
 import { BenchSurfaceViewer, BenchZoomableViewer } from "../src/components/bench/bench-viewer-shell"
 import { HtmlWidgetFrame } from "../src/components/chat/tools/render/html-widget"
 import { ServerProvider, type ServerConnection } from "../src/context/server"
+import {
+  getPlatform,
+  PlatformProvider,
+  setRuntimePlatform,
+  type Platform,
+} from "../src/context/platform"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
@@ -101,6 +107,7 @@ const TEST_BETA_MARKDOWN_TARGET = {
 } satisfies BenchTarget
 
 const originalFetch = globalThis.fetch
+const originalPlatform = getPlatform()
 
 function createServerConnection(): ServerConnection {
   return {
@@ -458,6 +465,7 @@ describe("bench surface rendering", () => {
       await flushEffects()
     })
     globalThis.fetch = originalFetch
+    setRuntimePlatform(originalPlatform)
     container.remove()
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
@@ -521,6 +529,82 @@ describe("bench surface rendering", () => {
       }
     },
   )
+
+  test("reveals an unsupported local link in presented Markdown without launching it", async () => {
+    const openedPaths: string[] = []
+    const revealedPaths: string[] = []
+    const requestedUrls: string[] = []
+    const platform: Platform = {
+      ...originalPlatform,
+      platform: "desktop",
+      openPath: async (path) => {
+        openedPaths.push(path)
+      },
+      revealPath: async (path) => {
+        revealedPaths.push(path)
+      },
+    }
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL) => {
+        const url = parseRequestUrl(input)
+        requestedUrls.push(url)
+        if (!url.includes("/api/objects/media-presentation/files/resolve")) {
+          throw new Error(`Unexpected fetch: ${url}`)
+        }
+        return Response.json({
+          absolutePath: "/tmp/bundle.zip",
+          workspacePath: null,
+          fileName: "bundle.zip",
+          mediaKind: "archive",
+          renderMode: "file",
+          mimeType: "application/zip",
+          sizeBytes: 8,
+        })
+      }),
+      originalFetch,
+    )
+
+    await act(async () => {
+      root.render(
+        <ServerProvider value={createServerConnection()}>
+          <QueryClientProvider client={new QueryClient()}>
+            <TestBenchContextProvider>
+              <PlatformProvider value={platform}>
+                <ThemeProvider>
+                  <PresentedMediaSourceViewer
+                    directory={TEST_DIRECTORY}
+                    title="notes.md"
+                    path="/tmp/notes.md"
+                    sourceFileName="notes.md"
+                    sourceRawUrl="/api/objects/media-presentation/object-source-view/raw/item-1?directory=%2Frepo&fileName=notes.md"
+                    content="[Download](./bundle.zip)"
+                    version="2026-01-01T00:00:00.000Z"
+                    error={undefined}
+                    loading={false}
+                    actions={[]}
+                    viewportKey="presented-source:local-link"
+                  />
+                </ThemeProvider>
+              </PlatformProvider>
+            </TestBenchContextProvider>
+          </QueryClientProvider>
+        </ServerProvider>,
+      )
+      await flushEffects()
+    })
+
+    const link = container.querySelector<HTMLAnchorElement>("a[href='./bundle.zip']")
+    expect(link).not.toBeNull()
+    await act(async () => {
+      link?.click()
+      await flushEffects()
+    })
+    expect(requestedUrls.length).toBe(1)
+    await waitForEffect(() => revealedPaths.length > 0)
+
+    expect(revealedPaths).toEqual(["/tmp/bundle.zip"])
+    expect(openedPaths).toEqual([])
+  })
 
   test("does not register an outgoing surface under the next route target", async () => {
     const registrations: BenchSurfaceRegistrationInput[] = []
