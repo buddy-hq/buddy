@@ -1,16 +1,11 @@
+import { parseColor, type ParsedColor } from "./color"
+
 type MermaidContrastAdjustment = {
   selector: string
   property: "fill" | "color" | "stroke"
   from: string
   to: string
   reason: string
-}
-
-type ParsedColor = {
-  alpha: number
-  blue: number
-  green: number
-  red: number
 }
 
 type NormalizeMermaidSvgContrastInput = {
@@ -78,74 +73,6 @@ function writeStyleProperty(
       .map(([name, propertyValue]) => `${name}: ${propertyValue}`)
       .join("; "),
   )
-}
-
-function parseHexColor(value: string): ParsedColor | undefined {
-  const trimmed = value.trim().toLowerCase()
-  const shortMatch = trimmed.match(/^#([0-9a-f]{3})$/u)
-  if (shortMatch?.[1]) {
-    const [red, green, blue] = shortMatch[1].split("")
-    return {
-      alpha: 1,
-      red: Number.parseInt(`${red}${red}`, 16),
-      green: Number.parseInt(`${green}${green}`, 16),
-      blue: Number.parseInt(`${blue}${blue}`, 16),
-    }
-  }
-  const longMatch = trimmed.match(/^#([0-9a-f]{6})$/u)
-  if (longMatch?.[1]) {
-    return {
-      alpha: 1,
-      red: Number.parseInt(longMatch[1].slice(0, 2), 16),
-      green: Number.parseInt(longMatch[1].slice(2, 4), 16),
-      blue: Number.parseInt(longMatch[1].slice(4, 6), 16),
-    }
-  }
-  return undefined
-}
-
-function parseRgbColor(value: string): ParsedColor | undefined {
-  const rgbMatch = value
-    .trim()
-    .match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(\d*\.?\d+))?\s*\)$/iu)
-  if (!rgbMatch) {
-    return undefined
-  }
-  const red = Number.parseInt(rgbMatch[1] ?? "", 10)
-  const green = Number.parseInt(rgbMatch[2] ?? "", 10)
-  const blue = Number.parseInt(rgbMatch[3] ?? "", 10)
-  const alpha = rgbMatch[4] ? Number.parseFloat(rgbMatch[4]) : 1
-  if (
-    [red, green, blue].some((channel) => !Number.isFinite(channel) || channel < 0 || channel > 255)
-  ) {
-    return undefined
-  }
-  if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1) {
-    return undefined
-  }
-  return {
-    alpha,
-    red,
-    green,
-    blue,
-  }
-}
-
-function parseColor(value: string | undefined): ParsedColor | undefined {
-  if (!value) {
-    return undefined
-  }
-  const trimmed = value.trim().toLowerCase()
-  if (trimmed === "white") {
-    return { alpha: 1, red: 255, green: 255, blue: 255 }
-  }
-  if (trimmed === "black") {
-    return { alpha: 1, red: 0, green: 0, blue: 0 }
-  }
-  if (trimmed === "transparent") {
-    return { alpha: 0, red: 0, green: 0, blue: 0 }
-  }
-  return parseHexColor(trimmed) ?? parseRgbColor(trimmed)
 }
 
 function parseStylesheetRules(root: SVGSVGElement): StylesheetRule[] {
@@ -228,7 +155,7 @@ function contrastRatio(foreground: ParsedColor, background: ParsedColor): number
   return (lighter + 0.05) / (darker + 0.05)
 }
 
-function collectTargetGroups(root: SVGSVGElement): Element[] {
+function collectTargetGroups(root: SVGSVGElement): Set<Element> {
   const groups = new Set<Element>()
   for (const selector of TARGET_GROUP_SELECTORS) {
     for (const element of Array.from(root.querySelectorAll(selector))) {
@@ -243,7 +170,7 @@ function collectTargetGroups(root: SVGSVGElement): Element[] {
     const group = match.closest("g") ?? match
     groups.add(group)
   }
-  return Array.from(groups)
+  return groups
 }
 
 function isForeignObjectDescendant(element: Element): boolean {
@@ -270,24 +197,29 @@ function resolveElementProperty(
   )
 }
 
-function resolveBackgroundColor(
-  group: Element,
+function resolveGroupFill(group: Element, rules: StylesheetRule[]): ParsedColor | undefined {
+  for (const element of Array.from(group.querySelectorAll(NODE_GEOMETRY_SELECTORS))) {
+    const parsed = parseColor(resolveElementProperty(element, "fill", rules))
+    if (parsed && parsed.alpha > 0) {
+      return parsed
+    }
+  }
+  return undefined
+}
+
+function resolveEnclosingBackground(
+  element: Element,
+  groups: Set<Element>,
   fallback: ParsedColor,
   rules: StylesheetRule[],
 ): ParsedColor {
-  const geometryElement = Array.from(group.querySelectorAll(NODE_GEOMETRY_SELECTORS)).find(
-    (element) => {
-      const fill = resolveElementProperty(element, "fill", rules)
-      const parsed = parseColor(fill ?? undefined)
-      return !!parsed && parsed.alpha > 0
-    },
-  )
-  if (!geometryElement) {
-    return fallback
+  for (let current = element.parentElement; current; current = current.parentElement) {
+    const fill = groups.has(current) ? resolveGroupFill(current, rules) : undefined
+    if (fill) {
+      return fill
+    }
   }
-  const fill = resolveElementProperty(geometryElement, "fill", rules)
-  const parsed = parseColor(fill ?? undefined)
-  return parsed && parsed.alpha > 0 ? parsed : fallback
+  return fallback
 }
 
 function resolveTextElements(group: Element): Element[] {
@@ -368,47 +300,52 @@ export function normalizeMermaidSvgContrast(input: NormalizeMermaidSvgContrastIn
   const stylesheetRules = parseStylesheetRules(root)
   let adjustmentIndex = 0
 
-  for (const group of collectTargetGroups(root)) {
-    const background = resolveBackgroundColor(group, fallbackBackground, stylesheetRules)
-    const textElements = resolveTextElements(group)
-    for (const element of textElements) {
-      const currentColorValue = resolveCurrentTextColor(element, fallbackTextColor, stylesheetRules)
-      const parsedCurrent = parseColor(currentColorValue) ?? parseColor(fallbackTextColor)
-      if (!parsedCurrent) {
-        continue
-      }
-      const ratio = contrastRatio(parsedCurrent, background)
-      if (ratio >= CONTRAST_THRESHOLD) {
-        continue
-      }
-      const best = pickReadableTextColor(background, input.candidateTextColors)
-      if (!best || best.color.trim().toLowerCase() === currentColorValue.trim().toLowerCase()) {
-        continue
-      }
-      adjustmentIndex += 1
-      const selector = `[data-buddy-contrast-index="${adjustmentIndex}"]`
-      element.setAttribute("data-buddy-contrast-index", String(adjustmentIndex))
-      element.setAttribute("data-buddy-contrast-adjusted", "true")
-      if (isForeignObjectDescendant(element)) {
-        writeStyleProperty(element, "color", best.color)
-        adjustments.push({
-          selector,
-          property: "color",
-          from: currentColorValue,
-          to: best.color,
-          reason: `Contrast ratio ${ratio.toFixed(2)} was below ${CONTRAST_THRESHOLD}.`,
-        })
-      } else {
-        element.setAttribute("fill", best.color)
-        writeStyleProperty(element, "fill", best.color)
-        adjustments.push({
-          selector,
-          property: "fill",
-          from: currentColorValue,
-          to: best.color,
-          reason: `Contrast ratio ${ratio.toFixed(2)} was below ${CONTRAST_THRESHOLD}.`,
-        })
-      }
+  const targetGroups = collectTargetGroups(root)
+  const textElements = new Set(Array.from(targetGroups).flatMap(resolveTextElements))
+
+  for (const element of textElements) {
+    const background = resolveEnclosingBackground(
+      element,
+      targetGroups,
+      fallbackBackground,
+      stylesheetRules,
+    )
+    const currentColorValue = resolveCurrentTextColor(element, fallbackTextColor, stylesheetRules)
+    const parsedCurrent = parseColor(currentColorValue) ?? parseColor(fallbackTextColor)
+    if (!parsedCurrent) {
+      continue
+    }
+    const ratio = contrastRatio(parsedCurrent, background)
+    if (ratio >= CONTRAST_THRESHOLD) {
+      continue
+    }
+    const best = pickReadableTextColor(background, input.candidateTextColors)
+    if (!best || best.color.trim().toLowerCase() === currentColorValue.trim().toLowerCase()) {
+      continue
+    }
+    adjustmentIndex += 1
+    const selector = `[data-buddy-contrast-index="${adjustmentIndex}"]`
+    element.setAttribute("data-buddy-contrast-index", String(adjustmentIndex))
+    element.setAttribute("data-buddy-contrast-adjusted", "true")
+    if (isForeignObjectDescendant(element)) {
+      writeStyleProperty(element, "color", best.color)
+      adjustments.push({
+        selector,
+        property: "color",
+        from: currentColorValue,
+        to: best.color,
+        reason: `Contrast ratio ${ratio.toFixed(2)} was below ${CONTRAST_THRESHOLD}.`,
+      })
+    } else {
+      element.setAttribute("fill", best.color)
+      writeStyleProperty(element, "fill", best.color)
+      adjustments.push({
+        selector,
+        property: "fill",
+        from: currentColorValue,
+        to: best.color,
+        reason: `Contrast ratio ${ratio.toFixed(2)} was below ${CONTRAST_THRESHOLD}.`,
+      })
     }
   }
 
