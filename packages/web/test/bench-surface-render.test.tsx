@@ -485,23 +485,28 @@ describe("bench surface rendering", () => {
   ])(
     "renders presented %s source with the owning read-only viewer",
     async (fileName, component) => {
+      const queryClient = new QueryClient()
       await act(async () => {
         root.render(
-          <ThemeProvider>
-            <PresentedMediaSourceViewer
-              directory={TEST_DIRECTORY}
-              title={fileName}
-              path={`/tmp/${fileName}`}
-              sourceFileName={fileName}
-              sourceRawUrl={`/api/objects/media-presentation/object-source-view/raw/item-1?directory=%2Frepo&fileName=${fileName}`}
-              content="# Hello\n"
-              version="2026-01-01T00:00:00.000Z"
-              error={undefined}
-              loading={component === "read-only-source-bench-view"}
-              actions={[]}
-              viewportKey={`presented-source:${fileName}`}
-            />
-          </ThemeProvider>,
+          <QueryClientProvider client={queryClient}>
+            <TestBenchContextProvider>
+              <ThemeProvider>
+                <PresentedMediaSourceViewer
+                  directory={TEST_DIRECTORY}
+                  title={fileName}
+                  path={`/tmp/${fileName}`}
+                  sourceFileName={fileName}
+                  sourceRawUrl={`/api/objects/media-presentation/object-source-view/raw/item-1?directory=%2Frepo&fileName=${fileName}`}
+                  content="# Hello\n"
+                  version="2026-01-01T00:00:00.000Z"
+                  error={undefined}
+                  loading={component === "read-only-source-bench-view"}
+                  actions={[]}
+                  viewportKey={`presented-source:${fileName}`}
+                />
+              </ThemeProvider>
+            </TestBenchContextProvider>
+          </QueryClientProvider>,
         )
         await flushEffects()
       })
