@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { BUDDY_CHANNEL_ENV, readBuddyReleaseChannel } from "@buddy/script/channel"
 import { ensureGeneratedSdk, generatedSdkFreshnessInput } from "./dev-sdk"
+import { applyDesktopDevTerminalTitle } from "./dev-terminal-title"
 import { backendDevelopmentWatchRoots } from "./electron-vite-build-policy"
 
 function resolveMainRepoAdvancedMathCacheDir(packageDir: string): string | undefined {
@@ -36,6 +37,7 @@ function resolveMainRepoAdvancedMathCacheDir(packageDir: string): string | undef
 const desktopChannel = readBuddyReleaseChannel()
 const packageDir = path.resolve(import.meta.dir, "..")
 const repositoryRoot = path.resolve(packageDir, "../..")
+applyDesktopDevTerminalTitle({ repoRoot: repositoryRoot })
 const backendDir = path.resolve(packageDir, "../buddy")
 const sdkDir = path.resolve(packageDir, "../sdk")
 const sdkFreshness = generatedSdkFreshnessInput({
