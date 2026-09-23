@@ -1,0 +1,66 @@
+@keyframes user-section-entrance-rise {
+  from {
+    transform: translateY(24px);
+  }
+}
+
+@keyframes user-section-entrance-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.user-section-entrance {
+  animation:
+    user-section-entrance-rise 642ms
+      linear(
+        0,
+        0.047,
+        0.148,
+        0.278,
+        0.418,
+        0.556,
+        0.682,
+        0.79,
+        0.879,
+        0.948,
+        0.999,
+        1.034,
+        1.055,
+        1.066,
+        1.068,
+        1.065,
+        1.058,
+        1.049,
+        1.039,
+        1.03,
+        1.022,
+        1.014,
+        1.008,
+        1.003,
+        1,
+        0.998,
+        0.996,
+        0.996,
+        0.995,
+        0.996,
+        0.996,
+        0.997,
+        0.997,
+        0.998,
+        0.999,
+        0.999,
+        0.999,
+        1,
+        1,
+        1
+      )
+      backwards,
+    user-section-entrance-fade 120ms cubic-bezier(0, 0, 0.2, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-section-entrance {
+    animation: none;
+  }
+}
