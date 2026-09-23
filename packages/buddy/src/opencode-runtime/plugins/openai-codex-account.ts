@@ -15,7 +15,7 @@ import {
 const CHATGPT_CODEX_MODELS_ENDPOINT = "https://chatgpt.com/backend-api/codex/models"
 const CHATGPT_USAGE_ENDPOINT = "https://chatgpt.com/backend-api/wham/usage"
 const OPENAI_USERINFO_ENDPOINT = "https://auth.openai.com/api/accounts/oauth/userinfo"
-const MODEL_CACHE_TTL_MS = 24 * 60 * 60 * 1_000
+const MODEL_CACHE_TTL_MS = 5 * 60 * 1_000
 const MODEL_RETRY_DELAY_MS = 15 * 60 * 1_000
 const USAGE_CACHE_TTL_MS = 60 * 1_000
 const USAGE_RETRY_DELAY_MS = 15 * 1_000
@@ -30,9 +30,13 @@ const PERCENT_BASE = 100
 const codexModelSchema = z
   .object({
     slug: z.string(),
+    display_name: z.string().trim().min(1).nullish(),
     visibility: z.string(),
     context_window: z.number().int().positive().nullish(),
     max_context_window: z.number().int().positive().nullish(),
+    max_output_tokens: z.number().int().positive().nullish(),
+    input_modalities: z.array(z.string()).nullish(),
+    supports_reasoning_summary_parameter: z.boolean().nullish(),
     effective_context_window_percent: z.number().positive().max(PERCENT_BASE).nullish(),
     supported_reasoning_levels: z
       .array(
@@ -438,10 +442,15 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     if (state.cacheFresh) return state.currentCache?.models
     if (state.activeFailure) return state.currentCache?.models
 
+    if (state.currentCache) {
+      void startModelRefresh(auth).catch(() => undefined)
+      return state.currentCache.models
+    }
+
     try {
       return (await startModelRefresh(auth, signal)).models
     } catch {
-      return state.currentCache?.models
+      return undefined
     }
   }
 

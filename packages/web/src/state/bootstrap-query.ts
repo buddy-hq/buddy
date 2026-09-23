@@ -6,6 +6,7 @@ import {
   loadNotebookHome,
   loadNotesDirectory,
   loadOpenProjects,
+  loadProviderCatalog,
   loadProviderCatalogSnapshot,
   preloadProjectSessions,
   type NotebookHomeState,
@@ -23,6 +24,7 @@ const PROVIDER_SNAPSHOT_QUERY_KEY = "provider-snapshot" as const
 const PRELOADED_SESSIONS_QUERY_KEY = "preloaded-sessions" as const
 const GLOBAL_DIRECTORY_QUERY_KEY = "__global__" as const
 const PROVIDER_MODEL_AVAILABILITY_POLL_MS = 1_000
+const PROVIDER_CATALOG_REFRESH_MS = 5 * 60 * 1_000
 
 function normalizeDirectories(directories: readonly string[]) {
   return Array.from(
@@ -97,7 +99,10 @@ export function notesDirectoryQueryOptions() {
 export function providerCatalogSnapshotQueryOptions(directory?: string) {
   return queryOptions({
     queryKey: bootstrapQueryKeys.providerSnapshot(directory),
-    queryFn: () => loadProviderCatalogSnapshot(directory),
+    queryFn: () =>
+      directory
+        ? loadProviderCatalog(directory, { manageDirectoryError: false })
+        : loadProviderCatalogSnapshot(),
     refetchInterval: (query) => {
       const availability = query.state.data?.openAIModelAvailability
       if (
@@ -106,7 +111,7 @@ export function providerCatalogSnapshotQueryOptions(directory?: string) {
       ) {
         return PROVIDER_MODEL_AVAILABILITY_POLL_MS
       }
-      return false
+      return PROVIDER_CATALOG_REFRESH_MS
     },
   })
 }

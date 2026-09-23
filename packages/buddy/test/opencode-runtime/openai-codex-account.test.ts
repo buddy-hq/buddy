@@ -132,6 +132,8 @@ describe("OpenAI Codex account service", () => {
             context_window: 272_000,
             max_context_window: 272_000,
             effective_context_window_percent: 95,
+            input_modalities: ["text", "image"],
+            supports_reasoning_summary_parameter: true,
             supported_reasoning_levels: [
               { effort: "low", description: "Fast responses" },
               { effort: "max", description: "Maximum reasoning" },
@@ -161,6 +163,8 @@ describe("OpenAI Codex account service", () => {
         context_window: 272_000,
         max_context_window: 272_000,
         effective_context_window_percent: 95,
+        input_modalities: ["text", "image"],
+        supports_reasoning_summary_parameter: true,
         supported_reasoning_levels: [
           { effort: "low", description: "Fast responses" },
           { effort: "max", description: "Maximum reasoning" },
@@ -296,6 +300,47 @@ describe("OpenAI Codex account service", () => {
       modelIDs: ["gpt-5.5"],
     })
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  test("serves cached models while updating newly available models in the background", async () => {
+    let now = NOW
+    const updatedResponse = createDeferredResponse()
+    let requests = 0
+    const service = createOpenAICodexAccountService({
+      fetch: async () => {
+        requests += 1
+        if (requests === 1) {
+          return Response.json({ models: [{ slug: "gpt-5.6-sol", visibility: "list" }] })
+        }
+        return updatedResponse.promise
+      },
+      now: () => now,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+
+    expect((await service.resolveModelCatalog(DIRECTORY))?.map((model) => model.slug)).toEqual([
+      "gpt-5.6-sol",
+    ])
+    now += 5 * 60 * 1_000 + 1
+    expect((await service.resolveModelCatalog(DIRECTORY))?.map((model) => model.slug)).toEqual([
+      "gpt-5.6-sol",
+    ])
+    expect(requests).toBe(2)
+
+    updatedResponse.resolve(
+      Response.json({
+        models: [
+          { slug: "gpt-5.6-sol", visibility: "list" },
+          { slug: "gpt-6-sol", visibility: "list" },
+        ],
+      }),
+    )
+    expect((await service.refreshModelAvailability(DIRECTORY)).status).toBe("ready")
+    expect((await service.resolveModelCatalog(DIRECTORY))?.map((model) => model.slug)).toEqual([
+      "gpt-5.6-sol",
+      "gpt-6-sol",
+    ])
   })
 
   test("treats an empty account model response as unavailable", async () => {

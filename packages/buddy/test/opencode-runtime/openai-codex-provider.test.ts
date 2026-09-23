@@ -1,5 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
+import { Schema } from "effect"
 import type { Model, Provider } from "@opencode-ai/sdk/v2"
+import { Provider as RuntimeProvider } from "@buddy/opencode-adapter/provider"
 import {
   applyOpenAICodexAccountModels,
   createOpenAICodexProviderHook,
@@ -107,7 +109,7 @@ describe("OpenAI Codex provider model overlay", () => {
     const provider = createProvider()
     const models = applyOpenAICodexAccountModels(provider.models, [createAccountModel()])
 
-    expect(Object.keys(models)).toEqual([MODEL_ID, "api-only-model"])
+    expect(Object.keys(models)).toEqual([MODEL_ID])
     expect(models[MODEL_ID]?.limit).toEqual({
       context: 258_400,
       input: 258_400,
@@ -120,11 +122,17 @@ describe("OpenAI Codex provider model overlay", () => {
       xhigh: { reasoningEffort: "xhigh" },
       max: { reasoningEffort: "max" },
     })
-    expect(models[MODEL_ID]?.capabilities).toBe(provider.models[MODEL_ID]?.capabilities)
-    expect(models["api-only-model"]).toBe(provider.models["api-only-model"])
+    expect(models[MODEL_ID]?.capabilities.input).toEqual({
+      text: true,
+      audio: false,
+      image: true,
+      video: false,
+      pdf: false,
+    })
+    expect(models["api-only-model"]).toBeUndefined()
   })
 
-  test("keeps the generic model unchanged when its account context limit is unavailable", () => {
+  test("keeps the generic model limits while enabling stateless reasoning", () => {
     const provider = createProvider()
     const models = applyOpenAICodexAccountModels(provider.models, [
       {
@@ -133,8 +141,115 @@ describe("OpenAI Codex provider model overlay", () => {
       },
     ])
 
-    expect(models[MODEL_ID]).toBe(provider.models[MODEL_ID])
-    expect(models["api-only-model"]).toBe(provider.models["api-only-model"])
+    expect(models[MODEL_ID]).toEqual({
+      ...provider.models[MODEL_ID],
+      capabilities: {
+        ...provider.models[MODEL_ID]?.capabilities,
+        input: { text: true, audio: false, image: true, video: false, pdf: false },
+      },
+      options: {
+        reasoningSummary: "auto",
+        include: ["reasoning.encrypted_content"],
+      },
+    })
+    expect(models["api-only-model"]).toBeUndefined()
+  })
+
+  test("creates a usable account model when the runtime catalog has not listed it yet", () => {
+    const provider = createProvider()
+    const models = applyOpenAICodexAccountModels(provider.models, [
+      {
+        slug: "gpt-6-sol",
+        display_name: "GPT-6 Sol",
+        visibility: "list",
+        context_window: 400_000,
+        max_output_tokens: 128_000,
+        input_modalities: ["text", "image"],
+        supported_reasoning_levels: [{ effort: "none" }, { effort: "high" }],
+      },
+    ])
+
+    expect(Object.keys(models)).toEqual(["gpt-6-sol"])
+    expect(models["gpt-6-sol"]).toMatchObject({
+      id: "gpt-6-sol",
+      name: "GPT-6 Sol",
+      api: { id: "gpt-6-sol", npm: "@ai-sdk/openai" },
+      limit: { context: 400_000, input: 400_000, output: 128_000 },
+      capabilities: {
+        attachment: true,
+        input: { text: true, image: true, pdf: false },
+      },
+      options: {
+        reasoningSummary: "auto",
+        include: ["reasoning.encrypted_content"],
+      },
+      variants: {
+        none: { reasoningEffort: "none" },
+        high: { reasoningEffort: "high" },
+      },
+    })
+    try {
+      Schema.decodeUnknownSync(RuntimeProvider.Info)({ ...provider, models })
+    } catch (error) {
+      throw new Error(String(error), { cause: error })
+    }
+  })
+
+  test("does not claim attachments that a new account model cannot accept", () => {
+    const models = applyOpenAICodexAccountModels(createProvider().models, [
+      {
+        slug: "gpt-6-luna",
+        visibility: "list",
+        input_modalities: ["text"],
+        supports_reasoning_summary_parameter: false,
+      },
+    ])
+
+    expect(models["gpt-6-luna"]?.capabilities.attachment).toBe(false)
+    expect(models["gpt-6-luna"]?.capabilities.input).toEqual({
+      text: true,
+      audio: false,
+      image: false,
+      video: false,
+      pdf: false,
+    })
+    expect(models["gpt-6-luna"]?.options).toEqual({
+      include: ["reasoning.encrypted_content"],
+      reasoningSummary: null,
+    })
+  })
+
+  test("uses account attachment limits for a model already in the generic catalog", () => {
+    const provider = createProvider()
+    const models = applyOpenAICodexAccountModels(provider.models, [
+      {
+        slug: MODEL_ID,
+        visibility: "list",
+        input_modalities: ["text"],
+        supports_reasoning_summary_parameter: false,
+      },
+    ])
+
+    expect(models[MODEL_ID]?.capabilities.attachment).toBe(false)
+    expect(models[MODEL_ID]?.capabilities.input).toEqual({
+      text: true,
+      audio: false,
+      image: false,
+      video: false,
+      pdf: false,
+    })
+    expect(models[MODEL_ID]?.options).toEqual({
+      include: ["reasoning.encrypted_content"],
+      reasoningSummary: null,
+    })
+  })
+
+  test("formats a new model slug when the account omits its display name", () => {
+    const models = applyOpenAICodexAccountModels(createProvider().models, [
+      { slug: "gpt-6-luna", visibility: "list" },
+    ])
+
+    expect(models["gpt-6-luna"]?.name).toBe("GPT-6 Luna")
   })
 
   test("uses the maximum account context when the current context is omitted", () => {

@@ -330,7 +330,7 @@ describe("normalizeProviderCatalog", () => {
     ])
   })
 
-  test("keeps vendor OpenAI models until account availability is ready", () => {
+  test("uses the resolved runtime model list without filtering it a second time", () => {
     const providers: ProviderListResponse = {
       all: [
         {
@@ -368,8 +368,17 @@ describe("normalizeProviderCatalog", () => {
         refreshing: false,
       },
     )
-    expect(resolved.providers[0]?.models.map((model) => model.id)).toEqual(["gpt-5.5"])
-    expect(resolved.default.openai).toBe("gpt-5.5")
+    expect(resolved.providers[0]?.models.map((model) => model.id)).toEqual(["gpt-5.4", "gpt-5.5"])
+    expect(resolved.default.openai).toBe("gpt-5.4")
+
+    const openAIProvider = providers.all[0]
+    if (!openAIProvider) throw new Error("Expected the OpenAI provider")
+    openAIProvider.models = {
+      "gpt-6-sol": createRawProviderModel({ providerID: "openai", id: "gpt-6-sol" }),
+    }
+    const updated = normalizeProviderCatalog(providers, {}, resolved.openAIModelAvailability)
+    expect(updated.providers[0]?.models.map((model) => model.id)).toEqual(["gpt-6-sol"])
+    expect(updated.default.openai).toBe("gpt-6-sol")
   })
 })
 
