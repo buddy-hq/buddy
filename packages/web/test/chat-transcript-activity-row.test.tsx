@@ -497,7 +497,7 @@ describe("chat transcript ActivityRow", () => {
     expect(activityArticleByText(container, reasoningTitle)).not.toBeUndefined()
   })
 
-  test("keeps a completed OpenAI reasoning heading visible in the collapsed row", async () => {
+  test("shows completed reasoning duration and does not repeat a title-only summary", async () => {
     const reasoningTitle = "Reviewing the greeting"
 
     await act(async () => {
@@ -537,7 +537,8 @@ describe("chat transcript ActivityRow", () => {
                 sessionID: "ses_completed_reasoning",
                 messageID: "msg_002_assistant_completed_reasoning",
                 type: "reasoning",
-                text: `**${reasoningTitle}**`,
+                text: `**${reasoningTitle}**\n\n`,
+                time: { start: 1, end: 4_001 },
               },
               {
                 id: "prt_assistant_completed_text",
@@ -559,9 +560,68 @@ describe("chat transcript ActivityRow", () => {
       await flushEffects()
     })
 
-    expect(container.textContent).toContain(reasoningTitle)
+    const header = container.querySelector<HTMLButtonElement>("[data-activity-row] > button")
+    expect(header?.textContent).toContain("Thought for 4s")
+    expect(container.textContent).not.toContain(reasoningTitle)
+
+    await act(async () => header?.click())
+    const entry = container.querySelector<HTMLElement>('[data-activity-entry="reasoning"]')
+    expect(entry?.textContent).toBe(reasoningTitle)
+    await act(async () => entry?.querySelector("button")?.click())
+    expect(entry?.textContent).toBe(reasoningTitle)
     expect(container.textContent).toContain("Final response")
     expect(container.querySelector('[data-timeline-row="AssistantPart"]')).not.toBeNull()
+  })
+
+  test("adds a thought row when an empty reasoning part receives its end time", async () => {
+    const directory = "/repo-empty-timed-reasoning"
+    const sessionID = "ses_empty_timed_reasoning"
+    const messageID = "msg_empty_timed_reasoning"
+    const reasoningPart: MessagePart = {
+      id: "prt_empty_timed_reasoning",
+      sessionID,
+      messageID,
+      type: "reasoning",
+      text: "",
+      time: { start: 1_000 },
+    }
+
+    await act(async () => {
+      seedDirectoryChatState(directory, {
+        sessionID,
+        isBusy: false,
+        messages: [
+          createMessageWithParts(createAssistantMessageInfo({ id: messageID, sessionID }), [
+            reasoningPart,
+            {
+              id: "prt_empty_timed_response",
+              sessionID,
+              messageID,
+              type: "text",
+              text: "Final response",
+            },
+          ]),
+        ],
+      })
+      root.render(
+        <ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector("[data-activity-row]")).toBeNull()
+
+    await act(async () => {
+      applyTranscriptPartUpdated(directory, {
+        ...reasoningPart,
+        time: { start: 1_000, end: 5_000 },
+      })
+      await flushEffects()
+    })
+
+    const header = container.querySelector<HTMLButtonElement>("[data-activity-row] > button")
+    expect(header?.textContent).toContain("Thought for 4s")
+    expect(header?.getAttribute("aria-expanded")).toBeNull()
   })
 
   test("keeps todo contents out of the transcript while preserving its activity summary", async () => {

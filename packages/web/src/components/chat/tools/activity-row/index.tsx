@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/
 import type { MessagePart } from "@/state/chat-types"
 
 import { AssistantPartRenderer } from "../../parts/assistant-part/assistant-part"
+import { reasoningBodyWithoutLeadingHeading } from "../../utils/markdown"
 import { stripAnsi } from "../../utils/path"
 import { ToolAttachmentGallery } from "../tool-attachments"
 import { ToolErrorPanel } from "../tool-error-panel"
@@ -109,11 +110,6 @@ function ActivityHeaderStatus(props: { icon: ToolIconRenderer; title: string; sh
   )
 }
 
-function hasStringContent<TValue>(value: TValue): boolean {
-  const text = parseTString(value)
-  return text !== undefined && text.length > 0
-}
-
 function toolShellText(entry: ToolActivityEntry): string | undefined {
   const { state } = entry
   const command = readString(state.input.command) ?? readString(state.metadata.command) ?? ""
@@ -150,7 +146,11 @@ function toolText(entry: ToolActivityEntry): string | undefined {
 }
 
 function activityEntryHasDetails(entry: ActivityEntry): boolean {
-  if (entry.kind === "reasoning") return hasStringContent(entry.part.text)
+  if (entry.kind === "reasoning") {
+    const text = parseTString(entry.part.text) ?? ""
+    const body = activityEntryIsActive(entry) ? text : reasoningBodyWithoutLeadingHeading(text)
+    return body.trim().length > 0
+  }
   if (entry.presentation.outcome.type === "neutral") return false
   return Boolean(
     hasActivityFileChangeDetails(entry) || toolText(entry) || entry.state.attachments.length,
@@ -383,7 +383,9 @@ export function ActivityRow({
   // inserted and removed that height on every turn and moved the whole viewport
   // twice. Projection now withholds the row itself until the pause is real, so
   // by the time this renders there is something to show.
-  const canOpen = entries.length > 0
+  const canOpen = entries.some(
+    (entry) => entry.kind === "tool" || Boolean(parseTString(entry.part.text)?.trim()),
+  )
   const stableStreamingDetails =
     isOpen && entries.some((entry) => activityEntryHasStreamingReasoning(entry, isBusy))
 
@@ -411,6 +413,7 @@ export function ActivityRow({
     <div className="w-full" data-activity-row={seed}>
       <button
         type="button"
+        disabled={!canOpen}
         onClick={() => {
           if (canOpen) setIsOpen(!isOpen)
         }}

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
-import { reasoningHeading } from "../src/components/chat/utils/markdown"
+import {
+  reasoningBodyWithoutLeadingHeading,
+  reasoningHeading,
+} from "../src/components/chat/utils/markdown"
 
 describe("reasoningHeading", () => {
   test("extracts an ATX markdown heading", () => {
@@ -33,6 +36,12 @@ describe("reasoningHeading", () => {
     expect(reasoningHeading("__Gathering context__")).toBe("Gathering context")
   })
 
+  test("prefers the leading title over later section headings", () => {
+    expect(
+      reasoningHeading("**Searching the workspace**\n\nLook at files.\n\n## Results\nFound them."),
+    ).toBe("Searching the workspace")
+  })
+
   test("requires matching bold delimiters", () => {
     expect(reasoningHeading("**Gathering context__")).toBeUndefined()
   })
@@ -41,7 +50,57 @@ describe("reasoningHeading", () => {
     expect(reasoningHeading("I will **carefully** inspect the tree.")).toBeUndefined()
   })
 
+  test("does not treat a sentence with multiple bold spans as a title", () => {
+    expect(reasoningHeading("**Check files** and **compare versions**")).toBeUndefined()
+  })
+
   test("returns undefined when there is no heading", () => {
     expect(reasoningHeading("just some plain reasoning text")).toBeUndefined()
+  })
+})
+
+describe("reasoningBodyWithoutLeadingHeading", () => {
+  test("omits a title-only OpenAI summary from expanded content", () => {
+    expect(reasoningBodyWithoutLeadingHeading("**Searching workspace for session ID**")).toBe("")
+  })
+
+  test("keeps the actual reasoning after its leading title", () => {
+    expect(
+      reasoningBodyWithoutLeadingHeading(
+        "**Searching workspace for session ID**\n\nI checked the available session records.",
+      ),
+    ).toBe("I checked the available session records.")
+    expect(reasoningBodyWithoutLeadingHeading("## Planning\n\nFirst, inspect the files.")).toBe(
+      "First, inspect the files.",
+    )
+  })
+
+  test("preserves prose and headings that are not the leading title", () => {
+    const reasoning = "First, inspect the files.\n\n## Results\nFound two matches."
+    expect(reasoningBodyWithoutLeadingHeading(reasoning)).toBe(reasoning)
+  })
+
+  test("preserves prose before a dash separator", () => {
+    const reasoning = "I should check the session store before answering.\n---\nThe store is here."
+    expect(reasoningBodyWithoutLeadingHeading(reasoning)).toBe(reasoning)
+    expect(reasoningBodyWithoutLeadingHeading("Consider these\n-\nitem")).toBe(
+      "Consider these\n-\nitem",
+    )
+  })
+
+  test("removes only the leading title when later sections have headings", () => {
+    expect(
+      reasoningBodyWithoutLeadingHeading(
+        "**Searching the workspace**\n\nLook at files.\n\n## Results\nFound them.",
+      ),
+    ).toBe("Look at files.\n\n## Results\nFound them.")
+  })
+
+  test("preserves a bold sentence and linked heading in the expanded body", () => {
+    const sentence = "**Check files** and **compare versions**\n\nThe versions differ."
+    expect(reasoningBodyWithoutLeadingHeading(sentence)).toBe(sentence)
+
+    const linkedHeading = "## [Investigation](https://example.com)\n\nI checked the source."
+    expect(reasoningBodyWithoutLeadingHeading(linkedHeading)).toBe(linkedHeading)
   })
 })

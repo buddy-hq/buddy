@@ -36,9 +36,9 @@ The core invariant:
 
 - Thinking appears optimistically immediately after send.
 - Real thinking activity replaces the optimistic thinking indicator as soon as real reasoning/tool activity arrives.
-- Completed reasoning remains visible as a collapsed summary-heading row, falling back to “Thought” when no heading is present.
-- Ambiguous: when completed reasoning and successful activity-style tools share one collapsed row, the current implementation prefers the tool summary. Whether mixed rows should instead prefer the reasoning heading or compose both remains an explicit product decision for later.
-- The completed thought row is expandable after the turn is done.
+- Completed reasoning remains visible as a collapsed duration row, including when its text is empty but it has start and end times. Text-bearing reasoning without part timing falls back to “Thought.” An expanded entry shows its heading once and keeps the remaining reasoning text.
+- Ambiguous: when completed reasoning and successful activity-style tools share one collapsed row, the current implementation prefers the tool summary. Whether mixed rows should instead prefer the reasoning duration or compose both remains an explicit product decision for later.
+- A completed thought row with reasoning text is expandable after the turn is done. An empty timed thought row has no expansion control.
 - Disabling reasoning summaries must not hide all active reasoning context when there is no visible assistant text.
 - Streaming assistant text must appear as soon as the first non-empty text delta arrives; it must not wait for an unrelated session event.
 - Stopping or interrupting a run must stop visible streaming work promptly. Queued async rendering should not keep visibly mutating the transcript forever.

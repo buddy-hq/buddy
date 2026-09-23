@@ -167,16 +167,6 @@ function totalReasoningDurationLabel(entries: ActivityEntry[]): string {
   return hasTiming ? formatThoughtForLabel(totalMs) : ACTIVITY_THOUGHT_LABEL
 }
 
-function latestReasoningHeading(entries: ActivityEntry[]): string | undefined {
-  for (let index = entries.length - 1; index >= 0; index -= 1) {
-    const entry = entries[index]
-    if (entry?.kind !== "reasoning") continue
-    const heading = reasoningEntryHeading(entry)
-    if (heading) return heading
-  }
-  return undefined
-}
-
 type SettledGroup = {
   category: string
   count: number
@@ -235,7 +225,7 @@ function settledHeader(entries: ActivityEntry[]): ActivityHeader {
   if (entries.some((entry) => entry.kind === "reasoning")) {
     return {
       identity: "reasoning",
-      label: latestReasoningHeading(entries) ?? totalReasoningDurationLabel(entries),
+      label: totalReasoningDurationLabel(entries),
       icon: ACTIVITY_REASONING_ICON,
       shimmer: false,
     }
