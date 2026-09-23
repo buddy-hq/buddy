@@ -495,7 +495,7 @@ describe("ActivityRow header resolution", () => {
     ).toBe("Thought for 4s")
   })
 
-  test("keeps an OpenAI reasoning summary visible while active and after completion", () => {
+  test("shows a reasoning heading while active and a duration after completion", () => {
     const title = "Inspecting git worktree list and status"
     const activeEntries = entries([
       reasoningPart({
@@ -529,6 +529,6 @@ describe("ActivityRow header resolution", () => {
         current: false,
         zeroEntryLabel: "Thinking",
       }).label,
-    ).toBe(title)
+    ).toBe("Thought for 4s")
   })
 })

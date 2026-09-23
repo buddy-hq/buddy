@@ -5,7 +5,7 @@ import type { ToolLayoutRole } from "@buddy/opencode-adapter/tool-presentation"
 import { parseToolPresentation } from "../tools/parse-tool-presentation"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./part-guards"
 import type { AssistantRenderItem, ChatTranscriptProps, ChatTurn } from "../types"
-import { parseTString } from "../tools/types"
+import { parseTNumber, parseTPartTime, parseTString } from "../tools/types"
 
 export function modelLabel(info: MessageInfo): string {
   if ("modelID" in info && info.modelID) {
@@ -52,7 +52,14 @@ export function assistantPartRenderable(
   showReasoningSummaries: boolean,
 ): boolean {
   if (isChatTextPart(part)) return part.text.trim().length > 0
-  if (isChatReasoningPart(part)) return showReasoningSummaries && part.text.trim().length > 0
+  if (isChatReasoningPart(part)) {
+    const time = parseTPartTime(part.time)
+    return (
+      showReasoningSummaries &&
+      (part.text.trim().length > 0 ||
+        (parseTNumber(time?.start) !== undefined && parseTNumber(time?.end) !== undefined))
+    )
+  }
   if (part.type === "compaction") return false
   if (part.type === "step-start" || part.type === "step-finish") return false
   if (part.type === "patch") return false

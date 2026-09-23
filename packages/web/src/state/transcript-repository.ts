@@ -6,7 +6,7 @@ import {
   type SessionMessagesPage,
 } from "./session-messages"
 import type { MessageInfo, MessagePart, MessageWithParts, TFailure } from "./chat-types"
-import { isRecord, parseString } from "./chat-types"
+import { isRecord, parseFiniteNumber, parseString } from "./chat-types"
 import { upsertMessagePart } from "./chat-reducer"
 import { STREAMING_PART_RAW_FIELD } from "./chat-stream-event-buffer"
 import { reconcileTerminalAssistantParts } from "./chat-tool-parts"
@@ -416,7 +416,12 @@ function partStructureChanged(previous: MessagePart | undefined, next: MessagePa
 function partTimelineRenderable(part: MessagePart) {
   if (part.type !== "text" && part.type !== "reasoning") return true
   const text = parseString(part.text)
-  return text !== undefined && text.trim().length > 0
+  if (text !== undefined && text.trim().length > 0) return true
+  if (part.type !== "reasoning" || !isRecord(part.time)) return false
+  return (
+    parseFiniteNumber(part.time.start) !== undefined &&
+    parseFiniteNumber(part.time.end) !== undefined
+  )
 }
 
 function upsertRecordPartSnapshot(record: TranscriptSessionRecord, part: MessagePart) {
