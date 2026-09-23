@@ -58,7 +58,10 @@ function assistantPartRendererEqual(
     return prevProps.part.text === nextProps.part.text
   }
   if (isChatReasoningPart(prevProps.part) && isChatReasoningPart(nextProps.part)) {
-    return prevProps.part.text === nextProps.part.text
+    return (
+      prevProps.part.text === nextProps.part.text &&
+      prevProps.part.time?.end === nextProps.part.time?.end
+    )
   }
   if (isChatToolPart(prevProps.part) && isChatToolPart(nextProps.part)) {
     return getToolStateHash(prevProps.part) === getToolStateHash(nextProps.part)

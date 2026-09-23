@@ -249,19 +249,19 @@ Expected behavior:
 - If the active turn has no visible assistant item yet, `projectTimelineRows()` emits a `thinking` row.
 - When real reasoning arrives and summaries are disabled, the active thinking row can display the current reasoning heading.
 - When reasoning is renderable and reasoning summaries are enabled, reasoning is represented as an assistant `abstracted` row using `HiddenSteps`.
-- After the turn completes, a reasoning summary heading remains visible on the collapsed row. Reasoning without a heading falls back to “Thought for Ns”; either row can be expanded.
+- After the turn completes, the collapsed reasoning row shows “Thought for Ns” when part timing is available, even if the reasoning text is empty. Its expanded entry keeps the reasoning heading once and reveals any body text after that heading. An empty timed part has no expansion control.
 
 The important distinction is active thinking versus completed thought:
 
 - Active thinking is an optimistic/live status row.
-- Completed thought is a persisted assistant reasoning summary row whose label prefers the summary heading and falls back to duration.
+- Completed thought is a persisted assistant reasoning summary row whose label uses the reasoning duration. When timing is unavailable, it shows “Thought.”
 
 Both are product requirements.
 
 Ambiguous behavior to revisit: reasoning and successful activity-style tools can share one
 `abstracted` row. The current settled-header precedence shows the tool summary in that case, while
-reasoning-only rows show the reasoning heading. It is intentionally undecided whether mixed rows
-should prefer the reasoning heading, prefer the tool summary, or compose both; do not treat the
+reasoning-only rows show the reasoning duration. It is intentionally undecided whether mixed rows
+should prefer the reasoning duration, prefer the tool summary, or compose both; do not treat the
 current precedence as a newly resolved product rule.
 
 ## Virtualization and scroll

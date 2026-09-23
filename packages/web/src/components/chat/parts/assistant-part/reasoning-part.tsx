@@ -2,6 +2,7 @@ import { memo } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
 import type { ChatReasoningPart } from "../../utils/part-guards"
 import { parseTNumber } from "../../tools/types"
+import { reasoningBodyWithoutLeadingHeading } from "../../utils/markdown"
 
 type ReasoningPartProps = {
   part: ChatReasoningPart
@@ -12,8 +13,9 @@ export const ReasoningPart = memo(function ReasoningPart({
   part,
   streaming = false,
 }: ReasoningPartProps) {
-  const text = part.text
-  const isStreaming = streaming || parseTNumber(part.time.end) === undefined
+  const active = parseTNumber(part.time?.end) === undefined
+  const text = active ? part.text : reasoningBodyWithoutLeadingHeading(part.text)
+  const isStreaming = streaming || active
 
   if (!text.trim()) return null
 

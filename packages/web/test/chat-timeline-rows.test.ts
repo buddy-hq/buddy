@@ -150,6 +150,32 @@ function assistantRow(
 }
 
 describe("chat timeline rows", () => {
+  test("keeps a completed empty reasoning part as a thought row", () => {
+    const reasoning: MessagePart = {
+      id: "reasoning-empty-summary",
+      sessionID: "ses_rows",
+      messageID: "msg_assistant",
+      type: "reasoning",
+      text: "",
+      time: { start: 1_000, end: 5_000 },
+    }
+    const withReasoning = rowsFor([
+      userMessage(),
+      assistantMessage("msg_assistant", [reasoning, textPart("Done")]),
+    ])
+    const withoutReasoning = rowsFor([
+      userMessage(),
+      assistantMessage("msg_assistant", [textPart("Done")]),
+    ])
+
+    expect(withReasoning.map((row) => row.type)).toEqual(["user", "activity", "assistant"])
+    expect(withReasoning[1]).toMatchObject({
+      type: "activity",
+      partIDs: ["reasoning-empty-summary"],
+    })
+    expect(withoutReasoning.map((row) => row.type)).toEqual(["user", "assistant"])
+  })
+
   test("keeps the optimistic ActivityRow key when reasoning populates it", () => {
     const optimisticRows = rowsFor([userMessage({ optimistic: true })])
     const reasoning: MessagePart = {

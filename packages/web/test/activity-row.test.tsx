@@ -293,6 +293,62 @@ describe("ActivityRow", () => {
     expect(container.querySelector(".bg-linear-to-r")).not.toBeNull()
   })
 
+  test("shows the duration without an empty expander for a timed reasoning part", async () => {
+    await act(async () => {
+      root.render(
+        <ActivityRow
+          parts={[{ ...reasoningPart({ active: false }), time: { start: 1, end: 4_001 } }]}
+          seed="activity:turn:0"
+          zeroEntryLabel="Thinking"
+        />,
+      )
+    })
+
+    const header = container.querySelector<HTMLButtonElement>("[data-activity-row] > button")
+    expect(header?.textContent).toContain("Thought for 4s")
+    expect(header?.disabled).toBe(true)
+    await act(async () => header?.click())
+    expect(container.querySelector("[data-activity-entry]")).toBeNull()
+  })
+
+  test("keeps reasoning body while a title-bearing part completes without new text", async () => {
+    const title = "Searching workspace for session ID"
+    const body = "I checked the available session records."
+    const active = {
+      ...reasoningPart({ active: true }),
+      text: `**${title}**\n\n${body}`,
+    }
+
+    await act(async () => {
+      root.render(<ActivityRow parts={[active]} seed="activity:turn:0" zeroEntryLabel="Thinking" />)
+    })
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>("[data-activity-row] > button")?.click(),
+    )
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>("[data-activity-entry='reasoning'] button")
+        ?.click(),
+    )
+
+    await act(async () => {
+      root.render(
+        <ActivityRow
+          parts={[{ ...active, time: { start: 1, end: 4_001 } }]}
+          seed="activity:turn:0"
+          zeroEntryLabel="Thinking"
+        />,
+      )
+    })
+
+    expect(container.querySelector("[data-activity-row] > button")?.textContent).toContain(
+      "Thought for 4s",
+    )
+    const entry = container.querySelector<HTMLElement>("[data-activity-entry='reasoning']")
+    expect(entry?.textContent?.split(title)).toHaveLength(2)
+    expect(entry?.textContent).toContain(body)
+  })
+
   test("keeps unexpected failure details inside the expanded entry", async () => {
     await act(async () => {
       root.render(
