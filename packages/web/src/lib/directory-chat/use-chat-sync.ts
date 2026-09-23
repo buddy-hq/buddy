@@ -279,7 +279,10 @@ export function useChatSync(props: UseChatSyncProps) {
           void synchronizeBrowserSvgRenderRequests(decodedDirectory).catch((error) => {
             console.error("Failed to recover pending browser SVG renders", error)
           })
-          if (hasConnected && shouldRecoverOnReconnect && decodedDirectory !== "/") {
+          // A fresh chat route can have missed events while it was unmounted (for example,
+          // while Settings was open). Its first stream connection needs the same authoritative
+          // snapshot as a reconnect, including the active transcript.
+          if ((!hasConnected || shouldRecoverOnReconnect) && decodedDirectory !== "/") {
             shouldRecoverOnReconnect = false
             void resyncDirectoryAfterReconnect(decodedDirectory)
               .then(() => {
