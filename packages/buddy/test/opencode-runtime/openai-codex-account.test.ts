@@ -36,6 +36,54 @@ function createDeferredResponse() {
 }
 
 describe("OpenAI Codex account service", () => {
+  test("reads the email for an existing ChatGPT login without requiring another sign-in", async () => {
+    const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("https://auth.openai.com/api/accounts/oauth/userinfo")
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer access-token")
+      return Response.json({ email: "learner@example.com", email_verified: true })
+    })
+    const service = createOpenAICodexAccountService({
+      fetch: fetchMock,
+      now: () => NOW,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+
+    expect(await service.readIdentity(DIRECTORY)).toEqual({
+      status: "ready",
+      email: "learner@example.com",
+    })
+  })
+
+  test("never exposes an email from an account that changed during the request", async () => {
+    const response = createDeferredResponse()
+    let auth = createAuth()
+    const service = createOpenAICodexAccountService({
+      fetch: async () => response.promise,
+      now: () => NOW,
+      getAuth: async () => auth,
+      setAuth: async () => undefined,
+    })
+
+    const identity = service.readIdentity(DIRECTORY)
+    await Bun.sleep(0)
+    auth = { ...auth, refresh: "another-account-refresh" }
+    response.resolve(Response.json({ email: "old-account@example.com" }))
+
+    expect(await identity).toEqual({ status: "unavailable" })
+  })
+
+  test("treats a missing account email as unavailable", async () => {
+    const service = createOpenAICodexAccountService({
+      fetch: async () => Response.json({ sub: "user_123" }),
+      now: () => NOW,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+
+    expect(await service.readIdentity(DIRECTORY)).toEqual({ status: "unavailable" })
+  })
+
   test("returns vendor fallback while loading, then exposes only listed account models", async () => {
     const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input instanceof URL ? input : new URL(input.toString())

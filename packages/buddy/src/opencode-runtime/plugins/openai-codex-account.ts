@@ -14,6 +14,7 @@ import {
 
 const CHATGPT_CODEX_MODELS_ENDPOINT = "https://chatgpt.com/backend-api/codex/models"
 const CHATGPT_USAGE_ENDPOINT = "https://chatgpt.com/backend-api/wham/usage"
+const OPENAI_USERINFO_ENDPOINT = "https://auth.openai.com/api/accounts/oauth/userinfo"
 const MODEL_CACHE_TTL_MS = 24 * 60 * 60 * 1_000
 const MODEL_RETRY_DELAY_MS = 15 * 60 * 1_000
 const USAGE_CACHE_TTL_MS = 60 * 1_000
@@ -145,8 +146,17 @@ export const openAIUsageResponseSchema = z.discriminatedUnion("status", [
   }),
 ])
 
+export const openAIAccountIdentityResponseSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("not_connected") }),
+  z.object({ status: z.literal("ready"), email: z.email() }),
+  z.object({ status: z.literal("unavailable") }),
+])
+
+const openAIUserInfoSchema = z.object({ email: z.email() })
+
 export type OpenAIModelAvailabilityResponse = z.infer<typeof openAIModelAvailabilityResponseSchema>
 export type OpenAIUsageResponse = z.infer<typeof openAIUsageResponseSchema>
+export type OpenAIAccountIdentityResponse = z.infer<typeof openAIAccountIdentityResponseSchema>
 export type OpenAICodexAccountModel = z.infer<typeof codexModelSchema>
 
 type FetchInput = Parameters<typeof fetch>[0]
@@ -277,6 +287,33 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
       setAuth: (auth) => dependencies.setAuth(directory, auth),
       issuer: OPENAI_CODEX_AUTH_ISSUER,
     })
+  }
+
+  async function readIdentity(directory: string): Promise<OpenAIAccountIdentityResponse> {
+    try {
+      const auth = await resolveAuth(directory)
+      if (!auth) return { status: "not_connected" }
+
+      const response = await dependencies.fetch(OPENAI_USERINFO_ENDPOINT, {
+        headers: {
+          authorization: `Bearer ${auth.access}`,
+          accept: "application/json",
+        },
+      })
+      if (!response.ok) return { status: "unavailable" }
+
+      const result = openAIUserInfoSchema.safeParse(await response.json())
+      if (!result.success) return { status: "unavailable" }
+
+      const currentAuth = await dependencies.getAuth(directory)
+      if (!isOpenAICodexStoredAuth(currentAuth) || currentAuth.refresh !== auth.refresh) {
+        return { status: "unavailable" }
+      }
+
+      return { status: "ready", email: result.data.email }
+    } catch {
+      return { status: "unavailable" }
+    }
   }
 
   async function fetchModels(auth: OpenAICodexStoredAuth, signal?: AbortSignal) {
@@ -613,6 +650,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
 
   return {
     markAuthenticationRejected,
+    readIdentity,
     resolveModelCatalog,
     readModelAvailability,
     refreshModelAvailability,

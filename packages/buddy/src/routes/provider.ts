@@ -21,6 +21,7 @@ import {
 } from "../opencode-runtime/plugins/openai-codex-auth"
 import {
   openAICodexAccountService,
+  openAIAccountIdentityResponseSchema,
   openAIModelAvailabilityResponseSchema,
   openAIUsageResponseSchema,
 } from "../opencode-runtime/plugins/openai-codex-account"
@@ -115,6 +116,30 @@ export const ProviderRoutes = new Hono()
           openCodeDirectoryParams(directoryResult.directory),
         )
         return respondWithSdkResult(c, result)
+      }),
+  )
+  .get(
+    "/openai/account",
+    describeRoute({
+      operationId: "provider.openai.account.get",
+      summary: "Read the signed-in ChatGPT account email",
+      responses: {
+        200: {
+          description: "Current ChatGPT account identity",
+          content: {
+            "application/json": { schema: resolver(openAIAccountIdentityResponseSchema) },
+          },
+        },
+        ...routeErrors(403),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveBootstrapDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        return c.json(await openAICodexAccountService.readIdentity(directoryResult.directory))
       }),
   )
   .get(

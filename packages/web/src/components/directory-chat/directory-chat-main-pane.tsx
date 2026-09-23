@@ -93,6 +93,7 @@ import {
 import { useDirectoryWorkspaceOptional } from "@/components/directory-chat/directory-workspace-context"
 import { resolveWebCitationTarget, webCitationRevealer } from "@/lib/in-app-browser-citations"
 import { waitForInAppBrowserSettingsHydration } from "@/state/in-app-browser-settings-store"
+import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
 
 type PromptComposerProps = Omit<
   ComponentProps<typeof PromptComposer>,
@@ -863,6 +864,12 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                   accessoryLayout={composerAccessoryLayout}
                   sessionContextUsage={
                     <SessionContextUsage
+                      directory={directory}
+                      chatGptAvailable={
+                        providerCatalogQuery.data?.providers.some(
+                          (provider) => provider.id === OPENAI_PROVIDER_ID,
+                        ) ?? false
+                      }
                       messages={chatState.messages}
                       providers={chatState.providers}
                       selectedModel={

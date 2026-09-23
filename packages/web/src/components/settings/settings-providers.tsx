@@ -1,19 +1,11 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  Badge,
-  Button,
-  CheckIcon,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Input,
-  Separator,
-  cn,
-} from "@buddy/ui"
+import { Badge, Button, CheckIcon, Input, Separator, cn } from "@buddy/ui"
 import { Loader2Icon, RefreshCwIcon } from "@/icons/app-icons"
 import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
 import { ProviderIcon } from "@/components/provider-icon"
+import { ChatGptAccountEmail } from "@/components/usage/chatgpt-account-email"
+import { ChatGptConnectionWaitingDialog } from "@/components/usage/chatgpt-connection-waiting-dialog"
 import { UsageMeter } from "@/components/usage/usage-meter"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
@@ -30,6 +22,11 @@ import {
 } from "@/lib/provider-auth"
 import { loadProviderCatalog, loadProviderCatalogSnapshot } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
+import {
+  openAIAccountQueryOptions,
+  resetOpenAIAccountQuery,
+  type OpenAIAccountIdentity,
+} from "@/state/openai-account-query"
 import type { ProviderCatalogState, ProviderInfo } from "@/state/chat-types"
 import {
   invalidateAllProviderCatalogSnapshotQueries,
@@ -86,6 +83,8 @@ type RecommendedProviderCardProps = {
 }
 
 type ChatGptAccountCardProps = {
+  identity: OpenAIAccountIdentity | undefined
+  identityLoading: boolean
   usage: OpenAIUsageSnapshot | undefined
   error?: string
   usageLoading: boolean
@@ -95,6 +94,7 @@ type ChatGptAccountCardProps = {
   onManage: () => void
   onReconnect: () => void
   onRefresh: () => void
+  onRefreshIdentity: () => void
 }
 
 /** ChatGPT only. OpenCode Go still appears under "All providers" like every
@@ -219,6 +219,21 @@ function ChatGptAccountCard(props: ChatGptAccountCardProps) {
               ? language.t("connectProviderDialog.reconnect")
               : language.t("settings.providers.editConnection")}
           </Button>
+        </div>
+
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 pl-9 text-xs text-text-weak">
+          {props.identity?.status === "ready" ? (
+            <ChatGptAccountEmail email={props.identity.email} />
+          ) : props.identityLoading ? (
+            <span>{language.t("settings.providers.accountEmailLoading")}</span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span>{language.t("settings.providers.accountEmailUnavailable")}</span>
+              <Button type="button" size="xs" variant="ghost" onClick={props.onRefreshIdentity}>
+                {language.t("common.refresh")}
+              </Button>
+            </div>
+          )}
         </div>
 
         {props.error ? (
@@ -559,6 +574,7 @@ export function ProvidersSettings() {
     Boolean(chatGptProvider?.connected) &&
     providerCatalog?.openAIModelAvailability.status !== "not_connected"
   const openAIUsageQuery = useQuery(openAIUsageQueryOptions(chatGptOAuthConfigured))
+  const openAIAccountQuery = useQuery(openAIAccountQueryOptions(chatGptOAuthConfigured))
   const showChatGptAccountCard =
     chatGptOAuthConfigured &&
     filteredConnectedProviders.some((provider) => provider.id === OPENAI_PROVIDER_ID)
@@ -582,6 +598,8 @@ export function ProvidersSettings() {
   const chatGptAccountCard =
     showChatGptAccountCard && chatGptProvider && providerCatalog ? (
       <ChatGptAccountCard
+        identity={openAIAccountQuery.data}
+        identityLoading={openAIAccountQuery.isPending || openAIAccountQuery.isFetching}
         usage={openAIUsageQuery.data}
         error={chatGptErrors.accountError}
         usageLoading={openAIUsageQuery.isPending}
@@ -591,6 +609,7 @@ export function ProvidersSettings() {
         onManage={() => openProviderDialog(OPENAI_PROVIDER_ID)}
         onReconnect={() => void handleConnectChatGpt()}
         onRefresh={() => void handleRefreshChatGpt()}
+        onRefreshIdentity={() => void openAIAccountQuery.refetch()}
       />
     ) : null
 
@@ -602,13 +621,18 @@ export function ProvidersSettings() {
   async function handleProvidersUpdated() {
     await invalidateAllProviderCatalogSnapshotQueries(queryClient)
     await resetOpenAIUsageQuery(queryClient)
+    await resetOpenAIAccountQuery(queryClient)
     await Promise.allSettled(openProjects.map((directory) => loadProviderCatalog(directory)))
   }
 
   async function handleRefreshChatGpt() {
     setChatGptRefreshing(true)
     try {
-      await Promise.allSettled([refreshOpenAIUsage(queryClient), refreshOpenAIModelAvailability()])
+      await Promise.allSettled([
+        refreshOpenAIUsage(queryClient),
+        refreshOpenAIModelAvailability(),
+        openAIAccountQuery.refetch(),
+      ])
       await invalidateAllProviderCatalogSnapshotQueries(queryClient)
     } finally {
       setChatGptRefreshing(false)
@@ -792,53 +816,7 @@ export function ProvidersSettings() {
         </ProviderSection>
       </SettingsContent>
 
-      <Dialog
-        open={chatGptWaitingOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            dismissChatGptWaiting()
-          }
-        }}
-      >
-        <DialogContent className="max-w-sm border-border-base bg-surface-base p-8 text-center">
-          <div className="flex flex-col items-center">
-            <div className="mb-6 flex size-14 items-center justify-center rounded-2xl border border-border-success-base bg-surface-success-base/10">
-              <ProviderIcon
-                id={OPENAI_PROVIDER_ID}
-                className="size-6 animate-pulse text-text-success-base"
-              />
-            </div>
-            <DialogTitle className="text-xl font-bold tracking-tight text-text-strong">
-              {language.t("onboardingSetup.chatGptModal.title")}
-            </DialogTitle>
-            <p className="mt-2 text-sm leading-relaxed text-text-weak">
-              {language.t("onboardingSetup.chatGptModal.description")}
-            </p>
-            <div className="mt-8 flex items-center justify-center gap-3 rounded-full border border-border-success-base bg-surface-success-base/10 px-4 py-2 text-[13px] font-semibold text-text-success-base">
-              <svg className="size-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
-              {language.t("onboardingSetup.chatGptModal.waitingLabel")}
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-8 w-full rounded-xl"
-              onClick={dismissChatGptWaiting}
-            >
-              {language.t("onboardingSetup.chatGptModal.cancelButton")}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ChatGptConnectionWaitingDialog open={chatGptWaitingOpen} onCancel={dismissChatGptWaiting} />
 
       {dialogProvider ? (
         <ConnectProviderDialog
