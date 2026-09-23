@@ -827,10 +827,6 @@ export function normalizeProviderCatalog(
 ): ProviderCatalogState {
   const connected = new Set(providers.connected)
   const normalizedDefault = { ...providers.default }
-  const availableOpenAIModels =
-    openAIModelAvailability.status === "ready"
-      ? new Set(openAIModelAvailability.modelIDs)
-      : undefined
 
   return {
     default: normalizedDefault,
@@ -847,9 +843,6 @@ export function normalizeProviderCatalog(
         const visibleModels = rawModels.filter((model) => {
           if (provider.id === OPENCODE_PROVIDER_ID && !credentialConnected) {
             return isPublicOpenCodeModel(model)
-          }
-          if (provider.id === OPENAI_PROVIDER_ID && credentialConnected && availableOpenAIModels) {
-            return availableOpenAIModels.has(model.id)
           }
           return true
         })
@@ -872,7 +865,7 @@ export function normalizeProviderCatalog(
         }
         if (
           provider.id === OPENAI_PROVIDER_ID &&
-          availableOpenAIModels &&
+          credentialConnected &&
           visibleModels.length > 0 &&
           !visibleModels.some((model) => model.id === normalizedDefault[provider.id])
         ) {
@@ -905,11 +898,11 @@ export function normalizeProviderCatalog(
 
 async function fetchProviderCatalog(directory?: string) {
   const client = getBuddyClient(directory)
-  const [providerResult, authResult, modelAvailabilityResult] = await Promise.all([
-    client.provider.list(),
+  const [authResult, modelAvailabilityResult] = await Promise.all([
     client.provider.auth(),
     client.provider.openai.modelAvailability.get(),
   ])
+  const providerResult = await client.provider.list()
   const openAIModelAvailability =
     modelAvailabilityResult.response?.ok && modelAvailabilityResult.data
       ? modelAvailabilityResult.data
@@ -1361,15 +1354,20 @@ function syncPendingInputProtection(directory: string) {
   ])
 }
 
-export async function loadProviderCatalog(directory: string) {
+export async function loadProviderCatalog(
+  directory: string,
+  options?: { manageDirectoryError?: boolean },
+) {
   const store = useChatStore.getState()
   try {
     const providers = await fetchProviderCatalog(directory)
     store.setProviders(directory, providers)
-    store.setDirectoryError(directory, undefined)
+    if (options?.manageDirectoryError !== false) store.setDirectoryError(directory, undefined)
     return providers
   } catch (error) {
-    store.setDirectoryError(directory, stringifyError(error))
+    if (options?.manageDirectoryError !== false) {
+      store.setDirectoryError(directory, stringifyError(error))
+    }
     throw error
   }
 }

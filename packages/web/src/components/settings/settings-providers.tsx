@@ -634,6 +634,7 @@ export function ProvidersSettings() {
         openAIAccountQuery.refetch(),
       ])
       await invalidateAllProviderCatalogSnapshotQueries(queryClient)
+      await Promise.allSettled(openProjects.map((directory) => loadProviderCatalog(directory)))
     } finally {
       setChatGptRefreshing(false)
     }

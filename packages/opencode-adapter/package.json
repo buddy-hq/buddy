@@ -45,6 +45,7 @@
     "./global": "./src/global.ts",
     "./global-event": "./src/global-event.ts",
     "./provider": "./src/provider.ts",
+    "./provider-live": "./src/provider-live.ts",
     "./llm": "./src/llm.ts",
     "./theme": "./src/theme.ts",
     "./tool-input-delta-live": "./src/tool-input-delta-live.ts",
