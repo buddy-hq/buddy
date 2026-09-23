@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act, createRef, type RefObject } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { detectPlatform } from "@tanstack/react-hotkeys"
+import type { Citation } from "@buddy/citation-contract"
 import {
   resolveComposerAccessoryLayout,
   resolveComposerReplacementHeight,
 } from "../src/components/prompt/composer-accessory-layout"
+import { CitationCommentPopover } from "../src/components/prompt/citation-comment-popover"
 import {
   PromptComposer,
   type PromptComposerAttachmentsApi,
@@ -13,6 +15,8 @@ import {
 import { getCursorPosition } from "../src/components/prompt/editor-dom"
 import { requestPromptComposerFocus } from "../src/components/prompt/prompt-composer-focus"
 import { readPromptComposerLiveDraft } from "../src/components/prompt/prompt-composer-live-draft"
+import { appendCitationToDraft } from "../src/components/readers/utils/reading-selection-draft"
+import { requestCitationComment } from "../src/lib/citations/comment-request"
 import { SELECTION_CONTEXT_PART_TYPE } from "../src/components/prompt/prompt-types"
 import { createBrowserPlatform, setRuntimePlatform } from "../src/context/platform"
 import { quoteMessageIntoPromptDraft } from "../src/features/notes/quote-message-into-prompt-draft"
@@ -35,6 +39,22 @@ const TEST_DIRECTORY = "/repo"
 const TEST_PROMPT = "yeah nice"
 const PROMPT_STORE_SYNC_SETTLE_MS = 300
 let queryClient: ReturnType<typeof createTestQueryClient>
+
+function citation(id: string, comment?: string): Citation {
+  const value: Citation = {
+    schemaVersion: 1,
+    id,
+    excerpt: id,
+    source: {
+      kind: "chat",
+      sessionID: "session-1",
+      messageID: "message-1",
+      partID: "part-1",
+      selector: { version: 1, start: 0, end: id.length, prefix: "", suffix: "" },
+    },
+  }
+  return comment ? { ...value, comment } : value
+}
 
 function resetPromptStore() {
   setRuntimePlatform(createBrowserPlatform())
@@ -172,6 +192,474 @@ describe("prompt composer submit", () => {
     expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe(
       "",
     )
+  })
+
+  test("sends a live draft with earlier citations and the newly edited comment", async () => {
+    const promptKey = getPromptScopeKey(TEST_DIRECTORY)
+    const earlier = citation("earlier citation", "earlier comment")
+    const current = citation("current citation")
+    const withEarlier = appendCitationToDraft(createTextPromptDraft("Initial draft"), earlier)
+    usePromptStore.getState().replaceDraft(promptKey, appendCitationToDraft(withEarlier, current))
+    requestCitationComment(current.id)
+
+    let submitted: Parameters<Parameters<typeof PromptComposer>[0]["onSubmit"]>[0] | undefined
+    await act(async () => {
+      root.render(
+        renderPromptComposer({
+          onSubmit: (draft) => {
+            submitted = draft
+          },
+        }),
+      )
+      await flushEffects()
+    })
+
+    const commentEditor = document.body.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="Comment on cited text"]',
+    )
+    expect(commentEditor).not.toBeNull()
+
+    await act(async () => {
+      commentEditor?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+      )
+      await flushEffects()
+    })
+    expect(submitted).toBeUndefined()
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Add citation comment"]')
+        ?.click()
+      await flushEffects()
+    })
+
+    const reopenedEditor = document.body.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="Comment on cited text"]',
+    )
+    expect(reopenedEditor).not.toBeNull()
+    await act(async () => {
+      if (!reopenedEditor) return
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set
+      valueSetter?.call(reopenedEditor, "new comment")
+      reopenedEditor.dispatchEvent(new Event("input", { bubbles: true }))
+      await flushEffects()
+    })
+
+    await act(async () => {
+      const editor = container.querySelector<HTMLElement>('[data-component="prompt-editor"]')
+      if (editor) {
+        editor.textContent = "Live draft text"
+        editor.dispatchEvent(new Event("input", { bubbles: true }))
+      }
+      reopenedEditor?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          ...(detectPlatform() === "mac" ? { metaKey: true } : { ctrlKey: true }),
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+      await flushEffects()
+    })
+
+    expect(submitted?.value).toBe("Live draft text")
+    expect(submitted?.parts.flatMap((part) => ("citation" in part ? [part.citation] : []))).toEqual(
+      [earlier, { ...current, comment: "new comment" }],
+    )
+    expect(getPromptDraft(usePromptStore.getState(), promptKey).parts).toEqual([])
+  })
+
+  test("right Command sends a citation when Enter includes extra modifier flags", async () => {
+    const originalPlatform = Object.getOwnPropertyDescriptor(navigator, "platform")
+    Object.defineProperty(navigator, "platform", { configurable: true, value: "MacIntel" })
+
+    try {
+      const promptKey = getPromptScopeKey(TEST_DIRECTORY)
+      const earlier = citation("earlier citation", "earlier comment")
+      const current = citation("current citation")
+      const withEarlier = appendCitationToDraft(createTextPromptDraft("Draft text"), earlier)
+      usePromptStore.getState().replaceDraft(promptKey, appendCitationToDraft(withEarlier, current))
+      requestCitationComment(current.id)
+      let submitted: Parameters<Parameters<typeof PromptComposer>[0]["onSubmit"]>[0] | undefined
+
+      await act(async () => {
+        root.render(
+          renderPromptComposer({
+            onSubmit: (draft) => {
+              submitted = draft
+            },
+          }),
+        )
+        await flushEffects()
+      })
+
+      const commentEditor = document.body.querySelector<HTMLTextAreaElement>(
+        'textarea[aria-label="Comment on cited text"]',
+      )
+      expect(commentEditor).not.toBeNull()
+
+      await act(async () => {
+        if (!commentEditor) return
+        const valueSetter = Object.getOwnPropertyDescriptor(
+          HTMLTextAreaElement.prototype,
+          "value",
+        )?.set
+        valueSetter?.call(commentEditor, "right command comment")
+        commentEditor.dispatchEvent(new Event("input", { bubbles: true }))
+        commentEditor.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Meta",
+            code: "MetaRight",
+            location: 2,
+            metaKey: true,
+            ctrlKey: true,
+            altKey: true,
+            shiftKey: true,
+            bubbles: true,
+          }),
+        )
+        commentEditor.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            metaKey: true,
+            ctrlKey: true,
+            altKey: true,
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        )
+        await flushEffects()
+      })
+
+      expect(
+        submitted?.parts.flatMap((part) => ("citation" in part ? [part.citation] : [])),
+      ).toEqual([earlier, { ...current, comment: "right command comment" }])
+    } finally {
+      if (originalPlatform) Object.defineProperty(navigator, "platform", originalPlatform)
+      else Reflect.deleteProperty(navigator, "platform")
+    }
+  })
+
+  test("Enter saves a citation comment without sending", async () => {
+    const promptKey = getPromptScopeKey(TEST_DIRECTORY)
+    const current = citation("current citation")
+    usePromptStore
+      .getState()
+      .replaceDraft(promptKey, appendCitationToDraft(createTextPromptDraft("Draft text"), current))
+    requestCitationComment(current.id)
+    let sendCount = 0
+
+    await act(async () => {
+      root.render(
+        renderPromptComposer({
+          onSubmit: () => {
+            sendCount += 1
+          },
+        }),
+      )
+      await flushEffects()
+    })
+
+    const commentEditor = document.body.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="Comment on cited text"]',
+    )
+    await act(async () => {
+      if (!commentEditor) return
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set
+      valueSetter?.call(commentEditor, "saved comment")
+      commentEditor.dispatchEvent(new Event("input", { bubbles: true }))
+      commentEditor.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      )
+      await flushEffects()
+    })
+
+    expect(sendCount).toBe(0)
+    expect(
+      getPromptDraft(usePromptStore.getState(), promptKey).parts.flatMap((part) =>
+        "citation" in part ? [part.citation.comment] : [],
+      ),
+    ).toEqual(["saved comment"])
+  })
+
+  test("modifier Enter saves a comment when sending is unavailable", async () => {
+    const saved: string[] = []
+    let sendCount = 0
+    const modifier = detectPlatform() === "mac" ? { metaKey: true } : { ctrlKey: true }
+
+    for (const canSend of [undefined, false]) {
+      await act(async () => {
+        root.render(
+          <CitationCommentPopover
+            citationID="citation-1"
+            comment=""
+            onSave={(comment) => saved.push(comment)}
+            onSend={
+              canSend === false
+                ? () => {
+                    sendCount += 1
+                  }
+                : undefined
+            }
+            canSend={canSend}
+          />,
+        )
+        await flushEffects()
+      })
+
+      await act(async () => {
+        container
+          .querySelector<HTMLButtonElement>('button[aria-label="Add citation comment"]')
+          ?.click()
+        await flushEffects()
+      })
+
+      const commentEditor = document.body.querySelector<HTMLTextAreaElement>(
+        'textarea[aria-label="Comment on cited text"]',
+      )
+      expect(commentEditor).not.toBeNull()
+      await act(async () => {
+        if (!commentEditor) return
+        const valueSetter = Object.getOwnPropertyDescriptor(
+          HTMLTextAreaElement.prototype,
+          "value",
+        )?.set
+        valueSetter?.call(commentEditor, "saved without sending")
+        commentEditor.dispatchEvent(new Event("input", { bubbles: true }))
+        commentEditor.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            ...modifier,
+            bubbles: true,
+            cancelable: true,
+          }),
+        )
+        await flushEffects()
+      })
+
+      expect(document.body.querySelector('textarea[aria-label="Comment on cited text"]')).toBeNull()
+    }
+
+    expect(saved).toEqual(["saved without sending", "saved without sending"])
+    expect(sendCount).toBe(0)
+  })
+
+  test("a rejected citation send keeps its comment editor open", async () => {
+    const modifier = detectPlatform() === "mac" ? { metaKey: true } : { ctrlKey: true }
+    await act(async () => {
+      root.render(
+        <CitationCommentPopover
+          citationID="citation-1"
+          comment=""
+          onSave={() => undefined}
+          onSend={() => false}
+        />,
+      )
+      await flushEffects()
+    })
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Add citation comment"]')
+        ?.click()
+      await flushEffects()
+    })
+
+    const commentEditor = document.body.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="Comment on cited text"]',
+    )
+    expect(commentEditor).not.toBeNull()
+    await act(async () => {
+      if (!commentEditor) return
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set
+      valueSetter?.call(commentEditor, "unsent comment")
+      commentEditor.dispatchEvent(new Event("input", { bubbles: true }))
+      commentEditor.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          ...modifier,
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+      await flushEffects()
+    })
+
+    expect(
+      document.body.querySelector<HTMLTextAreaElement>(
+        'textarea[aria-label="Comment on cited text"]',
+      )?.value,
+    ).toBe("unsent comment")
+  })
+
+  test("the primary modifier plus Enter sends a draft with previously staged citations", async () => {
+    const promptKey = getPromptScopeKey(TEST_DIRECTORY)
+    const earlier = citation("earlier citation", "earlier comment")
+    usePromptStore
+      .getState()
+      .replaceDraft(promptKey, appendCitationToDraft(createTextPromptDraft("Draft text"), earlier))
+    let submitted: Parameters<Parameters<typeof PromptComposer>[0]["onSubmit"]>[0] | undefined
+
+    await act(async () => {
+      root.render(
+        renderPromptComposer({
+          onSubmit: (draft) => {
+            submitted = draft
+          },
+        }),
+      )
+      await flushEffects()
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLElement>('[data-component="prompt-editor"]')?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          ...(detectPlatform() === "mac" ? { metaKey: true } : { ctrlKey: true }),
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+      await flushEffects()
+    })
+
+    expect(submitted?.value).toBe("Draft text")
+    expect(submitted?.parts.flatMap((part) => ("citation" in part ? [part.citation] : []))).toEqual(
+      [earlier],
+    )
+  })
+
+  test("right Command sends from the composer with extra modifier flags", async () => {
+    const originalPlatform = Object.getOwnPropertyDescriptor(navigator, "platform")
+    Object.defineProperty(navigator, "platform", { configurable: true, value: "MacIntel" })
+
+    try {
+      const promptKey = getPromptScopeKey(TEST_DIRECTORY)
+      usePromptStore.getState().replaceDraft(promptKey, createTextPromptDraft("Draft text"))
+      let submittedValue: string | undefined
+
+      await act(async () => {
+        root.render(
+          renderPromptComposer({
+            onSubmit: (draft) => {
+              submittedValue = draft.value
+            },
+          }),
+        )
+        await flushEffects()
+      })
+
+      await act(async () => {
+        const editor = container.querySelector<HTMLElement>('[data-component="prompt-editor"]')
+        const modifiers = { metaKey: true, ctrlKey: true, altKey: true, shiftKey: true }
+        editor?.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Meta",
+            code: "MetaRight",
+            location: 2,
+            ...modifiers,
+            bubbles: true,
+          }),
+        )
+        editor?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }))
+        editor?.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            ...modifiers,
+            bubbles: true,
+            cancelable: true,
+          }),
+        )
+        await flushEffects()
+      })
+
+      expect(submittedValue).toBe("Draft text")
+    } finally {
+      if (originalPlatform) Object.defineProperty(navigator, "platform", originalPlatform)
+      else Reflect.deleteProperty(navigator, "platform")
+    }
+  })
+
+  test("right Command released outside the editor cannot submit a later modified Enter", async () => {
+    const originalPlatform = Object.getOwnPropertyDescriptor(navigator, "platform")
+    Object.defineProperty(navigator, "platform", { configurable: true, value: "MacIntel" })
+
+    try {
+      const promptKey = getPromptScopeKey(TEST_DIRECTORY)
+      usePromptStore.getState().replaceDraft(promptKey, createTextPromptDraft("Draft text"))
+      let sendCount = 0
+
+      await act(async () => {
+        root.render(
+          renderPromptComposer({
+            onSubmit: () => {
+              sendCount += 1
+            },
+          }),
+        )
+        await flushEffects()
+      })
+
+      await act(async () => {
+        const editor = container.querySelector<HTMLElement>('[data-component="prompt-editor"]')
+        const modifiers = { metaKey: true, ctrlKey: true, altKey: true, shiftKey: true }
+        const rightCommand = new KeyboardEvent("keydown", {
+          key: "Meta",
+          code: "MetaRight",
+          location: 2,
+          ...modifiers,
+          bubbles: true,
+        })
+        editor?.dispatchEvent(rightCommand)
+        document.body.dispatchEvent(
+          new KeyboardEvent("keyup", {
+            key: "Meta",
+            code: "MetaRight",
+            location: 2,
+            bubbles: true,
+          }),
+        )
+        editor?.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            ...modifiers,
+            bubbles: true,
+            cancelable: true,
+          }),
+        )
+
+        editor?.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", bubbles: true }))
+        editor?.dispatchEvent(rightCommand)
+        editor?.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            ...modifiers,
+            bubbles: true,
+            cancelable: true,
+          }),
+        )
+        await flushEffects()
+      })
+
+      expect(sendCount).toBe(0)
+      expect(getPromptDraft(usePromptStore.getState(), promptKey).value).toBe("Draft text")
+    } finally {
+      if (originalPlatform) Object.defineProperty(navigator, "platform", originalPlatform)
+      else Reflect.deleteProperty(navigator, "platform")
+    }
   })
 
   test("quotes the live editor draft before its debounced store write", async () => {

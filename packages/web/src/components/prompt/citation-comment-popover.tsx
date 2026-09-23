@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useState } from "react"
 import { CITATION_MAX_COMMENT_LENGTH } from "@buddy/citation-contract"
-import { Button, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, Textarea } from "@buddy/ui"
+import { detectPlatform } from "@tanstack/react-hotkeys"
+import {
+  CheckIcon,
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+  Textarea,
+  XIcon,
+} from "@buddy/ui"
 import { PencilLineIcon } from "@/icons/app-icons"
+import { shouldSubmitComposer } from "@/lib/chat-input"
+import { usePhysicalModifierKeys } from "@/lib/use-physical-modifier-keys"
 import {
   consumeCitationCommentRequest,
   type CitationCommentSource,
@@ -11,11 +22,14 @@ export function CitationCommentPopover(props: {
   citationID: string | undefined
   comment: string
   onSave: (comment: string) => void
+  onSend?: (comment: string) => boolean | void
+  canSend?: boolean
   triggerClassName?: string
 }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(props.comment)
   const [source, setSource] = useState<CitationCommentSource>()
+  const physicalModifiers = usePhysicalModifierKeys(open)
   const sourceAnchorRef = useMemo(() => (source ? { current: source } : undefined), [source])
   const close = () => setOpen(false)
   useEffect(() => {
@@ -30,9 +44,16 @@ export function CitationCommentPopover(props: {
     return source.mark(() => setOpen(false))
   }, [open, source])
   const tooLong = draft.length > CITATION_MAX_COMMENT_LENGTH
+  const isMac = detectPlatform() === "mac"
+  const sendShortcut = isMac ? "⌘↵" : "Ctrl+↵"
   const save = () => {
     if (tooLong) return
     props.onSave(draft)
+    close()
+  }
+  const send = () => {
+    if (tooLong || !props.onSend || props.canSend === false) return
+    if (props.onSend(draft) === false) return
     close()
   }
 
@@ -81,11 +102,26 @@ export function CitationCommentPopover(props: {
             if (event.key === "Escape") {
               event.preventDefault()
               close()
+              return
             }
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault()
-              save()
+            if (
+              !shouldSubmitComposer({
+                key: event.key,
+                shiftKey: event.shiftKey,
+                ctrlKey: event.ctrlKey,
+                metaKey: event.metaKey,
+                altKey: event.altKey,
+                isComposing: event.nativeEvent.isComposing,
+                rightCommandPressed: physicalModifiers.current.rightCommandPressed,
+                physicalShiftPressed: physicalModifiers.current.shiftPressed,
+                physicalAltPressed: physicalModifiers.current.altPressed,
+              })
+            ) {
+              return
             }
+            event.preventDefault()
+            if ((event.metaKey || event.ctrlKey) && props.onSend && props.canSend !== false) send()
+            else save()
           }}
         />
         {tooLong ? (
@@ -94,12 +130,66 @@ export function CitationCommentPopover(props: {
           </p>
         ) : null}
         <div className="mt-2 flex items-center justify-end gap-2">
-          <Button variant="outline" size="xs" onClick={close}>
-            {props.comment ? "Cancel" : "Skip comment"}
-          </Button>
-          <Button size="xs" disabled={tooLong} onClick={save}>
-            {tooLong ? "Shorten comment" : "Save"}
-          </Button>
+          <div className="group relative">
+            <button
+              type="button"
+              aria-label="Cancel citation comment"
+              onClick={close}
+              className="flex size-8 items-center justify-center rounded-full text-text-weak hover:bg-surface-weak hover:text-text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-interactive-base"
+            >
+              <XIcon className="size-4" aria-hidden />
+            </button>
+            <div
+              role="tooltip"
+              className="invisible pointer-events-none absolute bottom-full left-0 z-10 w-34 origin-bottom-left scale-[0.98] pb-2 opacity-0 transition-[opacity,transform] duration-100 group-hover:visible group-hover:pointer-events-auto group-hover:scale-100 group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:scale-100 group-focus-within:opacity-100 motion-reduce:duration-0"
+            >
+              <div className="flex items-center justify-between rounded-xl border border-border-weak-base bg-surface-raised-base px-3 py-2 text-xs text-text-base shadow-lg">
+                <span>Cancel</span>
+                <kbd className="rounded-md bg-surface-weak px-1.5 py-0.5 font-sans text-[11px] text-text-weak">
+                  Esc
+                </kbd>
+              </div>
+            </div>
+          </div>
+          <div className="group relative">
+            <button
+              type="button"
+              aria-label="Add citation comment"
+              disabled={tooLong}
+              onClick={save}
+              className="flex size-8 items-center justify-center rounded-full bg-surface-interactive-base text-text-on-interactive-base active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-interactive-base"
+            >
+              <CheckIcon className="size-4" aria-hidden />
+            </button>
+            <div className="invisible pointer-events-none absolute right-0 bottom-full z-10 w-34 origin-bottom-right scale-[0.98] pb-2 opacity-0 transition-[opacity,transform] duration-100 group-hover:visible group-hover:pointer-events-auto group-hover:scale-100 group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:scale-100 group-focus-within:opacity-100 motion-reduce:duration-0">
+              <div className="rounded-xl border border-border-weak-base bg-surface-raised-base p-1.5 text-xs text-text-base shadow-lg">
+                <button
+                  type="button"
+                  disabled={tooLong}
+                  onClick={save}
+                  className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-surface-weak disabled:cursor-not-allowed disabled:opacity-50 focus-visible:bg-surface-weak focus-visible:outline-none"
+                >
+                  <span>Add</span>
+                  <kbd className="rounded-md bg-surface-weak px-1.5 py-0.5 font-sans text-[11px] text-text-weak">
+                    ↵
+                  </kbd>
+                </button>
+                {props.onSend ? (
+                  <button
+                    type="button"
+                    disabled={tooLong || props.canSend === false}
+                    onClick={send}
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-surface-weak disabled:cursor-not-allowed disabled:opacity-50 focus-visible:bg-surface-weak focus-visible:outline-none"
+                  >
+                    <span>Send</span>
+                    <kbd className="rounded-md bg-surface-weak px-1.5 py-0.5 font-sans text-[11px] text-text-weak">
+                      {sendShortcut}
+                    </kbd>
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
         </div>
       </PopoverContent>
     </Popover>

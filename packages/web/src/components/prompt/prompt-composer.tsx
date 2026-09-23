@@ -59,6 +59,7 @@ import {
 } from "@/state/game-store"
 
 import { shouldSubmitComposer } from "../../lib/chat-input"
+import { usePhysicalModifierKeys } from "../../lib/use-physical-modifier-keys"
 import {
   createTextFragment,
   getCursorPosition,
@@ -378,6 +379,7 @@ export function PromptComposer(props: PromptComposerProps) {
   const composerRootRef = useRef<HTMLDivElement | null>(null)
   const accessoryHostRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<HTMLDivElement | null>(null)
+  const physicalModifiers = usePhysicalModifierKeys()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const modelNativeTriggerRef = useRef<HTMLSelectElement>(null)
   const modelRadixTriggerRef = useRef<HTMLButtonElement>(null)
@@ -1218,21 +1220,21 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function updateCitationComment(key: string, comment: string) {
-    const currentDraft = draftRef.current
+    const currentDraft = readEditorDraft()
+    let citationFound = false
     const nextParts = currentDraft.parts.map((part) => {
       if (!isSelectionContextChipPart(part) || !("citation" in part)) return part
       if (part.citation.id !== key) return part
+      citationFound = true
       return {
         ...part,
         citation: withCitationComment(part.citation, comment),
       }
     })
-    replaceDraftFromComposer({
-      value: serializePromptEditorParts(nextParts),
-      parts: nextParts,
-      attachments: currentDraft.attachments,
-      cursor: currentDraft.cursor,
-    })
+    if (!citationFound) return
+    const nextDraft = { ...currentDraft, parts: nextParts }
+    replaceDraftFromComposer(nextDraft)
+    return nextDraft
   }
 
   function commitDraftToHistory(input: Omit<PromptDraftState, "updatedAt"> = draft) {
@@ -1589,10 +1591,8 @@ export function PromptComposer(props: PromptComposerProps) {
     setFocusRequestID((current) => current + 1)
   }
 
-  async function handleSubmit() {
+  async function submitDraft(currentDraft: Omit<PromptDraftState, "updatedAt">) {
     if (!noteMode.active && (hasUnsupportedImageAttachments || hasUnreadyNativeResources)) return
-
-    const currentDraft = readEditorDraft()
 
     if (await noteMode.submit(currentDraft)) return
 
@@ -1619,6 +1619,17 @@ export function PromptComposer(props: PromptComposerProps) {
     commitDraftToHistory(currentDraft)
     clearComposer({ resetHistory: false })
     void props.onSubmit(currentDraft)
+  }
+
+  function handleSubmit() {
+    return submitDraft(readEditorDraft())
+  }
+
+  function sendCitationComment(key: string, comment: string) {
+    const updatedDraft = updateCitationComment(key, comment)
+    if (!updatedDraft) return false
+    void submitDraft(updatedDraft)
+    return true
   }
 
   const slashMenuVisible =
@@ -1715,6 +1726,12 @@ export function PromptComposer(props: PromptComposerProps) {
               onCommentChange={
                 "citation" in part ? (comment) => updateCitationComment(key, comment) : undefined
               }
+              onCommentSend={
+                "citation" in part && !noteMode.active
+                  ? (comment) => sendCitationComment(key, comment)
+                  : undefined
+              }
+              canSend={canSubmit}
               className="animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-300 ease-out"
             />
           ))}
@@ -2030,6 +2047,9 @@ export function PromptComposer(props: PromptComposerProps) {
                             metaKey: event.metaKey,
                             altKey: event.altKey,
                             isComposing: event.nativeEvent.isComposing,
+                            rightCommandPressed: physicalModifiers.current.rightCommandPressed,
+                            physicalShiftPressed: physicalModifiers.current.shiftPressed,
+                            physicalAltPressed: physicalModifiers.current.altPressed,
                           })
                         ) {
                           event.preventDefault()
