@@ -77,16 +77,17 @@ describe("prose row estimate", () => {
   // (360) and measured 48, so the bottom-follow chased 360px and unwound 312 of
   // it a frame later. 48 / 72 / 96 are what the trace measured for one row as it
   // streamed — captured while the action footer was still reserved, so they are
-  // the terminal heights now.
+  // the terminal heights now. That trace used 24px lines; at today's 22px lines
+  // the one- and two-line heights are 70 and 92.
   test("matches the measured geometry of a text part", () => {
     expect(proseRowHeightPx({ previous: "activity", textLength: 0, hasActionFooter: true })).toBe(
       48,
     )
     expect(proseRowHeightPx({ previous: "activity", textLength: 34, hasActionFooter: true })).toBe(
-      72,
+      70,
     )
     expect(proseRowHeightPx({ previous: "activity", textLength: 165, hasActionFooter: true })).toBe(
-      96,
+      92,
     )
   })
 

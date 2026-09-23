@@ -114,6 +114,7 @@ const markdownClassName = [
   // Keep headings the same size as body text (chat context)
   "[&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-sm [&_h4]:text-sm [&_h5]:text-sm [&_h6]:text-sm",
   "prose-headings:font-medium",
+  "[[data-chat-typography]_&_[data-markdown-block-key]>:is(p,ul,ol)]:my-[calc(2lh/3)]",
   "[&_[data-slot=link-favicon]]:align-middle [&_[data-slot=link-favicon]_img]:m-0",
   // Code block overrides — use our shiki/mono styling
   "[&_code]:font-mono [&_code]:[font-feature-settings:var(--font-family-mono--font-feature-settings)] [&_code]:font-medium [&_code]:break-words",
