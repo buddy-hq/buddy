@@ -151,7 +151,7 @@ export const MARKDOWN_DOCUMENT_PAPER_INSET_CLASS_NAME =
 export const MARKDOWN_DOCUMENT_PLAIN_INSET_CLASS_NAME = "px-4"
 
 export const MARKDOWN_NOTE_TITLE_BASE_CLASS_NAME =
-  "mb-[0.5em] whitespace-pre-wrap [font-family:var(--buddy-document-font-family)] [font-size:calc(var(--buddy-document-font-size)*1.618*var(--markdown-bench-document-font-scale))] [font-weight:700] leading-[1.2] tracking-[-0.015em]"
+  "mb-[0.5em] whitespace-pre-wrap text-text-weaker transition-colors [&:hover:not(:focus-within)]:text-text-weak focus-within:!text-text-strong [font-family:var(--buddy-document-font-family)] [font-size:calc(var(--buddy-document-font-size)*1.125*var(--markdown-bench-document-font-scale))] [font-weight:700] leading-[1.2] tracking-[-0.015em]"
 
 export const MARKDOWN_NOTE_TITLE_PAPER_LAYOUT_CLASS_NAME =
   "pt-[clamp(0px,calc((100%_-_28rem)/4),3rem)]"
@@ -159,7 +159,7 @@ export const MARKDOWN_NOTE_TITLE_PAPER_LAYOUT_CLASS_NAME =
 export const MARKDOWN_NOTE_TITLE_PLAIN_LAYOUT_CLASS_NAME = "pt-3"
 
 export const MARKDOWN_NOTE_TITLE_INPUT_CLASS_NAME =
-  "block w-full min-w-0 appearance-none border-0 bg-transparent p-0 text-inherit outline-none [font:inherit] [letter-spacing:inherit]"
+  "block w-full min-w-0 appearance-none border-0 bg-transparent p-0 text-inherit outline-none focus:!text-text-strong [font:inherit] [letter-spacing:inherit]"
 
 export const MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME =
   "mx-auto w-full max-w-3xl min-h-full bg-background-base"
