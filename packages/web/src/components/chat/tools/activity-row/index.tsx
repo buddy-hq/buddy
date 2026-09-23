@@ -414,7 +414,7 @@ export function ActivityRow({
         onClick={() => {
           if (canOpen) setIsOpen(!isOpen)
         }}
-        className="group flex min-w-0 w-full cursor-default items-center gap-2 py-1.5 text-xs text-text-weaker transition-colors duration-200 hover:text-text-weak active:scale-[0.98]"
+        className="group flex min-w-0 w-full cursor-default items-center gap-2 py-1.5 text-xs text-text-weaker transition-colors duration-200 hover:text-text-weak"
       >
         <span className="inline-grid min-w-0 shrink">
           <AnimatePresence initial={false}>
