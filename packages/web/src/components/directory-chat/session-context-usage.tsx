@@ -1,9 +1,20 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Badge, buttonVariants, cn } from "@buddy/ui"
+import { Badge, Button, buttonVariants, cn } from "@buddy/ui"
 import { Popover, PopoverContent, PopoverTrigger } from "@buddy/ui/components/ui/popover"
 import { Loader2Icon, RefreshCwIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
+import { usePlatform } from "@/context/platform"
+import { connectChatGptPlusForOnboarding } from "@/lib/onboarding-flow"
+import {
+  authorizeProviderOAuth,
+  cancelProviderOAuth,
+  completeProviderOAuth,
+  formatProviderAuthError,
+  reloadProviderRuntime,
+} from "@/lib/provider-auth"
+import { loadProviderCatalog, loadProviderCatalogSnapshot } from "@/state/chat-actions"
+import { invalidateAllProviderCatalogSnapshotQueries } from "@/state/bootstrap-query"
 import { getSessionContextMetrics } from "@/state/context-metrics"
 import {
   formatChatGptPlan,
@@ -11,7 +22,14 @@ import {
   formatRelativeTime,
   formatUsageWindowLabel,
 } from "@/state/openai-usage-format"
-import { openAIUsageQueryOptions, refreshOpenAIUsage } from "@/state/openai-usage-query"
+import {
+  openAIUsageQueryOptions,
+  refreshOpenAIUsage,
+  resetOpenAIUsageQuery,
+} from "@/state/openai-usage-query"
+import { openAIAccountQueryOptions, resetOpenAIAccountQuery } from "@/state/openai-account-query"
+import { ChatGptAccountEmail } from "@/components/usage/chatgpt-account-email"
+import { ChatGptConnectionWaitingDialog } from "@/components/usage/chatgpt-connection-waiting-dialog"
 import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
 import {
   USAGE_METER_RING_ARC,
@@ -22,6 +40,8 @@ import {
 import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
 
 type SessionContextUsageProps = {
+  directory: string
+  chatGptAvailable: boolean
   messages: MessageWithParts[]
   providers: ProviderInfo[]
   /**
@@ -58,7 +78,14 @@ function ContextRing(props: { usage: number | null }) {
 export function SessionContextUsage(props: SessionContextUsageProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [signingIn, setSigningIn] = useState(false)
+  const [waitingOpen, setWaitingOpen] = useState(false)
+  const [signInError, setSignInError] = useState<string>()
+  const signInAbortRef = useRef<AbortController | undefined>(undefined)
   const queryClient = useQueryClient()
+  const platform = usePlatform()
+
+  useEffect(() => () => signInAbortRef.current?.abort(), [])
 
   const metrics = useMemo(
     () => getSessionContextMetrics(props.messages, props.providers),
@@ -84,9 +111,12 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
   // must never borrow ChatGPT's budget (the usage query is a shared cache
   // settings also fills).
   const currentProviderIsOpenAI = currentProviderID === OPENAI_PROVIDER_ID
-  const usageQuery = useQuery(openAIUsageQueryOptions(currentProviderIsOpenAI))
+  const usageQuery = useQuery(openAIUsageQueryOptions(props.chatGptAvailable))
+  const accountQuery = useQuery(openAIAccountQueryOptions(currentProviderIsOpenAI))
   const usage = usageQuery.data
   const usageLoading = usageQuery.isPending
+  const showChatGptConnect =
+    props.chatGptAvailable && usage?.status === "not_connected" && !signingIn
   const cost = new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: "USD",
@@ -123,116 +153,204 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
     }
   }
 
+  async function handleSignIn() {
+    if (signInAbortRef.current) return
+    const abort = new AbortController()
+    signInAbortRef.current = abort
+    setSigningIn(true)
+    setSignInError(undefined)
+    setIsOpen(false)
+    setWaitingOpen(true)
+
+    try {
+      await connectChatGptPlusForOnboarding({
+        openLink: (url) => platform.openLink(url),
+        loadProviderCatalogSnapshot: () => loadProviderCatalogSnapshot(),
+        authorizeProviderOAuth: ({ providerID, methodIndex }) =>
+          authorizeProviderOAuth({ providerID, methodIndex }),
+        cancelProviderOAuth: ({ providerID }) => cancelProviderOAuth({ providerID }),
+        completeProviderOAuth: ({ providerID, methodIndex }) =>
+          completeProviderOAuth({ providerID, methodIndex }),
+        reloadProviderRuntime,
+        forceReconnect: true,
+        onAuthenticated: () => {
+          if (signInAbortRef.current === abort) setWaitingOpen(false)
+        },
+        signal: abort.signal,
+      })
+      if (abort.signal.aborted) return
+      await Promise.allSettled([
+        invalidateAllProviderCatalogSnapshotQueries(queryClient),
+        resetOpenAIUsageQuery(queryClient),
+        resetOpenAIAccountQuery(queryClient),
+        loadProviderCatalog(props.directory),
+      ])
+      if (abort.signal.aborted) return
+    } catch (error) {
+      if (!abort.signal.aborted) {
+        setSignInError(formatProviderAuthError(error, language.t("routes.onboarding.signInFailed")))
+        setIsOpen(true)
+      }
+    } finally {
+      if (signInAbortRef.current === abort) {
+        signInAbortRef.current = undefined
+        setSigningIn(false)
+        setWaitingOpen(false)
+      }
+    }
+  }
+
+  function cancelSignIn() {
+    setWaitingOpen(false)
+    signInAbortRef.current?.abort()
+  }
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={language.t("chat.sessionContextUsage.ariaLabel")}
-          className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }), "text-text-weak")}
+    <>
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label={language.t("chat.sessionContextUsage.ariaLabel")}
+            className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }), "text-text-weak")}
+          >
+            <ContextRing usage={contextPercent} />
+          </button>
+        </PopoverTrigger>
+
+        <PopoverContent
+          side="top"
+          align="end"
+          sideOffset={8}
+          className="composer-surface-menu composer-grain w-72 gap-3 p-3"
         >
-          <ContextRing usage={contextPercent} />
-        </button>
-      </PopoverTrigger>
+          {/* Header — selected model, plan badge when known */}
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0 truncate text-[12px] font-medium text-text-strong">
+              {modelLabel ?? language.t("chat.sessionContextUsage.noModel")}
+            </span>
+            {showPlanSection && readyUsage?.plan ? (
+              <Badge variant="outline" className="shrink-0 text-[10px]">
+                {formatChatGptPlan(readyUsage.plan)}
+              </Badge>
+            ) : null}
+          </div>
 
-      <PopoverContent
-        side="top"
-        align="end"
-        sideOffset={8}
-        className="composer-surface-menu composer-grain w-72 gap-3 p-3"
-      >
-        {/* Header — selected model, plan badge when known */}
-        <div className="flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate text-[12px] font-medium text-text-strong">
-            {modelLabel ?? language.t("chat.sessionContextUsage.noModel")}
-          </span>
-          {showPlanSection && readyUsage?.plan ? (
-            <Badge variant="outline" className="shrink-0 text-[10px]">
-              {formatChatGptPlan(readyUsage.plan)}
-            </Badge>
-          ) : null}
-        </div>
-
-        <div className="h-px bg-border-base/40" />
-
-        {/* Context window — always shown */}
-        <UsageMeter
-          label={language.t("chat.sessionContextUsage.contextWindow")}
-          usedPercent={contextPercent}
-          caption={contextCaption}
-        />
-
-        {/* Plan usage limits — only when ChatGPT is connected */}
-        {showPlanSection ? (
-          <>
-            <div className="h-px bg-border-base/40" />
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-text-weaker">
-                  {language.t("usage.planUsageLimits")}
-                </span>
-                {usage?.status === "reconnect_required" ? null : (
-                  <button
-                    type="button"
-                    className="flex size-5 items-center justify-center rounded-md text-text-weaker transition-colors hover:bg-surface-base hover:text-text-base disabled:opacity-60"
-                    aria-label={language.t("usage.refreshLimits")}
-                    onClick={() => void handleRefresh()}
-                    disabled={refreshing}
-                  >
-                    {refreshing ? (
-                      <Loader2Icon className="size-3.5 animate-spin" aria-hidden />
-                    ) : (
-                      <RefreshCwIcon className="size-3.5" aria-hidden />
-                    )}
-                  </button>
-                )}
-              </div>
-
-              {usageLoading && !readyUsage ? (
-                <div className="flex items-center gap-2 text-[11px] text-text-weak">
-                  <Loader2Icon className="size-3.5 animate-spin" aria-hidden />
-                  {language.t("usage.loadingLimits")}
-                </div>
-              ) : usage?.status === "error" ? (
-                <p className="text-[11px] text-text-weak">{language.t("usage.unavailable")}</p>
-              ) : usage?.status === "reconnect_required" ? (
-                <p className="text-[11px] text-text-warning-base">
-                  {language.t("chat.sessionContextUsage.reconnect")}
-                </p>
-              ) : windows.length > 0 ? (
-                windows.map((window) => (
-                  <UsageMeter
-                    key={`${window.windowSeconds}:${window.resetsAt}`}
-                    label={formatUsageWindowLabel(window.windowSeconds)}
-                    usedPercent={window.usedPercent}
-                    caption={language.t("usage.resets", {
-                      time: formatRelativeTime(window.resetsAt),
-                    })}
-                  />
-                ))
-              ) : null}
-
-              {readyUsage ? (
-                <span className="text-[10px] text-text-weaker">
-                  {language.t("usage.updated", {
-                    time: formatRelativeTime(readyUsage.fetchedAt),
-                  })}
-                </span>
-              ) : null}
+          {showPlanSection && accountQuery.data?.status === "ready" ? (
+            <div>
+              <ChatGptAccountEmail email={accountQuery.data.email} compact />
             </div>
-          </>
-        ) : null}
+          ) : null}
 
-        <div className="h-px bg-border-base/40" />
+          <div className="h-px bg-border-base/40" />
 
-        {/* Session cost — always shown */}
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-[11px] text-text-weak">
-            {language.t("chat.sessionContextUsage.sessionCost")}
-          </span>
-          <span className="text-[12px] font-semibold tabular-nums text-text-strong">{cost}</span>
-        </div>
-      </PopoverContent>
-    </Popover>
+          {/* Context window — always shown */}
+          <UsageMeter
+            label={language.t("chat.sessionContextUsage.contextWindow")}
+            usedPercent={contextPercent}
+            caption={contextCaption}
+          />
+
+          {/* Plan usage limits — only when ChatGPT is connected */}
+          {showPlanSection ? (
+            <>
+              <div className="h-px bg-border-base/40" />
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-text-weaker">
+                    {language.t("usage.planUsageLimits")}
+                  </span>
+                  {usage?.status === "reconnect_required" ? null : (
+                    <button
+                      type="button"
+                      className="flex size-5 items-center justify-center rounded-md text-text-weaker transition-colors hover:bg-surface-base hover:text-text-base disabled:opacity-60"
+                      aria-label={language.t("usage.refreshLimits")}
+                      onClick={() => void handleRefresh()}
+                      disabled={refreshing}
+                    >
+                      {refreshing ? (
+                        <Loader2Icon className="size-3.5 animate-spin" aria-hidden />
+                      ) : (
+                        <RefreshCwIcon className="size-3.5" aria-hidden />
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {usageLoading && !readyUsage ? (
+                  <div className="flex items-center gap-2 text-[11px] text-text-weak">
+                    <Loader2Icon className="size-3.5 animate-spin" aria-hidden />
+                    {language.t("usage.loadingLimits")}
+                  </div>
+                ) : usage?.status === "error" ? (
+                  <p className="text-[11px] text-text-weak">{language.t("usage.unavailable")}</p>
+                ) : usage?.status === "reconnect_required" ? (
+                  <p className="text-[11px] text-text-warning-base">
+                    {language.t("chat.sessionContextUsage.reconnect")}
+                  </p>
+                ) : windows.length > 0 ? (
+                  windows.map((window) => (
+                    <UsageMeter
+                      key={`${window.windowSeconds}:${window.resetsAt}`}
+                      label={formatUsageWindowLabel(window.windowSeconds)}
+                      usedPercent={window.usedPercent}
+                      caption={language.t("usage.resets", {
+                        time: formatRelativeTime(window.resetsAt),
+                      })}
+                    />
+                  ))
+                ) : null}
+
+                {readyUsage ? (
+                  <span className="text-[10px] text-text-weaker">
+                    {language.t("usage.updated", {
+                      time: formatRelativeTime(readyUsage.fetchedAt),
+                    })}
+                  </span>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+
+          <div className="h-px bg-border-base/40" />
+
+          {/* Session cost — always shown */}
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-[11px] text-text-weak">
+              {language.t("chat.sessionContextUsage.sessionCost")}
+            </span>
+            <span className="text-[12px] font-semibold tabular-nums text-text-strong">{cost}</span>
+          </div>
+
+          {showChatGptConnect ? (
+            <>
+              <div className="h-px bg-border-base/40" />
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-text-weak">
+                    {language.t("settings.providers.chatGptTitle")}
+                  </span>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="secondary"
+                    disabled={signingIn}
+                    onClick={() => void handleSignIn()}
+                  >
+                    {language.t("common.connect")}
+                  </Button>
+                </div>
+                {signInError ? (
+                  <p role="alert" className="text-[11px] text-icon-critical-base">
+                    {signInError}
+                  </p>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </PopoverContent>
+      </Popover>
+      <ChatGptConnectionWaitingDialog open={waitingOpen} onCancel={cancelSignIn} />
+    </>
   )
 }

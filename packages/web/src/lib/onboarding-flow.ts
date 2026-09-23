@@ -271,6 +271,7 @@ export async function connectChatGptPlusForOnboarding(input: {
   const didConnect = await waitForConnectedProvider({
     loadProviderCatalogSnapshot: input.loadProviderCatalogSnapshot,
     providerID: OPENAI_PROVIDER_ID,
+    signal: input.signal,
   })
   if (!didConnect) {
     throw new Error(language.t("onboardingFlow.confirmConnectionFailed"))
@@ -282,11 +283,14 @@ export async function connectChatGptPlusForOnboarding(input: {
 async function waitForConnectedProvider(input: {
   loadProviderCatalogSnapshot: () => Promise<ProviderCatalogState>
   providerID: string
+  signal?: AbortSignal
 }) {
   const deadline = Date.now() + PROVIDER_CONNECTION_TIMEOUT_MS
 
   while (Date.now() <= deadline) {
+    if (input.signal?.aborted) throw createSignInCancelledError()
     const catalog = await input.loadProviderCatalogSnapshot()
+    if (input.signal?.aborted) throw createSignInCancelledError()
     const connected = catalog.providers.some(
       (entry) => entry.id === input.providerID && entry.connected,
     )

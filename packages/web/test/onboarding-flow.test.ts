@@ -655,6 +655,44 @@ describe("ChatGPT Plus onboarding auth", () => {
     expect(completeCalled).toBe(false)
   })
 
+  test("stops connection polling when sign-in is cancelled", async () => {
+    const abort = new AbortController()
+    let catalogReads = 0
+    const disconnected = createCatalog({
+      providers: [
+        createProvider({
+          id: "openai",
+          name: "OpenAI",
+          connected: false,
+          methods: [{ type: "oauth", label: "ChatGPT Pro/Plus (browser)" }],
+        }),
+      ],
+    })
+
+    await expect(
+      connectChatGptPlusForOnboarding({
+        signal: abort.signal,
+        openLink() {},
+        async loadProviderCatalogSnapshot() {
+          catalogReads += 1
+          if (catalogReads === 2) abort.abort()
+          return disconnected
+        },
+        async authorizeProviderOAuth() {
+          return {
+            url: "https://chatgpt.example/auth",
+            method: "auto",
+            instructions: "Complete authorization in your browser.",
+          }
+        },
+        async completeProviderOAuth() {},
+        async cancelProviderOAuth() {},
+        async reloadProviderRuntime() {},
+      }),
+    ).rejects.toThrow("Sign-in cancelled.")
+    expect(catalogReads).toBe(2)
+  })
+
   test("reuses the existing OpenAI connection without restarting OAuth", async () => {
     let authorizeCalled = false
     let openLinkCalled = false

@@ -1,6 +1,7 @@
 import type { ProviderAuthAuthorization } from "@buddy/sdk/types"
 import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import type { ProviderInfo } from "@/state/chat-types"
+import { resetOpenAIAccountQuery } from "@/state/openai-account-query"
 import { clearOpenAIUsageQuery } from "@/state/openai-usage-query"
 import { appQueryClient } from "@/state/query-client"
 import { getBuddyClient } from "./buddy-client"
@@ -82,6 +83,7 @@ export async function completeProviderOAuth(input: {
   )
   if (input.providerID === OPENAI_PROVIDER_ID) {
     clearOpenAIUsageQuery(appQueryClient)
+    await resetOpenAIAccountQuery(appQueryClient)
   }
 }
 
@@ -110,6 +112,7 @@ export async function removeProviderAuth(input: { providerID: string }) {
   )
   if (input.providerID === OPENAI_PROVIDER_ID) {
     clearOpenAIUsageQuery(appQueryClient)
+    await resetOpenAIAccountQuery(appQueryClient)
   }
 }
 
