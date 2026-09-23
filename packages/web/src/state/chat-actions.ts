@@ -1357,7 +1357,7 @@ function syncPendingInputProtection(directory: string) {
 export async function loadProviderCatalog(
   directory: string,
   options?: { manageDirectoryError?: boolean },
-) {
+): Promise<ProviderCatalogState> {
   const store = useChatStore.getState()
   try {
     const providers = await fetchProviderCatalog(directory)
