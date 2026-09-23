@@ -1488,10 +1488,10 @@ export function useDirectoryChatPageController(
       return
     }
 
-    if (cs.isBusy) {
+    if (cs.isBusy && followupBehavior === FOLLOWUP_BEHAVIOR_QUEUE) {
       const queuedFollowup = enqueueFollowup(
         draft,
-        followupBehavior === FOLLOWUP_BEHAVIOR_QUEUE ? "queue" : "steer",
+        "queue",
         pendingSuggestionOverride?.focusGoalIds,
       )
       if (!queuedFollowup) {
@@ -1500,9 +1500,6 @@ export function useDirectoryChatPageController(
       }
       cs.clearPromptDraft(cs.promptKey)
       setPendingSuggestionOverride(undefined)
-      if (queuedFollowup.kind === "steer") {
-        void sendFollowupItem(queuedFollowup.sessionID, queuedFollowup)
-      }
       return
     }
 
