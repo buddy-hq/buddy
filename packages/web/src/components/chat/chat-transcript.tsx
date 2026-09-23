@@ -870,15 +870,14 @@ function TimelineActivityRow(props: {
         // The thinking placeholder is the "we got your message" signal, so it
         // must appear essentially immediately, or keyboard submits feel
         // unresponsive and a fast reply can finish before it ever shows. A tiny
-        // 100ms delay lets the user block lead by a hair — short enough to still
+        // 90ms delay lets the user block lead by a hair — short enough to still
         // read as instant (well under the 550ms that felt laggy). fill-mode-
-        // backwards holds the hidden start through that 100ms so it doesn't
-        // flash its final state first. It then materialises in place: a gentle
-        // fade + de-blur (comes into focus) where it sits, no translate and no
-        // scale. Filter/opacity only (blur is a filter, like opacity), applied
+        // backwards holds the hidden start through that 90ms so it doesn't
+        // flash its final state first. It then materialises in place: a plain
+        // fade where it sits, no translate and no scale. Opacity only, applied
         // to this row's child, so it never perturbs the virtualiser measure.
         props.animateEntrance &&
-          "animate-in fade-in blur-in-[6px] delay-100 fill-mode-backwards duration-[300ms] ease-out motion-reduce:animate-none",
+          "animate-in fade-in delay-90 fill-mode-backwards duration-[180ms] ease-out motion-reduce:animate-none",
       )}
     >
       <div className={`flow-root ${transcriptGapClass(props.row.previousLayoutRole, "activity")}`}>
@@ -1288,7 +1287,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   // row (scrolling it out of and back into the virtual window) never replays it.
   useEffect(() => {
     if (!entranceUserMessageID) return
-    const timer = window.setTimeout(() => setEntranceUserMessageID(undefined), 600)
+    const timer = window.setTimeout(() => setEntranceUserMessageID(undefined), 700)
     return () => window.clearTimeout(timer)
   }, [entranceUserMessageID])
   const [restoredInitialScrollOffset] = useState(() => initialScrollOffset())

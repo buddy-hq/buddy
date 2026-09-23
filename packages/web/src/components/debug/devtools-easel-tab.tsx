@@ -76,6 +76,7 @@ import { UpdaterSurfacesEasel } from "./easel/updater-surfaces"
 import { SelectDropdownVariantsEasel } from "./easel/select-dropdown-variants"
 import { CitationHighlightColorsEasel } from "./easel/citation-highlight-colors"
 import { ReaderHighlightStrengthsEasel } from "./easel/reader-highlight-strengths"
+import { SentMessageMotionEasel } from "./easel/sent-message-motion"
 import { ThemeSelectors } from "./theme-selectors"
 import { findCatalogID } from "./easel/select-value"
 
@@ -93,6 +94,7 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "sent-message-motion"
   | "updater-surfaces"
   | "reader-highlight-strengths"
   | "citation-highlight-colors"
@@ -137,6 +139,12 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "sent-message-motion",
+    label: "Sent message · seven motions (Spring shipped)",
+    subtitle:
+      "The previous corner zoom next to instant, fade, rise, glide, handoff from the composer and spring · real sent-message bubble on a live stage, with slow motion, three message lengths and all seven side by side",
+  },
   {
     id: "updater-surfaces",
     label: "Updater · every surface it added",
@@ -1239,7 +1247,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("updater-surfaces")
+  const [prototype, setPrototype] = useState<EaselPrototype>("sent-message-motion")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1402,7 +1410,8 @@ export function DevToolsEaselTab(props: { directory?: string }) {
       <div
         className={cn(
           "flex min-h-0 flex-1",
-          prototype === "updater-surfaces" ||
+          prototype === "sent-message-motion" ||
+            prototype === "updater-surfaces" ||
             prototype === "reader-highlight-strengths" ||
             prototype === "citation-highlight-colors" ||
             prototype === "select-dropdown-variants" ||
@@ -1434,6 +1443,14 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
       >
+        {prototype === "sent-message-motion" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <SentMessageMotionEasel />
+            </div>
+          </div>
+        ) : null}
+
         {prototype === "updater-surfaces" ? (
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">

@@ -24,6 +24,7 @@ import type { MessagePart } from "@/state/chat-types"
 
 import type { UserSectionProps } from "../types"
 import { parseTString } from "../tools/types"
+import "./user-section.css"
 
 type ChatWorkspaceFileReferencePart = MessagePart & {
   type: typeof WORKSPACE_FILE_REFERENCE_PART_TYPE
@@ -190,16 +191,9 @@ export const UserSection = memo(function UserSection({
     <div
       className={cn(
         "flex w-full flex-col items-end gap-2 text-sm",
-        // In-place expansion, not a slide: the block scales up from its
-        // bottom-right corner (origin-bottom-right + zoom-in) so it grows
-        // outward toward the top-left without translating anywhere. It grows
-        // from 90% into its already-reserved full-height slot, so the row's
-        // measured height is stable the whole time (no reflow, nothing to clip).
         // Safe for the virtualiser: it measures this row's PARENT wrapper, and a
-        // child's transform (this scale) never changes the parent's layout
-        // height — same reason opacity/blur are safe.
-        animateEntrance &&
-          "origin-bottom-right animate-in fade-in zoom-in-85 duration-[400ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:animate-none",
+        // child's transform never changes the parent's layout height.
+        animateEntrance && "user-section-entrance",
       )}
     >
       <div className="group/user flex w-full flex-col items-end gap-2">
