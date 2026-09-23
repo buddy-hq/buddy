@@ -17,12 +17,12 @@ export const ACTIVITY_ROW_COLLAPSED_HEIGHT_PX = 28
 export const PROSE_ROW_ACTION_FOOTER_PX = 36
 
 /** `text-sm` line box inside the markdown root. */
-export const PROSE_ROW_LINE_HEIGHT_PX = 24
+export const PROSE_ROW_LINE_HEIGHT_PX = 22
 
 /**
  * The transcript column is `max-w-200` (800px) less `px-4`, and `text-sm`
  * averages ~7px per character. Paragraph margins are not modelled — they add
- * 16px per break, which is not derivable from a character count.
+ * two-thirds of a line per break, which is not derivable from a character count.
  */
 export const PROSE_ROW_CHARS_PER_LINE_ESTIMATE = 110
 

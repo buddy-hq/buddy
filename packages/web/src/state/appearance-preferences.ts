@@ -32,7 +32,7 @@ export type ChatLineSpacing = "compact" | "normal" | "relaxed" | "custom"
 
 const CHAT_LINE_HEIGHTS = {
   compact: 1.5,
-  normal: 1.7142857,
+  normal: 1.5714286,
   relaxed: 1.9,
 } satisfies Record<Exclude<ChatLineSpacing, "custom">, number>
 
