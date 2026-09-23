@@ -114,6 +114,7 @@ const markdownClassName = [
   // Keep headings the same size as body text (chat context)
   "[&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-sm [&_h4]:text-sm [&_h5]:text-sm [&_h6]:text-sm",
   "prose-headings:font-medium",
+  "[&_[data-slot=link-favicon]]:align-middle [&_[data-slot=link-favicon]_img]:m-0",
   // Code block overrides — use our shiki/mono styling
   "[&_code]:font-mono [&_code]:[font-feature-settings:var(--font-family-mono--font-feature-settings)] [&_code]:font-medium [&_code]:break-words",
   "[&_code]:before:content-none [&_code]:after:content-none",
@@ -161,7 +162,7 @@ const copyIconPath =
 const checkIconPath =
   '<path d="M5 11.9657L8.37838 14.7529L15 5.83398" stroke="currentColor" stroke-linecap="square"/>'
 const codeUrlPattern = /^https?:\/\/[^\s<>()`"']+$/u
-const LINK_FAVICON_CLASS = "block size-full shrink-0 select-none"
+const LINK_FAVICON_CLASS = "m-0 block size-full shrink-0 select-none"
 const LINK_FAVICON_RETRY_MS = 10 * 60 * 1000
 const linkFaviconFailedAt = new Map<string, number>()
 const linkTextSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
@@ -263,7 +264,8 @@ function createLinkFavicon(hostname: string, faviconUrl: string) {
   const icon = document.createElement("span")
   icon.setAttribute("data-slot", "link-favicon")
   icon.setAttribute("aria-hidden", "true")
-  icon.className = "ms-[0.25em] me-[0.2em] inline-flex size-3.5 [vertical-align:-0.125em]"
+  icon.className =
+    "ms-[0.25em] me-[0.2em] inline-flex size-[1em] items-center overflow-hidden leading-none align-middle"
 
   const glyph = linkFaviconGlyph(hostname, faviconUrl)
   if (glyph) {

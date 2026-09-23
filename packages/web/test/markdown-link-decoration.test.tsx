@@ -43,9 +43,12 @@ describe("markdown link decoration", () => {
     await renderMarkdown("[MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web)")
 
     const link = container.querySelector("a.external-link")
-    expect(link?.querySelector('[data-slot="link-favicon"] img')?.getAttribute("src")).toBe(
-      "https://developer.mozilla.org/favicon.ico",
-    )
+    const favicon = link?.querySelector('[data-slot="link-favicon"]')
+    const faviconImg = favicon?.querySelector("img")
+    expect(faviconImg?.getAttribute("src")).toBe("https://developer.mozilla.org/favicon.ico")
+    expect(faviconImg?.classList.contains("m-0")).toBe(true)
+    expect(favicon?.classList.contains("align-middle")).toBe(true)
+    expect(favicon?.classList.contains("leading-none")).toBe(true)
     expect(link?.textContent).toBe("MDN Web Docs")
   })
 
