@@ -1,9 +1,21 @@
 import "../happydom"
-import { afterEach, beforeEach, describe, expect, setSystemTime, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, mock, setSystemTime, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import { ExternalFileOpenDialog } from "../src/components/files/external-file-open-dialog"
 import { MarkdownHtmlSegment } from "../src/components/markdown/markdown-html-segment"
 import { resetMarkdownWorkerForTests } from "../src/components/markdown/markdown-worker"
+import {
+  getPlatform,
+  PlatformProvider,
+  setRuntimePlatform,
+  type Platform,
+} from "../src/context/platform"
+import { withFetchPreconnect } from "../src/lib/fetch-transport"
+import { useExternalFileOpenDialogStore } from "../src/state/external-file-open-dialog-store"
+
+const originalFetch = globalThis.fetch
+const originalPlatform = getPlatform()
 
 async function flushEffects() {
   await Promise.resolve()
@@ -23,10 +35,13 @@ describe("markdown link decoration", () => {
   })
 
   afterEach(async () => {
+    useExternalFileOpenDialogStore.getState().resolveRequest("cancel")
     await act(async () => {
       root.unmount()
       await flushEffects()
     })
+    globalThis.fetch = originalFetch
+    setRuntimePlatform(originalPlatform)
     resetMarkdownWorkerForTests()
     container.remove()
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
@@ -97,6 +112,36 @@ describe("markdown link decoration", () => {
     expect(link?.textContent).toBe("notes.md")
   })
 
+  test("renders a plain external file path as a file chip", async () => {
+    await renderMarkdown("/Users/example/Desktop/states-of-matter-session.pdf")
+
+    const link = container.querySelector("a.presented-media-link")
+    expect(link?.getAttribute("data-presented-media-path")).toBe(
+      "/Users/example/Desktop/states-of-matter-session.pdf",
+    )
+    expect(link?.textContent).toBe("states-of-matter-session.pdf")
+  })
+
+  test("keeps an inline-code file path as code while chipping plain paths", async () => {
+    await renderMarkdown(
+      "`/Users/example/Desktop/graph1_sine.png` /Users/example/Desktop/graph1_sine.png",
+    )
+
+    expect(container.querySelector("code")?.textContent).toBe(
+      "/Users/example/Desktop/graph1_sine.png",
+    )
+    expect(container.querySelector("code a")).toBeNull()
+    expect(container.querySelectorAll("a.presented-media-link")).toHaveLength(1)
+  })
+
+  test("uses the theme-colored Markdown icon on file chips", async () => {
+    await renderMarkdown("[Frames](~/Desktop/frames.md)")
+
+    const icon = container.querySelector('[data-slot="presented-media-icon"] svg')
+    expect(icon?.classList.contains("text-icon-info-base")).toBe(true)
+    expect(container.querySelector('[data-slot="presented-media-icon"] img')).toBeNull()
+  })
+
   test("shows decoded file names on file chips", async () => {
     await renderMarkdown("[My Notes](./My%20Notes.md)")
 
@@ -111,6 +156,122 @@ describe("markdown link decoration", () => {
     const link = container.querySelector("a.presented-media-link")
     expect(link?.getAttribute("data-presented-media-path")).toBe("C:/Users/example/report.pdf")
     expect(link?.textContent).toBe("report.pdf")
+  })
+
+  test("explains a missing outside file and reveals its containing folder", async () => {
+    const revealedPaths: Array<{ directory: string; path: string }> = []
+    const platform: Platform = {
+      platform: "desktop",
+      os: "macos",
+      openLink() {},
+      async revealContainingFolder(directory, path) {
+        revealedPaths.push({ directory, path })
+      },
+      async restart() {},
+      back() {},
+      forward() {},
+      async notify() {},
+    }
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL) => {
+        const url = input instanceof Request ? input.url : input.toString()
+        expect(url).toContain("/api/objects/media-presentation/files/resolve")
+        return Response.json({ error: "File not found" }, { status: 404 })
+      }),
+      originalFetch,
+    )
+
+    await act(async () => {
+      root.render(
+        <PlatformProvider value={platform}>
+          <MarkdownHtmlSegment
+            text="[report](/tmp/missing-report.pdf)"
+            directory="/repo"
+            cacheKey="missing-outside-report"
+          />
+          <ExternalFileOpenDialog />
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLAnchorElement>("a.presented-media-link")?.click()
+      await flushEffects()
+    })
+
+    expect(useExternalFileOpenDialogStore.getState().request).toMatchObject({
+      kind: "missing",
+      path: "/tmp/missing-report.pdf",
+      outsideNotebook: true,
+      canShowFolder: true,
+    })
+    const dialog = document.querySelector('[role="alertdialog"]')
+    expect(dialog?.textContent).toContain("File outside this notebook not found")
+    expect(dialog?.textContent).toContain("/tmp/missing-report.pdf")
+    expect(dialog?.textContent).toContain("Copy path")
+
+    const showFolder = Array.from(dialog?.querySelectorAll("button") ?? []).find((button) =>
+      button.textContent?.includes("Reveal in Finder"),
+    )
+    await act(async () => {
+      showFolder?.click()
+      await flushEffects()
+    })
+    expect(revealedPaths).toEqual([{ directory: "/repo", path: "/tmp/missing-report.pdf" }])
+  })
+
+  test("offers folder reveal for missing home and file URL paths", async () => {
+    const revealedPaths: string[] = []
+    const platform: Platform = {
+      platform: "desktop",
+      os: "macos",
+      openLink() {},
+      async revealContainingFolder(_directory, path) {
+        revealedPaths.push(path)
+      },
+      async restart() {},
+      back() {},
+      forward() {},
+      async notify() {},
+    }
+    globalThis.fetch = withFetchPreconnect(
+      mock(async () => Response.json({ error: "File not found" }, { status: 404 })),
+      originalFetch,
+    )
+
+    await act(async () => {
+      root.render(
+        <PlatformProvider value={platform}>
+          <MarkdownHtmlSegment
+            text={"file:///tmp/missing.pdf\n~/Downloads/missing.pdf"}
+            directory="/repo"
+            cacheKey="missing-external-formats"
+          />
+          <ExternalFileOpenDialog />
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    const links = container.querySelectorAll<HTMLAnchorElement>("a.presented-media-link")
+    expect(links.length).toBe(2)
+    for (const link of links) {
+      await act(async () => {
+        link.click()
+        await flushEffects()
+      })
+      const dialog = document.querySelector('[role="alertdialog"]')
+      const showFolder = Array.from(dialog?.querySelectorAll("button") ?? []).find((button) =>
+        button.textContent?.includes("Reveal in Finder"),
+      )
+      expect(showFolder).toBeDefined()
+      await act(async () => {
+        showFolder?.click()
+        await flushEffects()
+      })
+    }
+    expect(revealedPaths).toEqual(["file:///tmp/missing.pdf", "~/Downloads/missing.pdf"])
   })
 
   test("keeps images inside local file links", async () => {

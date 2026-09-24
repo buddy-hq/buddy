@@ -5,21 +5,34 @@ import { usePlatform } from "@/context/platform"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { canRenderPresentedMediaAsSource } from "@/lib/presented-media-source"
+import { isLikelyExternalMediaPathCandidate } from "@/lib/presented-media"
 import {
   useWorkspaceFileOpen,
   type WorkspaceFileActionInput,
   type WorkspaceResourceOpener,
 } from "@/lib/use-workspace-file-open"
 import { WORKSPACE_FILE_OPEN_TARGET_REVEAL } from "@/lib/workspace-file-open"
+import { workspaceRelativeFilePath } from "@/lib/workspace-file-paths"
 import { useExternalFileOpenDialogStore } from "@/state/external-file-open-dialog-store"
 import { useUiPreferences } from "@/state/ui-preferences"
 
-type ResolvedMarkdownFile = Awaited<ReturnType<typeof resolveMarkdownFile>>
+type ResolvedMarkdownFile = Extract<
+  Awaited<ReturnType<typeof resolveMarkdownFile>>,
+  { status: "found" }
+>["file"]
 
 async function resolveMarkdownFile(directory: string, path: string) {
-  return requireBuddyData(
-    await getBuddyClient(directory).objectMediaPresentation.resolveFile({ directory, path }),
-  )
+  const result = await getBuddyClient(directory).objectMediaPresentation.resolveFile({
+    directory,
+    path,
+  })
+  if (result.response?.status === 404) return { status: "missing" } as const
+  return { status: "found", file: requireBuddyData(result) } as const
+}
+
+function isOutsideNotebookLink(directory: string, path: string): boolean {
+  if (workspaceRelativeFilePath({ directory, path }) !== undefined) return false
+  return isLikelyExternalMediaPathCandidate(path)
 }
 
 async function presentMarkdownFile(directory: string, path: string) {
@@ -42,9 +55,12 @@ function canShowInBuddy(file: ResolvedMarkdownFile): boolean {
 
 async function approveExternalFileOpen(path: string): Promise<boolean> {
   if (useUiPreferences.getState().openExternalFilesWithoutAsking) return true
-  const choice = await useExternalFileOpenDialogStore.getState().requestChoice({ path })
+  const choice = await useExternalFileOpenDialogStore.getState().requestChoice({
+    kind: "open",
+    path,
+  })
   if (choice === "always") useUiPreferences.getState().setOpenExternalFilesWithoutAsking(true)
-  return choice !== "cancel"
+  return choice === "open" || choice === "always"
 }
 
 export function useMarkdownFileLinkOpen(
@@ -52,6 +68,7 @@ export function useMarkdownFileLinkOpen(
   onOpenResource?: WorkspaceResourceOpener,
 ) {
   const platform = usePlatform()
+  const revealContainingFolder = platform.revealContainingFolder
   const openBench = useOpenBench()
   const { resolvePlan, executePrimary, executeTarget } = useWorkspaceFileOpen(
     directory,
@@ -103,7 +120,23 @@ export function useMarkdownFileLinkOpen(
       if (!directory) return
       void (async () => {
         try {
-          const file = await resolveMarkdownFile(directory, path)
+          const result = await resolveMarkdownFile(directory, path)
+          if (result.status === "missing") {
+            const choice = await useExternalFileOpenDialogStore.getState().requestChoice({
+              kind: "missing",
+              path,
+              outsideNotebook: isOutsideNotebookLink(directory, path),
+              canShowFolder: revealContainingFolder !== undefined,
+            })
+            if (choice === "copy-path") {
+              await navigator.clipboard.writeText(path)
+              toast("Path copied")
+            } else if (choice === "show-folder") {
+              await revealContainingFolder?.(directory, path)
+            }
+            return
+          }
+          const file = result.file
           if (file.workspacePath !== null) {
             await openNotebookFile(file, file.workspacePath)
             return
@@ -114,6 +147,6 @@ export function useMarkdownFileLinkOpen(
         }
       })()
     },
-    [directory, openExternalFile, openNotebookFile],
+    [directory, openExternalFile, openNotebookFile, revealContainingFolder],
   )
 }

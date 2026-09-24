@@ -68,6 +68,7 @@ export type Platform = {
   consumeDroppedFilePaths?(): Promise<string[]> | string[]
   openPath?(path: string, app?: string): Promise<void>
   revealPath?(path: string): Promise<void>
+  revealContainingFolder?(directory: string, path: string): Promise<void>
   getFileIcon?(path: string): Promise<string | null>
   exportMarkdownPdf?(input: MarkdownPdfExportInput): Promise<string | null>
   fetch?: typeof fetch

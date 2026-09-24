@@ -254,6 +254,10 @@ describe("presented media file routes", () => {
 
     const missing = await postMediaFile(resolveUrl, path.join(localDir.path, "missing.pdf"))
     expect(missing.status).toBe(404)
+
+    const directory = await postMediaFile(resolveUrl, localDir.path)
+    expect(directory.status).toBe(400)
+    expect(await directory.json()).toEqual({ error: "Path is not a file" })
   })
 
   test("presents an outside file as one reusable object", async () => {

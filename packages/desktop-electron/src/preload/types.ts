@@ -121,6 +121,7 @@ export type ElectronAPI = {
   openLink: (url: string) => void
   openPath: (path: string, app?: string) => Promise<void>
   revealPath: (path: string) => Promise<void>
+  revealContainingFolder: (directory: string, path: string) => Promise<void>
   getFileIcon: (path: string) => Promise<string | null>
   readClipboardImage: () => Promise<{ buffer: ArrayBuffer; width: number; height: number } | null>
   showNotification: (title: string, body?: string, href?: string) => void
