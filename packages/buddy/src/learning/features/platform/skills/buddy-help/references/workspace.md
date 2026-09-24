@@ -27,10 +27,12 @@ No Buddy multi-user accounts. AI providers may still need login or keys — `pro
 | --- | --- | --- |
 | Chat, slash, agent questions | Chat input | `chat.md` |
 | Large files, widgets, boards, reading | Bench | `workspace.md` |
+| Browse web pages in Buddy | Browser tab on Bench | `browser.md` |
 | Layout / library rail | Chrome around chat | `workspace.md` |
 | Notebooks, Home, Inbox | Open a notebook | `notebooks.md` |
 | Chats / history | Sidebar chats | `notebooks.md` |
 | PDF/EPUB | Sources | `library.md` |
+| Take or find Markdown notes | Notes | `notes.md` |
 | Flashcards / quizzes | Practice | `practice.md` |
 | Whiteboard | Boards | `library.md` |
 | Widgets / diagrams / media | Creations | `library.md` |
@@ -72,7 +74,7 @@ Titlebar (desktop): **left panel** toggle, **right panel** toggle, optional **Po
 
 ### Left sidebar
 
-- Body: **Notebooks** — each notebook lists **chats** (pin, unread, archive, rename).
+- Body: **Notebooks** — each notebook lists **chats** (pin, unread, archive, delete, rename). Create controls can offer **New chat**, **New note**, **New board**, and desktop **New tab**.
 - Hover toolbar: organize (by notebook / chronological), sort (created / updated), create notebook.
 - Footer: **Settings**.
 
@@ -88,20 +90,21 @@ Right edge is a vertical **rail**. Icons open drawers (same icon again closes wh
 
 | Rail | Drawer |
 | --- | --- |
-| **Search** | Notebook search |
+| **Search** | Search chats, Sources, Creations, Practice, Boards, Notes, and Files |
 | **Sources** | PDF/EPUB resources |
 | **Practice** | Flashcards + question sets |
 | **Creations** | Widgets, diagrams, media |
 | **Boards** | Whiteboards |
 | **Files** | Project file tree |
-| **Skills** | Installable skill packages (Installed / Discover) — `extend.md` |
+| **Notes** | Central Markdown notes; filter this notebook or all notes — `notes.md` |
+| **Skills** | Your skills and available skills in one catalog — `extend.md` |
 | **Notebook Instructions** | Not a list — opens `AGENTS.md` on Bench |
 
 Show/hide whole right side: titlebar **Expand/Collapse right panel**.
 
 - Expand with **no Bench open** → usually restores the **last drawer** (default **Sources**).
 - Expand with **Bench open** → shows Bench; rail can open a drawer **over** Bench.
-- Opening a list item typically **closes the drawer** and puts content on Bench.
+- Opening a content result typically closes the drawer and shows it on Bench. A chat result switches chats.
 
 **Create board** in Boards immediately creates and opens an empty whiteboard. See `library.md`.
 **Create** in Creations only stages a prompt in the composer — the user still sends it.
@@ -137,11 +140,13 @@ Buddy may auto-float if the docked split is dragged past a workable width. Users
 
 Use when the user asks about Bench, docked vs floating chat, present/park/close, or how content leaves the transcript. Capital **B**.
 
-Not Library drawers alone (browsers). Not the chat composer. Bench is the place large content can open.
+Not only the right-rail catalogs. Bench is the place large content opens beside or behind chat.
 
 ### What it is
 
-Workspace for content that needs more room than chat: files, Markdown, reading, whiteboard, widgets, diagrams, figures, media, flashcards, question sets. Beside or under chat in the notebook.
+Workspace for content that needs more room than chat: files, Markdown notes, reading, Browser tabs, whiteboard, widgets, diagrams, figures, media, flashcards, question sets. Beside or under chat in the notebook.
+
+Bench has a tab strip. **+** → **Open in a new tab** can find a file, note, source, recent item, or URL. Tab menus offer Close, Close others, Close to the right, and Close all. **Enter immersive** expands Bench to the full window.
 
 ### Layout
 
@@ -158,7 +163,7 @@ Minimize floating chat does **not** close Bench.
 
 ### User paths
 
-- Open: Files, library rail (Sources, Practice, Boards, Creations…), or file open → can land on Bench.
+- Open: Files, library rail (Sources, Notes, Practice, Boards, Creations…), Bench **+**, or file open → can land on Bench. Desktop **New tab** opens a Browser tab (`browser.md`).
 - Park: Collapse right panel (docked).
 - Close: leave Bench for chat (may prompt if Markdown has unsaved work).
 - Float / dock: **Pop out chat** / **Dock chat**.
@@ -176,6 +181,12 @@ Minimize floating chat does **not** close Bench.
 - Opening something on Bench is best-effort; the pane may still show load/error in UI.
 - Auto-open (e.g. whiteboard) is best-effort and may skip if something else is already on Bench.
 
+## Search
+
+Use when the user asks how to search the notebook or find a chat, file, source, creation, practice set, board, or note.
+
+Open **Search** on the right rail or use **Cmd/Ctrl+Shift+F**. Type at least two characters; filter **All types**, **Chats**, **Sources**, **Creations**, **Practice**, **Boards**, **Notes**, or **Files**. An empty query shows recent notebook items. A chat result switches chats; content results open their relevant reader or Bench surface. **Notes** results search the central Notes library, so they can include notes from other notebooks (`notes.md`).
+
 ### Related
 
-Layout above, `library.md`, `library.md`, `practice.md`, `library.md`, `library.md`, `chat.md`
+`library.md`, `practice.md`, `notes.md`, `browser.md`, `chat.md`

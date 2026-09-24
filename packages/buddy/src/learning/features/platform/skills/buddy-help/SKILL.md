@@ -1,11 +1,11 @@
 ---
 name: buddy-help
-description: "Buddy app help: setup, workspace, notebooks, chat, library, Practice, flashcards, question sets, settings, providers, trust; agent basics for newbies only."
+description: "Buddy product help: setup, notebooks, Notes, Browser, Obsidian, Arcade, image generation, Practice, settings, providers, trust."
 ---
 
 # Buddy Help
 
-Use when the user asks how Buddy works, how to install/setup/customize it, or where something lives in the app (Bench, notebooks, Practice, flashcards, Settings, skills, providers, memory, permissions).
+Use when the user asks how Buddy works, how to install/setup/customize it, or where something lives in the app (Bench, notebooks, Notes, Browser, Practice, flashcards, Settings, skills, providers, memory, permissions).
 
 Not for subject teaching (math, history, code lessons as content). Use pedagogy skills for that. This skill is product help only — except `references/basics-of-agents.md` (general agent vocabulary; not Buddy UI).
 
@@ -36,17 +36,24 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | Learn vs Teach, Buddy vs Teaching Buddy | `references/setup.md` |
 | No account, privacy, local data, site claims, permission prompts, Allow once/always | `references/trust.md` |
 | What Buddy can do, layout, sidebar, library rail, Bench docked/floating | `references/workspace.md` |
+| Bench tabs, notebook Search, finding chats/files/sources/notes | `references/workspace.md` |
 | Notebooks, Home, Inbox, Quick Chat, chats, pin/archive, branch, compact | `references/notebooks.md` |
+| Obsidian vaults, connecting/disconnecting, wiki links and embeds | `references/obsidian.md` |
+| Notes, note taking, chat notes, quoted messages, Notes library, Markdown notes | `references/notes.md` |
+| In-app Browser, web tabs, profiles, Incognito, open links in Buddy, cite webpages | `references/browser.md` |
 | Chat box, slash, @, follow-ups, agent questions | `references/chat.md` |
+| Buddy Arcade, game breaks, Snake, Reflex, Pairs | `references/chat.md` |
 | Sources, PDF/EPUB, Files, Boards, Creations | `references/library.md` |
+| Generate or edit images, where generated images appear | `references/library.md` |
 | Flashcards, source/content types, images, deck overview, due counts, ratings, scheduling, off-schedule practice | `references/flashcards.md` |
 | Practice drawer, question sets, quizzes | `references/practice.md` |
 | Providers, API keys, ChatGPT login, models, usage | `references/providers.md` |
-| Skills (right rail), MCP servers, Advanced Math / Standards packages | `references/extend.md` |
+| Skills (right rail), MCP servers, Advanced math / Teaching standards packages | `references/extend.md` |
 | Hand-edit MCP config, enable MCP via buddy.jsonc, notebook mcp override | `references/config-mcp.md` |
 | AGENTS.md, instructions, personalization profile | `references/instructions.md` |
 | Memory, “does Buddy remember me” | `references/learner-memory.md` |
 | Settings tabs, theme, notifications | `references/settings.md` |
+| Keyboard shortcuts, Settings → Shortcuts | `references/settings.md` |
 
 ## Defaults
 
@@ -66,11 +73,13 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | question UI / dock | structured agent question (not chat composer) |
 | permission dock | allow once / always until restart / reject |
 | Bench | main work area beside or under chat |
+| Notes | central Markdown library; `references/notes.md` |
+| Browser | in-app web tabs on Bench; `references/browser.md` |
 | Sources | reading catalog (PDF/EPUB) |
 | Practice | flashcards and question sets |
 | Boards | whiteboard catalog |
 | Creations | widgets, diagrams, figures, media catalog |
-| Skills | right-rail Skills drawer or Settings → Skills (Installed / Discover) |
+| Skills | right-rail Skills drawer or Settings → Skills; one catalog list |
 | chat input / composer | user message entry (not a tool) |
 | slash commands | user input |
 

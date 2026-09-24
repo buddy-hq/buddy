@@ -44,9 +44,9 @@ Not question sets / quizzes — `practice.md`.
 - Basic front/back render Markdown: emphasis, lists, tables, links, inline/block code, and math.
 - Cloze cards also render Markdown. The selected cloze blank keeps its rendered content hidden until reveal.
 - Each distinct cloze number makes one card. Repeated blanks with the same number belong to that card.
-- Deck title + optional deck source. Notes can also store tags + source labels.
+- Deck title + optional source label.
 - Deck view filters cards by **All / Due / New / Leeches**.
-- Tags/source are stored, but there is no current tag/source filter or user-facing card editor.
+- There is no current tag/source filter or user-facing card editor.
 - Recall is self-rated. No typed-answer checking or automatic grading.
 
 ## Images and media
@@ -148,7 +148,7 @@ End screen: reviewed count + time + rating mix + why study stopped + other due d
 ## Why study stopped
 
 - **Next card in…** — learning card is waiting; deck can refill later today.
-- **Daily limit** — ready cards held until the next 4:00 a.m. reset.
+- **Today's review limit is spent** — ready cards held until the next 4:00 a.m. reset.
 - **All caught up** — nothing ready now; later cards remain scheduled.
 - **No new cards left today** — new-card allowance used; returning cards may still appear.
 
@@ -165,7 +165,7 @@ End screen: reviewed count + time + rating mix + why study stopped + other due d
 - Per rated answer: rating, time spent, answer time, and schedule before/after.
 - Per study day: new cards studied + returning reviews completed.
 - Stored locally with the deck in this notebook.
-- Separate learner-profile memory follows Memory settings — `learner-memory.md`.
+- If notebook **Memory** participation is on, ratings can also update learner memory even when chat auto-extract is off — `learner-memory.md`.
 
 ## Honest boundaries
 

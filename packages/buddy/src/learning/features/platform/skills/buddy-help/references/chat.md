@@ -7,7 +7,7 @@ description: "Buddy chat: composer, slash, @ files, follow-ups, question UI, tas
 
 Use when the user asks about the chat box, slash commands, @ mentions, follow-ups while Buddy is busy, agent questions, Stop, or transcript cards.
 
-Not for: chat history (`notebooks.md`), permission Allow once/always (`trust.md`), Bench layout (`workspace.md`), Practice quizzes (`practice.md`), Skills install/manage (`extend.md`).
+Not for: chat history (`notebooks.md`), note-taking detail (`notes.md`), permission Allow once/always (`trust.md`), Bench layout (`workspace.md`), Practice quizzes (`practice.md`), Skills install/manage (`extend.md`).
 
 ## Dual language
 
@@ -25,10 +25,11 @@ Never call Practice MCQ UI the question dock.
 ## Composer
 
 - Bottom of the conversation pane in a notebook chat.
-- Type, attach files, optional sketch (images need a vision-capable model).
+- Type, attach files, optional sketch. Sending images to Buddy needs a vision-capable model; saving images in Note mode does not.
 - **Enter** sends. **Shift+Enter** newline.
 - While Buddy is working, primary control is **Stop** (aborts the run). Enter does **not** Stop — it steers or queues (below).
 - Model / thinking pickers live on the composer toolbar.
+- The pen button opens a sketch dock; sending the sketch as an image needs a vision-capable model. This is separate from Boards on the Bench.
 - Hidden when a nested helper task is open. Continue from the parent chat.
 
 ## Follow-ups while busy
@@ -44,7 +45,7 @@ Follow-up dock: Edit (restores draft), Send now.
 
 ## Slash commands
 
-Type `/` at the **start** of the box for autocomplete. Mix of built-ins + entries from skills, MCP, or catalog.
+Type `/` at the start of the box, after whitespace, or after a mention for autocomplete. Session commands such as `/undo` still need to start the message.
 
 **UI-only (no model turn when applied):**
 
@@ -54,6 +55,7 @@ Type `/` at the **start** of the box for autocomplete. Mix of built-ins + entrie
 | `/model` | Open model picker |
 | `/mcp` | Settings → MCPs |
 | `/play` | Buddy Arcade |
+| `/note` | Switch the composer to Note mode; saving adds to this chat's note |
 
 **Session / message:**
 
@@ -64,7 +66,7 @@ Type `/` at the **start** of the box for autocomplete. Mix of built-ins + entrie
 | `/branch` (`/fork`) | Branch chat from latest user message |
 | `/compact` (`/summarize`) | Compact session — needs selected model + active session |
 | `/quiz [topic]` | Sends a quiz-create prompt (rewritten user message) |
-| `/flashcard [topic]` | In Learn mode, sends a flashcard-create prompt (rewritten user message) |
+| `/flashcard [topic]` | Sends a flashcard-create prompt (rewritten user message) |
 
 Also: `/resources` and related for Sources ops when listed.
 
@@ -94,6 +96,9 @@ Structured choices mid-turn appear in the **question UI** above the composer —
 ## Transcript chrome (chat-adjacent)
 
 - Undo / Branch on user messages (same idea as `/undo`, `/branch`).
+- **Quote in note** on a chat message opens Note mode with that message selected (`notes.md`).
+- Selecting text in a chat, document, reader, or Browser can offer a citation action that puts a source quote into the composer. The user still sends the message.
+- Web links follow **Settings → Browser → Open links in**; Cmd/Ctrl+click opens in the system browser (`browser.md`).
 - Jump to latest when scrolled up.
 - Permission dock can appear above the composer — `trust.md` (Allow always = until Buddy restarts).
 - When a chat has tasks, the **Tasks** button by the composer opens a todo dock. It can show list or board view and reflects task progress.
@@ -103,10 +108,14 @@ Structured choices mid-turn appear in the **question UI** above the composer —
 
 - **“Question” collision.** Question UI ≠ Practice quizzes (`practice.md`).
 - **Busy Enter ≠ Stop.** Steer or queue per setting; Stop aborts.
-- **Images/sketch** need vision model or send is blocked.
+- **Images/sketch sent to Buddy** need a vision model; Note mode can save supported images without one (`notes.md`).
 - **`/compact`** fails without model or session.
-- **Slash autocomplete** only while the draft is still a single `/token` with no space.
+- **Slash autocomplete** triggers at a valid `/` span; a slash in a URL or inside a word is not a command.
 - **Nested helper task** has no composer.
+
+## Buddy Arcade
+
+Open the gamepad control by the composer or use `/play`. Arcade is a small dock with **Snake**, **Reflex**, and **Pairs**; it does not open on Bench. **Settings → General → Game break suggestions** controls whether long Buddy turns suggest a break: **Standard**, **Less often**, or **Off**. Suggestions can be dismissed; games remain available from the gamepad.
 
 ## Related
 
@@ -116,3 +125,4 @@ Structured choices mid-turn appear in the **question UI** above the composer —
 - `practice.md` — flashcards, question sets
 - `providers.md` — models, vision, connect
 - `workspace.md` — docked/floating chat next to Bench
+- `notes.md` — Note mode, chat notes, Notes library
