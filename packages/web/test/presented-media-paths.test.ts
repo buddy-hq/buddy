@@ -19,12 +19,12 @@ describe("presented media path helpers", () => {
     globalThis.fetch = originalFetch
   })
 
-  test("normalizes slashless unix absolute candidates", () => {
+  test("keeps slashless paths relative to the notebook", () => {
     expect(
       normalizePresentedMediaCandidatePath(
         "Users/prashantbhudwal/Documents/Buddy/teaching/generated/worksheet.pdf",
       ),
-    ).toBe("/Users/prashantbhudwal/Documents/Buddy/teaching/generated/worksheet.pdf")
+    ).toBe("Users/prashantbhudwal/Documents/Buddy/teaching/generated/worksheet.pdf")
   })
 
   test("strips surrounding markdown wrappers", () => {
@@ -61,13 +61,100 @@ describe("presented media path helpers", () => {
     ])
   })
 
-  test("rejects external-looking paths from plain assistant text affordances", () => {
+  test("recognizes local file paths in plain assistant text without swallowing prose or web URLs", () => {
     expect(isLikelyPresentedMediaPathCandidate("generated/worksheet.pdf")).toBe(true)
-    expect(isLikelyPresentedMediaPathCandidate("/tmp/worksheet.pdf")).toBe(false)
-    expect(isLikelyPresentedMediaPathCandidate("~/Downloads/worksheet.pdf")).toBe(false)
-    expect(isLikelyPresentedMediaPathCandidate("file:///tmp/worksheet.pdf")).toBe(false)
-    expect(isLikelyPresentedMediaPathCandidate("C:\\Users\\buddy\\worksheet.pdf")).toBe(false)
-    expect(isLikelyPresentedMediaPathCandidate("../worksheet.pdf")).toBe(false)
+    expect(isLikelyPresentedMediaPathCandidate("/tmp/worksheet.pdf")).toBe(true)
+    expect(isLikelyPresentedMediaPathCandidate("~/Downloads/worksheet.pdf")).toBe(true)
+    expect(isLikelyPresentedMediaPathCandidate("file:///tmp/worksheet.pdf")).toBe(true)
+    expect(isLikelyPresentedMediaPathCandidate("C:\\Users\\buddy\\worksheet.pdf")).toBe(true)
+    expect(isLikelyPresentedMediaPathCandidate("../worksheet.pdf")).toBe(true)
+    expect(isLikelyPresentedMediaPathCandidate("https://example.com/worksheet.pdf")).toBe(false)
+    expect(
+      collectPresentedMediaCandidatePaths(
+        "See /Users/example/Desktop/office image.png and /tmp/worksheet.pdf.",
+      ),
+    ).toEqual(["/Users/example/Desktop/office image.png", "/tmp/worksheet.pdf"])
+    expect(collectPresentedMediaCandidatePaths("See https://example.com/worksheet.pdf.")).toEqual(
+      [],
+    )
+    expect(collectPresentedMediaCandidatePaths("//cdn.example.com/worksheet.pdf")).toEqual([])
+    expect(
+      collectPresentedMediaCandidatePaths(
+        "Saved to /Users/me/Desktop/draft. The final file is report.pdf.",
+      ),
+    ).toEqual([])
+    expect(collectPresentedMediaCandidatePaths("score / 5. see /tmp/report.pdf")).toEqual([
+      "/tmp/report.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("See ../output and then read notes.pdf")).toEqual(
+      [],
+    )
+    expect(collectPresentedMediaCandidatePaths("See /tmp/foo.bar, then open baz.pdf")).toEqual([
+      "/tmp/foo.bar",
+    ])
+    expect(collectPresentedMediaCandidatePaths("See /tmp/report.final.pdf.")).toEqual([
+      "/tmp/report.final.pdf",
+    ])
+    expect(
+      collectPresentedMediaCandidatePaths("Open /tmp/notes then check report.pdf"),
+    ).toEqual([])
+    expect(
+      collectPresentedMediaCandidatePaths(
+        "Saved to /Users/me/Desktop/draft; the final file is report.pdf",
+      ),
+    ).toEqual([])
+    expect(collectPresentedMediaCandidatePaths("see //cdn.example.com/worksheet.pdf")).toEqual(
+      [],
+    )
+    expect(collectPresentedMediaCandidatePaths("tmp/report.pdf")).toEqual([])
+    expect(collectPresentedMediaCandidatePaths("var/folders/ab/file.pdf")).toEqual([
+      "var/folders/ab/file.pdf",
+    ])
+    expect(
+      collectPresentedMediaCandidatePaths("/Users/me/Downloads/report (1).pdf"),
+    ).toEqual(["/Users/me/Downloads/report (1).pdf"])
+    expect(
+      collectPresentedMediaCandidatePaths("C:\\Program Files (x86)\\Adobe\\Reader.pdf"),
+    ).toEqual(["C:\\Program Files (x86)\\Adobe\\Reader.pdf"])
+    expect(
+      collectPresentedMediaCandidatePaths("file:///tmp/missing.pdf ~/Downloads/missing.pdf"),
+    ).toEqual(["file:///tmp/missing.pdf", "~/Downloads/missing.pdf"])
+    expect(
+      collectPresentedMediaCandidatePaths("Saved to \\Users\\buddy\\worksheet.pdf."),
+    ).toEqual(["\\Users\\buddy\\worksheet.pdf"])
+    expect(
+      collectPresentedMediaCandidatePaths("Open \\\\server\\share\\report.pdf"),
+    ).toEqual(["\\\\server\\share\\report.pdf"])
+    expect(collectPresentedMediaCandidatePaths("generated/report (1).pdf")).toEqual([
+      "generated/report (1).pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("./artifacts/report (1).pdf")).toEqual([
+      "./artifacts/report (1).pdf",
+    ])
+    expect(
+      collectPresentedMediaCandidatePaths("Open generated/report (1).pdf please"),
+    ).toEqual(["generated/report (1).pdf"])
+    expect(
+      collectPresentedMediaCandidatePaths("See (generated/report (1).pdf)"),
+    ).toEqual(["generated/report (1).pdf"])
+    expect(collectPresentedMediaCandidatePaths("Week 1/worksheet.pdf")).toEqual([
+      "Week 1/worksheet.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("Project (final)/notes.pdf")).toEqual([
+      "Project (final)/notes.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("Open Week 1/worksheet.pdf")).toEqual([
+      "Week 1/worksheet.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("/tmp/Dr. Smith.pdf")).toEqual([
+      "/tmp/Dr. Smith.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("/Users/me/Smith, John/taxes.pdf")).toEqual([
+      "/Users/me/Smith, John/taxes.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("/Users/me/Desktop/Tom and Jerry.pdf")).toEqual([
+      "/Users/me/Desktop/Tom and Jerry.pdf",
+    ])
   })
 
   test("checks media availability through the typed object route", async () => {

@@ -211,8 +211,11 @@ async function resolveExistingFile(absolutePath: string) {
     throw error
   })
 
-  if (!stats?.isFile()) {
+  if (!stats) {
     throw new PresentedMediaValidationError(PROJECT_FILE_NOT_FOUND_ERROR)
+  }
+  if (!stats.isFile()) {
+    throw new PresentedMediaValidationError("Path is not a file")
   }
 
   return { realPath, stats }

@@ -1,4 +1,8 @@
 import { execFile } from "node:child_process"
+import { realpath, stat } from "node:fs/promises"
+import { homedir } from "node:os"
+import { dirname, isAbsolute, join, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import { app, BrowserWindow, Notification, clipboard, dialog, ipcMain, shell } from "electron"
 import type { IpcMainEvent, IpcMainInvokeEvent, WebContents } from "electron"
 import type {
@@ -321,6 +325,61 @@ export function registerIpcHandlers(deps: Deps) {
   ipcMain.handle("reveal-path", async (_event: IpcMainInvokeEvent, path: string) => {
     shell.showItemInFolder(path)
   })
+
+  ipcMain.handle(
+    "reveal-containing-folder",
+    async (_event: IpcMainInvokeEvent, directory: string, inputPath: string) => {
+      const sourcePath = inputPath.trim()
+      if (!sourcePath) throw new Error("File path is empty")
+      if (
+        process.platform === "win32"
+          ? (sourcePath.startsWith("/") && !sourcePath.startsWith("//")) ||
+            /^[A-Za-z]:(?![\\/])/u.test(sourcePath)
+          : /^[A-Za-z]:/u.test(sourcePath) ||
+            sourcePath.includes("\\") ||
+            sourcePath.startsWith("//") ||
+            /^file:\/\/(?:localhost)?\/[A-Za-z]:\//iu.test(sourcePath)
+      ) {
+        throw new Error("This file path belongs to another operating system")
+      }
+      const absolutePath = sourcePath.startsWith("file://")
+        ? fileURLToPath(sourcePath)
+        : sourcePath.startsWith("~/") || sourcePath.startsWith("~\\")
+          ? join(homedir(), sourcePath.slice(2))
+          : isAbsolute(sourcePath) && !(process.platform === "win32" && /^\\(?!\\)/u.test(sourcePath))
+            ? sourcePath
+            : resolve(directory, sourcePath)
+      if (
+        process.platform === "win32" &&
+        !/^[A-Za-z]:[\\/]/u.test(absolutePath) &&
+        !absolutePath.startsWith("\\\\")
+      ) {
+        throw new Error("This file path belongs to another operating system")
+      }
+      const parentPath = await realpath(dirname(absolutePath))
+      if (!(await stat(parentPath)).isDirectory()) {
+        throw new Error("Containing folder is unavailable")
+      }
+      if (process.platform === "darwin" && parentPath.toLowerCase().endsWith(".app")) {
+        throw new Error("Containing folder is an application bundle")
+      }
+      if (process.platform === "win32") {
+        const error = await shell.openPath(parentPath)
+        if (error) throw new Error(error)
+        return
+      }
+      const command =
+        process.platform === "darwin"
+          ? (["open", ["-a", "Finder", parentPath]] as const)
+          : (["xdg-open", [parentPath]] as const)
+      await new Promise<void>((resolveOpen, rejectOpen) => {
+        execFile(command[0], [...command[1]], (error) => {
+          if (error) rejectOpen(error)
+          else resolveOpen()
+        })
+      })
+    },
+  )
 
   ipcMain.handle("get-file-icon", async (_event: IpcMainInvokeEvent, path: string) => {
     const image = await app.getFileIcon(path, { size: FILE_ICON_SIZE })

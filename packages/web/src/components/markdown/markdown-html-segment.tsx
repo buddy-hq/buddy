@@ -3,13 +3,12 @@ import DOMPurify from "dompurify"
 import morphdom from "morphdom"
 import "katex/dist/katex.min.css"
 import "@/components/chat/tools/text-shimmer.css"
-import { resolveFileTypeIconUrl } from "@/components/files/file-type-icon"
+import { createFileTypeIconElement } from "@/components/files/file-type-icon"
 import { createAppIconElement, githubIconData, globeIconData } from "@/icons/app-icons"
 import { inAppBrowserOriginFaviconUrl } from "@/lib/in-app-browser-favicon"
 import { markdownFileLinkPath } from "@/lib/markdown-file-links"
 import {
   findPresentedMediaCandidateMatches,
-  isLikelyPresentedMediaPathCandidate,
   normalizePresentedMediaCandidatePath,
 } from "@/lib/presented-media"
 import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
@@ -208,12 +207,7 @@ function createPresentedMediaIcon(path: string) {
   icon.className = "pointer-events-none flex size-[1.17em] shrink-0 items-center justify-center"
 
   const fileName = presentedMediaLinkLabel(path)
-  const image = document.createElement("img")
-  image.setAttribute("alt", "")
-  image.setAttribute("aria-hidden", "true")
-  image.setAttribute("src", resolveFileTypeIconUrl({ fileName }))
-  image.className = "size-full object-contain"
-  icon.appendChild(image)
+  icon.appendChild(createFileTypeIconElement(fileName, "size-full object-contain"))
   return icon
 }
 
@@ -497,18 +491,7 @@ function markCodeLinks(root: HTMLDivElement) {
     if (code.closest("a")) continue
     const text = code.textContent ?? ""
     const href = codeUrl(text)
-    const filePath = isLikelyPresentedMediaPathCandidate(text)
-      ? normalizePresentedMediaCandidatePath(text)
-      : undefined
-
-    if (!href) {
-      if (!filePath) continue
-
-      const link = document.createElement("a")
-      code.parentNode?.replaceChild(link, code)
-      decoratePresentedMediaLink(link, filePath)
-      continue
-    }
+    if (!href) continue
 
     const link = document.createElement("a")
     link.href = href
