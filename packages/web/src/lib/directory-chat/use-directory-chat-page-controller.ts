@@ -708,6 +708,7 @@ export function useDirectoryChatPageController(
   async function onSelectSession(
     targetDirectory: string,
     nextSessionID?: string,
+    requireExactSession = false,
   ): Promise<boolean> {
     if (!targetDirectory) return false
     if (!nextSessionID) {
@@ -725,7 +726,13 @@ export function useDirectoryChatPageController(
         navigate: targetDirectory === decodedDirectory ? undefined : navigateToWorkspaceRoute,
       })
       if (result.outcome !== "committed" && result.outcome !== "noop") return false
-      if (result.value.outcome !== "requested" || result.value.sessionID !== nextSessionID) {
+      if (result.value.outcome !== "requested" && result.value.outcome !== "fallback") {
+        return false
+      }
+      if (
+        requireExactSession &&
+        (result.value.outcome !== "requested" || result.value.sessionID !== nextSessionID)
+      ) {
         return false
       }
       cs.clearUnread(targetDirectory, result.value.sessionID)
@@ -1853,7 +1860,8 @@ export function useDirectoryChatPageController(
 
   return {
     status: "ready",
-    selectSession: onSelectSession,
+    selectSession: (targetDirectory, targetSessionID) =>
+      onSelectSession(targetDirectory, targetSessionID, true),
     leftSidebarProps,
     mainPaneProps,
     shellProps,

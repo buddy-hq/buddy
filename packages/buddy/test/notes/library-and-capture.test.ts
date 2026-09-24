@@ -313,6 +313,7 @@ describe("Notes library and chat capture", () => {
       await fsp.mkdir(path.join(vault.path, "assets"))
       await fsp.writeFile(path.join(vault.path, "Lectures", "Week 1.md"), "# Week 1\n")
       await fsp.writeFile(path.join(vault.path, "Lectures", "local.png"), "local image")
+      await fsp.writeFile(path.join(vault.path, "Lectures", "vector.svg"), "<svg></svg>")
       await fsp.writeFile(path.join(vault.path, "assets", "Pasted image 1.png"), "pasted image")
       await fsp.writeFile(path.join(vault.path, "Lectures", "secret.txt"), "not an image")
       await fsp.writeFile(path.join(outside.path, "outside.png"), "outside image")
@@ -323,6 +324,11 @@ describe("Notes library and chat capture", () => {
       const local = await requestWeekOneImage("local.png")
       expect(local.status).toBe(200)
       expect(await local.text()).toBe("local image")
+      const vector = await requestWeekOneImage("vector.svg")
+      expect(vector.status).toBe(200)
+      expect(vector.headers.get("content-security-policy")).toBe("sandbox")
+      expect(vector.headers.get("x-content-type-options")).toBe("nosniff")
+      expect(await vector.text()).toBe("<svg></svg>")
       const byName = await requestWeekOneImage("Pasted image 1.png")
       expect(byName.status).toBe(200)
       expect(await byName.text()).toBe("pasted image")
@@ -767,6 +773,18 @@ describe("Notes library and chat capture", () => {
     expect(quoteOnly.content).toMatch(/^> \[!quote\]\+ /mu)
     expect(unsearchedPreview(annotated.content).startsWith("Entropy Entropy counts")).toBe(true)
     expect(unsearchedPreview(annotated.content)).not.toContain("[!quote]")
+  })
+
+  test("closes an unfinished source fence before the message link", () => {
+    const entry = renderSessionNoteEntry({
+      text: "My takeaway",
+      imageLinks: [],
+      capturedAt: new Date(2026, 0, 1, 12, 5),
+      source: { sessionID: "ses_1", messageID: "msg_1", text: "Example:\n```ts\nconst n = 1" },
+    })
+    expect(entry.content).toContain(
+      "> ```ts\n> const n = 1\n> ```\n>\n> [Open message](buddy://chat/ses_1?message=msg_1)",
+    )
   })
 
   test("saves an image-only capture into Attachments and rejects an empty capture", async () => {

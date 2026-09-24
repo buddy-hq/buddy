@@ -15,7 +15,7 @@ type ImageNameIndex = {
   pathsByName: Map<string, string[]>
 }
 
-let imageNameIndex: ImageNameIndex | undefined
+let imageNameIndex: { root: string; load: Promise<ImageNameIndex> } | undefined
 
 function decodeImageSource(src: string) {
   const withoutSuffix = src.trim().split(/[?#]/u, 1)[0] ?? ""
@@ -70,27 +70,39 @@ function closestFirst(noteDirectory: string, filepaths: readonly string[]) {
   })
 }
 
+function loadImageNameIndex(root: string, stale?: Promise<ImageNameIndex>) {
+  if (imageNameIndex?.root === root && imageNameIndex.load !== stale) {
+    return imageNameIndex.load
+  }
+  const load = collectImagesByName(root).then((pathsByName) => ({
+    root,
+    builtAt: Date.now(),
+    pathsByName,
+  }))
+  imageNameIndex = { root, load }
+  void load.catch(() => {
+    if (imageNameIndex?.load === load) imageNameIndex = undefined
+  })
+  return load
+}
+
 async function findImageByName(input: {
   root: string
   realRoot: string
   noteDirectory: string
   name: string
 }) {
+  let stale: Promise<ImageNameIndex> | undefined
   for (;;) {
-    const cached = imageNameIndex?.root === input.root ? imageNameIndex : undefined
-    const index = cached ?? {
-      root: input.root,
-      builtAt: Date.now(),
-      pathsByName: await collectImagesByName(input.root),
-    }
-    imageNameIndex = index
+    const loading = loadImageNameIndex(input.root, stale)
+    const index = await loading
     const candidates = index.pathsByName.get(input.name) ?? []
     for (const candidate of closestFirst(input.noteDirectory, candidates)) {
       const found = await existingImageInsideLibrary(input.realRoot, candidate)
       if (found) return found
     }
-    if (!cached || Date.now() - cached.builtAt < IMAGE_NAME_INDEX_REFRESH_MS) return undefined
-    imageNameIndex = undefined
+    if (stale || Date.now() - index.builtAt < IMAGE_NAME_INDEX_REFRESH_MS) return undefined
+    stale = loading
   }
 }
 

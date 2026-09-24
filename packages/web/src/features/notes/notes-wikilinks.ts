@@ -81,6 +81,7 @@ export function createNotesWikiLinkContext(input: {
     resolutions: noteResolutions(input.markdown, input.notes, input.documentPath),
     embeddedMarkdownLoader,
     resolveImageSrc: (path) => resolveNoteImageSrc({ notePath: input.documentPath, src: path }),
+    canOpenResolution: (resolution) => resolution.kind === "markdown",
     openResolution(resolution) {
       if (resolution.status !== "resolved" || !resolution.path) return
       const note = input.notes.find((candidate) => candidate.relativePath === resolution.path)

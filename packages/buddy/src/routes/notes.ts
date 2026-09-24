@@ -225,13 +225,16 @@ export const NotesRoutes = new Hono()
       notesTask(async () => {
         const query = c.req.valid("query")
         const filepath = await resolveNoteImage({ notePath: query.note, src: query.src })
-        return readRawFileResponse({
+        const response = await readRawFileResponse({
           absolutePath: filepath,
           downloadName: path.basename(filepath),
           includeBody: true,
           rangeHeader: c.req.header("range"),
           signal: c.req.raw.signal,
         })
+        response.headers.set("content-security-policy", "sandbox")
+        response.headers.set("x-content-type-options", "nosniff")
+        return response
       }),
   )
   .put(

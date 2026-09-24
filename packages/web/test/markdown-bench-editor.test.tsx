@@ -437,11 +437,13 @@ describe("MarkdownBenchEditor", () => {
     })
     expect(popupHost()?.hidden).toBe(false)
 
+    const host = popupHost()
+    expect(host).toBeDefined()
     await act(async () => {
       root.render(null)
       await flushEffects()
     })
-    expect(popupHost()).toBeUndefined()
+    expect(host?.isConnected).toBe(false)
   })
 
   test("commits a rendered document selection only after Cite is activated", async () => {

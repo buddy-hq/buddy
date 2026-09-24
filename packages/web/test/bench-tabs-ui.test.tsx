@@ -3,6 +3,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { BenchTabs } from "../src/components/bench/bench-tabs"
+import {
+  signalNoteCapture,
+  useNoteCaptureSignalStore,
+} from "../src/features/notes/capture-activity"
+import { notesQueryKeys } from "../src/features/notes/queries"
 import { upsertBenchTab } from "../src/lib/bench-tabs"
 import type { BenchTarget } from "../src/lib/bench-navigation"
 import {
@@ -36,9 +41,55 @@ afterEach(async () => {
   root = undefined
   container = undefined
   useInAppBrowserTabsStore.setState({ byTabID: {} })
+  useNoteCaptureSignalStore.setState({ signal: undefined })
 })
 
 describe("BenchTabs", () => {
+  test("marks an older path-keyed Notes tab stale after an ID-bearing capture", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(notesQueryKeys.library("/workspace"), {
+      directory: "/notes",
+      activeNotebookID: "notebook-1",
+      notes: [],
+    })
+    const notes = upsertBenchTab([], {
+      type: "workspace-file",
+      root: "notes",
+      path: "Topic.md",
+      viewer: "markdown",
+    })
+    const tabs = upsertBenchTab(notes.tabs, FIRST_TARGET).tabs
+    const renderTabs = (activeTabKey: string | null) => (
+      <QueryClientProvider client={queryClient}>
+        <BenchTabs
+          directory="/workspace"
+          tabs={tabs}
+          activeTabKey={activeTabKey}
+          onActivate={() => undefined}
+          onClose={() => undefined}
+          onCloseOthers={() => undefined}
+          onCloseToRight={() => undefined}
+          onCloseAll={() => undefined}
+        />
+      </QueryClientProvider>
+    )
+    await act(async () => root?.render(renderTabs(tabs[1]?.key ?? null)))
+    await act(async () => {
+      signalNoteCapture({ directory: "/workspace", relativePath: "Topic.md", id: "note-1" })
+    })
+    expect(
+      container.querySelector(
+        '[data-tab-key="file:notes:markdown:Topic.md"] [data-component="bench-tab-stale"]',
+      ),
+    ).not.toBeNull()
+    await act(async () => root?.render(renderTabs(notes.activeTabKey)))
+    expect(container.querySelector('[data-component="bench-tab-stale"]')).toBeNull()
+  })
+
   test("renders ordered tabs and supports focus, close, and middle-click close", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")

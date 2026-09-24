@@ -267,9 +267,12 @@ function useStaleNoteTabKeys(input: {
   const relativePath = signal?.relativePath
   const noteID = signal?.id
   const [staleTabKeys, setStaleTabKeys] = useState<ReadonlySet<string>>(EMPTY_TAB_KEYS)
-  const capturedTabKey = useMemo(() => {
-    if (!relativePath) return undefined
-    return benchTabKey(createNotesBenchTarget({ relativePath, id: noteID }))
+  const capturedTabKeys = useMemo(() => {
+    if (!relativePath) return []
+    const pathKey = benchTabKey(createNotesBenchTarget({ relativePath }))
+    return noteID
+      ? [benchTabKey(createNotesBenchTarget({ relativePath, id: noteID })), pathKey]
+      : [pathKey]
   }, [noteID, relativePath])
 
   // Read through refs so the effect fires on the capture alone. Depending on the
@@ -281,13 +284,16 @@ function useStaleNoteTabKeys(input: {
   activeTabKeyRef.current = input.activeTabKey
 
   useEffect(() => {
-    if (!nonce || !capturedTabKey) return
-    if (capturedTabKey === activeTabKeyRef.current) return
-    if (!tabsRef.current.some((tab) => tab.key === capturedTabKey)) return
-    setStaleTabKeys((current) =>
-      current.has(capturedTabKey) ? current : new Set(current).add(capturedTabKey),
+    if (!nonce) return
+    const openKeys = capturedTabKeys.filter(
+      (key) => key !== activeTabKeyRef.current && tabsRef.current.some((tab) => tab.key === key),
     )
-  }, [capturedTabKey, nonce])
+    if (openKeys.length === 0) return
+    setStaleTabKeys((current) => {
+      if (openKeys.every((key) => current.has(key))) return current
+      return new Set([...current, ...openKeys])
+    })
+  }, [capturedTabKeys, nonce])
 
   const activeTabKey = input.activeTabKey
   useEffect(() => {

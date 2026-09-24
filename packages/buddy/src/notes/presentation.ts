@@ -45,7 +45,7 @@ export function noteMessageExcerpt(content: string, length = QUOTE_LENGTH): stri
 
 function quotedMessageBody(markdown: string) {
   let fence: string | undefined
-  return markdown
+  const lines = markdown
     .trim()
     .split(/\r?\n/u)
     .map((line) => {
@@ -66,8 +66,8 @@ function quotedMessageBody(markdown: string) {
       }
       return line.replace(MARKDOWN_HEADING, "**$1**")
     })
-    .map((line) => (line.trim() ? `> ${line}` : ">"))
-    .join("\n")
+  if (fence) lines.push(fence)
+  return lines.map((line) => (line.trim() ? `> ${line}` : ">")).join("\n")
 }
 
 function renderMessageQuote(input: {
