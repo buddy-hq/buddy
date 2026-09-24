@@ -346,7 +346,8 @@ export function registerIpcHandlers(deps: Deps) {
         ? fileURLToPath(sourcePath)
         : sourcePath.startsWith("~/") || sourcePath.startsWith("~\\")
           ? join(homedir(), sourcePath.slice(2))
-          : isAbsolute(sourcePath) && !(process.platform === "win32" && /^\\(?!\\)/u.test(sourcePath))
+          : isAbsolute(sourcePath) &&
+              !(process.platform === "win32" && /^\\(?!\\)/u.test(sourcePath))
             ? sourcePath
             : resolve(directory, sourcePath)
       if (

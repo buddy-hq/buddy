@@ -86,57 +86,51 @@ describe("presented media path helpers", () => {
     expect(collectPresentedMediaCandidatePaths("score / 5. see /tmp/report.pdf")).toEqual([
       "/tmp/report.pdf",
     ])
-    expect(collectPresentedMediaCandidatePaths("See ../output and then read notes.pdf")).toEqual(
-      [],
-    )
+    expect(collectPresentedMediaCandidatePaths("See ../output and then read notes.pdf")).toEqual([])
     expect(collectPresentedMediaCandidatePaths("See /tmp/foo.bar, then open baz.pdf")).toEqual([
       "/tmp/foo.bar",
     ])
     expect(collectPresentedMediaCandidatePaths("See /tmp/report.final.pdf.")).toEqual([
       "/tmp/report.final.pdf",
     ])
-    expect(
-      collectPresentedMediaCandidatePaths("Open /tmp/notes then check report.pdf"),
-    ).toEqual([])
+    expect(collectPresentedMediaCandidatePaths("Open /tmp/notes then check report.pdf")).toEqual([])
     expect(
       collectPresentedMediaCandidatePaths(
         "Saved to /Users/me/Desktop/draft; the final file is report.pdf",
       ),
     ).toEqual([])
-    expect(collectPresentedMediaCandidatePaths("see //cdn.example.com/worksheet.pdf")).toEqual(
-      [],
-    )
+    expect(collectPresentedMediaCandidatePaths("see //cdn.example.com/worksheet.pdf")).toEqual([])
     expect(collectPresentedMediaCandidatePaths("tmp/report.pdf")).toEqual([])
     expect(collectPresentedMediaCandidatePaths("var/folders/ab/file.pdf")).toEqual([
       "var/folders/ab/file.pdf",
     ])
-    expect(
-      collectPresentedMediaCandidatePaths("/Users/me/Downloads/report (1).pdf"),
-    ).toEqual(["/Users/me/Downloads/report (1).pdf"])
+    expect(collectPresentedMediaCandidatePaths("/Users/me/Downloads/report (1).pdf")).toEqual([
+      "/Users/me/Downloads/report (1).pdf",
+    ])
     expect(
       collectPresentedMediaCandidatePaths("C:\\Program Files (x86)\\Adobe\\Reader.pdf"),
     ).toEqual(["C:\\Program Files (x86)\\Adobe\\Reader.pdf"])
     expect(
       collectPresentedMediaCandidatePaths("file:///tmp/missing.pdf ~/Downloads/missing.pdf"),
     ).toEqual(["file:///tmp/missing.pdf", "~/Downloads/missing.pdf"])
-    expect(
-      collectPresentedMediaCandidatePaths("Saved to \\Users\\buddy\\worksheet.pdf."),
-    ).toEqual(["\\Users\\buddy\\worksheet.pdf"])
-    expect(
-      collectPresentedMediaCandidatePaths("Open \\\\server\\share\\report.pdf"),
-    ).toEqual(["\\\\server\\share\\report.pdf"])
+    expect(collectPresentedMediaCandidatePaths("Saved to \\Users\\buddy\\worksheet.pdf.")).toEqual([
+      "\\Users\\buddy\\worksheet.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("Open \\\\server\\share\\report.pdf")).toEqual([
+      "\\\\server\\share\\report.pdf",
+    ])
     expect(collectPresentedMediaCandidatePaths("generated/report (1).pdf")).toEqual([
       "generated/report (1).pdf",
     ])
     expect(collectPresentedMediaCandidatePaths("./artifacts/report (1).pdf")).toEqual([
       "./artifacts/report (1).pdf",
     ])
-    expect(
-      collectPresentedMediaCandidatePaths("Open generated/report (1).pdf please"),
-    ).toEqual(["generated/report (1).pdf"])
-    expect(
-      collectPresentedMediaCandidatePaths("See (generated/report (1).pdf)"),
-    ).toEqual(["generated/report (1).pdf"])
+    expect(collectPresentedMediaCandidatePaths("Open generated/report (1).pdf please")).toEqual([
+      "generated/report (1).pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("See (generated/report (1).pdf)")).toEqual([
+      "generated/report (1).pdf",
+    ])
     expect(collectPresentedMediaCandidatePaths("Week 1/worksheet.pdf")).toEqual([
       "Week 1/worksheet.pdf",
     ])
@@ -155,6 +149,10 @@ describe("presented media path helpers", () => {
     expect(collectPresentedMediaCandidatePaths("/Users/me/Desktop/Tom and Jerry.pdf")).toEqual([
       "/Users/me/Desktop/Tom and Jerry.pdf",
     ])
+  })
+
+  test("bounds path scanning on oversized assistant text", () => {
+    expect(collectPresentedMediaCandidatePaths(`${"a/b ".repeat(2000)}x.pdf`)).toEqual([])
   })
 
   test("checks media availability through the typed object route", async () => {

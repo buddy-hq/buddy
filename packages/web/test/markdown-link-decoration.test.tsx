@@ -211,8 +211,8 @@ describe("markdown link decoration", () => {
     expect(dialog?.textContent).toContain("/tmp/missing-report.pdf")
     expect(dialog?.textContent).toContain("Copy path")
 
-    const showFolder = Array.from(dialog?.querySelectorAll("button") ?? []).find(
-      (button) => button.textContent?.includes("Reveal in Finder"),
+    const showFolder = Array.from(dialog?.querySelectorAll("button") ?? []).find((button) =>
+      button.textContent?.includes("Reveal in Finder"),
     )
     await act(async () => {
       showFolder?.click()
@@ -262,8 +262,8 @@ describe("markdown link decoration", () => {
         await flushEffects()
       })
       const dialog = document.querySelector('[role="alertdialog"]')
-      const showFolder = Array.from(dialog?.querySelectorAll("button") ?? []).find(
-        (button) => button.textContent?.includes("Reveal in Finder"),
+      const showFolder = Array.from(dialog?.querySelectorAll("button") ?? []).find((button) =>
+        button.textContent?.includes("Reveal in Finder"),
       )
       expect(showFolder).toBeDefined()
       await act(async () => {

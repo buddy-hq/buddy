@@ -6,22 +6,30 @@ import { fileNameFromPath, normalizeRelativePath } from "./workspace-file-paths"
 
 export const MAX_INLINE_PRESENTED_MEDIA_BYTES = 512 * 1024 * 1024
 
+const MAX_PRESENTED_MEDIA_TEXT_LENGTH = 2048
 const LOCAL_MEDIA_EXTENSION_PATTERN = String.raw`(?:[a-z0-9][a-z0-9_+-]{0,15})`
+const PRESENTED_MEDIA_EXTENSION_REGEX = new RegExp(
+  String.raw`\.${LOCAL_MEDIA_EXTENSION_PATTERN}(?=$|[\s)\]}>'",;:!?]|\.(?=\s|$))`,
+  "iu",
+)
 const MEDIA_PARENTHESIZED_PATTERN = String.raw`\([^()\r\n]*\)`
 const LOCAL_MEDIA_FILENAME_PATTERN = String.raw`(?:[^\r\n/\\>'"()]|${MEDIA_PARENTHESIZED_PATTERN})+\.${LOCAL_MEDIA_EXTENSION_PATTERN}`
-const LOCAL_MEDIA_CANDIDATE_PATTERN = String.raw`(?:file:\/\/[^\r\n>'"]*[\\/]${LOCAL_MEDIA_FILENAME_PATTERN}|~[\\/][^\r\n>'"]*[\\/]${LOCAL_MEDIA_FILENAME_PATTERN}|(?:[A-Za-z]:[\\/]|\/)[^\r\n>'"]*[\\/]${LOCAL_MEDIA_FILENAME_PATTERN}|(?:\.\.?[\\/]|[^\s\r\n/\\>'"()\[\]]+[\\/])[^\r\n>'"()]*[\\/]?${LOCAL_MEDIA_FILENAME_PATTERN})`
+const LOCAL_MEDIA_DIRECTORY_PATTERN = String.raw`(?:[^\r\n/\\>'"]*[\\/])*`
+const LOCAL_MEDIA_CANDIDATE_PATTERN = String.raw`(?:file:\/\/|~[\\/]|[A-Za-z]:[\\/]|\/|\.\.?[\\/]|[^\s\r\n/\\>'"()\[\]]+[\\/])${LOCAL_MEDIA_DIRECTORY_PATTERN}${LOCAL_MEDIA_FILENAME_PATTERN}`
 const LOCAL_MEDIA_CANDIDATE_REGEX = new RegExp(LOCAL_MEDIA_CANDIDATE_PATTERN, "giu")
 const LOCAL_MEDIA_CANDIDATE_EXACT_REGEX = new RegExp(`^(?:${LOCAL_MEDIA_CANDIDATE_PATTERN})$`, "iu")
-const NAMED_DIRECTORY_CANDIDATE_PATTERN = String.raw`[^\s\r\n/\\>'"()\[\]]+[ \t](?:[0-9]+|\([^()\r\n]+\)|\[[^\[\]\r\n]+\])[\\/][^\r\n>'"]*[\\/]?${LOCAL_MEDIA_FILENAME_PATTERN}`
+const NAMED_DIRECTORY_CANDIDATE_PATTERN = String.raw`[^\s\r\n/\\>'"()\[\]]+[ \t](?:[0-9]+|\([^()\r\n]+\)|\[[^\[\]\r\n]+\])[\\/]${LOCAL_MEDIA_DIRECTORY_PATTERN}${LOCAL_MEDIA_FILENAME_PATTERN}`
 const NAMED_DIRECTORY_CANDIDATE_REGEX = new RegExp(NAMED_DIRECTORY_CANDIDATE_PATTERN, "giu")
 const NAMED_DIRECTORY_CANDIDATE_EXACT_REGEX = new RegExp(
   `^(?:${NAMED_DIRECTORY_CANDIDATE_PATTERN})$`,
   "iu",
 )
 const EXTERNAL_MEDIA_PROSE_BOUNDARY_PATTERN = String.raw`(?:(?<!Dr)(?<!Mr)(?<!Ms)(?<!Mrs)\.[ \t]|,[ \t](?![A-Z][^\s/\\]*[\\/])|[;:!?][ \t]|[ \t](?:and(?![ \t][A-Z][a-z]+\.${LOCAL_MEDIA_EXTENSION_PATTERN})|then|before|after|please|but|or|so|because)[ \t])`
-const EXTERNAL_MEDIA_CHARACTER_PATTERN = String.raw`(?:(?!${EXTERNAL_MEDIA_PROSE_BOUNDARY_PATTERN})[^\r\n>'"()]|${MEDIA_PARENTHESIZED_PATTERN})`
-const EXTERNAL_MEDIA_FILENAME_PATTERN = String.raw`(?:(?!${EXTERNAL_MEDIA_PROSE_BOUNDARY_PATTERN})[^\r\n/\\>'"()]|${MEDIA_PARENTHESIZED_PATTERN})+?\.${LOCAL_MEDIA_EXTENSION_PATTERN}`
-const EXTERNAL_MEDIA_CANDIDATE_PATTERN = String.raw`(?:file:\/\/|~[\\/]|[A-Za-z]:[\\/]|\/(?!\/)|\.\.[\\/]|[\\]{1,2})(?![ \t])${EXTERNAL_MEDIA_CHARACTER_PATTERN}*?${EXTERNAL_MEDIA_FILENAME_PATTERN}(?=$|[\s)\]}>'",;:!?]|\.(?=\s|$))`
+const EXTERNAL_MEDIA_BOUNDARY_PATTERN = String.raw`(?:${EXTERNAL_MEDIA_PROSE_BOUNDARY_PATTERN}|[ \t](?:file:\/\/|~[\\/]|[A-Za-z]:[\\/]|[\\/]|\.\.[\\/]))`
+const EXTERNAL_MEDIA_DIRECTORY_CHARACTER_PATTERN = String.raw`(?:(?!${EXTERNAL_MEDIA_BOUNDARY_PATTERN})[^\r\n/\\>'"()]|${MEDIA_PARENTHESIZED_PATTERN})`
+const EXTERNAL_MEDIA_DIRECTORY_PATTERN = String.raw`(?:${EXTERNAL_MEDIA_DIRECTORY_CHARACTER_PATTERN}*[\\/])*`
+const EXTERNAL_MEDIA_FILENAME_PATTERN = String.raw`(?:(?!${EXTERNAL_MEDIA_BOUNDARY_PATTERN})[^\r\n/\\>'"()]|${MEDIA_PARENTHESIZED_PATTERN})+?\.${LOCAL_MEDIA_EXTENSION_PATTERN}`
+const EXTERNAL_MEDIA_CANDIDATE_PATTERN = String.raw`(?:file:\/\/|~[\\/]|[A-Za-z]:[\\/]|\/(?!\/)|\.\.[\\/]|[\\]{1,2})(?![ \t])${EXTERNAL_MEDIA_DIRECTORY_PATTERN}${EXTERNAL_MEDIA_FILENAME_PATTERN}(?=$|[\s)\]}>'",;:!?]|\.(?=\s|$))`
 const EXTERNAL_MEDIA_CANDIDATE_REGEX = new RegExp(EXTERNAL_MEDIA_CANDIDATE_PATTERN, "giu")
 const EXTERNAL_MEDIA_CANDIDATE_EXACT_REGEX = new RegExp(
   `^(?:${EXTERNAL_MEDIA_CANDIDATE_PATTERN})$`,
@@ -29,7 +37,8 @@ const EXTERNAL_MEDIA_CANDIDATE_EXACT_REGEX = new RegExp(
 )
 const LOCAL_MEDIA_CANDIDATE_PREFIX_BOUNDARY_REGEX = /[\s([{"'`:,;=-]/u
 const LOCAL_MEDIA_CANDIDATE_SUFFIX_BOUNDARY_REGEX = /[\s)\]}>'"`.,;:!?]/u
-const EMBEDDED_EXTERNAL_PATH_PREFIX_REGEX = /[ \t](?:file:\/\/|~[\\/]|[A-Za-z]:[\\/]|[\\/]|\.\.[\\/])/iu
+const EMBEDDED_EXTERNAL_PATH_PREFIX_REGEX =
+  /[ \t](?:file:\/\/|~[\\/]|[A-Za-z]:[\\/]|[\\/]|\.\.[\\/])/iu
 const NOISY_PRESENTED_MEDIA_SEGMENTS = [
   ".git/",
   ".next/",
@@ -252,17 +261,30 @@ export function collectPresentedMediaCandidatePaths(text: string) {
 }
 
 export function findPresentedMediaCandidateMatches(text: string) {
-  const namedDirectoryMatches = Array.from(text.matchAll(NAMED_DIRECTORY_CANDIDATE_REGEX), (match) => {
-    const candidate = normalizePresentedMediaCandidatePath(match[0])
-    const startIndex = match.index ?? 0
-    const endIndex = startIndex + match[0].length
-    const before = startIndex > 0 ? text[startIndex - 1] : ""
-    const after = endIndex < text.length ? text[endIndex] : ""
-    if (before && !LOCAL_MEDIA_CANDIDATE_PREFIX_BOUNDARY_REGEX.test(before)) return null
-    if (after && !LOCAL_MEDIA_CANDIDATE_SUFFIX_BOUNDARY_REGEX.test(after)) return null
-    if (!candidate || !isLikelyPresentedMediaPathCandidate(candidate)) return null
-    return { path: candidate, start: startIndex, end: endIndex }
-  }).filter((match): match is { path: string; start: number; end: number } => Boolean(match))
+  // Assistant text is untrusted; keep regex work bounded on long text nodes.
+  if (
+    text.length > MAX_PRESENTED_MEDIA_TEXT_LENGTH ||
+    !PRESENTED_MEDIA_EXTENSION_REGEX.test(text)
+  ) {
+    return []
+  }
+
+  const namedDirectoryMatches = Array.from(
+    text.matchAll(NAMED_DIRECTORY_CANDIDATE_REGEX),
+    (match) => {
+      const candidate = normalizePresentedMediaCandidatePath(match[0])
+      const startIndex = match.index ?? 0
+      const endIndex = startIndex + match[0].length
+      const before = startIndex > 0 ? text[startIndex - 1] : ""
+      const after = endIndex < text.length ? text[endIndex] : ""
+      if (before && !LOCAL_MEDIA_CANDIDATE_PREFIX_BOUNDARY_REGEX.test(before)) return null
+      if (after && !LOCAL_MEDIA_CANDIDATE_SUFFIX_BOUNDARY_REGEX.test(after)) return null
+      if (!candidate || !isLikelyPresentedMediaPathCandidate(candidate)) {
+        return null
+      }
+      return { path: candidate, start: startIndex, end: endIndex }
+    },
+  ).filter((match): match is { path: string; start: number; end: number } => Boolean(match))
 
   const externalMatches = Array.from(text.matchAll(EXTERNAL_MEDIA_CANDIDATE_REGEX), (match) => {
     const candidate = normalizePresentedMediaCandidatePath(match[0])
@@ -302,13 +324,17 @@ export function findPresentedMediaCandidateMatches(text: string) {
     if (before && !LOCAL_MEDIA_CANDIDATE_PREFIX_BOUNDARY_REGEX.test(before)) return null
     if (after && !LOCAL_MEDIA_CANDIDATE_SUFFIX_BOUNDARY_REGEX.test(after)) return null
     if (isExternalPath(match[0]) || EMBEDDED_EXTERNAL_PATH_PREFIX_REGEX.test(match[0])) return null
-    if (externalMatches.some((external) => startIndex < external.end && endIndex > external.start)) {
+    if (
+      externalMatches.some((external) => startIndex < external.end && endIndex > external.start)
+    ) {
       return null
     }
     if (relativeNamedMatches.some((named) => startIndex < named.end && endIndex > named.start)) {
       return null
     }
-    if (!candidate || !isLikelyPresentedMediaPathCandidate(candidate)) return null
+    if (!candidate || !isLikelyPresentedMediaPathCandidate(candidate)) {
+      return null
+    }
 
     return { path: candidate, start: startIndex, end: endIndex }
   }).filter((match): match is { path: string; start: number; end: number } => Boolean(match))

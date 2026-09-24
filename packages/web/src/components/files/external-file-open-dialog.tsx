@@ -18,8 +18,7 @@ export function ExternalFileOpenDialog() {
   const request = useExternalFileOpenDialogStore((state) => state.request)
   const resolveRequest = useExternalFileOpenDialogStore((state) => state.resolveRequest)
   const missing = request?.kind === "missing"
-  const folderLabel =
-    platform.os === "macos" ? "Reveal in Finder" : "Reveal in File Explorer"
+  const folderLabel = platform.os === "macos" ? "Reveal in Finder" : "Reveal in File Explorer"
 
   return (
     <AlertDialog
@@ -41,8 +40,8 @@ export function ExternalFileOpenDialog() {
             {missing
               ? "Buddy couldn't find the linked file at this path:"
               : request
-              ? `${fileNameFromPath(request.path) || request.path} is at ${request.path}. Buddy will show it read-only.`
-              : "Buddy will show this file read-only."}
+                ? `${fileNameFromPath(request.path) || request.path} is at ${request.path}. Buddy will show it read-only.`
+                : "Buddy will show this file read-only."}
           </AlertDialogDescription>
           {missing ? (
             <p className="min-w-0 break-all rounded-md bg-surface-weak p-3 font-mono text-xs text-text-base">
