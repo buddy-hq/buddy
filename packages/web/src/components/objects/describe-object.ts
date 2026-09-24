@@ -5,6 +5,7 @@ import {
   Layers3Icon,
   ListChecksIcon,
   MessageSquareTextIcon,
+  NoteIcon,
   PanelsTopLeftIcon,
   PresentationIcon,
   WorkflowIcon,
@@ -15,6 +16,7 @@ import { language } from "@/context/language"
 import type { BenchTarget } from "@/lib/bench-targets"
 import { classifyWorkspaceMedia, type WorkspaceMediaKind } from "@/lib/workspace-file-media"
 import {
+  OBJECT_KIND_NOTE,
   OBJECT_KIND_THREAD,
   OBJECT_KIND_WORKSPACE_FILE,
   OBJECT_THUMBNAIL_FILE_TYPE,
@@ -45,6 +47,7 @@ const OBJECT_GLYPH = {
   "flashcard-deck": Layers3Icon,
   [OBJECT_KIND_WORKSPACE_FILE]: FileTextIcon,
   [OBJECT_KIND_THREAD]: MessageSquareTextIcon,
+  [OBJECT_KIND_NOTE]: NoteIcon,
 } satisfies Record<ObjectPresentationKind, AppIcon>
 
 const OBJECT_KIND_LABEL_KEY = {
@@ -59,6 +62,7 @@ const OBJECT_KIND_LABEL_KEY = {
   "flashcard-deck": "objectPresentation.kind.flashcardDeck",
   [OBJECT_KIND_WORKSPACE_FILE]: "objectPresentation.kind.workspaceFile",
   [OBJECT_KIND_THREAD]: "objectPresentation.kind.thread",
+  [OBJECT_KIND_NOTE]: "objectPresentation.kind.note",
 } satisfies Record<ObjectPresentationKind, string>
 
 /**

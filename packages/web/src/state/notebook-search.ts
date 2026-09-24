@@ -4,6 +4,7 @@ import type { BenchObjectKind } from "@/lib/bench-navigation"
 import type { ResourceFileExtension, ResourceViewStatus } from "@/state/resources-query"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { parseSubagentSession } from "@/lib/session-family"
+import { listNotes, type NoteSummary } from "@/features/notes/api"
 
 export const NOTEBOOK_SEARCH_MIN_QUERY_LENGTH = 2
 export const NOTEBOOK_SEARCH_MAX_QUERY_LENGTH = 200
@@ -21,6 +22,7 @@ export const NOTEBOOK_SEARCH_RESULT_KINDS = [
   "creation",
   "practice",
   "board",
+  "note",
   "file",
 ] as const
 
@@ -38,6 +40,7 @@ export type NotebookSearchTarget =
       status?: ResourceViewStatus
     }
   | { type: "file"; path: string; viewer: "markdown" | "file" }
+  | { type: "note"; relativePath: string; id?: string }
 
 export type NotebookSearchResourceVisual = {
   extension: ResourceFileExtension
@@ -58,8 +61,9 @@ export type NotebookSearchResult = {
 export type RemoteNotebookSearchResult = {
   sessions: SessionInfo[]
   files: string[]
+  notes: NoteSummary[]
   fileScanPartial: boolean
-  failedProviders: Array<"threads" | "files">
+  failedProviders: Array<"threads" | "files" | "notes">
 }
 
 type ScoredNotebookSearchResult = {
@@ -191,6 +195,7 @@ export async function searchRemoteNotebookEntities(input: {
     return {
       sessions: [],
       files: [],
+      notes: [],
       fileScanPartial: false,
       failedProviders: [],
     }
@@ -222,8 +227,15 @@ export async function searchRemoteNotebookEntities(input: {
       { signal: input.signal },
     )
     .then(requireBuddyData)
+  const noteRequest = listNotes(input.directory, query, input.signal).then(
+    (library) => library.notes,
+  )
 
-  const [sessionResult, fileResult] = await Promise.allSettled([sessionRequest, fileRequest])
+  const [sessionResult, fileResult, noteResult] = await Promise.allSettled([
+    sessionRequest,
+    fileRequest,
+    noteRequest,
+  ])
   if (input.signal.aborted) {
     const reason = input.signal.reason
     throw reason instanceof Error ? reason : new DOMException("Search aborted", "AbortError")
@@ -232,10 +244,12 @@ export async function searchRemoteNotebookEntities(input: {
   const failedProviders: RemoteNotebookSearchResult["failedProviders"] = []
   if (sessionResult.status === "rejected") failedProviders.push("threads")
   if (fileResult.status === "rejected") failedProviders.push("files")
+  if (noteResult.status === "rejected") failedProviders.push("notes")
 
   return {
     sessions: sessionResult.status === "fulfilled" ? sessionResult.value : [],
     files: fileResult.status === "fulfilled" ? fileResult.value.matches : [],
+    notes: noteResult.status === "fulfilled" ? noteResult.value : [],
     fileScanPartial: fileResult.status === "fulfilled" ? fileResult.value.partial : false,
     failedProviders,
   }

@@ -1,4 +1,5 @@
 import { useLocation } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
 import {
   useCallback,
   useEffect,
@@ -97,6 +98,7 @@ import {
   waitForInAppBrowserSettingsHydration,
 } from "@/state/in-app-browser-settings-store"
 import { createNoteAndUpdateCache } from "@/features/notes/create-note"
+import { sessionNoteQueryOptions } from "@/features/notes/queries"
 
 type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
 type DirectoryWorkspaceBenchRuntimeState = Omit<BenchRuntimeState, "target"> & {
@@ -227,6 +229,11 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const { controller } = props
   const currentDirectory = controller.mainPaneProps.directory
   const activeSessionID = controller.mainPaneProps.chatState.sessionID
+  const sessionNoteQuery = useQuery({
+    ...sessionNoteQueryOptions(activeSessionID ?? ""),
+    enabled: Boolean(activeSessionID),
+  })
+  const currentChatNote = activeSessionID ? sessionNoteQuery.data?.note : undefined
   const openSubagentBench = useOpenSubagentBench()
   const [transientBenchSurface, setTransientBenchSurface] = useState<TransientBenchSurface | null>(
     null,
@@ -732,6 +739,14 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         toast.error(error instanceof Error ? error.message : "Note could not be created.")
       })
   }, [currentDirectory, openWorkspaceTarget])
+  const handleOpenChatNote = useCallback(() => {
+    if (!currentChatNote) return
+    void openWorkspaceTarget({
+      type: "object",
+      directory: currentDirectory,
+      target: createNotesBenchTarget(currentChatNote),
+    })
+  }, [currentChatNote, currentDirectory, openWorkspaceTarget])
 
   const selectWorkspaceSession = useCallback(
     async (nextSessionID: string): Promise<boolean> => {
@@ -1049,6 +1064,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                     parentSession: chatState.parentSession,
                     isTurnActive: chatState.isTurnActive,
                     onNewSession: handleNewSession,
+                    onOpenNote: currentChatNote ? handleOpenChatNote : undefined,
                     onSelectSession: handleSelectSession,
                   }
                 : undefined
@@ -1094,6 +1110,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         activeSessionID={chatState.sessionID}
         parentSession={chatState.parentSession}
         onNewSession={handleNewSession}
+        onOpenNote={currentChatNote ? handleOpenChatNote : undefined}
         onSelectSession={handleSelectSession}
       />
     </TransientBenchSurfaceProvider>

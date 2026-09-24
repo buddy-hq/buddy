@@ -52,6 +52,7 @@ type DesktopTitlebarProps = {
   linkedSessionID?: string
   parentSession?: SessionInfo
   onNewSession?: () => void | Promise<void>
+  onOpenNote?: () => void
   onSelectSession?: (sessionID: string) => void | Promise<void>
   showDockFloatingBench?: boolean
   showSidebarToggles?: boolean
@@ -146,6 +147,12 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const isDesktop = platform.platform === "desktop"
   const isMac = isDesktop && platform.os === "macos"
   const isWindows = isDesktop && platform.os === "windows"
+  const chatOpenNoteInset =
+    isDesktop && !(props.rightWorkspaceOpen ?? false)
+      ? isWindows
+        ? WINDOWS_CHAT_TITLEBAR_RIGHT_CONTROLS_INSET_PX
+        : RIGHT_WORKSPACE_RAIL_WIDTH_PX
+      : 0
   const pathname = location.pathname
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
@@ -595,6 +602,22 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                 </h1>
               ) : null}
               <div className="min-w-0 flex-1" />
+              {props.onOpenNote ? (
+                <div
+                  className="flex shrink-0 items-center px-1"
+                  style={{ marginRight: chatOpenNoteInset }}
+                >
+                  <ThreadActionPill
+                    sessions={[]}
+                    onSelectSession={() => undefined}
+                    onOpenNote={props.onOpenNote}
+                    showHistory={false}
+                    chrome="plain"
+                    size="titlebar"
+                    className="[-webkit-app-region:no-drag]"
+                  />
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="min-w-0 flex-1" />

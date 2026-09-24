@@ -4,7 +4,7 @@ import {
   isMarkdownBenchPath,
   markdownBenchDocumentFormatFromPath,
 } from "@buddy/workspace-file-policy"
-import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
+import { BenchViewerShell, type BenchViewerAction } from "@/components/bench/bench-viewer-shell"
 import { useOnBenchSurfaceActivated } from "@/components/bench/bench-surface-activity"
 import { MarkdownBenchAgentEditWatcher } from "@/components/bench/markdown/agent-edit-watcher"
 import {
@@ -51,6 +51,7 @@ import {
   useOpenBench,
   type BenchTarget,
 } from "@/lib/bench-navigation"
+import { BENCH_WORKSPACE_ROOT_NOTES, benchTargetKey } from "@/lib/bench-targets"
 import type { ProjectExplorerEditableFileState } from "@/state/chat-actions"
 import { benchSurfaceUiKey } from "@/state/bench-surface-ui-state"
 import {
@@ -70,6 +71,10 @@ export type MarkdownBenchDocument = {
   io?: MarkdownBenchDocumentIO
   placeholder?: ReactNode
   properties?: readonly MarkdownBenchProperty[]
+  actions?: BenchViewerAction[]
+  openLink?(href: string): boolean
+  resolveImageSrc?(src: string): string
+  selectTitleOnOpen?: boolean
   createWikiLinkContext?(markdown: string): ObsidianWikiLinkContext
   renameTitle?: MarkdownBenchRenameTitle
 }
@@ -83,10 +88,14 @@ type MarkdownBenchPageProps = {
 type MarkdownBenchDockPanel = "advanced-tools" | "file-info" | undefined
 
 export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
-  const fileKey = workspaceFileInstanceKey({
-    directory: props.document.storageDirectory,
-    path: props.document.path,
-  })
+  const target = props.document.target
+  const fileKey =
+    target?.type === "workspace-file" && target.root === BENCH_WORKSPACE_ROOT_NOTES && target.id
+      ? benchTargetKey(target)
+      : workspaceFileInstanceKey({
+          directory: props.document.storageDirectory,
+          path: props.document.path,
+        })
 
   return <MarkdownBenchPageInstance key={fileKey} {...props} />
 }
@@ -166,7 +175,12 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     path: location.path,
     title,
   })
-  const actions = useMarkdownBenchActions({ file, exporting, exportPdf })
+  const documentActions = benchDocument.actions
+  const fileActions = useMarkdownBenchActions({ file, exporting, exportPdf })
+  const actions = useMemo(
+    () => [...(documentActions ?? []), ...fileActions],
+    [documentActions, fileActions],
+  )
   const wikiLinkContext = useMarkdownBenchWikiLinkContext({
     directory: props.directory,
     storageDirectory: location.directory,
@@ -243,6 +257,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
 
   const openMarkdownLink = useCallback(
     (href: string, options: OpenLinkOptions) => {
+      if (benchDocument.openLink?.(href)) return
       const root =
         benchDocument.target?.type === "workspace-file" ? benchDocument.target.root : undefined
       const target = resolveMarkdownBenchLink(location.path, href, root)
@@ -266,7 +281,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         autoOpen: null,
       })
     },
-    [benchDocument.target, location.path, openBenchRoute, openLink, props.directory],
+    [benchDocument, location.path, openBenchRoute, openLink, props.directory],
   )
 
   const isPrintView = contentThemeMode === "print"
@@ -364,6 +379,8 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             directory={location.directory}
             documentFormat={documentFormat}
             path={location.path}
+            resolveImageSrc={benchDocument.resolveImageSrc}
+            selectTitleOnOpen={benchDocument.selectTitleOnOpen}
             title={benchDocument.title}
             viewportKey={benchSurfaceUiKey({
               directory: props.directory,

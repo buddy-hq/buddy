@@ -17,6 +17,7 @@ function resetUiPreferences() {
     leftSidebarOpen: true,
     chatLeftSidebarWidth: 344,
     settingsSidebarWidth: 344,
+    notesScope: "notebook",
     teacherStandardsAutoSetupComplete: false,
     openExternalFilesWithoutAsking: false,
     seenNotices: {},
@@ -41,6 +42,7 @@ describe("ui preference persistence parity", () => {
     state.setTeacherStandardsAutoSetupComplete(true)
     state.setOpenExternalFilesWithoutAsking(true)
     state.markNoticeSeen("link-destination")
+    state.setNotesScope("all")
 
     const raw = localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
     expect(raw).toBeTruthy()
@@ -56,6 +58,7 @@ describe("ui preference persistence parity", () => {
       teacherStandardsAutoSetupComplete: true,
       openExternalFilesWithoutAsking: true,
       seenNotices: { "link-destination": true },
+      notesScope: "all",
     })
     expect(parsedState?.togglePinned).toBeUndefined()
     expect(parsedState?.rightSidebarOpen).toBeUndefined()
@@ -115,6 +118,7 @@ describe("ui preference persistence parity", () => {
     expect(next.teacherStandardsAutoSetupComplete).toBe(false)
     expect(next.openExternalFilesWithoutAsking).toBe(false)
     expect(next.seenNotices).toEqual({})
+    expect(next.notesScope).toBe("notebook")
     expect("rightSidebarOpen" in next).toBe(false)
     expect("rightSidebarWidth" in next).toBe(false)
     expect("rightSidebarTab" in next).toBe(false)

@@ -40,6 +40,7 @@ type RightWorkspaceDrawerShellProps = {
 type RightWorkspaceListRowProps = {
   title: string
   metadata: string
+  description?: string
   badge?: string
   active?: boolean
   /** Marks a row that just changed, so a list that reorders itself stays legible. */
@@ -194,6 +195,11 @@ export const RightWorkspaceListRow = forwardRef<HTMLButtonElement, RightWorkspac
         ) : null}
         <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
           <span className="w-full truncate text-sm text-text-base">{props.title}</span>
+          {props.description ? (
+            <span className="w-full truncate text-xs font-normal text-text-weak">
+              {props.description}
+            </span>
+          ) : null}
           <span className="w-full truncate text-xs font-normal text-text-weaker">
             {props.metadata}
           </span>

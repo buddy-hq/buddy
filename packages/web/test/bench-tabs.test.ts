@@ -7,6 +7,7 @@ import {
   replaceBenchTab,
   resolveBenchTabTitle,
   upsertBenchTab,
+  type BenchTab,
 } from "../src/lib/bench-tabs"
 import {
   createNotesBenchTarget,
@@ -103,6 +104,17 @@ describe("Bench tabs", () => {
     expect(updated.tabs[0]?.target).toEqual(OBJECT_REVISION_TWO)
   })
 
+  test("names note tabs from the library title, following renames by note id", () => {
+    const opened = createNotesBenchTarget({ relativePath: "Chat notes/Old name.md", id: "note-1" })
+    const tab = upsertBenchTab([], opened).tabs[0]
+    if (!tab) throw new Error("Expected a note tab.")
+
+    expect(resolveBenchTabTitle(tab, new Map())).toBe("Old name")
+    expect(
+      resolveBenchTabTitle(tab, new Map(), new Map(), new Map(), new Map([["note-1", "Entropy"]])),
+    ).toBe("Entropy")
+  })
+
   test("treats a renamed central note path as a new target", () => {
     const original = createNotesBenchTarget({ relativePath: "Untitled — note-1.md" })
     const renamed = createNotesBenchTarget({ relativePath: "Research — note-1.md" })
@@ -115,7 +127,38 @@ describe("Bench tabs", () => {
     expect(benchTabKey(renamed)).not.toBe(benchTabKey(original))
     expect(isSameBenchTarget(original, renamed)).toBe(false)
     expect(updated.tabs).toHaveLength(2)
-    expect(resolveBenchTabTitle(tab, new Map())).toBe("Research — note-1.md")
+    expect(resolveBenchTabTitle(tab, new Map())).toBe("Research — note-1")
+  })
+
+  test("keeps a stamped central note in one tab when its path changes", () => {
+    const original = createNotesBenchTarget({
+      relativePath: "Untitled.md",
+      id: "01M0TK829PD2067YDMZ1Y8RCBF",
+    })
+    const renamed = createNotesBenchTarget({
+      relativePath: "Research.md",
+      id: "01M0TK829PD2067YDMZ1Y8RCBF",
+    })
+    const updated = upsertBenchTab(upsertBenchTab([], original).tabs, renamed)
+
+    expect(benchTabKey(renamed)).toBe(benchTabKey(original))
+    expect(updated.tabs).toEqual([{ key: benchTabKey(renamed), target: renamed }])
+  })
+
+  test("upgrades a note tab saved before note IDs instead of opening a duplicate", () => {
+    const saved = createNotesBenchTarget({ relativePath: "Research.md" })
+    const reopened = createNotesBenchTarget({
+      relativePath: "Research.md",
+      id: "01M0TK829PD2067YDMZ1Y8RCBF",
+    })
+    const tabs = [FIRST_FILE, saved, SECOND_FILE].reduce<BenchTab[]>(
+      (current, target) => upsertBenchTab(current, target).tabs,
+      [],
+    )
+    const updated = upsertBenchTab(tabs, reopened)
+
+    expect(updated.tabs.map((tab) => tab.target)).toEqual([FIRST_FILE, reopened, SECOND_FILE])
+    expect(updated.activeTabKey).toBe(benchTabKey(reopened))
   })
 
   test("replaces a renamed note's tab in place", () => {

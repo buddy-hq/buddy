@@ -102,6 +102,7 @@ export function SessionBenchSurface(props: SessionBenchSurfaceProps) {
               onViewportHeightChange={autoScroll.handleScrollGeometryChange}
               onContentSizeChange={autoScroll.handleScrollGeometryChange}
               markProgrammaticScroll={autoScroll.markProgrammaticScroll}
+              pauseAutoScroll={autoScroll.pause}
               onOpenSession={props.onOpenSession}
               onOpenResource={openReadingResource}
             />

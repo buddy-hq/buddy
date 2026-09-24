@@ -57,6 +57,7 @@ import {
   type DirectoryWorkspacePersistenceStorage,
   type DirectoryWorkspaceStore,
   type EffectiveWorkspaceProjection,
+  type NotesBenchTargetMatcher,
   type WorkspacePresentationSlot,
 } from "@/state/directory-workspace-store"
 
@@ -312,12 +313,16 @@ export function DirectoryWorkspaceProvider(props: {
     )
   }, [props.directory, props.persistenceStorage, store])
 
-  const removeNotesBenchTargets = useCallback(async (): Promise<void> => {
-    const state = store.getState()
-    state.removeNotesTargets()
-    if (store.getState().slots === state.slots) return
-    await persistCurrentWorkspaceState()
-  }, [persistCurrentWorkspaceState, store])
+  const removeNotesBenchTargets = useCallback(
+    async (matches?: NotesBenchTargetMatcher): Promise<void> => {
+      const result = await controller.execute(
+        Object.assign({ type: "remove-notes-targets" as const }, matches ? { matches } : undefined),
+      )
+      if (result.outcome !== "committed" || !result.changed) return
+      await persistCurrentWorkspaceState()
+    },
+    [controller, persistCurrentWorkspaceState],
+  )
 
   useBlocker({
     shouldBlockFn: ({ next }) =>

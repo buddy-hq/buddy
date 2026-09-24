@@ -304,7 +304,8 @@ describe("DirectoryChatRightWorkspace", () => {
     })
 
     expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("notes")
-    expect(container.textContent).toContain("No notes yet")
+    expect(container.textContent).toContain("No notes in this notebook")
+    expect(container.textContent).toContain("Show all notes")
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
   })
 

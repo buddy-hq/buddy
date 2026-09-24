@@ -147,6 +147,23 @@ describe("useComposerNoteMode", () => {
     ])
   })
 
+  test("saves a quoted message on its own without any typed text", async () => {
+    const { saved, saveNote } = recordSavedNotes()
+    await render({ quotedMessage, noteText: "", saveNote })
+    await act(async () => {
+      await noteMode?.submit({ ...composerDraft({ noteText: "" }), parts: [quotedMessage] })
+    })
+
+    expect(saved).toEqual([{ text: "", messageID: "msg_1" }])
+  })
+
+  test("does not save an empty note without a quote", async () => {
+    const { saved, saveNote } = recordSavedNotes()
+    await saveNoteFromComposer({ noteText: "  ", saveNote })
+
+    expect(saved).toEqual([])
+  })
+
   test("does not save a note that has a non-image attachment", async () => {
     const { saved, saveNote } = recordSavedNotes()
     await saveNoteFromComposer({

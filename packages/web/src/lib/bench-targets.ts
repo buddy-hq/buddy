@@ -51,6 +51,8 @@ export type BenchTarget =
       type: "workspace-file"
       root: BenchWorkspaceRoot
       path: string
+      /** Stable Notes-library identity. The path may change when a chat title changes. */
+      id?: string
       viewer: "markdown" | "file"
       fragment?: string
     }
@@ -135,13 +137,17 @@ function readBenchWorkspaceRoot<TValue>(value: TValue): BenchWorkspaceRoot | und
   return undefined
 }
 
-function createNotesBenchTarget(note: { relativePath: string }, fragment?: string): BenchTarget {
+function createNotesBenchTarget(
+  note: { relativePath: string; id?: string },
+  fragment?: string,
+): BenchTarget {
   const target: BenchTarget = {
     type: "workspace-file",
     root: BENCH_WORKSPACE_ROOT_NOTES,
     path: note.relativePath,
     viewer: "markdown",
   }
+  if (note.id) target.id = note.id
   if (fragment) target.fragment = fragment
   return target
 }
@@ -163,8 +169,15 @@ function readBenchTarget<TValue>(value: TValue): BenchTarget | undefined {
           ? ("file" as const)
           : undefined
     const fragment = record.fragment === undefined ? undefined : readNonEmptyString(record.fragment)
+    const id = record.id === undefined ? undefined : readNonEmptyString(record.id)
     const root = readBenchWorkspaceRoot(record.root)
-    if (!path || !viewer || !root || (record.fragment !== undefined && !fragment)) {
+    if (
+      !path ||
+      !viewer ||
+      !root ||
+      (record.fragment !== undefined && !fragment) ||
+      (record.id !== undefined && !id)
+    ) {
       return undefined
     }
     return Object.assign(
@@ -174,6 +187,7 @@ function readBenchTarget<TValue>(value: TValue): BenchTarget | undefined {
         viewer,
       },
       { root },
+      id ? { id } : undefined,
       fragment ? { fragment } : undefined,
     )
   }
@@ -276,7 +290,9 @@ function benchTargetKey(target: BenchTabTarget): string {
   if (target.type === "workspace-file") {
     // This is the shared frontend/backend content identity. Route-only state such as a
     // Markdown fragment must not change the key used by Bench context acknowledgements.
-    return ["workspace-file", target.root, target.viewer, encodeURIComponent(target.path)].join(
+    const identity =
+      target.root === BENCH_WORKSPACE_ROOT_NOTES && target.id ? target.id : target.path
+    return ["workspace-file", target.root, target.viewer, encodeURIComponent(identity)].join(
       BENCH_TARGET_KEY_PART_SEPARATOR,
     )
   }

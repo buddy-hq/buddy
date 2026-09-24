@@ -24,8 +24,10 @@ import {
   type BuddyNoteMetadata,
 } from "./note-file"
 import { ensureNotebookIdentity } from "./notebook-identity"
-import { resolveNotesAttachmentsDirectory } from "./paths"
+import { withNotesMutationLock } from "./mutation-lock"
+import { resolveChatNotesDirectory, resolveNotesAttachmentsDirectory } from "./paths"
 import { NOTE_CAPTURE_MAX_IMAGE_BYTES } from "./types"
+import { renderSessionNoteEntry, sessionNoteTitle } from "./presentation"
 import type { NoteCaptureImage, NoteCaptureImageMime, SessionNoteCaptureResult } from "./types"
 
 const DEFAULT_SESSION_TITLE = "Chat notes" as const
@@ -45,53 +47,7 @@ type SessionCaptureInput = {
   images?: NoteCaptureImage[]
 } & ({ kind: "note" } | { kind: "annotation"; messageID: string })
 
-type SessionNoteEntry = { text: string; imageLinks: string[]; capturedAt: Date } & (
-  | { kind: "note" }
-  | { kind: "annotation"; quotedMessage: string }
-)
-
 type SavedCaptureImage = { image: NoteCaptureImage; filepath: string }
-
-const mutationTails = new Map<string, Promise<void>>()
-
-async function withMutationLock<T>(key: string, task: () => Promise<T>): Promise<T> {
-  const previous = mutationTails.get(key) ?? Promise.resolve()
-  const run = previous.then(task, task)
-  const tail = run.then(
-    () => undefined,
-    () => undefined,
-  )
-  mutationTails.set(key, tail)
-  try {
-    return await run
-  } finally {
-    if (mutationTails.get(key) === tail) mutationTails.delete(key)
-  }
-}
-
-function captureTimestamp(date: Date) {
-  return new Intl.DateTimeFormat("en", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date)
-}
-
-function quoteMarkdown(text: string) {
-  return text
-    .split("\n")
-    .map((line) => `> ${line}`)
-    .join("\n")
-}
-
-function renderSessionNoteEntry(entry: SessionNoteEntry) {
-  const timestamp = captureTimestamp(entry.capturedAt)
-  const body = [entry.text, ...entry.imageLinks].filter(Boolean)
-  if (entry.kind === "note") {
-    return [`## Note — ${timestamp}`, ...body].join("\n\n")
-  }
-  return [`## Annotation — ${timestamp}`, quoteMarkdown(entry.quotedMessage), ...body].join("\n\n")
-}
 
 function imageLink(saved: SavedCaptureImage, noteDirectory: string) {
   const alt =
@@ -204,7 +160,7 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
   if (!session) throw new NotesError(404, "Chat not found")
   const normalizedText = input.text.trim()
   const images = input.images ?? []
-  if (!normalizedText && images.length === 0) {
+  if (!normalizedText && images.length === 0 && input.kind !== "annotation") {
     throw new NotesError(400, "Note text or an image is required")
   }
 
@@ -220,17 +176,17 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
     activateNotesLibraryRoot(),
     ensureNotebookIdentity(input.directory),
   ])
-  const title = normalizeNoteTitle(session.title, DEFAULT_SESSION_TITLE)
   let created = false
-  const note = await withMutationLock(root, async () => {
+  const note = await withNotesMutationLock(root, async () => {
     const existing = (await scanNotes(root)).find(
       (candidate) =>
         candidate.summary.kind === "buddy" &&
         candidate.summary.type === "buddy-session-note" &&
         candidate.summary.sessionID === input.sessionID,
     )
-    // New session notes are created at the library root; image links are relative to the note.
-    const noteDirectory = existing ? path.dirname(existing.filepath) : root
+    const noteDirectory = existing
+      ? path.dirname(existing.filepath)
+      : resolveChatNotesDirectory(root)
     const savedImages = await writeCaptureImages(root, images)
     let noteCommitted = false
     try {
@@ -239,17 +195,26 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
         imageLinks: savedImages.map((saved) => imageLink(saved, noteDirectory)),
         capturedAt: new Date(),
       }
-      const entry = renderSessionNoteEntry(
+      const source =
         input.kind === "annotation"
-          ? { ...entryContent, kind: "annotation", quotedMessage: annotationQuote ?? "" }
-          : { ...entryContent, kind: "note" },
-      )
-
+          ? {
+              sessionID: input.sessionID,
+              messageID: input.messageID,
+              text: annotationQuote ?? "",
+            }
+          : undefined
       if (!existing) {
         created = true
+        const latestSession =
+          (await loadRuntimeSessionInDirectory(input.directory, input.sessionID)) ?? session
+        const title = normalizeNoteTitle(
+          sessionNoteTitle(latestSession.title, latestSession.time.created),
+          DEFAULT_SESSION_TITLE,
+        )
         const id = createNoteID()
         return await createNoteFile({
           root,
+          directory: noteDirectory,
           title,
           metadata: {
             type: "buddy-session-note",
@@ -257,8 +222,10 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
             "buddy-notebook-id": notebook.id,
             notebook: notebook.name,
             "buddy-session-id": input.sessionID,
+            "buddy-generated-title": title,
+            "buddy-last-capture-day": renderSessionNoteEntry({ ...entryContent, source }).day,
           },
-          content: `${entry}\n`,
+          content: `${renderSessionNoteEntry({ ...entryContent, source }).content}\n`,
           onCommitted: () => {
             noteCommitted = true
           },
@@ -275,12 +242,18 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
         ) {
           throw new NotesError(409, "Session note changed on disk. Try again")
         }
+        const entry = renderSessionNoteEntry({
+          ...entryContent,
+          source,
+          previousDay: current.metadata["buddy-last-capture-day"],
+        })
         const metadata: BuddyNoteMetadata = {
           ...current.metadata,
           notebook: notebook.name,
           "buddy-notebook-id": notebook.id,
+          "buddy-last-capture-day": entry.day,
         }
-        const nextContent = `${current.content.trimEnd()}\n\n${entry}\n`
+        const nextContent = `${current.content.trimEnd()}\n\n${entry.content}\n`
         await writeTextFileAtomic(current.filepath, renderNoteSource(nextContent, metadata))
         noteCommitted = true
         invalidateIndexedPath(root, current.filepath)

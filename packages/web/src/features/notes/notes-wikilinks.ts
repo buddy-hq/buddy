@@ -4,16 +4,13 @@ import {
   type ObsidianLinkResolution,
   type ObsidianWikiLinkContext,
 } from "@/components/bench/markdown/plugins/obsidian"
+import { isWorkspaceImagePath } from "@buddy/workspace-file-policy"
 import { createNotesBenchTarget, type BenchTarget } from "@/lib/bench-targets"
 import { readNoteDocument, type NoteSummary } from "./api"
+import { resolveNoteImageSrc } from "./note-image-src"
 import { notesQueryKeys } from "./queries"
 
 const MARKDOWN_EXTENSION = ".md" as const
-
-const NOTES_EMBEDDED_MARKDOWN_LOADER: ObsidianEmbeddedMarkdownLoader = {
-  queryKey: ({ path }) => notesQueryKeys.note(path),
-  read: ({ path }) => readNoteDocument({ path }),
-}
 
 function noteWikilinkTarget(relativePath: string) {
   return relativePath.endsWith(MARKDOWN_EXTENSION)
@@ -38,6 +35,10 @@ function noteResolutions(
 ): ReadonlyMap<string, ObsidianLinkResolution> {
   const resolutions = new Map<string, ObsidianLinkResolution>()
   for (const target of collectObsidianWikiLinkTargets(markdown)) {
+    if (isWorkspaceImagePath(target)) {
+      resolutions.set(target, { target, status: "resolved", path: target, kind: "image" })
+      continue
+    }
     const note = noteForWikilinkTarget(notes, target, documentPath)
     if (!note) {
       resolutions.set(target, { target, status: "unresolved" })
@@ -63,12 +64,23 @@ export function createNotesWikiLinkContext(input: {
   notes: NoteSummary[]
   openTarget(target: BenchTarget): void
 }): ObsidianWikiLinkContext {
+  const embeddedMarkdownLoader: ObsidianEmbeddedMarkdownLoader = {
+    queryKey: ({ path }) => {
+      const note = input.notes.find((candidate) => candidate.relativePath === path)
+      return notesQueryKeys.note(path, note?.id)
+    },
+    read: ({ path }) => {
+      const note = input.notes.find((candidate) => candidate.relativePath === path)
+      return readNoteDocument({ path, id: note?.id })
+    },
+  }
   return {
     directory: input.directory,
     documentPath: input.documentPath,
     compatible: true,
     resolutions: noteResolutions(input.markdown, input.notes, input.documentPath),
-    embeddedMarkdownLoader: NOTES_EMBEDDED_MARKDOWN_LOADER,
+    embeddedMarkdownLoader,
+    resolveImageSrc: (path) => resolveNoteImageSrc({ notePath: input.documentPath, src: path }),
     openResolution(resolution) {
       if (resolution.status !== "resolved" || !resolution.path) return
       const note = input.notes.find((candidate) => candidate.relativePath === resolution.path)

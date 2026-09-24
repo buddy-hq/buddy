@@ -34,6 +34,7 @@ export function BenchSurfaceRenderer(props: {
         <NotesMarkdownDocument
           directory={props.directory}
           path={props.target.path}
+          id={props.target.id}
           fragment={props.target.fragment}
         />
       )

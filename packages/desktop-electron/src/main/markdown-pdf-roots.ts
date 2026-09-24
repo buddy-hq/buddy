@@ -7,16 +7,23 @@ import type {
 
 const BUDDY_API_PATH = "/api" as const
 
-async function loadRouteData<T>(input: {
-  baseUrl: string
+const MARKDOWN_PDF_ROOTS_FAILURE_MESSAGE =
+  "Could not resolve Markdown PDF roots from Buddy" as const
+
+export async function loadBuddyRouteData<T>(input: {
+  backendUrl: string
+  username: string
+  password: string
   path: string
-  authorization: string
+  failureMessage: string
 }): Promise<T> {
-  const response = await fetch(`${input.baseUrl}${input.path}`, {
-    headers: { authorization: input.authorization },
-  })
+  const authorization = `Basic ${Buffer.from(`${input.username}:${input.password}`).toString("base64")}`
+  const response = await fetch(
+    `${input.backendUrl.replace(/\/+$/, "")}${BUDDY_API_PATH}${input.path}`,
+    { headers: { authorization } },
+  )
   if (!response.ok) {
-    throw new Error(`Could not resolve Markdown PDF roots from Buddy (${response.status})`)
+    throw new Error(`${input.failureMessage} (${response.status})`)
   }
   // SAFETY: These authenticated Buddy endpoints return the generated route response shape for T.
   return (await response.json()) as T
@@ -41,23 +48,21 @@ export async function loadMarkdownPdfAllowedRoots(input: {
   username: string
   password: string
 }): Promise<string[]> {
-  const baseUrl = `${input.backendUrl.replace(/\/+$/, "")}${BUDDY_API_PATH}`
-  const authorization = `Basic ${Buffer.from(`${input.username}:${input.password}`).toString("base64")}`
   const [notebookHome, notesDirectory, openProjects] = await Promise.all([
-    loadRouteData<GlobalNotebookHomeGetResponses[200]>({
-      baseUrl,
+    loadBuddyRouteData<GlobalNotebookHomeGetResponses[200]>({
+      ...input,
       path: "/global/notebook-home",
-      authorization,
+      failureMessage: MARKDOWN_PDF_ROOTS_FAILURE_MESSAGE,
     }),
-    loadRouteData<GlobalNotesDirectoryGetResponses[200]>({
-      baseUrl,
+    loadBuddyRouteData<GlobalNotesDirectoryGetResponses[200]>({
+      ...input,
       path: "/global/notes-directory",
-      authorization,
+      failureMessage: MARKDOWN_PDF_ROOTS_FAILURE_MESSAGE,
     }),
-    loadRouteData<OpenProjectsListResponses[200]>({
-      baseUrl,
+    loadBuddyRouteData<OpenProjectsListResponses[200]>({
+      ...input,
       path: "/open-projects",
-      authorization,
+      failureMessage: MARKDOWN_PDF_ROOTS_FAILURE_MESSAGE,
     }),
   ])
   return resolveMarkdownPdfAllowedRoots({

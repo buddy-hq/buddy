@@ -97,6 +97,7 @@ type ObsidianWikiLinkContext = {
   compatible: boolean
   resolutions: ReadonlyMap<string, ObsidianLinkResolution>
   embeddedMarkdownLoader: ObsidianEmbeddedMarkdownLoader
+  resolveImageSrc?(path: string): string
   openResolution(resolution: ObsidianLinkResolution): void
 }
 
@@ -486,12 +487,16 @@ function ObsidianWikiLinkView(props: { target: string; alias?: string; embed: bo
   if (props.embed && resolvedPath && resolvedResolution.kind === "image") {
     return (
       <MarkdownBenchImage
-        src={resolveAssetUrl(
-          buildProjectFileRawUrl({
-            directory: context.directory,
-            path: resolvedPath,
-          }),
-        )}
+        src={
+          context.resolveImageSrc
+            ? context.resolveImageSrc(resolvedPath)
+            : resolveAssetUrl(
+                buildProjectFileRawUrl({
+                  directory: context.directory,
+                  path: resolvedPath,
+                }),
+              )
+        }
         alt={label}
         title={props.target}
       />

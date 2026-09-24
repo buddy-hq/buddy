@@ -51,6 +51,7 @@ type DirectoryChatBenchPageLayoutProps = {
     parentSession?: SessionInfo
     isTurnActive?: boolean
     onNewSession: () => void | Promise<void>
+    onOpenNote?: () => void
     onSelectSession: (sessionID: string) => void | Promise<void>
   }
 }
@@ -905,6 +906,9 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
               <ThreadActionPill
                 sessions={[]}
                 onSelectSession={() => undefined}
+                {...(props.threadBrowserProps?.onOpenNote
+                  ? { onOpenNote: props.threadBrowserProps.onOpenNote }
+                  : {})}
                 onMinimizeChat={() => onFloatingChatStateChange("minimized")}
                 onDockChat={dockChat}
                 showHistory={false}

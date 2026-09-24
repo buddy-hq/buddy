@@ -174,6 +174,7 @@ function readBenchTargetFromLocation<TSearch>(input: {
 
   if (childPath === "markdown") {
     const path = readStringSearchValue(search, "path")
+    const id = readStringSearchValue(search, "id")
     const fragment = readStringSearchValue(search, "fragment")
     const root = readBenchWorkspaceRoot(search.root) ?? BENCH_WORKSPACE_ROOT_NOTEBOOK
     return path
@@ -184,6 +185,7 @@ function readBenchTargetFromLocation<TSearch>(input: {
             path,
             viewer: "markdown" as const,
           },
+          id ? { id } : undefined,
           fragment ? { fragment } : undefined,
         )
       : undefined
@@ -191,6 +193,7 @@ function readBenchTargetFromLocation<TSearch>(input: {
 
   if (childPath === "file") {
     const path = readStringSearchValue(search, "path")
+    const id = readStringSearchValue(search, "id")
     const fragment = readStringSearchValue(search, "fragment")
     const root = readBenchWorkspaceRoot(search.root) ?? BENCH_WORKSPACE_ROOT_NOTEBOOK
     return path
@@ -201,6 +204,7 @@ function readBenchTargetFromLocation<TSearch>(input: {
             path,
             viewer: "file" as const,
           },
+          id ? { id } : undefined,
           fragment ? { fragment } : undefined,
         )
       : undefined
@@ -309,6 +313,7 @@ function buildBenchNavigation(input: {
         Object.assign(
           { path: target.path },
           target.root === BENCH_WORKSPACE_ROOT_NOTES ? { root: target.root } : undefined,
+          target.id ? { id: target.id } : undefined,
           target.fragment ? { fragment: target.fragment } : undefined,
         ),
         mode,

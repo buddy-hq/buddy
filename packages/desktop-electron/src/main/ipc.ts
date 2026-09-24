@@ -36,6 +36,7 @@ import type { UpdateRing, UpdateState } from "@buddy/update-contract"
 import { normalizeUpdateRing } from "@buddy/update-contract"
 import { isValidBenchCaptureRectangle } from "./bench-capture"
 import { openDesktopExternalLink } from "./external-links"
+import { resolveTrashableNotePath } from "./note-trash"
 import { parseTString } from "../shared/parse-external"
 import { getStore } from "./store"
 import {
@@ -78,6 +79,7 @@ type Deps = {
   setUpdateRing: (ring: UpdateRing) => Promise<UpdateState>
   setBackgroundColor: (color: string) => void
   exportMarkdownPdf: (input: MarkdownPdfExportInput) => Promise<string | null>
+  loadNotesDirectory: () => Promise<string>
   setInAppBrowserAppearance: (
     host: WebContents,
     input: InAppBrowserAppearanceRequest,
@@ -381,6 +383,14 @@ export function registerIpcHandlers(deps: Deps) {
       })
     },
   )
+
+  ipcMain.handle("trash-note-file", async (_event: IpcMainInvokeEvent, notePath: string) => {
+    const path = await resolveTrashableNotePath({
+      notePath: parseTString(notePath),
+      notesDirectory: await deps.loadNotesDirectory(),
+    })
+    await shell.trashItem(path)
+  })
 
   ipcMain.handle("get-file-icon", async (_event: IpcMainInvokeEvent, path: string) => {
     const image = await app.getFileIcon(path, { size: FILE_ICON_SIZE })

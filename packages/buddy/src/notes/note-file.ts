@@ -27,6 +27,8 @@ export const BuddyNoteMetadataSchema = z
     "buddy-notebook-id": z.string().trim().min(1),
     notebook: z.string().trim().min(1),
     "buddy-session-id": z.string().trim().min(1).optional(),
+    "buddy-generated-title": z.string().optional(),
+    "buddy-last-capture-day": z.string().optional(),
   })
   .passthrough()
 

@@ -3,6 +3,7 @@ import {
   ArrowExpand02Icon,
   CornerUpLeftIcon,
   MinusIcon,
+  NoteIcon,
   PictureInPicture2Icon,
   SquarePenIcon,
 } from "@/icons/app-icons"
@@ -21,6 +22,7 @@ type ThreadActionPillProps = {
   onSelectSession: (sessionID: string) => void | Promise<void>
   notebookName?: string
   onNewSession?: () => void | Promise<void>
+  onOpenNote?: () => void
   onFloatChat?: () => void
   onMinimizeChat?: () => void
   onDockChat?: () => void
@@ -121,12 +123,14 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
   const styles = CONTROL_SIZE_STYLES[props.size ?? "regular"]
   const showHistory = props.showHistory ?? true
   const showNewSession = props.onNewSession !== undefined
+  const showOpenNote = props.onOpenNote !== undefined
   const showFloat = props.onFloatChat !== undefined
   const showWindowControls = props.onMinimizeChat !== undefined || props.onDockChat !== undefined
   const title = props.title?.trim()
   const hasTitle = Boolean(title)
-  const hasLeadingControls = showHistory || showNewSession || showFloat
-  const leadingControlCount = Number(showHistory) + Number(showNewSession) + Number(showFloat)
+  const hasLeadingControls = showHistory || showNewSession || showOpenNote || showFloat
+  const leadingControlCount =
+    Number(showHistory) + Number(showNewSession) + Number(showOpenNote) + Number(showFloat)
   // Single lone control (e.g. new-chat only) should not get the pill "halo" border.
   // Title + any control always uses pill chrome so the label sits inside the shell.
   const usePillChrome =
@@ -186,6 +190,20 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
       <PictureInPicture2Icon
         className={cn("animate-in fade-in zoom-in duration-200", styles.icon)}
       />
+    </Button>
+  ) : null
+
+  const openNoteControl = showOpenNote ? (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      className={controlClassName}
+      aria-label={language.t("notes.action.openNote")}
+      title={language.t("notes.action.openNote")}
+      onClick={props.onOpenNote}
+    >
+      <NoteIcon className={styles.icon} />
     </Button>
   ) : null
 
@@ -261,6 +279,7 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
     >
       {historyControl}
       {newSessionControl}
+      {openNoteControl}
       {floatControl}
       {windowControls}
       {showTitleSeparator ? (

@@ -59,6 +59,7 @@ export type ChatTranscriptProps = {
   onViewportHeightChange?: (element: HTMLElement) => void
   onContentSizeChange?: (element: HTMLElement) => void
   markProgrammaticScroll?: (element: HTMLElement, top: number) => void
+  pauseAutoScroll?: () => void
   onOpenSession?: (sessionID: string) => void
   onOpenResource?: (directory: string, resource: ResourceReadingTarget) => void
   onForkMessage?: (input: TForkMessageInput) => Promise<void> | void

@@ -24,6 +24,7 @@ import {
   restoreMarkdownFromMdxEditor,
 } from "@/components/bench/markdown/compatibility"
 import { MarkdownBenchIntrinsicScope } from "@/components/bench/markdown/mdx-intrinsic"
+import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import { readBenchSurfaceViewport, writeBenchSurfaceViewport } from "@/state/bench-surface-ui-state"
 import {
   MarkdownBenchChemistryViewProvider,
@@ -155,6 +156,7 @@ type MarkdownBenchEditorProps = Pick<
   properties?: readonly MarkdownBenchProperty[]
   readOnly?: boolean
   resolveImageSrc?(src: string): string
+  selectTitleOnOpen?: boolean
   viewportKey?: string
   obsidianWikiLinkContext?: ObsidianWikiLinkContext
   onHistoryControlsChange?(controls: MarkdownBenchHistoryControlsState): void
@@ -190,8 +192,22 @@ function revealDocumentCitation(
   return true
 }
 
+function useSurfaceScopedPopupHost() {
+  const surfaceActive = useBenchSurfaceActive()
+  const [popupHost] = useState(() => document.createElement("div"))
+  useEffect(() => {
+    document.body.append(popupHost)
+    return () => popupHost.remove()
+  }, [popupHost])
+  useEffect(() => {
+    popupHost.hidden = !surfaceActive
+  }, [popupHost, surfaceActive])
+  return popupHost
+}
+
 export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, MarkdownBenchEditorProps>(
   function MarkdownBenchEditor(props, ref) {
+    const popupHost = useSurfaceScopedPopupHost()
     const appearance = props.appearance ?? "paper"
     const isPlainAppearance = appearance === "plain"
     const editorRef = useRef<MDXEditorMethods>(null)
@@ -273,6 +289,13 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       [props.path, props.title],
     )
     const [noteTitleDraft, setNoteTitleDraft] = useState(noteTitle)
+    const noteTitleInputRef = useRef<HTMLInputElement>(null)
+    const titleEditable = !props.readOnly && !!onRenameTitle && !isPrintView
+    useEffect(() => {
+      if (!props.selectTitleOnOpen || !titleEditable) return
+      noteTitleInputRef.current?.focus()
+      noteTitleInputRef.current?.select()
+    }, [props.selectTitleOnOpen, titleEditable])
     const [propertiesOpen, setPropertiesOpen] = useState(false)
     const hasProperties = (props.properties?.length ?? 0) > 0
     const cancelTitleCommitRef = useRef(false)
@@ -555,6 +578,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
               className={cn(MARKDOWN_NOTE_TITLE_BASE_CLASS_NAME, "mb-0 min-w-0 flex-1")}
             >
               <input
+                ref={noteTitleInputRef}
                 type="text"
                 aria-label="Note title"
                 aria-busy={props.renamingTitle ? "true" : undefined}
@@ -590,6 +614,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
               )}
               markdown={editorMarkdown}
               plugins={plugins}
+              overlayContainer={popupHost}
               readOnly={props.readOnly || isPrintView || props.renamingTitle}
               placeholder={props.placeholder}
               suppressHtmlProcessing={props.documentFormat === "mdx"}

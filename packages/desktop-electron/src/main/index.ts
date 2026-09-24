@@ -66,6 +66,7 @@ import {
 import { parseMarkdown } from "./markdown"
 import { exportMarkdownPdf } from "./markdown-pdf"
 import { loadMarkdownPdfAllowedRoots } from "./markdown-pdf-roots"
+import { loadNotesDirectory } from "./note-trash"
 import { createMenu } from "./menu"
 import {
   blockUpdateVersion,
@@ -691,6 +692,17 @@ registerIpcHandlers({
       password: config.password,
     })
     return exportMarkdownPdf(input, allowedRoots)
+  },
+  loadNotesDirectory: async () => {
+    const config = embeddedBackendConfig
+    if (!config) {
+      throw new Error("Cannot move notes to the trash before the embedded backend is ready")
+    }
+    return loadNotesDirectory({
+      backendUrl: `http://${config.hostname}:${config.port}`,
+      username: BACKEND_SERVER_USERNAME,
+      password: config.password,
+    })
   },
   setInAppBrowserAppearance: (host, input) => setInAppBrowserAppearance(host, input),
   captureInAppBrowserCitation: (host, input) => captureInAppBrowserCitation(host, input),

@@ -14,6 +14,7 @@ import {
 } from "@/state/notebook-search"
 import {
   notebookSearchResultFromFilePath,
+  notebookSearchResultFromNote,
   notebookSearchResultFromResource,
   notebookSearchResultFromSession,
   notebookSearchResultFromWorkspaceObject,
@@ -63,8 +64,9 @@ export type NotebookSearch = {
 const EMPTY_REMOTE_SEARCH_RESULT: RemoteNotebookSearchResult = {
   sessions: [],
   files: [],
+  notes: [],
   fileScanPartial: false,
-  failedProviders: ["threads", "files"],
+  failedProviders: ["threads", "files", "notes"],
 }
 
 const NO_FAILED_PROVIDERS: RemoteNotebookSearchResult["failedProviders"] = []
@@ -181,7 +183,8 @@ export function useNotebookSearch(input: NotebookSearchInput): NotebookSearch {
       .map((path) => normalizeRelativePath(path) ?? path)
       .filter((path) => !processedResourcePaths.has(path))
       .map(notebookSearchResultFromFilePath)
-    return [...threadResults, ...fileResults]
+    const noteResults = remoteData.notes.map(notebookSearchResultFromNote)
+    return [...threadResults, ...fileResults, ...noteResults]
   }, [processedResourcePaths, remoteData])
 
   const results = useMemo(

@@ -1615,6 +1615,78 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     }
   })
 
+  test("publishes a Notes tab with its stable ID so the open note stays visible", async () => {
+    const publishBodies: unknown[] = []
+    const noteTarget = {
+      type: "workspace-file",
+      root: "notes",
+      path: "Chat notes/Entropy.md",
+      id: "01J8Z3Q6X2N4B5C6D7E8F9G0HJ",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-1/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: publishBodies.length }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(noteTarget),
+        getTabs: () => tabsForTarget(noteTarget),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: (route) =>
+          route.status === "open" && route.target.type === "workspace-file"
+            ? openSurfaceContext(route.target)
+            : null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-1")
+
+      expect(readPublishBodyProbe(publishBodies.at(-1)).value.status).toBe("open")
+      expect(readFirstPublishedTabTarget(publishBodies.at(-1))).toEqual({
+        type: "workspace-file",
+        root: "notes",
+        path: noteTarget.path,
+        id: noteTarget.id,
+        viewer: noteTarget.viewer,
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
   test("skips a stale newest registration and uses an older valid registration", async () => {
     const completionBodies: unknown[] = []
     setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })

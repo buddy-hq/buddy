@@ -12,28 +12,32 @@ import { create } from "zustand"
 export type NoteCaptureSignal = {
   directory: string
   relativePath: string
+  id?: string
   /** Bumped per capture so repeat captures into the same note still notify. */
   nonce: number
 }
 
 type NoteCaptureSignalStore = {
   signal?: NoteCaptureSignal
-  signalNoteCapture: (input: { directory: string; relativePath: string }) => void
+  signalNoteCapture: (input: { directory: string; relativePath: string; id?: string }) => void
 }
 
 export const useNoteCaptureSignalStore = create<NoteCaptureSignalStore>()((set) => ({
   signalNoteCapture(input) {
     set((state) => ({
-      signal: {
-        directory: input.directory,
-        relativePath: input.relativePath,
-        nonce: (state.signal?.nonce ?? 0) + 1,
-      },
+      signal: Object.assign(
+        {
+          directory: input.directory,
+          relativePath: input.relativePath,
+          nonce: (state.signal?.nonce ?? 0) + 1,
+        },
+        input.id ? { id: input.id } : undefined,
+      ),
     }))
   },
 }))
 
-export function signalNoteCapture(input: { directory: string; relativePath: string }) {
+export function signalNoteCapture(input: { directory: string; relativePath: string; id?: string }) {
   useNoteCaptureSignalStore.getState().signalNoteCapture(input)
 }
 

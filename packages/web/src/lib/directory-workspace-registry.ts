@@ -1,6 +1,6 @@
 import type { DirectoryWorkspaceController } from "@/lib/directory-workspace-controller"
 import { canonicalProjectDirectory } from "@/lib/project-directory"
-import type { BenchRouteSnapshot } from "@/state/directory-workspace-store"
+import type { BenchRouteSnapshot, NotesBenchTargetMatcher } from "@/state/directory-workspace-store"
 
 export type LiveDirectoryWorkspaceHandle = {
   directory: string
@@ -8,7 +8,7 @@ export type LiveDirectoryWorkspaceHandle = {
   getRoute: () => BenchRouteSnapshot
   setActiveSessionContext: (sessionID: string | undefined) => Promise<void>
   persist: () => Promise<void>
-  removeNotesBenchTargets: () => Promise<void>
+  removeNotesBenchTargets: (matches?: NotesBenchTargetMatcher) => Promise<void>
   isDisposed: () => boolean
 }
 

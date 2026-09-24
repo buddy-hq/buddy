@@ -213,6 +213,7 @@ const api: ElectronAPI = {
   revealPath: (path) => ipcRenderer.invoke("reveal-path", path),
   revealContainingFolder: (directory, path) =>
     ipcRenderer.invoke("reveal-containing-folder", directory, path),
+  trashNoteFile: (path) => ipcRenderer.invoke("trash-note-file", path),
   getFileIcon: (path) => ipcRenderer.invoke("get-file-icon", path),
   readClipboardImage: () => ipcRenderer.invoke("read-clipboard-image"),
   showNotification: (title, body, href) => ipcRenderer.send("show-notification", title, body, href),

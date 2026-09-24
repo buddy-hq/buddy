@@ -563,7 +563,7 @@ export function PromptComposer(props: PromptComposerProps) {
     [draft.attachments, noteMode.active],
   )
   const canSaveNote =
-    (draftEditorValue.trim().length > 0 || draft.attachments.length > 0) &&
+    (draftEditorValue.trim().length > 0 || draft.attachments.length > 0 || !!quotedMessagePart) &&
     parsedNoteImages?.status === "ok" &&
     !noteMode.saving
   const noteSaveDisabledReason =
