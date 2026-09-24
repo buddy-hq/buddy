@@ -4,6 +4,7 @@ import { BenchTargetDeclaration } from "@/components/bench/bench-target-declarat
 
 type ProjectFileBenchSearch = {
   fragment?: string
+  id?: string
   path?: string
   root?: "notebook" | "notes"
 }
@@ -26,6 +27,7 @@ function parseTSearchString<T>(value: T): string | undefined {
 export const Route = createFileRoute("/$directory/_bench/file")({
   validateSearch: (search: TIncomingSearch): ProjectFileBenchSearch => ({
     fragment: parseTSearchString(search.fragment),
+    id: parseTSearchString(search.id),
     path: parseTSearchString(search.path),
     root: search.root === "notebook" || search.root === "notes" ? search.root : undefined,
   }),

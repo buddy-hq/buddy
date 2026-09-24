@@ -37,6 +37,7 @@ import {
 } from "@/lib/browser-svg-render-requests"
 import { normalizeSessionStatusValue } from "@/state/session-status"
 import { invalidateReferenceList } from "@/state/reference-query"
+import { invalidateNotesQueries } from "@/features/notes/queries"
 import { refetchActiveWorkspaceObjectQueries } from "@/state/workspace-objects-query"
 import {
   removeDirectoryPermissionQueryData,
@@ -74,6 +75,7 @@ const PERMISSION_NOTIFICATION_COOLDOWN_MS = 15_000
 const NOTIFICATION_PREVIEW_MAX_LENGTH = 360
 const DEFAULT_SESSION_TITLE = "New chat"
 const GLOBAL_NOTIFICATION_SESSION = "global"
+const NOTES_LIBRARY_UPDATED_EVENT_TYPE = "notes.library.updated"
 
 function parseTNonEmptyString<T>(value: T): string | undefined {
   const parsed = z.string().safeParse(value)
@@ -374,6 +376,11 @@ export function useChatSync(props: UseChatSyncProps) {
 
         if (payload.type === "reference.updated") {
           void invalidateReferenceList(queryClient, directory)
+          return
+        }
+
+        if (payload.type === NOTES_LIBRARY_UPDATED_EVENT_TYPE) {
+          void invalidateNotesQueries(queryClient)
           return
         }
 

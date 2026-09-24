@@ -44,7 +44,8 @@ import { BenchNewTabPopover } from "@/components/bench/bench-new-tab-popover"
 import { BrowserTabAudioButton, BrowserTabMuteMenuItem } from "@/components/bench/browser-tab-audio"
 import { BrowserFaviconImage } from "@/components/bench/surfaces/browser/browser-favicon-image"
 import { benchTabKey, resolveBenchTabTitle, type BenchTab } from "@/lib/bench-tabs"
-import { createNotesBenchTarget } from "@/lib/bench-targets"
+import { BENCH_WORKSPACE_ROOT_NOTES, createNotesBenchTarget } from "@/lib/bench-targets"
+import { notesLibraryQueryOptions } from "@/features/notes/queries"
 import { inAppBrowserFaviconImageSources } from "@/lib/in-app-browser-favicon"
 import { useNoteCaptureSignal } from "@/features/notes/capture-activity"
 import { parseSubagentSession } from "@/lib/session-family"
@@ -264,11 +265,15 @@ function useStaleNoteTabKeys(input: {
   const signal = useNoteCaptureSignal(input.directory)
   const nonce = signal?.nonce
   const relativePath = signal?.relativePath
+  const noteID = signal?.id
   const [staleTabKeys, setStaleTabKeys] = useState<ReadonlySet<string>>(EMPTY_TAB_KEYS)
-  const capturedTabKey = useMemo(() => {
-    if (!relativePath) return undefined
-    return benchTabKey(createNotesBenchTarget({ relativePath }))
-  }, [relativePath])
+  const capturedTabKeys = useMemo(() => {
+    if (!relativePath) return []
+    const pathKey = benchTabKey(createNotesBenchTarget({ relativePath }))
+    return noteID
+      ? [benchTabKey(createNotesBenchTarget({ relativePath, id: noteID })), pathKey]
+      : [pathKey]
+  }, [noteID, relativePath])
 
   // Read through refs so the effect fires on the capture alone. Depending on the
   // tab list or the active tab would re-run it on every tab switch and resurrect
@@ -279,13 +284,16 @@ function useStaleNoteTabKeys(input: {
   activeTabKeyRef.current = input.activeTabKey
 
   useEffect(() => {
-    if (!nonce || !capturedTabKey) return
-    if (capturedTabKey === activeTabKeyRef.current) return
-    if (!tabsRef.current.some((tab) => tab.key === capturedTabKey)) return
-    setStaleTabKeys((current) =>
-      current.has(capturedTabKey) ? current : new Set(current).add(capturedTabKey),
+    if (!nonce) return
+    const openKeys = capturedTabKeys.filter(
+      (key) => key !== activeTabKeyRef.current && tabsRef.current.some((tab) => tab.key === key),
     )
-  }, [capturedTabKey, nonce])
+    if (openKeys.length === 0) return
+    setStaleTabKeys((current) => {
+      if (openKeys.every((key) => current.has(key))) return current
+      return new Set([...current, ...openKeys])
+    })
+  }, [capturedTabKeys, nonce])
 
   const activeTabKey = input.activeTabKey
   useEffect(() => {
@@ -358,6 +366,21 @@ export function BenchTabs(props: BenchTabsProps) {
     for (const [tabID, runtime] of browserRuntimes) titles.set(tabID, runtime.title)
     return titles
   }, [browserRuntimes])
+  const hasNoteTabs = props.tabs.some(
+    (tab) => tab.target.type === "workspace-file" && tab.target.root === BENCH_WORKSPACE_ROOT_NOTES,
+  )
+  const notesLibraryQuery = useQuery({
+    ...notesLibraryQueryOptions(props.directory),
+    enabled: hasNoteTabs,
+  })
+  const noteTitles = useMemo(() => {
+    const titles = new Map<string, string>()
+    for (const note of notesLibraryQuery.data?.notes ?? []) {
+      titles.set(note.relativePath, note.title)
+      if (note.id) titles.set(note.id, note.title)
+    }
+    return titles
+  }, [notesLibraryQuery.data?.notes])
   const stripStyle: CSSProperties & Record<typeof TAB_COUNT_PROPERTY, string> = {
     [TAB_COUNT_PROPERTY]: String(props.tabs.length),
   }
@@ -454,7 +477,13 @@ export function BenchTabs(props: BenchTabsProps) {
           style={stripStyle}
         >
           {props.tabs.map((tab, index) => {
-            const title = resolveBenchTabTitle(tab, objectTitles, sessionTitles, browserTitles)
+            const title = resolveBenchTabTitle(
+              tab,
+              objectTitles,
+              sessionTitles,
+              browserTitles,
+              noteTitles,
+            )
             return (
               <BenchTabItem
                 key={tab.key}

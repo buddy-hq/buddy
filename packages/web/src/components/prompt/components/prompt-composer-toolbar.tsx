@@ -107,6 +107,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
   const isNativeMode = props.selectorMode === "native"
   const primaryButtonStopsRun = !props.noteMode && !!props.isBusy && !props.canSubmit
   const noteModeShowsStop = !!props.noteMode && !!props.isBusy
+  const showsSaveLabel = !!props.noteMode && !primaryButtonStopsRun
   const noteModeLabel = props.noteMode
     ? language.t("notes.composer.returnToChat")
     : language.t("notes.composer.takeNote")
@@ -346,7 +347,10 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
             type={primaryButtonStopsRun ? "button" : "submit"}
             form="prompt-composer-form"
             data-action="prompt-submit"
-            className="inline-flex size-7 items-center justify-center rounded-full bg-surface-interactive-base text-text-on-interactive-base transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className={cn(
+              "inline-flex h-7 items-center justify-center rounded-full bg-surface-interactive-base text-text-on-interactive-base transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50",
+              showsSaveLabel ? "px-3 text-xs font-medium" : "size-7",
+            )}
             disabled={!primaryButtonStopsRun && !props.canSubmit}
             aria-label={
               primaryButtonStopsRun
@@ -365,6 +369,8 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
           >
             {primaryButtonStopsRun ? (
               <SquareIcon className="size-3.5" />
+            ) : showsSaveLabel ? (
+              language.t("notes.composer.save")
             ) : (
               <ArrowUpIcon className="size-4" />
             )}

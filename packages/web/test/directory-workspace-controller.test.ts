@@ -23,6 +23,7 @@ import {
   WORKSPACE_DESTINATION_INHERIT_CURRENT,
   WORKSPACE_DESTINATION_RESTORE,
   WORKSPACE_DRAWER_FILES,
+  WORKSPACE_DRAWER_NOTES,
   WORKSPACE_DRAWER_SKILLS,
   WORKSPACE_DRAWER_SOURCES,
   WORKSPACE_VISIBILITY_COLLAPSED,
@@ -84,6 +85,12 @@ const SESSION_TARGET = {
   type: "session",
   sessionID: "subagent-1",
 } satisfies BenchSessionTarget
+const NOTES_TARGET = {
+  type: "workspace-file",
+  root: "notes",
+  path: "Research.md",
+  viewer: "markdown",
+} satisfies BenchTarget
 const CLOSED_ROUTE = { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot
 const CHAT_A_KEY = workspaceChatKeyForSession(undefined)
 const CHAT_B_KEY = workspaceChatKeyForSession("session-b")
@@ -132,6 +139,11 @@ const DOCKED_SESSION_ROUTE = {
   target: SESSION_TARGET,
   mode: BENCH_CHAT_LAYOUT_DOCKED,
 } satisfies BenchRouteSnapshot
+const DOCKED_NOTES_ROUTE = {
+  status: BENCH_ROUTE_STATUS_OPEN,
+  target: NOTES_TARGET,
+  mode: BENCH_CHAT_LAYOUT_DOCKED,
+} satisfies BenchRouteSnapshot
 
 const cleanupCallbacks: (() => void)[] = []
 
@@ -155,7 +167,11 @@ function routeLocation(route: BenchRouteSnapshot, targetDirectory = DIRECTORY) {
   if (route.target.type === "workspace-file") {
     return {
       pathname: `/${directory}/${route.target.viewer}`,
-      search: { path: route.target.path, ...modeSearch },
+      search: Object.assign(
+        { path: route.target.path },
+        route.target.root === "notes" ? { root: route.target.root } : undefined,
+        modeSearch,
+      ),
     }
   }
 
@@ -689,6 +705,58 @@ describe("DirectoryWorkspaceController", () => {
     expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([
       { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
     ])
+  })
+
+  test("keeps the Notes drawer open when a deleted note was the only Bench tab", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: NOTES_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_NOTES_ROUTE,
+    )
+    await harness.execute({ type: "open-drawer", drawer: WORKSPACE_DRAWER_NOTES })
+
+    const removed = await harness.execute(
+      { type: "remove-notes-targets", matches: (target) => target.path === NOTES_TARGET.path },
+      CLOSED_ROUTE,
+    )
+
+    expect(removed).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      projection: { route: CLOSED_ROUTE, drawer: WORKSPACE_DRAWER_NOTES },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([])
+  })
+
+  test("keeps the Notes drawer open when a deleted note was a background tab", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: NOTES_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_NOTES_ROUTE,
+    )
+    await harness.execute({ type: "close" }, CLOSED_ROUTE)
+    await harness.execute({ type: "open-drawer", drawer: WORKSPACE_DRAWER_NOTES })
+
+    const removed = await harness.execute({
+      type: "remove-notes-targets",
+      matches: (target) => target.path === NOTES_TARGET.path,
+    })
+
+    expect(removed).toMatchObject({
+      outcome: "committed",
+      projection: { route: CLOSED_ROUTE, drawer: WORKSPACE_DRAWER_NOTES },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([])
   })
 
   test("reveals a parked selected tab without preventing a later user collapse", async () => {

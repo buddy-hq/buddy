@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act, createRef } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { Z_INDEX } from "@buddy/ui"
+import { BenchSurfaceActivityProvider } from "../src/components/bench/bench-surface-activity"
 import {
   MarkdownBenchEditor,
   type MarkdownBenchEditorHandle,
@@ -40,6 +41,11 @@ const TEST_MERMAID_THEME_CONFIG = createMermaidThemeConfig({
   textStrong: "#030712",
   textWeak: "#374151",
 })
+
+function popupHost() {
+  return document.querySelector<HTMLElement>(".markdown-bench-mdx-editor.mdxeditor-popup-container")
+    ?.parentElement
+}
 
 async function flushEffects(delay = 0) {
   await Promise.resolve()
@@ -390,6 +396,54 @@ describe("MarkdownBenchEditor", () => {
     expect(popupLayerStyle?.textContent).toContain(`z-index: ${Z_INDEX.floating}`)
     expect(popupLayerStyle?.textContent).toContain(`z-index: ${Z_INDEX.modal}`)
     expect(Z_INDEX.floating).toBeGreaterThan(Z_INDEX.modal)
+  })
+
+  test("hides MDXEditor popups while the Bench surface is parked", async () => {
+    function renderEditor(surfaceActive: boolean) {
+      root.render(
+        <ThemeProvider>
+          <BenchSurfaceActivityProvider value={surfaceActive}>
+            <MarkdownBenchEditor
+              markdown="[Guide](https://example.com/guide)"
+              version="version-1"
+              dirty={false}
+              saving={false}
+              conflict={false}
+              directory="/tmp/test-dir"
+              documentFormat="markdown"
+              path="test.md"
+              onChange={() => {}}
+            />
+          </BenchSurfaceActivityProvider>
+        </ThemeProvider>,
+      )
+    }
+    await act(async () => {
+      renderEditor(true)
+      await flushEffects()
+    })
+    expect(popupHost()?.parentElement).toBe(document.body)
+    expect(popupHost()?.hidden).toBe(false)
+
+    await act(async () => {
+      renderEditor(false)
+      await flushEffects()
+    })
+    expect(popupHost()?.hidden).toBe(true)
+
+    await act(async () => {
+      renderEditor(true)
+      await flushEffects()
+    })
+    expect(popupHost()?.hidden).toBe(false)
+
+    const host = popupHost()
+    expect(host).toBeDefined()
+    await act(async () => {
+      root.render(null)
+      await flushEffects()
+    })
+    expect(host?.isConnected).toBe(false)
   })
 
   test("commits a rendered document selection only after Cite is activated", async () => {

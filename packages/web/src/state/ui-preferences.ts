@@ -22,6 +22,7 @@ type TPersistedUiPreferences = {
   settingsSidebarWidth?: number
   projectFileTreeOpen?: boolean
   teacherStandardsAutoSetupComplete?: boolean
+  notesScope?: "notebook" | "all"
   notesLocationIntroSeen?: boolean
   seenNotices?: Record<string, true>
   openExternalFilesWithoutAsking?: boolean
@@ -37,6 +38,7 @@ const persistedUiPreferencesSchema = z.object({
   settingsSidebarWidth: z.number().finite().optional(),
   projectFileTreeOpen: z.boolean().optional(),
   teacherStandardsAutoSetupComplete: z.boolean().optional(),
+  notesScope: z.enum(["notebook", "all"]).optional(),
   notesLocationIntroSeen: z.boolean().optional(),
   seenNotices: z.record(z.string(), z.literal(true)).optional(),
   openExternalFilesWithoutAsking: z.boolean().optional(),
@@ -65,6 +67,8 @@ export type UiPreferencesStore = {
   settingsSidebarWidth: number
   projectFileTreeOpen: boolean
   teacherStandardsAutoSetupComplete: boolean
+  notesScope: "notebook" | "all"
+  setNotesScope: (scope: "notebook" | "all") => void
   seenNotices: SeenOneTimeNotices
   openExternalFilesWithoutAsking: boolean
   isPinned: (directory: string, sessionID: string) => boolean
@@ -199,6 +203,8 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         UiPreferencesStore,
         | "teacherStandardsAutoSetupComplete"
         | "setTeacherStandardsAutoSetupComplete"
+        | "notesScope"
+        | "setNotesScope"
         | "seenNotices"
         | "markNoticeSeen"
       > = {
@@ -207,6 +213,10 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           set((state) => {
             state.teacherStandardsAutoSetupComplete = complete
           })
+        },
+        notesScope: "notebook",
+        setNotesScope(scope) {
+          set({ notesScope: scope })
         },
         seenNotices: {},
         markNoticeSeen(id) {
@@ -251,6 +261,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
           projectFileTreeOpen: state?.projectFileTreeOpen ?? DEFAULT_PROJECT_FILE_TREE_OPEN,
           teacherStandardsAutoSetupComplete: state?.teacherStandardsAutoSetupComplete ?? false,
+          notesScope: state?.notesScope ?? "notebook",
           seenNotices: migrateSeenNotices(state),
           openExternalFilesWithoutAsking: state?.openExternalFilesWithoutAsking ?? false,
         }
@@ -265,6 +276,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           settingsSidebarWidth: state.settingsSidebarWidth,
           projectFileTreeOpen: state.projectFileTreeOpen,
           teacherStandardsAutoSetupComplete: state.teacherStandardsAutoSetupComplete,
+          notesScope: state.notesScope,
           seenNotices: state.seenNotices,
           openExternalFilesWithoutAsking: state.openExternalFilesWithoutAsking,
         }

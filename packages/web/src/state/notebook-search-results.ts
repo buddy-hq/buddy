@@ -9,6 +9,7 @@ import {
 } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import { relativeTime } from "@/components/layout/sidebar-helpers"
 import type { ResourceRecord } from "@/state/resource-actions"
+import type { NoteSummary } from "@/features/notes/api"
 import { resourceFileExtensionFromFormat } from "@/state/resources-query"
 import {
   fileExtensionFromPath,
@@ -193,8 +194,30 @@ function notebookSearchResultFromFilePath(path: string): NotebookSearchResult {
   }
 }
 
+function notebookSearchResultFromNote(note: NoteSummary): NotebookSearchResult {
+  const folder = note.relativePath.includes("/")
+    ? note.relativePath.slice(0, note.relativePath.lastIndexOf("/"))
+    : undefined
+  return {
+    id: `note:${note.id ?? note.relativePath}`,
+    kind: "note",
+    title: note.title,
+    metadata: notebookSearchTimestampMetadata(
+      ["Note", note.notebook ?? folder].filter(Boolean).join(" · "),
+      note.updatedAt,
+    ),
+    keywords: `${note.relativePath} ${note.preview ?? ""}`,
+    updatedAtMs: note.updatedAt,
+    target: Object.assign(
+      { type: "note" as const, relativePath: note.relativePath },
+      note.id ? { id: note.id } : undefined,
+    ),
+  }
+}
+
 export {
   notebookSearchResultFromFilePath,
+  notebookSearchResultFromNote,
   notebookSearchResultFromResource,
   notebookSearchResultFromSession,
   notebookSearchResultFromWorkspaceObject,

@@ -19,6 +19,9 @@ import {
   BENCH_READ_CONTEXT_TAB_LIMIT,
   benchTargetAbsolutePath,
 } from "../../src/learning/features/bench/model-tabs"
+import { Config } from "../../src/config"
+import { createStandaloneNote } from "../../src/notes/library"
+import { readNotesDirectoryState } from "../../src/notes/settings"
 import { createBuddyToolContext } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 import {
@@ -207,6 +210,97 @@ describe("bench_read_context", () => {
         title: "Abhi Aiyer interview pack",
       },
     ])
+  })
+
+  test("points a selected note at its current file after a background rename", async () => {
+    await using project = await tmpdir({ git: true })
+    await using home = await tmpdir()
+    const previous = await Config.getGlobal()
+    await Config.replaceGlobal({
+      ...previous,
+      notebook_home: home.path,
+      notes_directory: path.join(home.path, "Notes"),
+    })
+
+    try {
+      const note = await createStandaloneNote({
+        directory: project.path,
+        title: "Chat notes - Sep 24, 2026",
+      })
+      const noteID = requireString(note.id)
+      const notesDirectory = (await readNotesDirectoryState()).resolvedDirectory
+      await fs.rename(
+        path.join(notesDirectory, note.relativePath),
+        path.join(notesDirectory, "Entropy.md"),
+      )
+      const staleTarget = {
+        type: "workspace-file" as const,
+        root: "notes" as const,
+        path: note.relativePath,
+        id: noteID,
+        viewer: "markdown" as const,
+      }
+      const tabKey = `file:notes:markdown:${noteID}`
+      publishSequencedBenchContext({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        body: {
+          lease: { instanceID: "renamed-note-client", generation: 1, leaseEpoch: 1 },
+          publicationSequence: 1,
+          idempotencyKey: "renamed-note-context",
+          value: {
+            status: "open",
+            visibility: "visible",
+            mode: "docked",
+            selectedTabKey: tabKey,
+            tabs: [{ tabKey, title: "Entropy", target: staleTarget }],
+            targetKey: benchTargetKey(staleTarget),
+            target: {
+              type: "workspace-file",
+              title: "Entropy",
+              workspaceRoot: notesDirectory,
+              path: "Entropy.md",
+              absolutePath: path.join(notesDirectory, "Entropy.md"),
+              route: "/_bench/markdown?root=notes&path=Entropy.md",
+              status: "ready",
+            },
+            drawer: null,
+            metadata: [],
+            content: "Entropy counts microstates.",
+            refs: [],
+            hints: [],
+          },
+        },
+      })
+
+      const result = await benchReadContextTool.run(
+        { responseFormat: "context_only" },
+        createBuddyToolContext({
+          directory: project.path,
+          sessionID: SESSION_ID,
+          messageID: "msg_renamed_note_context",
+          agent: "buddy",
+        }),
+      )
+
+      expect(parseJsonObjectText(result.output).tabs).toEqual([
+        {
+          tabNumber: 1,
+          tabKey,
+          title: "Entropy",
+          selected: true,
+          target: {
+            type: "workspace-file",
+            root: "notes",
+            path: "Entropy.md",
+            absolutePath: path.join(notesDirectory, "Entropy.md"),
+            viewer: "markdown",
+          },
+        },
+      ])
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
   })
 
   test("returns bounded recent tabs and searches the complete internal tab list", async () => {

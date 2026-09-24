@@ -94,6 +94,21 @@ describe("Markdown Bench link navigation", () => {
     ).toEqual(notesQueryKeys.note("Related.md"))
   })
 
+  test("keeps image embeds available without presenting plain image links as openable", () => {
+    const context = createNotesWikiLinkContext({
+      directory: "/notes",
+      documentPath: "Current.md",
+      markdown: "![[photo.png]] and [[photo.png]]",
+      notes: [],
+      openTarget: () => undefined,
+    })
+    const resolution = context.resolutions.get("photo.png")
+    expect(resolution).toMatchObject({ status: "resolved", kind: "image" })
+    if (!resolution) throw new Error("Missing image resolution")
+    expect(context.canOpenResolution?.(resolution)).toBe(false)
+    expect(context.resolveImageSrc?.("photo.png")).toContain("photo.png")
+  })
+
   test("keeps external URLs outside workspace navigation", () => {
     expect(resolveMarkdownBenchLink("Notes/Current.md", "https://example.com/guide")).toEqual({
       type: "external",

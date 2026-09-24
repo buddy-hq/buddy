@@ -257,3 +257,15 @@ export async function loadNotebookLabelsByID(currentDirectory: string) {
     identities.flatMap((identity) => (identity ? [[identity.id, identity.name] as const] : [])),
   )
 }
+
+/** Resolve a note's original notebook without requiring it to be open. */
+export async function findNotebookDirectory(notebookID: string): Promise<string | undefined> {
+  const [registry, home] = await Promise.all([
+    withFileLock(registryLockPath(), readRegistryUnlocked),
+    readNotebookHomeState(),
+  ])
+  const entry = registry.entries.find((candidate) => candidate.id === notebookID)
+  if (!entry) return undefined
+  const directory = entry.kind === QUICK_CHATS_KIND ? home.inboxDirectory : entry.directory
+  return (await existingDirectory(directory)) ? directory : undefined
+}

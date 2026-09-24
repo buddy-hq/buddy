@@ -29,6 +29,7 @@ import { useChatStore } from "@/state/chat-store"
 import { useChatSettings } from "@/state/chat-settings"
 import { IDLE_SESSION_STATUS, isSessionWorking } from "@/state/session-status"
 import {
+  getTranscriptPart,
   loadOlderTranscriptMessages,
   useTranscriptMessage,
   useTranscriptMessages,
@@ -110,6 +111,11 @@ import {
 } from "@buddy/citation-contract/rendered-text"
 import { observeSelectionActions } from "@buddy/citation-contract/selection-actions"
 import { registerCitationNavigationHandler } from "@/lib/citations/navigation"
+import {
+  registerNoteMessageNavigationHandler,
+  retryPendingNoteMessageNavigation,
+  type NoteMessageNavigationHandler,
+} from "@/features/notes/chat-message-navigation"
 import { revealCitationRange } from "@/lib/citations/highlight"
 import type { CitationCommentSource } from "@/lib/citations/comment-request"
 import { rangeCitationCommentSource } from "@/lib/citations/comment-source"
@@ -673,6 +679,17 @@ function useAssistantRowParts(item: TimelineAssistantItem) {
   return useTranscriptParts(assistantItemPartIDs(item))
 }
 
+function rowShowsMessage(row: TimelineRow, messageID: string) {
+  if (row.type === "user") return row.userMessageID === messageID
+  const partIDs =
+    row.type === "assistant"
+      ? assistantItemPartIDs(row.item)
+      : row.type === "activity"
+        ? row.partIDs
+        : []
+  return partIDs.some((partID) => getTranscriptPart(partID)?.messageID === messageID)
+}
+
 function partRenderer(part: MessagePart | undefined): ToolRendererToken | undefined {
   if (part?.type !== "tool") return undefined
   const presentation = parseToolPresentation(part)
@@ -1145,6 +1162,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     onViewportHeightChange,
     onContentSizeChange,
     markProgrammaticScroll,
+    pauseAutoScroll,
     scrollViewportRef,
     initialScrollOffset = DEFAULT_INITIAL_SCROLL_OFFSET,
     shouldAnchorBottom = DEFAULT_SHOULD_ANCHOR_BOTTOM,
@@ -1913,32 +1931,36 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     })
   }, [scrollViewportRef])
 
-  const loadOlderHistory = useCallback(() => {
-    if (!directory || !sessionID) return
-    if (loadingOlderRef.current) return
-    if (transcriptMeta.loading || transcriptMeta.complete || !transcriptMeta.cursor) return
+  const loadOlderHistory = useCallback(async (): Promise<"started" | "blocked" | "failed"> => {
+    if (!directory || !sessionID) return "blocked"
+    if (loadingOlderRef.current) return "blocked"
+    if (transcriptMeta.loading || transcriptMeta.complete || !transcriptMeta.cursor)
+      return "blocked"
 
     const root = scrollViewportRef?.current
     if (root) {
       prependAnchorRef.current = captureVisibleTimelineAnchor(root)
     }
     loadingOlderRef.current = true
-    void loadOlderTranscriptMessages(directory, sessionID)
-      .then(() => {
-        if (shouldAnchorBottom()) {
-          // An attached transcript owns the semantic end. Restoring the previously visible row
-          // after a prepend instead pins that row (often the "Session compacted" boundary) near
-          // the top and fights end anchoring while the new page is measured.
-          prependAnchorRef.current = undefined
-          restoreAnchorCancelRef.current?.()
-          restoreAnchorCancelRef.current = undefined
-          return
-        }
+    try {
+      await loadOlderTranscriptMessages(directory, sessionID)
+      if (shouldAnchorBottom()) {
+        // An attached transcript owns the semantic end. Restoring the previously visible row
+        // after a prepend instead pins that row (often the "Session compacted" boundary) near
+        // the top and fights end anchoring while the new page is measured.
+        prependAnchorRef.current = undefined
+        restoreAnchorCancelRef.current?.()
+        restoreAnchorCancelRef.current = undefined
+      } else {
         restorePrependAnchor()
-      })
-      .finally(() => {
-        loadingOlderRef.current = false
-      })
+      }
+      return "started"
+    } catch {
+      prependAnchorRef.current = undefined
+      return "failed"
+    } finally {
+      loadingOlderRef.current = false
+    }
   }, [
     directory,
     restorePrependAnchor,
@@ -1957,7 +1979,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
 
     const handleScroll = () => {
       if (viewport.scrollTop <= HISTORY_PREPEND_TOP_THRESHOLD_PX) {
-        loadOlderHistory()
+        void loadOlderHistory()
       }
     }
 
@@ -1965,6 +1987,53 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     handleScroll()
     return () => viewport.removeEventListener("scroll", handleScroll)
   }, [loadOlderHistory, scrollViewportRef, transcriptMeta.complete, transcriptMeta.cursor])
+
+  const noteNavigationHandlerRef = useRef<NoteMessageNavigationHandler>(() => "unowned")
+  noteNavigationHandlerRef.current = async (target) => {
+    if (target.directory !== directory || target.sessionID !== sessionID) return "unowned"
+    pauseAutoScroll?.()
+    const messageRowIndex = rows.findIndex((row) => rowShowsMessage(row, target.messageID))
+    const rowIndex =
+      messageRowIndex >= 0
+        ? messageRowIndex
+        : rows.findIndex(
+            (row) => row.type === "assistant" && row.assistantMessageIDs.includes(target.messageID),
+          )
+    if (rowIndex < 0) {
+      if (!transcriptMeta.complete) {
+        const result = await loadOlderHistory()
+        if (result === "failed") {
+          toast.warning(language.t("notes.chat.unavailable"))
+          return "missing"
+        }
+        return "pending"
+      }
+      toast.warning(language.t("notes.chat.unavailable"))
+      return "missing"
+    }
+
+    rowVirtualizer.scrollToIndex(rowIndex, { align: "start" })
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+      const viewport = scrollViewportRef?.current
+      const row = viewport?.querySelector<HTMLElement>(`[data-index="${rowIndex}"]`)
+      if (!viewport || !row) continue
+      row.scrollIntoView({ block: row.offsetHeight > viewport.clientHeight ? "start" : "center" })
+      return "handled"
+    }
+    toast.warning(language.t("notes.chat.unavailable"))
+    return "missing"
+  }
+
+  useEffect(
+    () =>
+      registerNoteMessageNavigationHandler((target) => noteNavigationHandlerRef.current(target)),
+    [directory, sessionID],
+  )
+
+  useEffect(() => {
+    void retryPendingNoteMessageNavigation()
+  }, [rows, transcriptMeta.complete, transcriptMeta.cursor, transcriptMeta.loading])
 
   useEffect(() => {
     return () => {

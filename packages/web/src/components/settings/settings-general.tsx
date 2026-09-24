@@ -171,12 +171,22 @@ export function GeneralSettings() {
   }
 
   async function onChangeNotesDirectory() {
-    try {
-      const picked = await pickProjectDirectory()
-      if (!picked) return
+    const picked = await pickProjectDirectory().catch((error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : language.t("settings.general.notesDirectorySaveFailed"),
+      )
+      return null
+    })
+    if (!picked) return
+    await applyNotesDirectory(picked)
+  }
 
+  async function applyNotesDirectory(directory: string) {
+    try {
       setChangingNotesDirectory(true)
-      const nextNotesDirectory = await saveNotesDirectory(picked)
+      const nextNotesDirectory = await saveNotesDirectory(directory)
       setNotesDirectoryQueryData(queryClient, nextNotesDirectory)
       const nextReturnTo = dropNotesBenchSettingsReturnTo(returnTo)
       const replaceSettingsReturn =
@@ -392,16 +402,30 @@ export function GeneralSettings() {
               : language.t("settings.general.notesDirectoryDescription")
           }
           control={
-            <Button
-              data-action="settings-change-notes-directory"
-              type="button"
-              onClick={() => void onChangeNotesDirectory()}
-              disabled={changingNotesDirectory || notesDirectoryQuery.isPending}
-            >
-              {changingNotesDirectory
-                ? language.t("settings.general.notesDirectoryChanging")
-                : language.t("settings.general.notesDirectoryChange")}
-            </Button>
+            <div className="flex items-center gap-2">
+              {notesDirectory?.configuredDirectory &&
+              notesDirectory.configuredDirectory !== notesDirectory.defaultDirectory ? (
+                <Button
+                  data-action="settings-reset-notes-directory"
+                  type="button"
+                  variant="ghost"
+                  onClick={() => void applyNotesDirectory(notesDirectory.defaultDirectory)}
+                  disabled={changingNotesDirectory || notesDirectoryQuery.isPending}
+                >
+                  {language.t("settings.general.notesDirectoryReset")}
+                </Button>
+              ) : null}
+              <Button
+                data-action="settings-change-notes-directory"
+                type="button"
+                onClick={() => void onChangeNotesDirectory()}
+                disabled={changingNotesDirectory || notesDirectoryQuery.isPending}
+              >
+                {changingNotesDirectory
+                  ? language.t("settings.general.notesDirectoryChanging")
+                  : language.t("settings.general.notesDirectoryChange")}
+              </Button>
+            </div>
           }
         />
         <SettingsRow

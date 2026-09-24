@@ -1,6 +1,7 @@
 import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import { inAppBrowserFallbackTitle } from "@buddy/browser-contract"
 import { isSameBenchTarget, readBenchTabTarget, type BenchTabTarget } from "@/lib/bench-targets"
+import { BENCH_WORKSPACE_ROOT_NOTES } from "@/lib/bench-targets"
 
 export type BenchTab = {
   key: string
@@ -14,6 +15,19 @@ export type BenchTabSelection = {
 
 const EMPTY_BENCH_TAB_TITLES = new Map<string, string>()
 
+function workspaceFileTabKey(
+  target: Extract<BenchTabTarget, { type: "workspace-file" }>,
+  identity: string,
+): string {
+  return `file:${target.root}:${target.viewer}:${encodeURIComponent(identity)}`
+}
+
+function pathKeyForNotesTarget(target: BenchTabTarget): string | undefined {
+  return target.type === "workspace-file" && target.root === BENCH_WORKSPACE_ROOT_NOTES && target.id
+    ? workspaceFileTabKey(target, target.path)
+    : undefined
+}
+
 export function benchTabKey(target: BenchTabTarget): string {
   if (target.type === "session") {
     return `session:${encodeURIComponent(target.sessionID)}`
@@ -22,7 +36,10 @@ export function benchTabKey(target: BenchTabTarget): string {
     return `browser:${encodeURIComponent(target.tabID)}`
   }
   if (target.type === "workspace-file") {
-    return `file:${target.root}:${target.viewer}:${encodeURIComponent(target.path)}`
+    return workspaceFileTabKey(
+      target,
+      target.root === BENCH_WORKSPACE_ROOT_NOTES && target.id ? target.id : target.path,
+    )
   }
 
   return `object:${target.ref.kind}:${encodeURIComponent(target.ref.objectID)}:${encodeURIComponent(target.viewID)}`
@@ -32,7 +49,8 @@ export function benchTabFallbackTitle(target: BenchTabTarget): string {
   if (target.type === "session") return "Subagent"
   if (target.type === "browser") return inAppBrowserFallbackTitle(target.url)
   if (target.type === "workspace-file") {
-    return target.path.replaceAll("\\", "/").split("/").at(-1) ?? target.path
+    const filename = target.path.replaceAll("\\", "/").split("/").at(-1) ?? target.path
+    return target.root === BENCH_WORKSPACE_ROOT_NOTES ? filename.replace(/\.md$/iu, "") : filename
   }
 
   switch (target.ref.kind) {
@@ -61,6 +79,7 @@ export function resolveBenchTabTitle(
   objectTitles: ReadonlyMap<string, string>,
   sessionTitles: ReadonlyMap<string, string> = EMPTY_BENCH_TAB_TITLES,
   browserTitles: ReadonlyMap<string, string> = EMPTY_BENCH_TAB_TITLES,
+  noteTitles: ReadonlyMap<string, string> = EMPTY_BENCH_TAB_TITLES,
 ): string {
   if (tab.target.type === "session") {
     return sessionTitles.get(tab.target.sessionID) ?? benchTabFallbackTitle(tab.target)
@@ -70,6 +89,13 @@ export function resolveBenchTabTitle(
   }
   if (tab.target.type === "browser") {
     return browserTitles.get(tab.target.tabID) ?? benchTabFallbackTitle(tab.target)
+  }
+  if (tab.target.type === "workspace-file" && tab.target.root === BENCH_WORKSPACE_ROOT_NOTES) {
+    return (
+      (tab.target.id ? noteTitles.get(tab.target.id) : undefined) ??
+      noteTitles.get(tab.target.path) ??
+      benchTabFallbackTitle(tab.target)
+    )
   }
   return benchTabFallbackTitle(tab.target)
 }
@@ -101,8 +127,13 @@ export function upsertBenchTab(
   const key = benchTabKey(target)
   const index = tabs.findIndex((tab) => tab.key === key)
   if (index < 0) {
+    const pathKey = pathKeyForNotesTarget(target)
+    const pathIndex = pathKey ? tabs.findIndex((tab) => tab.key === pathKey) : -1
     return {
-      tabs: [...tabs, { key, target }],
+      tabs:
+        pathIndex < 0
+          ? [...tabs, { key, target }]
+          : tabs.map((tab, tabIndex) => (tabIndex === pathIndex ? { key, target } : tab)),
       activeTabKey: key,
     }
   }

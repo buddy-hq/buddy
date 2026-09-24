@@ -40,6 +40,7 @@ type DirectoryChatShellProps = {
   linkedSessionID?: string
   parentSession?: SessionInfo
   onNewSession?: () => void | Promise<void>
+  onOpenNote?: () => void
   onSelectSession?: (sessionID: string) => void | Promise<void>
 }
 
@@ -76,6 +77,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     linkedSessionID,
     parentSession,
     onNewSession,
+    onOpenNote,
     onSelectSession,
   } = props
 
@@ -194,6 +196,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
             linkedSessionID={linkedSessionID}
             parentSession={parentSession}
             onNewSession={onNewSession}
+            onOpenNote={onOpenNote}
             onSelectSession={onSelectSession}
           />
         )}

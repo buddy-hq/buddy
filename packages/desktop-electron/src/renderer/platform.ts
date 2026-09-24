@@ -288,6 +288,9 @@ export function createDesktopPlatform(): Platform {
     async revealContainingFolder(directory, path) {
       await window.api.revealContainingFolder(directory, path)
     },
+    async trashNoteFile(path) {
+      await window.api.trashNoteFile(path)
+    },
     getFileIcon(path) {
       return window.api.getFileIcon(path)
     },

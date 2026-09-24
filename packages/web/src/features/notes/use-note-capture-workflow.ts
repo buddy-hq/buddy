@@ -3,17 +3,14 @@ import { toast } from "@buddy/ui"
 import { language } from "@/context/language"
 import { startActiveChatSession } from "@/lib/active-chat-transition-coordinator"
 import { BENCH_MODE_REQUEST_POLICY, type OpenBench } from "@/lib/bench-navigation"
-import type { DirectoryWorkspaceController } from "@/lib/directory-workspace-controller"
 import type { DirectoryWorkspaceLifecycleService } from "@/lib/directory-workspace-lifecycle"
-import { createNotesBenchTarget } from "@/lib/bench-targets"
+import {
+  BENCH_WORKSPACE_ROOT_NOTES,
+  createNotesBenchTarget,
+  type BenchTabTarget,
+} from "@/lib/bench-targets"
 import type { PromptStore } from "@/state/prompt-store"
 import { appQueryClient } from "@/state/query-client"
-import {
-  markOneTimeNoticeSeen,
-  ONE_TIME_NOTICE_NOTES_LOCATION_INTRO,
-  shouldShowOneTimeNotice,
-} from "@/state/one-time-notices"
-import { WORKSPACE_DRAWER_NOTES } from "@/state/directory-workspace-store"
 import {
   annotateChatMessage,
   captureComposerNote,
@@ -29,9 +26,9 @@ type NoteCaptureWorkflowInput = {
   directory: string
   sessionID?: string
   setPromptDraft: PromptStore["replaceDraft"]
-  workspaceController: DirectoryWorkspaceController
   workspaceLifecycle: DirectoryWorkspaceLifecycleService
   openBench: OpenBench
+  readVisibleBenchTarget: () => BenchTabTarget | undefined
 }
 
 type SaveComposerNoteInput = {
@@ -46,27 +43,35 @@ type QuoteMessageInput = {
   text: string
 }
 
+function isShowingNote(target: BenchTabTarget | undefined, note: NoteSummary) {
+  return (
+    target?.type === "workspace-file" &&
+    target.root === BENCH_WORKSPACE_ROOT_NOTES &&
+    ((note.id !== undefined && target.id === note.id) || target.path === note.relativePath)
+  )
+}
+
 export function useNoteCaptureWorkflow(input: NoteCaptureWorkflowInput) {
   const {
     directory,
     sessionID,
     setPromptDraft,
-    workspaceController,
     workspaceLifecycle,
     openBench,
+    readVisibleBenchTarget,
   } = input
   const refreshAfterCapture = useCallback(
     (note: NoteSummary) => {
       void invalidateNotesQueries(appQueryClient)
       void workspaceLifecycle.synchronizeCurrentWorkspaceFile({ reason: "client-action" })
-      signalNoteCapture({ directory, relativePath: note.relativePath })
+      signalNoteCapture({ directory, relativePath: note.relativePath, id: note.id })
     },
     [directory, workspaceLifecycle],
   )
 
-  const showCreatedNoteToast = useCallback(
+  const showSavedNoteToast = useCallback(
     (note: NoteSummary) => {
-      toast.success(language.t("notes.toast.saved"), {
+      toast.success(language.t("notes.toast.savedTo", { name: note.title }), {
         action: {
           label: language.t("notes.action.open"),
           onClick: () => {
@@ -86,17 +91,11 @@ export function useNoteCaptureWorkflow(input: NoteCaptureWorkflowInput) {
   const handleCaptureSuccess = useCallback(
     (capture: SessionNoteCapture) => {
       refreshAfterCapture(capture.note)
-      if (shouldShowOneTimeNotice(ONE_TIME_NOTICE_NOTES_LOCATION_INTRO)) {
-        markOneTimeNoticeSeen(ONE_TIME_NOTICE_NOTES_LOCATION_INTRO)
-        void workspaceController.execute({
-          type: "open-drawer",
-          drawer: WORKSPACE_DRAWER_NOTES,
-        })
-        return
+      if (!isShowingNote(readVisibleBenchTarget(), capture.note)) {
+        showSavedNoteToast(capture.note)
       }
-      if (capture.created) showCreatedNoteToast(capture.note)
     },
-    [workspaceController, refreshAfterCapture, showCreatedNoteToast],
+    [readVisibleBenchTarget, refreshAfterCapture, showSavedNoteToast],
   )
 
   const saveComposerNote = useCallback(

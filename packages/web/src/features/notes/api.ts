@@ -4,8 +4,10 @@ import type {
   NotesCaptureResponses,
   NotesCreateResponses,
   NotesListResponses,
+  NotesLocationResponses,
   NotesReadResponses,
   NotesRenameResponses,
+  NotesSessionNoteResponses,
   NotesUpdateResponses,
 } from "@buddy/sdk"
 import { buddyResultMessage, getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
@@ -15,10 +17,13 @@ export type NotesLibrary = NotesListResponses[200]
 export type NoteSummary = NotesLibrary["notes"][number]
 export type NoteDocument = NotesReadResponses[200]
 export type SessionNoteCapture = NotesCaptureResponses[200]
+export type SessionNoteLookup = NotesSessionNoteResponses[200]
 export type NoteCaptureImage = NonNullable<NonNullable<NotesCaptureData["body"]>["images"]>[number]
 
-export async function listNotes(directory: string) {
-  return requireBuddyData<NotesLibrary>(await getBuddyClient(directory).notes.list())
+export async function listNotes(directory: string, query = "", signal?: AbortSignal) {
+  return requireBuddyData<NotesLibrary>(
+    await getBuddyClient(directory).notes.list({ query }, signal ? { signal } : undefined),
+  )
 }
 
 export async function createNote(input: { directory: string; title?: string }) {
@@ -29,12 +34,26 @@ export async function createNote(input: { directory: string; title?: string }) {
   )
 }
 
-export async function readNoteDocument(input: { path: string }) {
-  return requireBuddyData<NoteDocument>(await getBuddyClient().notes.read({ path: input.path }))
+export async function readNoteDocument(input: { path: string; id?: string }) {
+  return requireBuddyData<NoteDocument>(
+    await getBuddyClient().notes.read({ path: input.path, id: input.id }),
+  )
 }
 
-export async function readNoteDocumentStatus(input: { path: string }) {
-  const response = await getBuddyClient().notes.read({ path: input.path })
+export async function readSessionNote(sessionID: string) {
+  return requireBuddyData<SessionNoteLookup>(
+    await getBuddyClient().notes.sessionNote({ sessionID }),
+  )
+}
+
+export async function readNoteLocation(input: { path: string; id?: string }) {
+  return requireBuddyData<NotesLocationResponses[200]>(
+    await getBuddyClient().notes.location({ path: input.path, id: input.id }),
+  )
+}
+
+export async function readNoteDocumentStatus(input: { path: string; id?: string }) {
+  const response = await getBuddyClient().notes.read({ path: input.path, id: input.id })
   if (response.response?.status === 404) {
     return { exists: false, version: null }
   }
@@ -44,11 +63,13 @@ export async function readNoteDocumentStatus(input: { path: string }) {
 
 export async function saveNoteContent(input: {
   path: string
+  id?: string
   content: string
   expectedVersion?: string | null
 }) {
   const response = await getBuddyClient().notes.update({
     path: input.path,
+    id: input.id,
     content: input.content,
     expectedVersion: input.expectedVersion,
   })
@@ -60,11 +81,13 @@ export async function saveNoteContent(input: {
 
 export async function renameNote(input: {
   path: string
+  id?: string
   title: string
   expectedVersion?: string | null
 }) {
   const response = await getBuddyClient().notes.rename({
     path: input.path,
+    id: input.id,
     title: input.title,
     expectedVersion: input.expectedVersion,
   })
@@ -74,6 +97,7 @@ export async function renameNote(input: {
   const note = requireBuddyData<NotesRenameResponses[200]>(response)
   const document = await readNoteDocument({
     path: note.relativePath,
+    id: note.id,
   })
   return { note, document }
 }

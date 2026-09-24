@@ -97,6 +97,8 @@ type ObsidianWikiLinkContext = {
   compatible: boolean
   resolutions: ReadonlyMap<string, ObsidianLinkResolution>
   embeddedMarkdownLoader: ObsidianEmbeddedMarkdownLoader
+  resolveImageSrc?(path: string): string
+  canOpenResolution?(resolution: ObsidianLinkResolution): boolean
   openResolution(resolution: ObsidianLinkResolution): void
 }
 
@@ -480,18 +482,21 @@ function ObsidianWikiLinkView(props: { target: string; alias?: string; embed: bo
   const resolvedResolution =
     resolution?.status === "resolved" && resolution.path ? resolution : undefined
   const resolvedPath = resolvedResolution?.path
-  const resolved = resolvedResolution !== undefined
   const label = props.alias?.trim() || props.target
 
   if (props.embed && resolvedPath && resolvedResolution.kind === "image") {
     return (
       <MarkdownBenchImage
-        src={resolveAssetUrl(
-          buildProjectFileRawUrl({
-            directory: context.directory,
-            path: resolvedPath,
-          }),
-        )}
+        src={
+          context.resolveImageSrc
+            ? context.resolveImageSrc(resolvedPath)
+            : resolveAssetUrl(
+                buildProjectFileRawUrl({
+                  directory: context.directory,
+                  path: resolvedPath,
+                }),
+              )
+        }
         alt={label}
         title={props.target}
       />
@@ -502,11 +507,17 @@ function ObsidianWikiLinkView(props: { target: string; alias?: string; embed: bo
     return <ObsidianEmbeddedNote context={context} resolution={resolvedResolution} label={label} />
   }
 
+  const openableResolution =
+    resolvedResolution &&
+    (!context.canOpenResolution || context.canOpenResolution(resolvedResolution))
+      ? resolvedResolution
+      : undefined
+  const resolved = openableResolution !== undefined
   const open = () => {
-    if (resolvedResolution) context.openResolution(resolvedResolution)
+    if (openableResolution) context.openResolution(openableResolution)
   }
   const openFromPointer = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0 || !resolvedResolution) return
+    if (event.button !== 0 || !openableResolution) return
     event.preventDefault()
     event.stopPropagation()
     open()
@@ -532,7 +543,7 @@ function ObsidianWikiLinkView(props: { target: string; alias?: string; embed: bo
           ? "cursor-pointer text-text-interactive-base"
           : "cursor-default text-text-weaker decoration-border-strong-base",
       )}
-      title={resolvedResolution ? resolvedPath : `Unresolved Obsidian link: ${props.target}`}
+      title={openableResolution ? resolvedPath : `Unresolved Obsidian link: ${props.target}`}
       disabled={!resolved}
       onClick={openFromKeyboard}
       onPointerDown={openFromPointer}

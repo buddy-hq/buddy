@@ -1,8 +1,13 @@
 import type { NotebookSearchResult } from "@/state/notebook-search"
-import { BENCH_WORKSPACE_ROOT_NOTEBOOK, type BenchObjectKind } from "@/lib/bench-targets"
+import {
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
+  createNotesBenchTarget,
+  type BenchObjectKind,
+} from "@/lib/bench-targets"
 import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import { describeObject, type ObjectDescriptorInput } from "./describe-object"
 import {
+  OBJECT_KIND_NOTE,
   OBJECT_KIND_THREAD,
   OBJECT_KIND_WORKSPACE_FILE,
   OBJECT_THUMBNAIL_COVER,
@@ -29,6 +34,7 @@ export function notebookSearchResultKind(result: NotebookSearchResult): ObjectPr
   if (result.target.type === "object") return result.target.kind
   if (result.target.type === "resource") return RESOURCE_OBJECT_KIND
   if (result.target.type === "thread") return OBJECT_KIND_THREAD
+  if (result.target.type === "note") return OBJECT_KIND_NOTE
   return OBJECT_KIND_WORKSPACE_FILE
 }
 
@@ -89,6 +95,7 @@ export function describeNotebookSearchResult(input: {
             },
           }
         : undefined,
+      result.target.type === "note" ? { target: createNotesBenchTarget(result.target) } : undefined,
     ),
   )
 

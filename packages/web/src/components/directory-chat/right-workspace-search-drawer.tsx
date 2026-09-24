@@ -22,6 +22,7 @@ import {
   ChevronDownIcon,
   FileIcon,
   MessageSquareTextIcon,
+  NoteIcon,
   PresentationIcon,
   SearchIcon,
   type AppIcon,
@@ -90,6 +91,7 @@ const SEARCH_KIND_DEFINITIONS: SearchKindDefinition[] = [
   { kind: "creation", label: "Creations", icon: FigureGlyph },
   { kind: "practice", label: "Practice", icon: BrainIcon },
   { kind: "board", label: "Boards", icon: PresentationIcon },
+  { kind: "note", label: "Notes", icon: NoteIcon },
   { kind: "file", label: "Files", icon: FileIcon },
 ]
 

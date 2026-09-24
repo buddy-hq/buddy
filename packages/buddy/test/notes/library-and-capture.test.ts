@@ -17,7 +17,25 @@ import {
 } from "../../src/notes/library"
 import { parseNoteSource } from "../../src/notes/note-file"
 import { ensureNotebookIdentity } from "../../src/notes/notebook-identity"
+import {
+  noteMessageExcerpt,
+  notePlainText,
+  plainTextPreview,
+  renderSessionNoteEntry,
+  sessionNoteTitle,
+} from "../../src/notes/presentation"
+import { synchronizeSessionNoteTitle } from "../../src/notes/session-title-sync"
 import { tmpdir } from "../helpers/tmpdir"
+
+function unsearchedPreview(content: string) {
+  return plainTextPreview({ text: notePlainText(content), match: 0 })
+}
+
+function requestWeekOneImage(src: string) {
+  return app.request(
+    `/api/notes/image?${new URLSearchParams({ note: "Lectures/Week 1.md", src }).toString()}`,
+  )
+}
 
 type RouteMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
 
@@ -279,6 +297,58 @@ describe("Notes library and chat capture", () => {
     }
   })
 
+  test("serves images referenced by notes from inside the library only", async () => {
+    await using home = await tmpdir()
+    await using vault = await tmpdir()
+    await using outside = await tmpdir()
+    const previous = await Config.getGlobal()
+    await Config.replaceGlobal({
+      ...previous,
+      notebook_home: home.path,
+      notes_directory: vault.path,
+    })
+
+    try {
+      await fsp.mkdir(path.join(vault.path, "Lectures"))
+      await fsp.mkdir(path.join(vault.path, "assets"))
+      await fsp.writeFile(path.join(vault.path, "Lectures", "Week 1.md"), "# Week 1\n")
+      await fsp.writeFile(path.join(vault.path, "Lectures", "local.png"), "local image")
+      await fsp.writeFile(path.join(vault.path, "Lectures", "vector.svg"), "<svg></svg>")
+      await fsp.writeFile(path.join(vault.path, "assets", "Pasted image 1.png"), "pasted image")
+      await fsp.writeFile(path.join(vault.path, "Lectures", "secret.txt"), "not an image")
+      await fsp.writeFile(path.join(outside.path, "outside.png"), "outside image")
+      await fsp.symlink(
+        path.join(outside.path, "outside.png"),
+        path.join(vault.path, "Lectures", "linked.png"),
+      )
+      const local = await requestWeekOneImage("local.png")
+      expect(local.status).toBe(200)
+      expect(await local.text()).toBe("local image")
+      const vector = await requestWeekOneImage("vector.svg")
+      expect(vector.status).toBe(200)
+      expect(vector.headers.get("content-security-policy")).toBe("sandbox")
+      expect(vector.headers.get("x-content-type-options")).toBe("nosniff")
+      expect(await vector.text()).toBe("<svg></svg>")
+      const byName = await requestWeekOneImage("Pasted image 1.png")
+      expect(byName.status).toBe(200)
+      expect(await byName.text()).toBe("pasted image")
+      const encoded = await requestWeekOneImage("../assets/Pasted%20image%201.png")
+      expect(await encoded.text()).toBe("pasted image")
+      const rootRelative = await requestWeekOneImage("/Lectures/local.png")
+      expect(rootRelative.status).toBe(200)
+      expect(await rootRelative.text()).toBe("local image")
+
+      expect((await requestWeekOneImage("secret.txt")).status).toBe(404)
+      expect(
+        (await requestWeekOneImage(`../../${path.basename(outside.path)}/outside.png`)).status,
+      ).toBe(404)
+      expect((await requestWeekOneImage("linked.png")).status).toBe(404)
+      expect((await requestWeekOneImage(path.join(outside.path, "outside.png"))).status).toBe(404)
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
   test("reads and mutates note documents without a notebook directory context", async () => {
     await using home = await tmpdir()
     const previous = await configureNotesHome(home.path)
@@ -354,24 +424,55 @@ describe("Notes library and chat capture", () => {
         await fsp.readFile(path.join(home.path, "Notes", first.note.relativePath), "utf8"),
       )
 
-      expect(first.note.relativePath).toBe("Research chat.md")
+      expect(first.note.relativePath).toBe("Chat notes/Research chat.md")
       expect(second.note.relativePath).toBe(first.note.relativePath)
-      // The UI announces a new note but stays quiet for an append, so only the
-      // first capture may report `created`.
       expect(first.created).toBe(true)
       expect(second.created).toBe(false)
-      expect(document.content).toMatch(/^## Note — /u)
+      expect(document.content).not.toContain("## Note —")
+      expect(document.content.match(/^\*\*.+\*\*$/gmu)).toHaveLength(1)
+      expect(document.content.match(/^\*\d{2}:\d{2}\*$/gmu)).toHaveLength(2)
       expect(document.content).toContain("First capture")
       expect(document.content).toContain("Second capture")
       expect(parsed?.metadata).toMatchObject({
         type: "buddy-session-note",
         "buddy-session-id": chat.sessionID,
+        "buddy-generated-title": "Research chat",
       })
       const sessionsDirectoryExists = await fsp
         .stat(path.join(home.path, "Notes", "Sessions"))
         .then(() => true)
         .catch(() => false)
       expect(sessionsDirectoryExists).toBe(false)
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("finds the note that collects a chat's captures by session", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+
+    try {
+      const chat = await seedReadableChat(notebook.path)
+      const sessionNoteRoute = `/api/notes/session/${encodeURIComponent(chat.sessionID)}`
+      expect(await (await app.request(sessionNoteRoute)).json()).toEqual({})
+
+      const capture = await captureComposerNote({
+        directory: notebook.path,
+        sessionID: chat.sessionID,
+        text: "First capture",
+      })
+      const found = await app.request(sessionNoteRoute)
+
+      expect(found.status).toBe(200)
+      expect(await found.json()).toMatchObject({
+        note: {
+          id: capture.note.id,
+          relativePath: capture.note.relativePath,
+          sessionID: chat.sessionID,
+        },
+      })
     } finally {
       await Config.replaceGlobal(previous)
     }
@@ -400,12 +501,290 @@ describe("Notes library and chat capture", () => {
       const document = await readNote(capture.note.relativePath)
 
       expect(document.content).toContain("> Visible question")
+      expect(document.content).toContain(
+        `> [Open message](buddy://chat/${chat.sessionID}?message=${chat.userMessageID})`,
+      )
       expect(document.content).toContain("Remember this")
-      expect(document.content).toMatch(/!\[Diagram\.png\]\(Attachments\/\w+\.png\)/u)
+      expect(document.content).toMatch(/!\[Diagram\.png\]\(\.\.\/Attachments\/\w+\.png\)/u)
       expect(document.content).not.toContain("Hidden synthetic context")
     } finally {
       await Config.replaceGlobal(previous)
     }
+  })
+
+  test("saves a quoted message without any learner text", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+
+    try {
+      const chat = await seedReadableChat(notebook.path)
+      const capture = await annotateChatMessage({
+        directory: notebook.path,
+        sessionID: chat.sessionID,
+        messageID: chat.userMessageID,
+        text: "",
+      })
+      const document = await readNote(capture.note.relativePath)
+
+      expect(document.content).toContain("> [!quote]+ Visible question")
+      expect(document.content).toContain(
+        `[Open message](buddy://chat/${chat.sessionID}?message=${chat.userMessageID})`,
+      )
+      await expect(
+        captureComposerNote({ directory: notebook.path, sessionID: chat.sessionID, text: "" }),
+      ).rejects.toThrow("Note text or an image is required")
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("searches note bodies and returns a preview near the match", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+
+    try {
+      const created = await createStandaloneNote({ directory: notebook.path, title: "Physics" })
+      await updateNote({
+        path: created.relativePath,
+        content: "A long introduction before the useful observation about entropy and disorder.",
+      })
+      const root = path.join(home.path, "Notes")
+      await fsp.mkdir(path.join(root, "Archive"))
+      await fsp.writeFile(
+        path.join(root, "Archive", "index.md"),
+        "# Reference\n\nEnergy remains conserved.\n",
+      )
+
+      const entropy = await listNotes(notebook.path, "entropy")
+      const energy = await listNotes(notebook.path, "energy")
+      const windowsPath = await listNotes(notebook.path, "Archive\\index")
+
+      expect(entropy.notes).toHaveLength(1)
+      expect(entropy.notes[0]).toMatchObject({
+        relativePath: "Physics.md",
+        preview: expect.stringContaining("entropy"),
+      })
+      expect(energy.notes).toHaveLength(1)
+      expect(energy.notes[0]).toMatchObject({ relativePath: "Archive/index.md" })
+      expect(windowsPath.notes[0]).toMatchObject({ relativePath: "Archive/index.md" })
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("searches the literal characters learners type in note bodies", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+
+    try {
+      const created = await createStandaloneNote({ directory: notebook.path, title: "Syntax" })
+      await updateNote({
+        path: created.relativePath,
+        content:
+          "Use snake_case names. Read [the guide](https://example.com/guide). 2*3 is six. Open C:\\Users\\me.",
+      })
+
+      for (const query of ["snake_case", "https://example.com/guide", "2*3", "C:\\Users"]) {
+        expect(
+          (await listNotes(notebook.path, query)).notes.map((note) => note.relativePath),
+        ).toEqual(["Syntax.md"])
+      }
+      expect((await listNotes(notebook.path, "snake_case")).notes[0]?.preview).toContain(
+        "snakecase names",
+      )
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("resolves a duplicated note by its path before its shared ID", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+
+    try {
+      const original = await createStandaloneNote({ directory: notebook.path, title: "Note" })
+      await updateNote({ path: original.relativePath, id: original.id, content: "Original body" })
+      const root = path.join(home.path, "Notes")
+      await fsp.copyFile(path.join(root, "Note.md"), path.join(root, "Note copy.md"))
+      await updateNote({ path: "Note copy.md", id: original.id, content: "Copy body" })
+
+      expect((await readNote("Note.md", original.id)).content).toBe("Original body")
+      expect((await readNote("Note copy.md", original.id)).content).toBe("Copy body")
+
+      await updateNote({ path: "Note.md", id: original.id, content: "Edited original" })
+      expect(await fsp.readFile(path.join(root, "Note copy.md"), "utf8")).toContain("Copy body")
+      expect(await fsp.readFile(path.join(root, "Note.md"), "utf8")).toContain("Edited original")
+
+      await fsp.rm(path.join(root, "Note copy.md"))
+      await fsp.rename(path.join(root, "Note.md"), path.join(root, "Moved.md"))
+      expect((await readNote("Note.md", original.id)).note.relativePath).toBe("Moved.md")
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("follows the chat title until the learner renames the note", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+
+    try {
+      const chat = await seedReadableChat(notebook.path)
+      const capture = await captureComposerNote({
+        directory: notebook.path,
+        sessionID: chat.sessionID,
+        text: "Keep this",
+      })
+      const beforeFollow = await readNote(capture.note.relativePath, capture.note.id)
+      await fsp.writeFile(path.join(home.path, "Notes", "Chat notes", "Thermodynamics.md"), "")
+
+      const renamedByTitle = await synchronizeSessionNoteTitle({
+        sessionID: chat.sessionID,
+        title: "Thermodynamics",
+        createdAt: Date.now(),
+      })
+      expect(renamedByTitle).toBe(true)
+      const followed = await readNote(capture.note.relativePath, capture.note.id)
+      expect(followed.note).toMatchObject({
+        id: capture.note.id,
+        relativePath: "Chat notes/Thermodynamics 1.md",
+      })
+      expect(await fsp.realpath(followed.sourceDirectory ?? "")).toBe(
+        await fsp.realpath(notebook.path),
+      )
+      const savedAfterFollow = await updateNote({
+        path: capture.note.relativePath,
+        id: capture.note.id,
+        content: `${followed.content}\nBody saved from the already-open editor.`,
+        expectedVersion: beforeFollow.version,
+      })
+      expect(savedAfterFollow.note.relativePath).toBe("Chat notes/Thermodynamics 1.md")
+      expect(savedAfterFollow.content).toContain("Body saved from the already-open editor.")
+
+      const manuallyRenamed = await renameNote({
+        path: capture.note.relativePath,
+        id: capture.note.id,
+        title: "My study notes",
+      })
+      const renamedAfterOwnership = await synchronizeSessionNoteTitle({
+        sessionID: chat.sessionID,
+        title: "A later chat title",
+        createdAt: Date.now(),
+      })
+      expect(renamedAfterOwnership).toBe(false)
+      expect(
+        (await readNote(manuallyRenamed.relativePath, capture.note.id)).note.relativePath,
+      ).toBe("Chat notes/My study notes.md")
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("uses readable placeholder titles and bounds message excerpts", () => {
+    expect(sessionNoteTitle("New session - 2026-09-20T10:30:00.000Z", 0)).not.toContain(
+      "New session",
+    )
+    expect(sessionNoteTitle("Child session - 2026-09-20T10:30:00.000Z", 0)).not.toContain(
+      "Child session",
+    )
+    expect(sessionNoteTitle("New chat - Project kickoff", 0)).toBe("New chat - Project kickoff")
+    const excerpt = noteMessageExcerpt(`**${"word ".repeat(100)}**`)
+    expect(excerpt.length).toBeLessThanOrEqual(281)
+    expect(excerpt.endsWith("…")).toBe(true)
+  })
+
+  test("prints the date once per capture day and keeps timestamps quiet", () => {
+    const first = renderSessionNoteEntry({
+      text: "First",
+      imageLinks: [],
+      capturedAt: new Date(2026, 0, 1, 12, 5),
+    })
+    const sameDay = renderSessionNoteEntry({
+      text: "Second",
+      imageLinks: [],
+      capturedAt: new Date(2026, 0, 1, 14, 30),
+      previousDay: first.day,
+    })
+    const nextDay = renderSessionNoteEntry({
+      text: "Third",
+      imageLinks: [],
+      capturedAt: new Date(2026, 0, 2, 9, 0),
+      previousDay: sameDay.day,
+    })
+
+    expect(first.content).toContain("**January 1, 2026**")
+    expect(sameDay.content).not.toContain("January 1")
+    expect(nextDay.content).toContain("**January 2, 2026**")
+    expect(sameDay.content).toMatch(/^\*14:30\*/u)
+  })
+
+  test("previews what was written rather than capture scaffolding", () => {
+    const annotated = renderSessionNoteEntry({
+      text: "Entropy counts microstates.",
+      imageLinks: ["![diagram.png](Attachments/diagram.png)"],
+      capturedAt: new Date(2026, 0, 1, 12, 5),
+      source: { sessionID: "ses_1", messageID: "msg_1", text: "Buddy explained entropy." },
+    })
+    const legacy = "## Note — 09:15\n\nLegacy thought"
+
+    expect(unsearchedPreview(annotated.content)).toBe(
+      "Buddy explained entropy. Entropy counts microstates.",
+    )
+    expect(unsearchedPreview(legacy)).toBe("Legacy thought")
+  })
+
+  test("keeps the whole quoted message in a folded quote so the note outlives the chat", () => {
+    const message = [
+      "## Entropy",
+      "",
+      `${"Entropy counts the microstates of a system. ".repeat(20)}`,
+      "",
+      "```python",
+      "# not a heading",
+      "print('ok')",
+      "```",
+      "",
+      "The end of the explanation.",
+    ].join("\n")
+    const source = { sessionID: "ses_1", messageID: "msg_1", text: message }
+    const annotated = renderSessionNoteEntry({
+      text: "My takeaway",
+      imageLinks: [],
+      capturedAt: new Date(2026, 0, 1, 12, 5),
+      source,
+    })
+    const quoteOnly = renderSessionNoteEntry({
+      text: "",
+      imageLinks: [],
+      capturedAt: new Date(2026, 0, 1, 12, 5),
+      source,
+    })
+
+    expect(annotated.content).toMatch(/^> \[!quote\]- Entropy Entropy counts/mu)
+    expect(annotated.content).toContain("> The end of the explanation.")
+    expect(annotated.content).toContain("> **Entropy**")
+    expect(annotated.content).toContain("> # not a heading")
+    expect(annotated.content).toContain("> [Open message](buddy://chat/ses_1?message=msg_1)")
+    expect(annotated.content.trimEnd().endsWith("My takeaway")).toBe(true)
+    expect(quoteOnly.content).toMatch(/^> \[!quote\]\+ /mu)
+    expect(unsearchedPreview(annotated.content).startsWith("Entropy Entropy counts")).toBe(true)
+    expect(unsearchedPreview(annotated.content)).not.toContain("[!quote]")
+  })
+
+  test("closes an unfinished source fence before the message link", () => {
+    const entry = renderSessionNoteEntry({
+      text: "My takeaway",
+      imageLinks: [],
+      capturedAt: new Date(2026, 0, 1, 12, 5),
+      source: { sessionID: "ses_1", messageID: "msg_1", text: "Example:\n```ts\nconst n = 1" },
+    })
+    expect(entry.content).toContain(
+      "> ```ts\n> const n = 1\n> ```\n>\n> [Open message](buddy://chat/ses_1?message=msg_1)",
+    )
   })
 
   test("saves an image-only capture into Attachments and rejects an empty capture", async () => {
@@ -425,12 +804,14 @@ describe("Notes library and chat capture", () => {
         ],
       })
       const document = await readNote(capture.note.relativePath)
-      const imagePath = /!\[Screenshot\.png\]\((Attachments\/\w+\.png)\)/.exec(
+      const imagePath = /!\[Screenshot\.png\]\((\.\.\/Attachments\/\w+\.png)\)/.exec(
         document.content,
       )?.[1]
 
       expect(imagePath).toBeDefined()
-      expect(await fsp.readFile(path.join(home.path, "Notes", imagePath ?? ""))).toEqual(imageBytes)
+      expect(
+        await fsp.readFile(path.join(home.path, "Notes", "Chat notes", imagePath ?? "")),
+      ).toEqual(imageBytes)
       const attachmentsDirectory = path.join(home.path, "Notes", "Attachments")
       const attachmentsBeforeFailure = await fsp.readdir(attachmentsDirectory)
       await expect(
@@ -472,9 +853,10 @@ describe("Notes library and chat capture", () => {
       const notesRoot = path.join(home.path, "Notes")
       const archiveDirectory = path.join(notesRoot, "Archive")
       await fsp.mkdir(archiveDirectory)
+      const filename = path.posix.basename(first.note.relativePath)
       await fsp.rename(
         path.join(notesRoot, first.note.relativePath),
-        path.join(archiveDirectory, first.note.relativePath),
+        path.join(archiveDirectory, filename),
       )
 
       const appended = await captureComposerNote({
@@ -491,7 +873,7 @@ describe("Notes library and chat capture", () => {
       })
       const document = await readNote(appended.note.relativePath)
 
-      expect(appended.note.relativePath).toBe(`Archive/${first.note.relativePath}`)
+      expect(appended.note.relativePath).toBe(`Archive/${filename}`)
       expect(document.content).toMatch(/!\[Nested\.png\]\(\.\.\/Attachments\/\w+\.png\)/u)
     } finally {
       await Config.replaceGlobal(previous)

@@ -215,10 +215,11 @@ describe("bench target keys", () => {
         type: "workspace-file",
         root: "notes",
         path: "docs/intro notes.md",
+        id: "note-stable-id",
         viewer: "markdown",
       }),
     ).toBe(
-      ["workspace-file", "notes", "markdown", "docs%2Fintro%20notes.md"].join(
+      ["workspace-file", "notes", "markdown", "note-stable-id"].join(
         BENCH_TARGET_KEY_PART_SEPARATOR,
       ),
     )

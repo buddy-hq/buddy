@@ -46,6 +46,7 @@ export type NoteSummary = {
   notebook?: string
   notebookAvailable?: boolean
   sessionID?: string
+  preview?: string
   updatedAt: number
 }
 
@@ -53,6 +54,8 @@ export type NoteDocument = {
   note: NoteSummary
   content: string
   version: string
+  /** Resolved through the notebook registry, including notebooks that are closed. */
+  sourceDirectory?: string
   /** Frontmatter of a stamped note, which `content` omits. */
   properties?: BuddyNoteMetadata
 }

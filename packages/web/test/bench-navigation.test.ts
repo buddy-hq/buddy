@@ -806,6 +806,33 @@ describe("bench navigation policy", () => {
     ).toEqual(target)
   })
 
+  test("round-trips stable note identity through Bench navigation", () => {
+    const target = {
+      type: "workspace-file",
+      root: "notes",
+      path: "Chat notes.md",
+      id: "note-stable-id",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    const navigation = buildBenchNavigation({
+      directory: DIRECTORY,
+      target,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+
+    expect(navigation.search).toEqual({
+      path: "Chat notes.md",
+      root: "notes",
+      id: "note-stable-id",
+    })
+    expect(
+      readBenchTargetFromLocation({
+        pathname: `/${encodeDirectory(DIRECTORY)}/markdown`,
+        search: navigation.search,
+      }),
+    ).toEqual(target)
+  })
+
   test("rejects malformed object Bench routes with extra path segments", () => {
     const directoryParam = encodeDirectory(DIRECTORY)
     const pathname = `/${directoryParam}/objects/resource/resource-1/extra`

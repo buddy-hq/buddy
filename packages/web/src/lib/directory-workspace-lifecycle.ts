@@ -242,12 +242,15 @@ function toBenchProtocolTarget(target: BenchTarget): BenchProtocolTarget {
     }
   }
   if (target.type === "workspace-file") {
-    return {
-      type: target.type,
-      root: target.root,
-      path: target.path,
-      viewer: target.viewer,
-    }
+    return Object.assign(
+      {
+        type: target.type,
+        root: target.root,
+        path: target.path,
+        viewer: target.viewer,
+      },
+      target.id ? { id: target.id } : undefined,
+    )
   }
   return {
     type: target.type,

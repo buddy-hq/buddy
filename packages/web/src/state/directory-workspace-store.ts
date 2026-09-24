@@ -238,6 +238,7 @@ export type DirectoryWorkspaceCommand =
   | { type: "close-tabs-to-right"; tabKey: string }
   | { type: "close-all-tabs" }
   | { type: "remove-session-targets"; sessionIDs: readonly string[] }
+  | { type: "remove-notes-targets"; matches?: NotesBenchTargetMatcher }
   | {
       type: "prepare-chat-change"
       outgoingChatKey: WorkspaceChatKey
@@ -311,7 +312,10 @@ export type DirectoryWorkspaceStoreState = DirectoryWorkspaceProjectionState & {
     sessionIDs: readonly string[]
     excludeChatKey?: WorkspaceChatKey
   }) => void
-  removeNotesTargets: () => void
+  removeNotesTargets: (input?: {
+    matches?: NotesBenchTargetMatcher
+    excludeChatKey?: WorkspaceChatKey
+  }) => void
 }
 
 export type DirectoryWorkspaceStore = StoreApi<DirectoryWorkspaceStoreState>
@@ -854,8 +858,24 @@ export function removeSessionBenchTargetsFromSlots(input: {
   return changed ? slots : input.slots
 }
 
+export type NotesBenchTarget = Extract<BenchTabTarget, { type: "workspace-file" }>
+export type NotesBenchTargetMatcher = (target: NotesBenchTarget) => boolean
+
+export function isRemovedNotesBenchTarget(
+  target: BenchTabTarget,
+  matches?: NotesBenchTargetMatcher,
+): boolean {
+  return (
+    target.type === "workspace-file" &&
+    target.root === BENCH_WORKSPACE_ROOT_NOTES &&
+    (!matches || matches(target))
+  )
+}
+
 export function removeNotesBenchTargetsFromSlots(
   slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>,
+  matches?: NotesBenchTargetMatcher,
+  excludeChatKey?: WorkspaceChatKey,
 ): Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> {
   let changed = false
   const nextSlots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
@@ -863,7 +883,8 @@ export function removeNotesBenchTargetsFromSlots(
     if (!slot) continue
     const chatKey = parseWorkspaceChatKey(key)
     if (!chatKey) continue
-    const nextSlot = removeNotesBenchTargetsFromSlot(slot)
+    const nextSlot =
+      chatKey === excludeChatKey ? slot : removeNotesBenchTargetsFromSlot(slot, matches)
     nextSlots[chatKey] = nextSlot
     changed ||= nextSlot !== slot
   }
@@ -872,12 +893,10 @@ export function removeNotesBenchTargetsFromSlots(
 
 export function removeNotesBenchTargetsFromSlot(
   slot: WorkspacePresentationSlot,
+  matches?: NotesBenchTargetMatcher,
 ): WorkspacePresentationSlot {
   const removedTabKeys = slot.tabs
-    .filter(
-      (tab) =>
-        tab.target.type === "workspace-file" && tab.target.root === BENCH_WORKSPACE_ROOT_NOTES,
-    )
+    .filter((tab) => isRemovedNotesBenchTarget(tab.target, matches))
     .map((tab) => tab.key)
   if (removedTabKeys.length === 0) return slot
 
@@ -903,12 +922,16 @@ export function removeNotesBenchTargetsFromSlot(
         }
       : { status: BENCH_ROUTE_STATUS_CLOSED },
     tabs: selection.tabs,
-    docked: activeTab ? slot.docked : createCollapsedWorkspaceState(),
+    docked:
+      activeTab || slot.route.status !== BENCH_ROUTE_STATUS_OPEN || slot.docked.drawer
+        ? slot.docked
+        : createCollapsedWorkspaceState(),
   }
 }
 
 export async function removePersistedNotesBenchTargets(input?: {
   storage?: DirectoryWorkspacePersistenceStorage
+  matches?: NotesBenchTargetMatcher
 }): Promise<void> {
   const storage = input?.storage ?? defaultDirectoryWorkspaceStorage()
   await waitForAllDirectoryWorkspaceWrites()
@@ -921,7 +944,7 @@ export async function removePersistedNotesBenchTargets(input?: {
     [...directories].map(async (directory) => {
       const persisted = await readPersistedDirectoryWorkspace({ directory, storage })
       if (persisted.status !== WORKSPACE_HYDRATION_READY || !persisted.state) return
-      const slots = removeNotesBenchTargetsFromSlots(persisted.state.slots)
+      const slots = removeNotesBenchTargetsFromSlots(persisted.state.slots, input?.matches)
       if (slots === persisted.state.slots) return
       const nextSlots: PersistedDirectoryWorkspaceState["slots"] = {}
       for (const [chatKey, slot] of Object.entries(slots)) {
@@ -1472,9 +1495,13 @@ export function createDirectoryWorkspaceStore(input: {
           lastDrawer: activeSlot.lastDrawer,
         }
       }),
-    removeNotesTargets: () =>
+    removeNotesTargets: (input) =>
       set((state) => {
-        const slots = removeNotesBenchTargetsFromSlots(state.slots)
+        const slots = removeNotesBenchTargetsFromSlots(
+          state.slots,
+          input?.matches,
+          input?.excludeChatKey,
+        )
         if (slots === state.slots) return state
         const activeSlot = workspacePresentationSlotForChat(slots, state.activeChatKey)
         return {

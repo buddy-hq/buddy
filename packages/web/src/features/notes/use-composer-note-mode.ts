@@ -164,12 +164,12 @@ export function useComposerNoteMode(input: ComposerNoteModeInput) {
       const { images } = parsedImages
 
       const noteText = draft.value.trim()
-      if ((!noteText && images.length === 0) || saving) return true
+      const messageID = quotedMessageID(draft.parts)
+      if ((!noteText && images.length === 0 && !messageID) || saving) return true
 
       setSaving(true)
       try {
         const initiatingPromptKey = promptKey
-        const messageID = quotedMessageID(draft.parts)
         const saved = await saveNote(
           Object.assign(
             { text: noteText },

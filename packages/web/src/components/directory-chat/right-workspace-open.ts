@@ -8,6 +8,7 @@ import {
   type BenchTarget,
   type OpenBenchResult,
 } from "@/lib/bench-navigation"
+import { createNotesBenchTarget } from "@/lib/bench-targets"
 import { useOpenReadingResource } from "@/lib/use-open-reading-resource"
 import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import type { NotebookSearchResult } from "@/state/notebook-search"
@@ -132,6 +133,14 @@ export function notebookSearchOpenRequest(input: {
       type: "object",
       directory: input.directory,
       target: createBenchObjectTarget(target.kind, target.objectID),
+    }
+  }
+
+  if (target.type === "note") {
+    return {
+      type: "object",
+      directory: input.directory,
+      target: createNotesBenchTarget(target),
     }
   }
 

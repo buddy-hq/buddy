@@ -5,6 +5,7 @@ import { isPathInsideDirectory } from "../storage/path-containment"
 
 export const NOTES_LIBRARY_DIRECTORY_NAME = "Notes" as const
 export const NOTES_ATTACHMENTS_DIRECTORY_NAME = "Attachments" as const
+export const NOTES_CHAT_NOTES_DIRECTORY_NAME = "Chat notes" as const
 const NODE_ERROR_NOT_FOUND = "ENOENT" as const
 
 export function resolveDefaultNotesLibraryDirectory(buddyHomeDirectory: string) {
@@ -17,6 +18,10 @@ export function resolveNotesLibraryDirectory(input: {
 }) {
   const configured = input.configuredDirectory?.trim()
   return configured || resolveDefaultNotesLibraryDirectory(input.buddyHomeDirectory)
+}
+
+export function resolveChatNotesDirectory(notesDirectory: string) {
+  return path.join(notesDirectory, NOTES_CHAT_NOTES_DIRECTORY_NAME)
 }
 
 export function resolveNotesAttachmentsDirectory(notesDirectory: string) {

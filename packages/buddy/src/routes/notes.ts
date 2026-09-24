@@ -1,3 +1,4 @@
+import path from "node:path"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
@@ -5,7 +6,17 @@ import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } f
 import { readBoundedRequestBody, replayRequestBody } from "../http/bounded-request-body"
 import { annotateChatMessage, captureComposerNote } from "../notes/chat-capture"
 import { mapNotesError } from "../notes/errors"
-import { createStandaloneNote, listNotes, readNote, renameNote, updateNote } from "../notes/library"
+import { resolveNoteImage } from "../notes/images"
+import {
+  createStandaloneNote,
+  findSessionNote,
+  listNotes,
+  readNote,
+  readNoteLocation,
+  renameNote,
+  updateNote,
+} from "../notes/library"
+import { readRawFileResponse } from "../project/raw-file-response-service"
 import {
   BUDDY_NOTE_TYPES,
   NOTE_CAPTURE_IMAGE_MIME_TYPES,
@@ -28,7 +39,13 @@ const CAPTURE_REQUEST_TOO_LARGE_ERROR = "Note capture exceeds the request size l
 
 const NoteDocumentQuerySchema = z.object({
   path: z.string().trim().min(1),
+  id: z.string().trim().min(1).optional(),
 })
+const NoteImageQuerySchema = z.object({
+  note: z.string().trim().min(1).optional(),
+  src: z.string().trim().min(1).max(4_096),
+})
+const NoteLocationSchema = z.object({ filepath: z.string() }).strict()
 const NoteSessionIDParamSchema = z.object({ sessionID: z.string().trim().min(1) })
 const NoteMessageParamSchema = NoteSessionIDParamSchema.extend({
   messageID: z.string().trim().min(1),
@@ -71,6 +88,7 @@ const BuddyNoteSummarySchema = z
     notebook: z.string().optional(),
     notebookAvailable: z.boolean().optional(),
     sessionID: z.string().optional(),
+    preview: z.string().optional(),
     updatedAt: z.number(),
   })
   .strict()
@@ -79,6 +97,7 @@ const BuddyNoteDocumentSchema = z
     note: BuddyNoteSummarySchema,
     content: z.string(),
     version: z.string(),
+    sourceDirectory: z.string().optional(),
     properties: z.record(z.string(), z.unknown()).optional(),
   })
   .strict()
@@ -92,6 +111,7 @@ const BuddyNotesLibrarySchema = z
 const BuddySessionCaptureResultSchema = z
   .object({ note: BuddyNoteSummarySchema, created: z.boolean() })
   .strict()
+const BuddySessionNoteSchema = z.object({ note: BuddyNoteSummarySchema.optional() }).strict()
 
 function notesTask(task: () => Promise<Response>) {
   return runRouteTask({ task, mapError: mapNotesError })
@@ -111,10 +131,15 @@ export const NotesRoutes = new Hono()
         ...routeErrors(400, 403),
       },
     }),
-    validator("query", directoryQuerySchema),
+    validator(
+      "query",
+      directoryQuerySchema.extend({ query: z.string().trim().max(500).optional() }),
+    ),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
-        notesTask(async () => c.json(await listNotes(context.directory))),
+        notesTask(async () =>
+          c.json(await listNotes(context.directory, c.req.valid("query").query)),
+        ),
       ),
   )
   .post(
@@ -158,7 +183,59 @@ export const NotesRoutes = new Hono()
       },
     }),
     validator("query", NoteDocumentQuerySchema),
-    async (c) => notesTask(async () => c.json(await readNote(c.req.valid("query").path))),
+    async (c) =>
+      notesTask(async () =>
+        c.json(await readNote(c.req.valid("query").path, c.req.valid("query").id)),
+      ),
+  )
+  .get(
+    "/document/location",
+    describeRoute({
+      operationId: "notes.location",
+      summary: "Resolve the file that stores a note",
+      responses: {
+        200: {
+          description: "Absolute note file path",
+          content: { "application/json": { schema: resolver(NoteLocationSchema) } },
+        },
+        ...routeErrors(400, 403, 404),
+      },
+    }),
+    validator("query", NoteDocumentQuerySchema),
+    async (c) =>
+      notesTask(async () =>
+        c.json(await readNoteLocation(c.req.valid("query").path, c.req.valid("query").id)),
+      ),
+  )
+  .get(
+    "/image",
+    describeRoute({
+      operationId: "notes.image",
+      summary: "Read an image referenced by a note in the Notes library",
+      responses: {
+        200: {
+          description: "Image bytes",
+          content: { "application/octet-stream": { schema: resolver(z.string()) } },
+        },
+        ...routeErrors(400, 403, 404),
+      },
+    }),
+    validator("query", NoteImageQuerySchema),
+    async (c) =>
+      notesTask(async () => {
+        const query = c.req.valid("query")
+        const filepath = await resolveNoteImage({ notePath: query.note, src: query.src })
+        const response = await readRawFileResponse({
+          absolutePath: filepath,
+          downloadName: path.basename(filepath),
+          includeBody: true,
+          rangeHeader: c.req.header("range"),
+          signal: c.req.raw.signal,
+        })
+        response.headers.set("content-security-policy", "sandbox")
+        response.headers.set("x-content-type-options", "nosniff")
+        return response
+      }),
   )
   .put(
     "/document",
@@ -181,6 +258,7 @@ export const NotesRoutes = new Hono()
         return c.json(
           await updateNote({
             path: c.req.valid("query").path,
+            id: c.req.valid("query").id,
             content: body.content,
             expectedVersion: body.expectedVersion,
           }),
@@ -208,11 +286,29 @@ export const NotesRoutes = new Hono()
         return c.json(
           await renameNote({
             path: c.req.valid("query").path,
+            id: c.req.valid("query").id,
             title: body.title,
             expectedVersion: body.expectedVersion,
           }),
         )
       }),
+  )
+  .get(
+    "/session/:sessionID",
+    describeRoute({
+      operationId: "notes.sessionNote",
+      summary: "Find the note that collects a chat session's captures",
+      responses: {
+        200: {
+          description: "Session note, when the chat has one",
+          content: { "application/json": { schema: resolver(BuddySessionNoteSchema) } },
+        },
+        ...routeErrors(400, 403),
+      },
+    }),
+    validator("param", NoteSessionIDParamSchema),
+    async (c) =>
+      notesTask(async () => c.json(await findSessionNote(c.req.valid("param").sessionID))),
   )
   .post(
     "/session/:sessionID/capture",

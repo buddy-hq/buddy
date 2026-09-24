@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { quoteMessageIntoPromptDraft } from "../src/features/notes/quote-message-into-prompt-draft"
+import {
+  messageQuotePreview,
+  quoteMessageIntoPromptDraft,
+} from "../src/features/notes/quote-message-into-prompt-draft"
 import {
   registerPromptComposerLiveDraftReader,
   resetPromptComposerLiveDraftReadersForTests,
@@ -35,6 +38,14 @@ afterEach(() => {
 })
 
 describe("PromptComposer live draft quoting", () => {
+  test("keeps a message quote compact", () => {
+    const preview = messageQuotePreview(`  ${"long message ".repeat(40)}  `)
+
+    expect(preview.length).toBeLessThanOrEqual(281)
+    expect(preview.endsWith("…")).toBe(true)
+    expect(preview).not.toContain("  ")
+  })
+
   test("quotes against the live composer draft instead of a stale store snapshot", () => {
     const store = usePromptStore.getState()
     store.replaceDraft(PROMPT_KEY, createTextPromptDraft("stale store draft"))

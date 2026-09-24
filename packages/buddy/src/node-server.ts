@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server"
 import { app } from "./app"
+import { startSessionNoteTitleSync } from "./notes/session-title-sync"
 
 type NodeServerConfig = {
   hostname: string
@@ -23,9 +24,11 @@ export function listenNodeServer(config: NodeServerConfig): NodeServerListener {
 
   console.log(`Buddy server listening on http://${config.hostname}:${config.port}`)
 
+  const stopTitleSync = startSessionNoteTitleSync()
   return {
     stop: (close = false) =>
       new Promise<void>((resolve, reject) => {
+        stopTitleSync()
         if (close) closeAllConnections(server)
         server.close((error) => {
           if (error) {

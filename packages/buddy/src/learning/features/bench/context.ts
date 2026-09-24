@@ -36,6 +36,7 @@ const WorkspaceFileBenchTargetSchema = z
     type: z.literal("workspace-file"),
     root: BenchWorkspaceRootSchema.default(BENCH_WORKSPACE_ROOT_NOTEBOOK),
     path: nonEmptyString,
+    id: nonEmptyString.optional(),
     viewer: z.enum(["markdown", "file"]),
   })
   .strict()
@@ -422,7 +423,8 @@ function benchTargetKey(target: BenchTarget): string {
     return ["browser", encodeURIComponent(parsed.tabID)].join(BENCH_TARGET_KEY_PART_SEPARATOR)
   }
   if (parsed.type === "workspace-file") {
-    return ["workspace-file", parsed.root, parsed.viewer, encodeURIComponent(parsed.path)].join(
+    const identity = parsed.root === "notes" && parsed.id ? parsed.id : parsed.path
+    return ["workspace-file", parsed.root, parsed.viewer, encodeURIComponent(identity)].join(
       BENCH_TARGET_KEY_PART_SEPARATOR,
     )
   }

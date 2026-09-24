@@ -2,9 +2,11 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import {
   listNotes,
   readNoteDocument,
+  readSessionNote,
   type NoteDocument,
   type NoteSummary,
   type NotesLibrary,
+  type SessionNoteLookup,
 } from "./api"
 
 const BUDDY_NOTES_QUERY_SCOPE = "buddy-notes" as const
@@ -15,21 +17,33 @@ export const notesQueryKeys = {
   libraries: () => [BUDDY_NOTES_QUERY_SCOPE, "library"] as const,
   library: (directory: string) => [...notesQueryKeys.libraries(), directory] as const,
   notes: () => [BUDDY_NOTES_QUERY_SCOPE, "note"] as const,
-  note: (path: string) => [...notesQueryKeys.notes(), path] as const,
+  note: (path: string, id?: string) => [...notesQueryKeys.notes(), id ?? path] as const,
+  search: (directory: string, query: string) =>
+    [BUDDY_NOTES_QUERY_SCOPE, "search", directory, query] as const,
+  searches: () => [BUDDY_NOTES_QUERY_SCOPE, "search"] as const,
+  sessionNote: (sessionID: string) => [BUDDY_NOTES_QUERY_SCOPE, "session", sessionID] as const,
 }
 
-export function notesLibraryQueryOptions(directory: string) {
+export function notesLibraryQueryOptions(directory: string, query = "") {
   return queryOptions({
-    queryKey: notesQueryKeys.library(directory),
-    queryFn: async () => listNotes(directory),
+    queryKey: query ? notesQueryKeys.search(directory, query) : notesQueryKeys.library(directory),
+    queryFn: async () => listNotes(directory, query),
     staleTime: BUDDY_NOTES_STALE_TIME_MS,
   })
 }
 
-export function noteQueryOptions(path: string) {
+export function sessionNoteQueryOptions(sessionID: string) {
   return queryOptions({
-    queryKey: notesQueryKeys.note(path),
-    queryFn: async () => readNoteDocument({ path }),
+    queryKey: notesQueryKeys.sessionNote(sessionID),
+    queryFn: async () => readSessionNote(sessionID),
+    staleTime: BUDDY_NOTES_STALE_TIME_MS,
+  })
+}
+
+export function noteQueryOptions(path: string, id?: string) {
+  return queryOptions({
+    queryKey: notesQueryKeys.note(path, id),
+    queryFn: async () => readNoteDocument({ path, id }),
     staleTime: BUDDY_NOTES_STALE_TIME_MS,
   })
 }
@@ -49,46 +63,61 @@ export async function resetNotesQueries(queryClient: QueryClient) {
   queryClient.removeQueries({ queryKey: notesQueryKeys.all() })
 }
 
-function contextualNoteSummary(library: NotesLibrary, note: NoteSummary, previousPath?: string) {
-  const identityPath = previousPath ?? note.relativePath
-  const previous = library.notes.find((candidate) => candidate.relativePath === identityPath)
-  if (previous?.kind === "buddy" && note.kind === "buddy") {
+function contextualNoteSummary(library: NotesLibrary, note: NoteSummary, previous?: NoteSummary) {
+  const summary =
+    note.preview === undefined && previous?.preview !== undefined
+      ? { ...note, preview: previous.preview }
+      : note
+  if (previous?.kind === "buddy" && summary.kind === "buddy") {
     return {
-      ...note,
+      ...summary,
       ...(previous.notebook ? { notebook: previous.notebook } : undefined),
       ...(previous.notebookAvailable !== undefined
         ? { notebookAvailable: previous.notebookAvailable }
         : undefined),
     }
   }
-  if (note.kind === "buddy") {
+  if (summary.kind === "buddy") {
     return {
-      ...note,
+      ...summary,
       notebookAvailable:
-        note.notebookID !== undefined && library.activeNotebookID === note.notebookID,
+        summary.notebookID !== undefined && library.activeNotebookID === summary.notebookID,
     }
   }
-  return note
+  return summary
 }
 
 function cacheBuddyNoteSummary(queryClient: QueryClient, note: NoteSummary, previousPath?: string) {
   queryClient.setQueriesData<NotesLibrary>({ queryKey: notesQueryKeys.libraries() }, (library) => {
     if (!library) return library
     const identityPath = previousPath ?? note.relativePath
-    const contextualNote = contextualNoteSummary(library, note, previousPath)
-    const notes = library.notes.some((candidate) => candidate.relativePath === identityPath)
-      ? library.notes.map((candidate) =>
-          candidate.relativePath === identityPath ? contextualNote : candidate,
-        )
+    const matchesIdentity = (candidate: NoteSummary) =>
+      note.id ? candidate.id === note.id : candidate.relativePath === identityPath
+    const contextualNote = contextualNoteSummary(library, note, library.notes.find(matchesIdentity))
+    const notes = library.notes.some(matchesIdentity)
+      ? library.notes.map((candidate) => (matchesIdentity(candidate) ? contextualNote : candidate))
       : [...library.notes, contextualNote]
     return {
       ...library,
       notes: notes.toSorted((left, right) => right.updatedAt - left.updatedAt),
     }
   })
-  queryClient.setQueryData<NoteDocument>(notesQueryKeys.note(note.relativePath), (document) =>
-    document ? { ...document, note } : document,
+  queryClient.setQueryData<NoteDocument>(
+    notesQueryKeys.note(note.relativePath, note.id),
+    (document) => (document ? { ...document, note } : document),
   )
+  if (note.type === "buddy-session-note" && note.sessionID) {
+    queryClient.setQueryData<SessionNoteLookup>(notesQueryKeys.sessionNote(note.sessionID), {
+      note,
+    })
+  }
+}
+
+export async function invalidateNotesSearchQueries(queryClient: QueryClient) {
+  await queryClient.invalidateQueries({
+    queryKey: notesQueryKeys.searches(),
+    refetchType: "active",
+  })
 }
 
 export async function publishNoteSummary(queryClient: QueryClient, note: NoteSummary) {
@@ -103,11 +132,16 @@ export async function cacheNoteDocument(
 ) {
   await queryClient.cancelQueries({ queryKey: notesQueryKeys.all() })
   if (previousPath && previousPath !== document.note.relativePath) {
-    queryClient.removeQueries({
-      queryKey: notesQueryKeys.note(previousPath),
-      exact: true,
-    })
+    if (!document.note.id) {
+      queryClient.removeQueries({
+        queryKey: notesQueryKeys.note(previousPath),
+        exact: true,
+      })
+    }
   }
-  queryClient.setQueryData(notesQueryKeys.note(document.note.relativePath), document)
+  queryClient.setQueryData(
+    notesQueryKeys.note(document.note.relativePath, document.note.id),
+    document,
+  )
   cacheBuddyNoteSummary(queryClient, document.note, previousPath)
 }

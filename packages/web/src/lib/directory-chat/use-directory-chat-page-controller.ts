@@ -217,6 +217,7 @@ type DirectoryChatMainPaneProps = ComponentProps<typeof DirectoryChatConversatio
 
 type ReadyDirectoryChatPageControllerState = {
   status: "ready"
+  selectSession: (directory: string, sessionID: string) => Promise<boolean>
   leftSidebarProps: ComponentProps<typeof ChatLeftSidebar>
   mainPaneProps: DirectoryChatMainPaneProps
   shellProps: Omit<
@@ -245,6 +246,12 @@ export function useDirectoryChatPageController(
   const openBench = useOpenBench()
   const location = useLocation()
   const workspace = useDirectoryWorkspace()
+  const workspaceProjectionRef = useRef(workspace.projection)
+  workspaceProjectionRef.current = workspace.projection
+  const readVisibleBenchTarget = useCallback(() => {
+    const bench = workspaceProjectionRef.current.bench
+    return bench.visibility === "visible" ? bench.target : undefined
+  }, [])
   const closingDirectoryRef = useRef<string | undefined>(undefined)
   const previousDirectoryRef = useRef<string | undefined>(undefined)
   const benchActionLedgerDiagnosticRef = useRef<{
@@ -701,6 +708,7 @@ export function useDirectoryChatPageController(
   async function onSelectSession(
     targetDirectory: string,
     nextSessionID?: string,
+    requireExactSession = false,
   ): Promise<boolean> {
     if (!targetDirectory) return false
     if (!nextSessionID) {
@@ -718,7 +726,15 @@ export function useDirectoryChatPageController(
         navigate: targetDirectory === decodedDirectory ? undefined : navigateToWorkspaceRoute,
       })
       if (result.outcome !== "committed" && result.outcome !== "noop") return false
-      if (result.value.outcome === "draft" || result.value.outcome === "failed") return false
+      if (result.value.outcome !== "requested" && result.value.outcome !== "fallback") {
+        return false
+      }
+      if (
+        requireExactSession &&
+        (result.value.outcome !== "requested" || result.value.sessionID !== nextSessionID)
+      ) {
+        return false
+      }
       cs.clearUnread(targetDirectory, result.value.sessionID)
       return true
     } catch {
@@ -1561,9 +1577,9 @@ export function useDirectoryChatPageController(
     directory: decodedDirectory,
     sessionID: cs.sessionID,
     setPromptDraft: cs.setPromptDraft,
-    workspaceController: workspace.controller,
     workspaceLifecycle: workspace.lifecycle,
     openBench,
+    readVisibleBenchTarget,
   })
 
   // Scroll handling is fully managed by useAutoScroll.
@@ -1710,6 +1726,7 @@ export function useDirectoryChatPageController(
     onTranscriptInteraction: autoScroll.handleInteraction,
     onTranscriptScrollGeometryChange: autoScroll.handleScrollGeometryChange,
     markTranscriptProgrammaticScroll: autoScroll.markProgrammaticScroll,
+    pauseAutoScroll: autoScroll.pause,
     onOpenSession: handleOpenCurrentDirectorySession,
     onQuoteMessage: quoteMessage,
     onRevertMessage: async ({ sessionID, messageID }) => {
@@ -1843,6 +1860,8 @@ export function useDirectoryChatPageController(
 
   return {
     status: "ready",
+    selectSession: (targetDirectory, targetSessionID) =>
+      onSelectSession(targetDirectory, targetSessionID, true),
     leftSidebarProps,
     mainPaneProps,
     shellProps,

@@ -147,7 +147,9 @@ const workspaceFileBenchTargetOpenApiSchema = {
   additionalProperties: false,
   properties: {
     type: { type: "string" as const, enum: ["workspace-file"] },
+    root: { type: "string" as const, enum: ["notebook", "notes"] },
     path: { type: "string" as const },
+    id: { type: "string" as const },
     viewer: { type: "string" as const, enum: ["markdown", "file"] },
   },
 }

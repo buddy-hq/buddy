@@ -120,6 +120,7 @@ type DirectoryChatMainPaneProps = {
   onTranscriptInteraction?: () => void
   onTranscriptScrollGeometryChange?: (element: HTMLElement) => void
   markTranscriptProgrammaticScroll?: (element: HTMLElement, top: number) => void
+  pauseAutoScroll?: () => void
   onOpenSession: (sessionID: string) => void
   onOpenResource: OpenReadingResource
   onForkMessage?: (input: { sessionID: string; messageID?: string }) => Promise<void> | void
@@ -734,6 +735,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     onViewportHeightChange={onTranscriptScrollGeometryChange}
                     onContentSizeChange={onTranscriptScrollGeometryChange}
                     markProgrammaticScroll={markTranscriptProgrammaticScroll}
+                    pauseAutoScroll={props.pauseAutoScroll}
                     onOpenSession={onOpenSession}
                     onOpenResource={onOpenResource}
                     onForkMessage={onForkMessage}

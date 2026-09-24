@@ -1,4 +1,5 @@
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
+import { findCurrentNotePath } from "../../../../notes/library"
 import { readNotesDirectoryState } from "../../../../notes/settings"
 import {
   BENCH_WORKSPACE_ROOT_NOTES,
@@ -51,13 +52,33 @@ function selectedBrowserForContext(
   }
 }
 
-function projectModelVisibleBenchContext(input: {
+async function withCurrentNotePaths<TContext extends OpenBenchContext>(
+  context: TContext,
+): Promise<TContext> {
+  const tabs = await Promise.all(
+    context.tabs.map(async (tab) => {
+      const target = tab.target
+      if (
+        target.type !== "workspace-file" ||
+        target.root !== BENCH_WORKSPACE_ROOT_NOTES ||
+        !target.id
+      ) {
+        return tab
+      }
+      const path = await findCurrentNotePath({ path: target.path, id: target.id })
+      return path && path !== target.path ? { ...tab, target: { ...target, path } } : tab
+    }),
+  )
+  return { ...context, tabs }
+}
+
+async function projectModelVisibleBenchContext(input: {
   context: OpenBenchContext
   directory: string
   notesDirectory: string
   tabSearch?: string
 }) {
-  const { context } = input
+  const context = await withCurrentNotePaths(input.context)
   const selectedBrowser = selectedBrowserForContext(context)
   const projectedTabs = projectModelVisibleBenchTabs(
     Object.assign(
@@ -282,7 +303,7 @@ const benchReadContextTool = createBuddyTool({
         params.responseFormat === "bench_screenshot_only"
           ? screenshot
           : {
-              ...projectModelVisibleBenchContext(
+              ...(await projectModelVisibleBenchContext(
                 Object.assign(
                   {
                     context: synchronizedContext,
@@ -291,7 +312,7 @@ const benchReadContextTool = createBuddyTool({
                   },
                   params.tabSearch ? { tabSearch: params.tabSearch } : undefined,
                 ),
-              ),
+              )),
               ...screenshot,
             }
       return {
@@ -323,7 +344,7 @@ const benchReadContextTool = createBuddyTool({
       return {
         title: "Read Bench",
         output: JSON.stringify(
-          projectModelVisibleBenchContext(
+          await projectModelVisibleBenchContext(
             Object.assign(
               {
                 context: result,
@@ -347,7 +368,7 @@ const benchReadContextTool = createBuddyTool({
     return {
       title: "Read Bench",
       output: JSON.stringify(
-        projectModelVisibleBenchContext(
+        await projectModelVisibleBenchContext(
           Object.assign(
             {
               context: result,

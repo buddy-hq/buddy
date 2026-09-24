@@ -29,11 +29,13 @@ export type ObjectVariant =
 /** Presentable, but not Bench objects: they open somewhere other than the Bench. */
 export const OBJECT_KIND_WORKSPACE_FILE = "workspace-file"
 export const OBJECT_KIND_THREAD = "thread"
+export const OBJECT_KIND_NOTE = "note"
 
 export type ObjectPresentationKind =
   | BenchObjectKind
   | typeof OBJECT_KIND_WORKSPACE_FILE
   | typeof OBJECT_KIND_THREAD
+  | typeof OBJECT_KIND_NOTE
 
 export const OBJECT_STATUS_READY = "ready"
 export const OBJECT_STATUS_PREPARING = "preparing"

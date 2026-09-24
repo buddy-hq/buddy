@@ -6,6 +6,7 @@ import {
   notesQueryKeys,
 } from "../src/features/notes/queries"
 import type { NoteDocument, NotesLibrary } from "../src/features/notes/api"
+import { benchTargetKey, createNotesBenchTarget } from "../src/lib/bench-navigation"
 
 const FIRST_DIRECTORY = "/notebooks/first"
 const SECOND_DIRECTORY = "/notebooks/second"
@@ -55,7 +56,7 @@ describe("Buddy Notes query cache", () => {
       notes: [original.note],
     })
     queryClient.setQueryData<NoteDocument>(
-      notesQueryKeys.note(original.note.relativePath),
+      notesQueryKeys.note(original.note.relativePath, original.note.id),
       original,
     )
     queryClient.setQueryData<NotesLibrary>(notesQueryKeys.library(SECOND_DIRECTORY), {
@@ -73,7 +74,9 @@ describe("Buddy Notes query cache", () => {
     await cacheNoteDocument(queryClient, renamed, original.note.relativePath)
 
     expect(
-      queryClient.getQueryData<NoteDocument>(notesQueryKeys.note(renamed.note.relativePath)),
+      queryClient.getQueryData<NoteDocument>(
+        notesQueryKeys.note(renamed.note.relativePath, renamed.note.id),
+      ),
     ).toEqual(renamed)
     expect(
       queryClient.getQueryData<NotesLibrary>(notesQueryKeys.library(FIRST_DIRECTORY))?.notes,
@@ -122,5 +125,63 @@ describe("Buddy Notes query cache", () => {
     })) {
       expect(query.state.isInvalidated).toBe(true)
     }
+  })
+
+  test("replaces a cached summary by stable id after an automatic path change", async () => {
+    const queryClient = new QueryClient()
+    const original = noteDocument({
+      title: "Before",
+      relativePath: "Before.md",
+      content: "Body",
+      version: "before-version",
+    })
+    const renamed = noteDocument({
+      title: "After",
+      relativePath: "After.md",
+      content: "Body changed",
+      version: "after-version",
+    })
+    queryClient.setQueryData<NotesLibrary>(notesQueryKeys.library(FIRST_DIRECTORY), {
+      directory: "/Buddy/Notes",
+      activeNotebookID: original.note.notebookID,
+      notes: [original.note],
+    })
+
+    await cacheNoteDocument(queryClient, renamed)
+
+    expect(
+      queryClient.getQueryData<NotesLibrary>(notesQueryKeys.library(FIRST_DIRECTORY))?.notes,
+    ).toEqual([renamed.note])
+  })
+
+  test("keeps a note's library preview when a save returns a summary without one", async () => {
+    const queryClient = new QueryClient()
+    const saved = noteDocument({
+      title: "Physics",
+      relativePath: "Physics.md",
+      content: "Entropy counts microstates.",
+      version: "saved-version",
+    })
+    queryClient.setQueryData<NotesLibrary>(notesQueryKeys.library(FIRST_DIRECTORY), {
+      directory: "/Buddy/Notes",
+      activeNotebookID: saved.note.notebookID,
+      notes: [{ ...saved.note, preview: "Entropy counts" }],
+    })
+
+    await cacheNoteDocument(queryClient, saved)
+
+    expect(
+      queryClient.getQueryData<NotesLibrary>(notesQueryKeys.library(FIRST_DIRECTORY))?.notes,
+    ).toEqual([{ ...saved.note, preview: "Entropy counts" }])
+  })
+
+  test("keeps a Notes Bench target stable when its generated filename changes", () => {
+    const before = createNotesBenchTarget({ relativePath: "Before.md", id: NOTE_ID })
+    const after = createNotesBenchTarget({ relativePath: "After.md", id: NOTE_ID })
+
+    expect(benchTargetKey(before)).toBe(benchTargetKey(after))
+    expect(benchTargetKey(createNotesBenchTarget({ relativePath: "Before.md" }))).not.toBe(
+      benchTargetKey(createNotesBenchTarget({ relativePath: "After.md" })),
+    )
   })
 })

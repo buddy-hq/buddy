@@ -11,6 +11,13 @@ import {
 import { getPromptScopeKey, type PromptStore } from "@/state/prompt-store"
 
 const MESSAGE_QUOTE_SELECTION_KEY_PREFIX = "message_" as const
+const MESSAGE_QUOTE_PREVIEW_LENGTH = 280
+
+export function messageQuotePreview(text: string): string {
+  const normalized = text.replace(/\s+/gu, " ").trim()
+  if (normalized.length <= MESSAGE_QUOTE_PREVIEW_LENGTH) return normalized
+  return `${normalized.slice(0, MESSAGE_QUOTE_PREVIEW_LENGTH).trimEnd()}…`
+}
 
 function isMessageSelectionContextPart(
   part: PromptComposerPart,
@@ -37,7 +44,7 @@ export function quoteMessageIntoPromptDraft(input: {
     promptScopeKey,
     appendSelectionContextToDraft(withoutPreviousQuote, {
       source: "message",
-      text: input.text,
+      text: messageQuotePreview(input.text),
       selectionKey: `${MESSAGE_QUOTE_SELECTION_KEY_PREFIX}${input.messageID}`,
       quotedMessageID: input.messageID,
     }),
