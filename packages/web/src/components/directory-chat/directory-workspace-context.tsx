@@ -1,5 +1,4 @@
 import {
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -18,6 +17,7 @@ import {
   buildWorkspaceRouteNavigation,
   readBenchRouteSnapshotFromLocation,
 } from "@/lib/directory-workspace-controller"
+import { DirectoryWorkspaceContext } from "@/components/directory-chat/directory-workspace-context-value"
 import {
   benchRouteFallbackContextFromTarget,
   routeString,
@@ -55,25 +55,9 @@ import {
   workspacePresentationSlotForChat,
   writePersistedDirectoryWorkspace,
   type DirectoryWorkspacePersistenceStorage,
-  type DirectoryWorkspaceStore,
-  type EffectiveWorkspaceProjection,
   type NotesBenchTargetMatcher,
   type WorkspacePresentationSlot,
 } from "@/state/directory-workspace-store"
-
-type DirectoryWorkspaceContextValue = {
-  directory: string
-  store: DirectoryWorkspaceStore
-  controller: DirectoryWorkspaceController
-  blocker: DirectoryWorkspaceBlocker
-  lifecycle: DirectoryWorkspaceLifecycleService
-  route: BenchRouteSnapshot
-  projection: EffectiveWorkspaceProjection
-}
-
-const DirectoryWorkspaceContext = createContext<DirectoryWorkspaceContextValue | undefined>(
-  undefined,
-)
 
 function initialDockedState(route: BenchRouteSnapshot) {
   if (route.status === BENCH_ROUTE_STATUS_OPEN) {
