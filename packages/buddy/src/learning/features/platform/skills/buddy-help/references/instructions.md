@@ -20,13 +20,14 @@ Profile is not written into `AGENTS.md`. Global and notebook `AGENTS.md` are dif
 
 Fields: **Preferred name**, **Occupation**, **More about you**.
 
-- Settings → **Personalization** → Profile (badge **Global**). Autosaves.
+- Settings → **Personalization** → **Profile**. Autosaves.
 - One profile for the app — not per notebook.
 - Empty fields: Buddy has no preferred-name / occupation / about-you text to use.
+- **Default way Buddy works** (Learn / Teach) and **Concise responses** live under **Settings → General**.
 
 ## Global instructions
 
-Settings → **Personalization** → **Instructions** (badge **Global**).
+Settings → **Personalization** → **Instructions**.
 
 - Freeform markdown `AGENTS.md` for Buddy as a whole (global).
 - Empty: create via “Create instructions file.”
@@ -35,7 +36,7 @@ Settings → **Personalization** → **Instructions** (badge **Global**).
 
 ## Notebook instructions
 
-In a notebook, right rail → **Notebook Instructions** (below Files; not a list drawer).
+In a notebook, right rail → **Notebook Instructions** (below Skills; not a list drawer).
 
 1. Ensures notebook-root `AGENTS.md` exists (creates seed if missing).
 2. Opens it on **Bench** as markdown.

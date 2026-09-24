@@ -1,6 +1,6 @@
 ---
 name: config-mcp
-description: "Hand-edit Buddy MCP config: global definitions, notebook enable overrides, local/remote shapes."
+description: "Hand-edit Buddy MCP config: global and notebook definitions, enable overrides, local/remote shapes."
 ---
 
 # Config MCP
@@ -19,35 +19,31 @@ Goal for the agent: make a named MCP **enabled for a notebook** by editing Buddy
 
 | Scope | Path | Role |
 | --- | --- | --- |
-| Global definitions | `~/.buddy/buddy.jsonc` (fallback `buddy.json` if that exists) | **Required** for full server definitions (`type` + command/url). This is what **Settings → MCPs** and **Notebook settings → MCPs** list. |
-| Notebook / project | `<notebook-root>/.buddy/buddy.jsonc` (or `.json`) | **Enable override only** for product UI: thin `{ "enabled": true\|false }`. Not a second definition store for Settings. |
+| Global definitions | Default packaged path: `~/.buddy/buddy.jsonc` (or existing `buddy.json`) | Full definitions here appear in **Settings → MCPs** and notebook settings. |
+| Notebook / project | `<notebook-root>/.buddy/buddy.jsonc` (or existing `.json`) | Per-notebook enable overrides **or** full notebook-only definitions; these appear in notebook settings. |
 
 - Create parent `.buddy/` if missing.
 - Prefer **jsonc** when creating new files.
 - Notebook root = workspace folder the notebook opened (not Home/Inbox magic alone — use the open directory path).
+- Dev builds and configured runtimes can relocate the global config. Check the running Buddy environment's `BUDDY_GLOBAL_CONFIG_DIR` before assuming `~/.buddy` is live.
 
-### Critical product truth (UI empty if you miss this)
+### Where definitions appear
 
 | Action | Where |
 | --- | --- |
-| **Add / edit / remove definition** (name, URL, command) | **Global** `~/.buddy/buddy.jsonc` only for Settings to show it |
-| **On/off for this notebook** + Connect | Notebook settings lists **global names only**, then reads notebook override for enabled |
+| **Show or edit a definition in Settings → MCPs** | Put its full definition in the live **global** Buddy config. |
+| **Use a server only in this notebook** | A full definition may live in the notebook config; **Notebook settings → MCP servers** lists it. |
+| **Override global on/off for one notebook** | Put a thin `{ "enabled": true\|false }` entry in notebook config. |
 
-**If you write a full MCP only under `<notebook>/.buddy/buddy.jsonc` and leave global empty:**
-
-- File write “succeeds.”
-- **Settings → MCPs** stays empty (reads global only).
-- **Notebook settings → MCPs** stays empty (iterates global names only).
-- User cannot Connect from UI.
-
-Always put the **full definition in global**. Use notebook file only for `enabled` override when needed.
+**Settings → MCPs** lists global definitions. Notebook settings combines global definitions, notebook definitions, and live server status. Put definitions in global config when the user expects to manage them from Settings.
 
 ## Enable resolution
 
 For each MCP **name**:
 
-1. If notebook config has `mcp.<name>` → use it (full entry or `{ "enabled": true|false }`).
-2. Else global `mcp.<name>` → use global (including its `enabled`; omit/`true` = on by default when present in product terms as `enabled !== false`).
+1. Start with global `mcp.<name>` when present.
+2. Merge notebook `mcp.<name>` over it. A thin `enabled` entry changes only that field; a full notebook entry can define a new server.
+3. Omitted or `true` `enabled` means on by default; `false` means off.
 
 To **enable for this notebook only** when already defined globally:
 
@@ -116,24 +112,8 @@ Buddy accepts OpenCode-compatible MCP entries under top-level `mcp` map. Keys = 
 }
 ```
 
-- Hosted OAuth: leave `oauth` unset (or object) so browser login can run; user still uses Notebook settings → **Connect** when status is Sign in required / Needs setup.
+- Hosted OAuth: leave `oauth` unset (or object) so Browser sign-in can run; use **Connect** in Settings → MCPs or Notebook settings → MCP servers when status is Sign in required / Needs setup.
 - API-key style: set `headers` and `"oauth": false`. Do **not** combine browser OAuth with an `Authorization` header (UI blocks this; avoid same conflict in files).
-
-### Global example (define + on by default)
-
-`~/.buddy/buddy.jsonc`:
-
-```jsonc
-{
-  "mcp": {
-    "shadcn": {
-      "type": "local",
-      "command": ["npx", "-y", "shadcn@latest", "mcp"],
-      "enabled": true
-    }
-  }
-}
-```
 
 ### Notebook-only enable (definition already global)
 
@@ -149,16 +129,16 @@ Buddy accepts OpenCode-compatible MCP entries under top-level `mcp` map. Keys = 
 }
 ```
 
-Do **not** put the only full definition here. Settings will not list it.
+For a notebook-only server, use a full local or remote definition here. It will appear in notebook settings, but not the global Settings → MCPs list.
 
 ## Agent procedure (add / enable for current notebook)
 
 1. Identify **notebook directory** (open workspace path).
-2. **Read global** `~/.buddy/buddy.jsonc` (or `.json`). Merge — never wipe unrelated keys (`permission`, `model`, `personalization`, etc.).
-3. If server missing under global `mcp`: write **full** local/remote entry under **global** with `"enabled": true` (unless user wants off-by-default). Ask user for URL/command; never invent secrets.
+2. Resolve and read the live global Buddy config (packaged default `~/.buddy/buddy.jsonc`; check `BUDDY_GLOBAL_CONFIG_DIR`). Merge — never wipe unrelated keys (`permission`, `model`, `personalization`, etc.).
+3. If server missing under global `mcp`, write a **full** entry there when it should be globally managed, or in the notebook config when it belongs only to this notebook. Ask for URL/command; never invent secrets.
 4. Only if global default is off and this notebook should be on: open/create `<notebook>/.buddy/buddy.jsonc` and set thin `mcp.<name>.enabled: true`.
 5. If global has `enabled: true` and no notebook override needed, **skip** notebook file (or leave thin enable only).
-6. Tell user: reopen notebook / restart Buddy if Settings still empty after global write; then **Notebook settings → MCPs → Connect** for OAuth.
+6. Recheck the UI/status after the write. If Settings → MCPs remains empty, verify the live global config path; notebook-only definitions appear in Notebook settings → MCP servers. Use **Connect** there or in Settings → MCPs for OAuth.
 7. Tools only when status is **Connected**. Permission dock may still ask (`trust.md`).
 
 ## Linear remote example (global)
@@ -178,13 +158,13 @@ Do **not** put the only full definition here. Settings will not list it.
 }
 ```
 
-Then user: Settings → MCPs should list **linear**; Notebook settings → **Connect** for OAuth.
+Then user: Settings → MCPs should list **linear**; use **Connect** there or in notebook settings for OAuth.
 
 ## Do / don't
 
 | Do | Don't |
 | --- | --- |
-| Put **full** MCP definitions in **global** `~/.buddy/buddy.jsonc` | Write full definition **only** under notebook `.buddy` and expect Settings to show it |
+| Put globally managed definitions in the live global Buddy config | Expect a notebook-only definition to show in global Settings → MCPs |
 | Merge into existing global JSON/JSONC | Replace entire global config with only `mcp` |
 | Thin `{ "enabled": true }` in notebook when overriding default | Expect `opencode.jsonc` alone to feed Buddy MCP |
 | Use `type: "local"` + `command` array / `type: "remote"` + `url` | Fake server names or tokens |
@@ -200,6 +180,6 @@ Then user: Settings → MCPs should list **linear**; Notebook settings → **Con
 
 ## Related
 
-- Product UI: `extend.md` (Settings → MCPs, notebook MCPs, Connect)
+- Product UI: `extend.md` (Settings → MCPs, notebook MCP servers, Connect)
 - Permissions: `trust.md`
 - Fundamentals of MCP: `basics-of-agents.md` (newbies only)

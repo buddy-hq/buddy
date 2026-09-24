@@ -40,13 +40,13 @@ In-app updates on the normal installed desktop app (not web-only).
 
 **Stable** = approved releases. **Preview** = release candidates; switching to Preview saves and checks immediately.
 
-When ready: toast **Install & restart** or **Later**. Download first; install restarts the app. No silent install without that action.
+When downloaded, the sidebar update button offers **Restart to install**. Confirm with **Restart now**. Download first; install restarts the app. No silent install without that action.
 
 macOS also: menu **Buddy → Check for Updates...**. Windows: Settings only.
 
-Background: recheck roughly every **10 minutes** while Buddy is visible, and on focus.
+Background: first check shortly after startup, then roughly every **30 minutes**.
 
-Status row: idle / checking / downloading / ready / installing / error.
+Status can show checking, downloading, available, downloaded, blocked, up to date, or installing; failures appear separately.
 
 ### Recovery
 
@@ -59,7 +59,7 @@ Status row: idle / checking / downloading / ready / installing / error.
 
 - Guide the user to site/script/Settings for app install — not something Buddy does from chat alone.
 - Channel UI is **Stable** / **Preview**, not “Beta.” **Buddy Beta** / **Buddy Dev** are separate app builds if present.
-- Do not claim auto-update without **Install & restart**.
+- Do not claim installation happens before the user chooses **Restart to install**.
 - **Install CLI…** in macOS menu is disabled — not available.
 - Prefer hibuddy.in script.
 
@@ -99,7 +99,7 @@ Buddy desktop runs **on this machine** for one OS user. A local service must sta
 | **macOS** Buddy menu → **Restart** | Fully relaunch Buddy |
 | **macOS** Buddy menu → **Reload** | Reload the window only; Buddy keeps running |
 | Quit app, open again | Full cold start (both OS) |
-| Update **Install & restart** | Installer/relaunch |
+| Update **Restart to install** | Installer/relaunch |
 
 Windows has **no** Buddy application menu. Restart = quit/reopen or update install. Do not tell Windows users to use a menu Restart.
 
@@ -113,7 +113,7 @@ Windows has **no** Buddy application menu. Restart = quit/reopen or update insta
 
 - Scheme **`buddy://`** is registered.
 - Incoming links are forwarded into the desktop window.
-- **Do not invent** navigable `buddy://…` destinations — product UI does not document them. Provider login finishes in the browser and returns to Buddy — `providers.md`.
+- **Do not invent** arbitrary `buddy://…` destinations. Notes can link to a saved chat message (`notes.md`); provider login finishes in the **system browser** and returns to Buddy (`providers.md`).
 
 ### Logs
 
@@ -142,30 +142,27 @@ Desktop only. Web does not show this flow. Install/update: Install & updates abo
 
 ### Defaults
 
-- First desktop launch with no notebooks open → onboarding (choose a focus, AI engine, and notebook location).
-- **Learn** selects the **Buddy** persona. **Teach** selects **Teaching Buddy**, reveals teaching-oriented empty-state copy, and makes the **Standards** Settings tab discoverable.
+- First desktop launch without completed setup or an open notebook → onboarding (focus, AI engine, notebook location).
+- **Learn** selects the **Buddy** persona. **Teach** selects **Teaching Buddy**, shows teaching-oriented copy, reveals **Standards**, and starts Standards package setup on desktop.
 - Default notebook home: **Documents → Buddy** (`~/Documents/Buddy` shape).
-- First notebook after Next: **Inbox**.
-- AI engines in wizard: **ChatGPT** or **Free Models** only.
+- First notebook after setup: **Inbox**.
+- AI engines in wizard: **Connect ChatGPT** or **Free models** only.
 - Personalization is available later in **Settings → Personalization**.
 - ChatGPT sign-in is **provider** auth, not a Buddy account (`trust.md`, `providers.md`).
 
 ### Golden path
 
-1. Launch Buddy desktop with no prior notebooks.
-2. Choose whether you are here to **learn** or **teach**. You can change this later in Settings.
-3. **Select AI Engine**
-   - **ChatGPT** — browser sign-in; models depend on ChatGPT plan. Complete auth in browser; Cancel aborts.
-   - **Free Models** — start without ChatGPT; free models only (no OAuth in this step).
-4. Storage shows **Documents**. Tap **Next** (disabled until an engine is chosen).
-5. Buddy saves notebook home, opens **Inbox**, sets a model for that engine.
-6. Land in Inbox chat. Edit profile later: **Settings → Personalization** (`instructions.md`, `settings.md`).
+1. Launch Buddy desktop and choose **Let's begin**.
+2. At **You're here to…**, choose **Learn** or **Teach**. Change this later under **Settings → General → Default way Buddy works**.
+3. Choose **Connect ChatGPT** (finish sign-in in the system browser) or **Free models**.
+4. At **Your work lives here**, choose **Use this** for the proposed Buddy Home or **Choose a different home**.
+5. Buddy saves the home, opens **Inbox**, and sets a model for the chosen engine. Edit your profile later in **Settings → Personalization**.
 
 ### Gate (why am I here again?)
 
 Onboarding shows on desktop when:
 
-- no open notebooks / no active notebook
+- setup is unfinished, or no notebook is open / active
 
 Finishing setup alone is not enough — without a notebook, desktop returns to onboarding.
 
@@ -175,14 +172,13 @@ Skip onboarding when open notebooks already exist or recovery is needed.
 
 | Symptom | What to do |
 | --- | --- |
-| Documents access denied / Next fails | **Choose another folder**. macOS may need Privacy & Security access for Documents. |
-| ChatGPT modal stuck / timeout | Cancel; retry ChatGPT or switch to Free Models. Browser must finish auth. |
-| Free Models fails | No free model available for that notebook — retry later or use ChatGPT. |
-| “Pick an AI provider first” | Choose ChatGPT or Free Models before Next. |
+| Proposed home inaccessible / setup fails | **Choose a different home**. macOS may need Privacy & Security access for Documents. |
+| ChatGPT sign-in stuck / timeout | **Cancel sign-in**; retry ChatGPT or choose **Free models**. Finish auth in the system browser. |
+| Free models unavailable | Retry later or use ChatGPT. |
 
 ### Guardrails
 
 - Do not invent extra wizard steps or Buddy logins.
 - Do not invent free model names; catalog varies.
-- Prefer UI nouns: onboarding, Learn, Teach, AI Engine, Documents, Inbox.
+- Prefer UI nouns: onboarding, Learn, Teach, Connect ChatGPT, Free models, Use this, Inbox.
 - Provider detail after setup: `providers.md`. Notebooks / Home / Inbox: `notebooks.md`.

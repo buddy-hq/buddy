@@ -5,7 +5,7 @@ description: "Buddy library rail: Sources, Files, Boards, Creations; open on Ben
 
 # Library
 
-Use when the user asks about the right-rail catalogs: **Sources**, **Files**, **Boards**, **Creations**, or how items open on Bench.
+Use when the user asks about the right-rail catalogs: **Sources**, **Files**, **Boards**, **Creations**, or how items open on Bench. For the **Notes** catalog, use `notes.md`.
 
 **Practice** (flashcards/quizzes) is separate: `practice.md`. Layout of the rail: `workspace.md`.
 
@@ -102,7 +102,7 @@ Desktop when available:
 
 - Only on **Markdown Bench** (open a `.md` / `.mdx`).
 - **Save as PDF** (busy: **Saving PDF**).
-- **Desktop only.** Writes into the **notebook folder**. Toast: **Saved PDF to the notebook.**
+- **Desktop only.** Saves a PDF named after the Markdown file in the notebook root or Notes library. If that name exists, Buddy adds a number. Toast: **Saved PDF.** with an **Open** action when available.
 - Not a general export for arbitrary file types.
 
 ### Guardrails
@@ -145,11 +145,11 @@ Use when the user asks about the whiteboard, Boards drawer, drawing on canvas, s
 
 ### Related
 
-`workspace.md`, Creations below, `workspace.md`, `chat.md`
+`workspace.md`, Creations below, `chat.md`
 
 ## Creations
 
-**Creations** is the library-rail catalog of visuals Buddy already made: widgets, Mermaid diagrams, figures, and presented media. Not whiteboards (Boards below) or practice sets (`practice.md`).
+**Creations** is the library-rail catalog of visuals Buddy already made: widgets, Mermaid diagrams, figures, and presented media. Whiteboards are under Boards above; practice sets are under Practice (`practice.md`).
 
 Open: right library rail → **Creations**. Search, filter **All types / Widgets / Diagrams / Media**, sort recent. Hover preview; click opens the object on **Bench**.
 
@@ -164,6 +164,7 @@ Empty: “No creations yet” until Buddy presents something. **Create** only st
 | Exact geometry figures | Media → **Figure** |
 | Freeform SVG figures | Media |
 | Show existing images/PDF/video files | Media |
+| Generate or edit an image | Media |
 
 ### Product rules
 
@@ -176,8 +177,12 @@ Empty: “No creations yet” until Buddy presents something. **Create** only st
 
 - Widget source size limits apply; multi-file widgets need a folder entry.
 - Opening or updating a creation lands on Bench; the pane may still show load/error in UI.
-- Mermaid may auto-repair in the browser.
+- Mermaid may auto-repair in the diagram view.
+
+## Generate or edit an image
+
+Ask Buddy in chat to make an image from a description, or attach an existing image and ask for a change. Buddy presents the result on Bench; find it later in **Creations → Media**. Image generation and editing require a **ChatGPT** connection through browser sign-in; an OpenAI API key alone does not enable this capability (`providers.md`).
 
 ### Related
 
-Boards below, `workspace.md`, `workspace.md`, `extend.md`, `workspace.md`
+Boards above, `workspace.md`, `extend.md`

@@ -28,16 +28,16 @@ Use after the general definition. Product detail → listed ref.
 | Foundation | In Buddy (concept) | Product ref if they need UI |
 | --- | --- | --- |
 | agent / host / runtime | Buddy desktop (or web) runs the agent session | `workspace.md` |
-| provider / model | Settings → Providers; model on chat toolbar | `providers.md` |
+| provider / model | Settings → AI Providers; model on composer toolbar | `providers.md` |
 | workspace | notebook ≈ folder user opened | `notebooks.md` |
 | session | chat in sidebar | `notebooks.md` |
 | compaction | compact / auto-compaction on long chats | `notebooks.md` |
 | tools | capabilities Buddy/agent can call (not listed by id here) | product + live tools |
 | skills | Right rail → **Skills**; skill packages on demand | `extend.md` |
-| MCP | Settings → MCPs; per-notebook on/off | `extend.md` |
+| MCP | Settings → MCPs; per-notebook on/off and Connect | `extend.md` |
 | subagent | helper/task cards; nested helper work | `chat.md` |
 | instruction layers | Profile + AGENTS.md (global / notebook) | `instructions.md` |
-| artifacts | Bench + library rail (Sources, Boards, Creations, Practice, Files) | `workspace.md`, `library.md`, `practice.md` |
+| artifacts | Bench + library rail (Sources, Boards, Creations, Practice, Files, Notes) | `workspace.md`, `library.md`, `practice.md`, `notes.md` |
 | working memory / context | what the model sees this turn; context usage near composer | `notebooks.md`, `chat.md` |
 | long-term memory | Memory (opt-in) | `learner-memory.md` |
 | local-first + egress | no Buddy account; data on machine; chat still goes to provider | `trust.md`, `providers.md` |

@@ -1,11 +1,11 @@
 ---
 name: extend
-description: "Extend Buddy: Skills drawer (right rail), MCP servers, Advanced Math and Standards packages."
+description: "Extend Buddy: Skills drawer, MCP servers, Advanced math and Teaching standards packages."
 ---
 
 # Extend
 
-Use when the user asks how to add capabilities: **Skills** (right rail), **MCP** servers, or optional **Advanced Math** / **Standards** packages.
+Use when the user asks how to add capabilities: **Skills** (right rail), **MCP** servers, or optional **Advanced math** / **Teaching standards** packages.
 
 Not desktop app install (`setup.md`). Not AGENTS.md profile (`instructions.md`).
 
@@ -24,18 +24,16 @@ A skill is a package of workflow instructions Buddy loads on demand. Not a separ
 ### Open Skills
 
 1. Right workspace rail → **Skills** (near Files / Notebook Instructions; separator before it), or Settings → **Skills**.
-2. Tabs:
-   - **Installed** — skills already on this machine (built-in / curated / custom / detected). Active On/Off per skill.
-   - **Discover** — Buddy-approved catalog; Install / Update.
+2. Browse the one catalog list: **Your skills** (already on this machine) and **Available to add** (curated skills). Settings shows the same catalog in a wider layout.
 
-Search filters across **Discover** and **Installed**. Refresh rescans the catalog.
+Search shows matching results from the catalog. Refresh rescans it.
 
 Drawer unavailable while Bench is **floating** — dock chat for the rail.
 
 ### Install / update / remove
 
-- Install only from **Discover** (approved catalog). Network required. Bad or mismatched downloads fail safely.
-- **Update** when the catalog has a newer reviewed version (row action, detail dialog, or **Update all** on Installed when updates exist).
+- Install curated skills from **Available to add**. Network required. Bad or mismatched downloads fail safely.
+- **Update** when the catalog has a newer reviewed version (row action, detail dialog, or **Update all** when offered).
 - **Remove** uninstalls that curated skill from this machine (from the skill detail dialog).
 - Withdrawn catalog skills cannot be reinstalled; remove only if still present.
 
@@ -43,7 +41,7 @@ External skills outside this catalog are never “Install” targets here.
 
 ### Allow / block
 
-On **Installed** rows (and the detail dialog): **Active** switch (list shows **On** / **Off**).
+On installed skill rows (and the detail dialog): **Active** switch (list shows **On** / **Off**).
 
 | Switch | Effect |
 | --- | --- |
@@ -62,11 +60,11 @@ On **Installed** rows (and the detail dialog): **Active** switch (list shows **O
 
 ### External discovery (optional)
 
-Settings → **Skills** → **Skill discovery** → discover external skills (e.g. from `.agents` / `.claude` folders).
+Settings → **Skills** → **Discovery** → **Discover skills from .agents and .claude folders**.
 
 - Off by default.
-- When on, those skills can appear on **Installed** as **Detected**.
-- Outside curated trust: not Discover-approved.
+- When on, those skills can appear among **Your skills** as **Detected**.
+- Outside the curated catalog: not approved catalog installs.
 
 ### Gotchas
 
@@ -99,18 +97,18 @@ MCP servers give Buddy **extra tools** from outside apps (hosted URL or a local 
 | Job | UI |
 | --- | --- |
 | Add / edit / remove definition | **Settings → MCPs** |
-| On/off for this notebook + Connect / sign-in | Notebook settings → **MCPs** |
+| On/off for this notebook + Connect / sign-in | Notebook settings → **MCP servers**; Connect also appears in Settings → MCPs for the active notebook |
 | Jump to Settings MCPs | Chat slash **`/mcp`** |
 
-Definitions are **global**. Notebook settings only turn participation on/off and repair connection. Empty notebook list means “add one in Settings first.”
+Settings → MCPs edits **global** definitions. Notebook config can also supply a notebook-specific definition; notebook settings lists those alongside global servers.
 
 ### Golden path
 
 1. **Settings → MCPs → Add MCP.**
-2. **Remote** (default): name, URL. Leave **browser login** on for hosted OAuth. Optional headers only if not using browser login; do not set Authorization **and** browser login together.
+2. **Remote** (default): name, URL. Leave **Browser sign-in** on for hosted OAuth. Optional headers only if not using browser sign-in; do not set Authorization **and** browser sign-in together.
 3. **Local**: name + command. Optional env. Command must run on this machine.
 4. Leave **Enabled by default** on unless notebooks should start off.
-5. Save. Notebook settings → **MCPs** → **On** if needed.
+5. Save. Notebook settings → **MCP servers** → **On** if needed.
 6. **Sign in required** / **Needs setup** / not Connected → **Connect**. Complete browser auth when asked.
 7. **Connected** → those server tools can appear (user may still Allow / reject).
 
@@ -126,7 +124,7 @@ Definitions are **global**. Notebook settings only turn participation on/off and
 
 ### Defaults
 
-- New remote draft: Remote, browser login on, enabled by default.
+- New remote draft: Remote, Browser sign-in on, enabled by default.
 - Timeout optional — leave blank unless the provider requires it.
 - Changing definitions updates open notebooks.
 
@@ -136,7 +134,7 @@ Definitions are **global**. Notebook settings only turn participation on/off and
 - Prefer UI nouns for users; MCP tools appear when **Connected**.
 - Never claim MCP tools skip permissions.
 - Never invent server names or OAuth fields the user did not configure.
-- Do not send users to outside CLI auth tools — use **Connect** in notebook settings.
+- Do not send users to outside CLI auth tools — use **Connect** in Settings → MCPs or notebook settings.
 
 ### Gotchas
 
@@ -144,11 +142,11 @@ Definitions are **global**. Notebook settings only turn participation on/off and
 - **Enabled but not Connected** — Failed / Sign in required → no tools until Connect succeeds.
 - **Local MCP** — missing binary/args/env → Failed.
 - **Name and type locked after create** — remove and re-add to rename or switch type.
-- **Auth vs headers** — browser login and Authorization header are mutually exclusive.
+- **Auth vs headers** — Browser sign-in and Authorization header are mutually exclusive.
 
 ## Packages
 
-Use when the user wants optional **Advanced Math** or **Standards** on this machine, or why math/standards features are missing.
+Use when the user wants optional **Advanced math** or **Teaching standards** on this machine, or why math/standards features are missing.
 
 Not app install (`setup.md`). Not skills (Skills above). Not MCP (MCP below).
 
@@ -158,8 +156,8 @@ Two **optional local packages**. Desktop only. **Settings → Packages**.
 
 | Package (UI) | What user gets | Unlocks (when ready) |
 | --- | --- | --- |
-| **Advanced Math Package** | Local math/graph runtime | Advanced math / calculator capability |
-| **Standards package** | Local teaching-standards database | Standards lookup capabilities |
+| **Advanced math** | Local math/graph runtime | Advanced math / calculator capability |
+| **Teaching standards** | Local teaching-standards database | Standards lookup capabilities |
 
 Without the package installed and **ready**, those capabilities stay unavailable.
 
@@ -171,15 +169,15 @@ Without the package installed and **ready**, those capabilities stay unavailable
 
 **Advanced Math on Windows:** UI shows **Coming soon** — no install switch. Use macOS for Advanced Math today.
 
-**Web:** Packages section not shown; desktop only.
+**Web:** Packages tab can show experimental features, but local runtime package controls are desktop-only.
 
 Prefer a new user message after install if features still look missing; do not invent “must restart Buddy” as required.
 
 ### After Standards is on
 
-- **Settings → Standards** tab appears (hidden until package enabled).
+- **Settings → Standards** appears when the package is installed or the user's default way of working is **Teach**. Before install, it offers the package path.
 - Global defaults: bulk **All standards tools** or per-item on/off. Defaults: **on**.
-- Per-notebook overrides: notebook settings → Standards (Inherited vs Overridden).
+- Per-notebook controls: notebook settings → Standards; **Use global default** is available for an overridden item.
 
 Package can stay installed while individual standards items are toggled off.
 

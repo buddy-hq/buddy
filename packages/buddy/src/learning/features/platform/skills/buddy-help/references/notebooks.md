@@ -1,13 +1,13 @@
 ---
 name: notebooks
-description: "Buddy notebooks, Home, Inbox, chats, pin, archive, branch, compact."
+description: "Buddy notebooks, Home, Inbox, chats, pin, archive, delete, branch, compact."
 ---
 
 # Notebooks
 
 Use when the user asks what a notebook is, Buddy Home, Inbox / Quick Chat, or chats (pin, archive, branch, compact, undo).
 
-A **notebook** is a **folder** Buddy has open. **Chats** live inside it. Sidebar chrome → `workspace.md`. First-launch home → `setup.md`.
+A **notebook** is a **folder** Buddy has open. **Chats** live inside it. The central **Notes** library is separate → `notes.md`. Sidebar chrome → `workspace.md`. First-launch home → `setup.md`.
 
 ## Notebooks
 
@@ -22,7 +22,7 @@ A **notebook** is a **folder** Buddy has open (workspace). Chats live inside a n
 - **Quick Chat** = open/create Inbox, then a new chat there
 - **Open list**: curated list of open notebooks — not every folder on disk
 - Managed create goes under Buddy Home; **Open existing folder** can open any folder as a notebook
-- When an opened folder contains Obsidian settings, Buddy asks whether to connect the vault; skipping keeps it as a regular notebook without Obsidian branding or capabilities
+- When an opened folder contains Obsidian settings, Buddy asks whether to connect the vault; **Not now** keeps it as a regular notebook. See `obsidian.md`.
 
 ### What users do
 
@@ -35,7 +35,7 @@ A **notebook** is a **folder** Buddy has open (workspace). Chats live inside a n
 | Change where new managed notebooks go | Settings → **General** → Buddy Home → **Change Home** |
 | Reopen after close | Open existing folder, or create again with same name under Home if folder still exists |
 
-Empty-state intent: **Inbox** for quick chats and loose notes; named notebooks for dedicated work.
+Empty-state intent: **Inbox** for quick chats and notes associated with those chats; named notebooks for dedicated work. The Markdown note files live in the central Notes library (`notes.md`).
 
 **Try these** cards offer starter prompts in the sidebar and on the Inbox empty board. Choosing one stages or starts that prompt. Hide them with the card close control or Settings → General → **Show Try these**; the same setting restores them.
 
@@ -77,7 +77,6 @@ Do not invent other recovery UIs.
 - **Close ≠ delete**: folder and files remain on disk.
 - **Home change**: old managed notebooks stay at the previous path.
 - **Create name rules**: invalid characters / reserved names → create fails with a clear error.
-- Dialog copy may say “documents folder” even if Home was customized — truth is under Buddy Home.
 - Any folder is a notebook once opened: projects, notes folders, etc.
 
 ## Chats / sessions
@@ -95,7 +94,7 @@ Not for chat input beyond session slashes — `chat.md`. Notebook create/open �
 | Undo message | soft-hide that turn and later turns |
 | Restore / redo | bring undone turns back |
 | Compact session | summarize earlier context to fit the model window |
-| Rename / archive | title change / leave the active list |
+| Rename / archive / delete | title change / leave the active list / permanently remove |
 
 ### Where
 
@@ -130,7 +129,9 @@ Context menu on a chat row:
 | Pin / Unpin | Keeps chat high in sort |
 | Rename | Dialog → short title |
 | Archive | Confirm → remove from active list |
+| Delete chat | Confirm → permanently delete; cannot undo |
 | Mark as unread / read | Unread dot; auto-unread when another session finishes while this one is not focused |
+| Copy chat ID | Copy the chat's identifier |
 
 #### Organize list
 
@@ -150,13 +151,13 @@ Sidebar **Organize chats**: by notebook · chronological; sort created · update
 #### Compact
 
 - `/compact` (or `/summarize`) → shorter context for the model window.
-- With auto on, overflow near the limit can compact automatically; may show **Auto-compaction approaching**.
+- With auto on, overflow near the limit can compact automatically; may show **Context getting full**.
 - Context usage may show near the composer.
 
 ### Guardrails
 
 - Prefer **chat** for users; **session** when the product noun helps — dual once if needed.
-- Do not invent delete/share/cloud-sync for chats.
+- **Delete chat** is permanent. Do not invent a restore, share, or cloud-sync flow.
 - Compaction rewrites **context** for the model; do not claim full transcript hard-delete unless the UI shows that.
 
 ### Gotchas

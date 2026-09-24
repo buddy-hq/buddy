@@ -19,7 +19,7 @@ Flashcard scheduling / ratings → `flashcards.md`. Not the chat **question UI**
 ## Open Practice
 
 1. Right workspace rail → **Practice**.
-2. Header badge = total flashcards due now.
+2. Header shows the total flashcards **due** now and a **Next** column. Use **Search practice…** to find a deck or set.
 3. Click a flashcard deck name → deck view on Bench. Click **Study N** → scheduled study.
 4. Click a question set or **Start** → question set on Bench.
 
@@ -33,16 +33,16 @@ Empty: “No practice yet” — ask Buddy to create flashcards or a question se
 | `/flashcard` [topic] | Create a flashcard deck |
 | `/quiz` [topic] | Create a question set |
 
-After save: object lands in Practice; chat may also show an open/review action. Save may prompt permissions — `trust.md`.
+After save: object lands in Practice; chat can show **Review** for flashcards or **Open Question Set** for a quiz. Save may prompt permissions — `trust.md`.
 
 Flashcard types: basic (front/back) or cloze. Full flow → `flashcards.md`.
 
 ## Question sets (quizzes)
 
-1. Answer in chat inline card or Bench.
-2. Submit → score; explanations after grade.
+1. In chat, choose **Open Question Set**; in Practice, choose the set or **Start**. Answer on the Bench, using **Wizard** or **List** view.
+2. **Submit Quiz** / **Submit Entire Quiz** → score and explanations after grade.
 3. Supports multi-select, optional none-of-the-above, optional shuffle.
-4. Retry starts a fresh attempt.
+4. **Retry** starts a fresh attempt; chat may offer **Retry Quiz**.
 
 UI nouns: question set / quiz. **Never** call this UI “question dock.”
 
