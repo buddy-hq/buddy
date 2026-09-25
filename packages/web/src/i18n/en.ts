@@ -160,7 +160,7 @@ export const dict = {
   "chat.selection.commentMarker": "Show comments on this passage",
   "chat.selection.documentTitle": "Selected text",
   "chat.selection.messageTitle": "Quoted message",
-  "chat.selection.openExternal": "Open in system browser",
+  "chat.selection.openExternal": "Open in default browser",
   "chat.selection.passageTitle": "Selected passage",
   "chat.selection.remove": "Remove selected context",
   "chat.selection.webTitle": "Web page",
