@@ -5,6 +5,7 @@ import type { Citation } from "@buddy/citation-contract"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { UserSection } from "../src/components/chat/sections/user-section"
+import { QUOTE_HOVER_OPEN_DELAY_MS } from "../src/components/citations/quote-content"
 import type { MessagePart } from "../src/state/chat-types"
 import { createMessageWithParts, createUserMessageInfo } from "./test-utils"
 
@@ -53,6 +54,26 @@ function serverCitationPart(id: string, citation: Citation): MessagePart {
 
 function userTextPart(text: string): MessagePart {
   return { id: "prt_user_text", sessionID: SESSION_ID, messageID: MESSAGE_ID, type: "text", text }
+}
+
+function quoteCard() {
+  return document.querySelector('[data-slot="hover-card-content"]')
+}
+
+async function waitPastHoverOpenDelay() {
+  await new Promise((resolve) => setTimeout(resolve, QUOTE_HOVER_OPEN_DELAY_MS + 50))
+}
+
+async function movePointer(from: Element | null, to: Element) {
+  await act(async () => {
+    from?.dispatchEvent(
+      new PointerEvent("pointerout", { bubbles: true, pointerType: "mouse", relatedTarget: to }),
+    )
+    to.dispatchEvent(
+      new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse", relatedTarget: from }),
+    )
+    await waitPastHoverOpenDelay()
+  })
 }
 
 describe("user section quotes", () => {
@@ -111,6 +132,48 @@ describe("user section quotes", () => {
     expect(bubbles[0]?.querySelector(".quote-band")?.textContent).toContain(
       "Excerpt of citation_doc",
     )
+  })
+
+  test("opens the quote card from a quote chip, not from the rest of the message", async () => {
+    await render([
+      serverCitationPart("prt_doc", documentCitation("citation_doc", "from the md file")),
+      serverCitationPart("prt_chat", chatCitation("citation_chat", "from chat")),
+      userTextPart("whatdoes thismean"),
+    ])
+
+    const band = container.querySelector(".quote-band")
+    const typedText = Array.from(container.querySelectorAll("[data-chat-typography]")).find(
+      (element) => element !== band && element.textContent?.includes("whatdoes thismean"),
+    )
+    const chip = Array.from(band?.querySelectorAll("button") ?? []).find((button) =>
+      button.textContent?.includes("Excerpt of citation_doc"),
+    )
+    if (!band || !typedText || !chip) throw new Error("Expected the quote band, text and chip")
+
+    await movePointer(null, typedText)
+    expect(quoteCard()).toBeNull()
+
+    await movePointer(typedText, band)
+    expect(quoteCard()).toBeNull()
+
+    await movePointer(band, chip)
+    expect(quoteCard()?.textContent).toContain("Excerpt of citation_doc")
+  })
+
+  test("opens the quote card when a quote chip takes keyboard focus", async () => {
+    await render([
+      serverCitationPart("prt_doc", documentCitation("citation_doc")),
+      userTextPart("whatdoes thismean"),
+    ])
+
+    const chip = container.querySelector<HTMLButtonElement>(".quote-band button")
+    if (!chip) throw new Error("Expected a quote chip")
+
+    await act(async () => {
+      chip.focus()
+      await waitPastHoverOpenDelay()
+    })
+    expect(quoteCard()?.textContent).toContain("Excerpt of citation_doc")
   })
 
   test("keeps the comment on an optimistic citation before the server copy lands", async () => {
