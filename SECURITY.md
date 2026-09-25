@@ -20,9 +20,7 @@ There is no bug bounty.
 
 ## Scope
 
-Buddy's own code lives outside `vendor/`. That is what this policy covers.
-
-Everything under `vendor/opencode/` is a vendored copy of [OpenCode](https://github.com/sst/opencode), tracked upstream and not modified here. Report bugs in that code to OpenCode directly. If a vendored bug is reachable through Buddy in a way upstream would not hit, tell us too, and we will coordinate.
+This policy covers Buddy. Vulnerabilities in a dependency belong with its maintainers, and that includes [OpenCode](https://github.com/anomalyco/opencode), which is vendored in `vendor/opencode/`. If a dependency bug is reachable through Buddy, tell us too, and we will coordinate.
 
 ## Design context that affects severity
 

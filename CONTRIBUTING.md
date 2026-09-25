@@ -8,13 +8,11 @@ Buddy is not open source. The [LICENSE](LICENSE) is the O'Saasy License, which g
 
 By sending a pull request you agree your contribution ships under that license. If that is a problem for you, it is better to know now than after you have written the patch.
 
-The code under `vendor/opencode/` is a different story. It is MIT, it belongs to [OpenCode](https://github.com/sst/opencode), and it stays MIT.
-
 ## Don't patch vendor
 
-`vendor/opencode/` is a vendored subtree of upstream OpenCode, about 6,450 files. It gets refreshed wholesale, so edits there are overwritten on the next sync and silently lost.
+`vendor/opencode/` is [OpenCode](https://github.com/anomalyco/opencode), an MIT-licensed dependency. It is vendored only because it isn't published as a package, and it is synced from upstream, so edits there are overwritten on the next sync.
 
-Fix it upstream and let the sync bring it back. If Buddy genuinely needs different behaviour, the seam is `packages/opencode-adapter`, which is where Buddy bridges to the vendored modules. A CI job called `vendor-guard` enforces this and will fail your PR.
+Fix OpenCode bugs upstream. If Buddy needs different behaviour, change `packages/opencode-adapter`, which is where Buddy integrates it. The `vendor-guard` check in `bun lint` and CI fails any change under `vendor/`.
 
 ## Setup
 

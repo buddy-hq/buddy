@@ -9,7 +9,8 @@ ships its own license or notice file, that file remains authoritative.
 
 ## OpenCode
 
-Buddy vendors OpenCode as its agent runtime.
+Buddy includes a vendored copy of OpenCode, because it isn't published as a
+package.
 
 - Project: [OpenCode](https://github.com/anomalyco/opencode)
 - Copyright: Copyright (c) 2025 opencode
