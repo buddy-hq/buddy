@@ -54,6 +54,11 @@ export const MARKDOWN_BENCH_MDX_POPUP_LAYER_CSS = `
   z-index: ${MARKDOWN_BENCH_MDX_DIALOG_Z_INDEX};
 }
 
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} a[href],
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} a[href] * {
+  cursor: pointer;
+}
+
 .${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorWrapper_"] {
   margin-block: 0.75em 1em;
   padding: 0;
