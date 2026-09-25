@@ -60,10 +60,7 @@ function isOptionTextTruncated(trigger: HTMLElement): boolean {
   return text instanceof HTMLElement && text.scrollWidth > text.clientWidth
 }
 
-function skipTooltipUnlessTruncated(event: {
-  currentTarget: HTMLElement
-  preventDefault(): void
-}) {
+function skipTooltipUnlessTruncated(event: { currentTarget: HTMLElement; preventDefault(): void }) {
   if (!isOptionTextTruncated(event.currentTarget)) event.preventDefault()
 }
 
