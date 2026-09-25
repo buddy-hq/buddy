@@ -11,7 +11,7 @@ Use when the user asks about Buddy's in-app Browser, web tabs, profiles, Incogni
 
 - **New tab** in the sidebar or **Cmd/Ctrl+T** opens a blank Browser tab on the Bench using the default profile.
 - Bench **+** → **Open in a new tab** offers Browser profiles, recent items, files, and a URL/search field. Choose **Incognito** here when needed.
-- Ask Buddy to open an HTTP or HTTPS page and it can present a new Browser tab. The page is controlled by the user: Buddy cannot inspect, click, type, scroll, or screenshot the live Browser tab.
+- Ask Buddy to open an HTTP or HTTPS page and it can present a new Browser tab. Buddy can also switch the Bench back to a Browser tab that is already open. The page is controlled by the user: Buddy cannot inspect, click, type, scroll, or screenshot the live Browser tab.
 - The tab has Back, Forward, Reload, an address/search field, and **More**. A blank **New tab** page shows search and **Recently visited** pages from this notebook.
 - **More** offers hard reload, zoom, page Appearance, clear cookies, and clear cache. The address bar can **Open in system browser**.
 - Select page text → **Cite selected text**, or use **Cite in Chat** from the page menu, to put a web quote in the chat composer. Clicking a saved quote tries to reopen and highlight the passage.

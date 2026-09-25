@@ -97,7 +97,7 @@ const BenchPresentReasonSchema = z.enum([
 const BenchPresentInputSchema = z
   .object({
     action: BenchPresentActionSchema.describe(
-      "What to show on Bench. Use present_file for an existing local file, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id, focus_tab for an exact tabKey returned by bench_read_context, and close only when the user asks to close Bench.",
+      "What to show on Bench. Use present_file for an existing local file, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id, focus_tab to switch to an already-open tab, including an open Browser tab, by an exact tabKey returned by bench_read_context, and close only when the user asks to close Bench.",
     ),
     path: z
       .string()
@@ -124,7 +124,7 @@ const BenchPresentInputSchema = z
       .min(1)
       .optional()
       .describe(
-        "Exact logical tabKey copied from bench_read_context. Required only for focus_tab. Omit for every other action.",
+        "Exact logical tabKey copied from bench_read_context, such as a file tab or an open Browser tab (browser:...). Required only for focus_tab. Omit for every other action.",
       ),
   })
   .strict()
@@ -1292,18 +1292,6 @@ async function presentOnBench(input: {
         objectResult: null,
       }
     }
-    if (tab.target.type === "browser") {
-      return {
-        status: "error",
-        reason: "unsupported_target",
-        target: null,
-        benchTarget: null,
-        mode: null,
-        message:
-          "Browser tabs are user-controlled. Use inapp_browser_open to open a URL in a new visible Browser tab.",
-        objectResult: null,
-      }
-    }
     const requested = {
       status: "presented",
       reason: "focused_tab",
@@ -1444,7 +1432,7 @@ const benchPresentTool = createBuddyTool({
   description: [
     "Present an existing stable target, focus an exact open tab, or close Bench.",
     "",
-    "Use present_file, present_resource, or present_object to open and focus a stable target. Use focus_tab only with an exact current tabKey copied from bench_read_context; a missing key means the tab set is stale and must be read again. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
+    "Use present_file, present_resource, or present_object to open and focus a stable target. Use focus_tab to switch to an already-open tab, including an open Browser tab, only with an exact current tabKey copied from bench_read_context; a missing key means the tab set is stale and must be read again. Focusing a Browser tab only brings it to the front; it does not let you read, click, type into, or capture the page. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
     "",
     "For Buddy objects, pass only objectID copied from a prior tool result. Do not pass object kind, revision id, item id, view id, routes, layout pixels, or user preferences.",
     "",

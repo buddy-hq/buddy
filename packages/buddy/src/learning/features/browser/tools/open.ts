@@ -43,7 +43,7 @@ export const inAppBrowserOpenTool = createBuddyTool({
   description: [
     "Open an HTTP or HTTPS address in a new visible Browser tab on Bench for the user.",
     "",
-    "Use this when the user asks to open a link in Buddy or when showing a relevant webpage would help them. Every call creates and selects a new tab; it never replaces the page the user is using.",
+    "Use this when the user asks to open a link in Buddy or when showing a relevant webpage would help them. Every call creates and selects a new tab; it never replaces the page the user is using. To return to a page that is already open in a Browser tab, use bench_present with action focus_tab and that tab's tabKey from bench_read_context instead of opening a duplicate.",
     "",
     "The Browser is user-controlled. This tool cannot read the page, inspect its contents, click, type, scroll, submit forms, take screenshots, or run JavaScript. Do not use it when the task requires any of those actions, and do not claim that opening a URL proves what the page contains.",
   ].join("\n"),

@@ -581,6 +581,57 @@ describe("DirectoryWorkspaceController", () => {
     ])
   })
 
+  test("focuses an open Browser tab for an agent request", async () => {
+    const browserTarget = {
+      type: "browser",
+      tabID: "browser-focus-tab",
+      url: "https://hibuddy.in/",
+    } satisfies BenchTarget
+    const dockedBrowserRoute = {
+      status: BENCH_ROUTE_STATUS_OPEN,
+      target: browserTarget,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    } satisfies BenchRouteSnapshot
+    const browserTabKey = `browser:${encodeURIComponent(browserTarget.tabID)}`
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: browserTarget,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      dockedBrowserRoute,
+    )
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    expect(harness.readRoute()).toEqual(DOCKED_FILE_ROUTE)
+    expect(benchTabKey(browserTarget)).toBe(browserTabKey)
+
+    harness.setNextRoute(dockedBrowserRoute)
+    const focused = await harness.controller.execute(
+      { type: "focus-tab", tabKey: browserTabKey },
+      { origin: "agent" },
+    )
+
+    expect(focused).toMatchObject({
+      outcome: "committed",
+      projection: { route: dockedBrowserRoute },
+    })
+    expect(harness.readRoute()).toEqual(dockedBrowserRoute)
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([
+      { key: browserTabKey, target: browserTarget },
+      { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
+    ])
+  })
+
   test("replaces a renamed file's tab in place instead of appending a new tab", async () => {
     const renamedTarget = { ...FILE_TARGET, path: "docs/renamed-intro.md" } satisfies BenchTarget
     const renamedRoute = {

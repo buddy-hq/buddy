@@ -458,15 +458,38 @@ describe("bench_present", () => {
     })
   })
 
-  test("refuses to focus an existing Browser tab", async () => {
+  test("focuses an existing Browser tab", async () => {
     await using project = await tmpdir({ git: true })
     const client = connectTestBenchClient({ directory: project.path })
-    const target = {
-      type: "browser" as const,
+    const selectedTarget = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "selected.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    const browserTarget = {
+      type: "browser",
       tabID: "browser-focus-tab",
       url: "https://hibuddy.in/",
-    }
-    const tabKey = `browser:${encodeURIComponent(target.tabID)}`
+    } satisfies BenchTarget
+    const contextAction = {
+      version: 2,
+      actionID: "browser-context-action",
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "browser-context-message",
+      callID: null,
+      origin: "agent",
+      acknowledgement: "required",
+      expiresAt: Date.now() + 30_000,
+      command: { type: "present", target: selectedTarget, autoOpen: null },
+    } satisfies BenchClientAction
+    const initialContext = openContextForAction({
+      directory: project.path,
+      action: contextAction,
+    })
+    if (initialContext.status !== "open") throw new Error("Expected open context.")
+    const browserTabKey = `browser:${encodeURIComponent(browserTarget.tabID)}`
     publishSequencedBenchContext({
       directory: project.path,
       sessionID: SESSION_ID,
@@ -475,49 +498,40 @@ describe("bench_present", () => {
         publicationSequence: nextPublicationSequence(client),
         idempotencyKey: "browser-focus-context",
         value: {
-          status: "open",
-          visibility: "visible",
-          mode: "docked",
-          selectedTabKey: tabKey,
-          tabs: [{ tabKey, title: "HiBuddy", target }],
-          targetKey: benchTargetKey(target),
-          target: {
-            type: "browser",
-            title: "HiBuddy",
-            workspaceRoot: project.path,
-            tabID: target.tabID,
-            url: target.url,
-            loading: false,
-            route: "/_bench/browser/browser-focus-tab",
-            status: "ready",
-          },
-          drawer: null,
-          metadata: ["control: user-only"],
-          content: "User-controlled Browser tab.",
-          refs: [],
-          hints: [],
+          ...initialContext,
+          tabs: [
+            ...initialContext.tabs,
+            { tabKey: browserTabKey, title: "HiBuddy", target: browserTarget },
+          ],
         },
       },
     })
 
-    await expect(
-      presentOnBench({
-        directory: project.path,
-        sessionID: SESSION_ID,
-        messageID: "browser-focus-message",
-        callID: null,
-        abort: new AbortController().signal,
-        action: "focus_tab",
-        path: null,
-        resourceKey: null,
-        objectID: null,
-        tabKey,
-        ask: async () => undefined,
-      }),
-    ).resolves.toMatchObject({
-      status: "error",
-      reason: "unsupported_target",
-      message: expect.stringContaining("inapp_browser_open"),
+    const run = presentOnBench({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "browser-focus-message",
+      callID: null,
+      abort: new AbortController().signal,
+      action: "focus_tab",
+      path: null,
+      resourceKey: null,
+      objectID: null,
+      tabKey: browserTabKey,
+      ask: async () => undefined,
+    })
+    const action = await readNextAction(client)
+    expect(action.command).toEqual({
+      type: "focus_tab",
+      tabKey: browserTabKey,
+      target: browserTarget,
+    })
+    completeCommittedAction({ client, action, changed: true })
+
+    await expect(run).resolves.toMatchObject({
+      status: "presented",
+      reason: "focused_tab",
+      benchTarget: browserTarget,
     })
     expect(client.actions).toHaveLength(0)
     client.unsubscribe()
