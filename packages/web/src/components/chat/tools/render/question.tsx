@@ -41,8 +41,8 @@ function readQuestionAnswers(metadata: TJsonObject): string[][] {
 }
 
 /**
- * Completed Q&A body: questions and answers share one left edge. Hierarchy is
- * color only (question weak, answer weakest).
+ * Completed Q&A body: one inset block with a row per question. The question is
+ * small and muted; the answer is body text, so the choice reads first.
  */
 function QuestionAnswerList({
   questions,
@@ -53,37 +53,32 @@ function QuestionAnswerList({
 }) {
   const questionEntries = enumerateQuestionMarkdownText(questions.map((entry) => entry.question))
 
-  // Pair gap >> Q→A gap so each exchange reads as a unit.
   return (
-    <ul className="flex list-none flex-col gap-4">
+    <ul className="flex list-none flex-col divide-y divide-border-weaker-base rounded-lg bg-surface-inset-base">
       {questionEntries.map((questionEntry, index) => {
         const question = questions[index]?.question ?? questionEntry.text
-        const entryAnswers = answers[index] ?? []
-        const answerEntries = enumerateQuestionMarkdownText(entryAnswers)
+        const answer = (answers[index] ?? []).join(", ")
         const cacheKey = buildQuestionMarkdownCacheKey("question-tool", index, question)
         return (
           <li
             key={`q:${questionEntry.text}:${questionEntry.occurrence}`}
-            className="flex min-w-0 flex-col gap-0.5"
+            className="flex min-w-0 flex-col gap-0.5 px-4 py-3"
           >
             <QuestionMarkdown
               text={question}
               cacheKey={`${cacheKey}:prompt`}
               variant="compact"
-              className="min-w-0 text-text-weak"
+              className="min-w-0 text-xs leading-5 text-text-weaker [&_li]:text-xs"
             />
-            {entryAnswers.length > 0 ? (
-              answerEntries.map((answerEntry) => (
-                <QuestionMarkdown
-                  key={`${cacheKey}:answer:${answerEntry.text}:${answerEntry.occurrence}`}
-                  text={answerEntry.text}
-                  cacheKey={`${cacheKey}:answer:${answerEntry.text}:${answerEntry.occurrence}`}
-                  variant="compact"
-                  className="min-w-0 text-text-weakest"
-                />
-              ))
+            {answer ? (
+              <QuestionMarkdown
+                text={answer}
+                cacheKey={`${cacheKey}:answer:${answer}`}
+                variant="compact"
+                className="min-w-0 leading-6 text-text-base"
+              />
             ) : (
-              <span className="text-xs italic text-text-weakest">
+              <span className="text-sm leading-6 text-text-weaker">
                 {language.t("chatTools.noAnswer")}
               </span>
             )}
@@ -159,7 +154,7 @@ export function renderQuestionTool({ state, info, icon }: ToolPartProps) {
           transition={TASK_CARD_TRANSITION}
           className="w-full"
         >
-          <ToolRow className="mb-3">
+          <ToolRow className="mb-2">
             <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
             <ToolRowAction className="normal-case text-text-weaker">{chromeLabel}</ToolRowAction>
           </ToolRow>
