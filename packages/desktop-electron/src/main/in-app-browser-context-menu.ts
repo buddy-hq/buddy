@@ -2,6 +2,7 @@ import type { ContextMenuParams, MenuItemConstructorOptions } from "electron"
 
 const SPELLING_SUGGESTION_LIMIT = 5
 const COPYABLE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:"])
+const EXTERNALLY_OPENABLE_LINK_PROTOCOLS = new Set(["http:", "https:"])
 
 export type InAppBrowserContextMenuParams = Pick<
   ContextMenuParams,
@@ -18,13 +19,14 @@ export type InAppBrowserContextMenuActions = {
   replaceMisspelling(suggestion: string): void
   copyText(text: string): void
   copyImage(): void
+  openLinkInDefaultBrowser(url: string): void
   cite?: () => void
 }
 
-function isCopyableLink(url: string): boolean {
+function hasLinkProtocol(url: string, protocols: ReadonlySet<string>): boolean {
   if (!url) return false
   try {
-    return COPYABLE_LINK_PROTOCOLS.has(new URL(url).protocol)
+    return protocols.has(new URL(url).protocol)
   } catch {
     return false
   }
@@ -50,7 +52,14 @@ export function inAppBrowserContextMenuTemplate(
     template.push({ type: "separator" })
   }
 
-  if (isCopyableLink(params.linkURL)) {
+  if (hasLinkProtocol(params.linkURL, EXTERNALLY_OPENABLE_LINK_PROTOCOLS)) {
+    template.push({
+      label: "Open Link in Default Browser",
+      click: () => actions.openLinkInDefaultBrowser(params.linkURL),
+    })
+  }
+
+  if (hasLinkProtocol(params.linkURL, COPYABLE_LINK_PROTOCOLS)) {
     template.push(
       { label: "Copy Link", click: () => actions.copyText(params.linkURL) },
       { type: "separator" },

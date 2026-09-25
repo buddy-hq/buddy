@@ -8,11 +8,13 @@ import {
   IN_APP_BROWSER_CITATION_CHANNEL,
   IN_APP_BROWSER_FAVICON_CHANNEL,
   IN_APP_BROWSER_MESSAGE_CHANNEL,
+  IN_APP_BROWSER_NEW_TAB_CHANNEL,
   IN_APP_BROWSER_SHORTCUT_CHANNEL,
   type InAppBrowserAudioMessage,
   type InAppBrowserCitationMessage,
   type InAppBrowserFaviconMessage,
   type InAppBrowserHostMessage,
+  type InAppBrowserNewTabMessage,
   type InAppBrowserShortcutMessage,
 } from "@buddy/browser-contract"
 
@@ -181,6 +183,11 @@ const api: ElectronAPI = {
     const handler = (_: IpcRendererEvent, message: InAppBrowserShortcutMessage) => cb(message)
     ipcRenderer.on(IN_APP_BROWSER_SHORTCUT_CHANNEL, handler)
     return () => ipcRenderer.removeListener(IN_APP_BROWSER_SHORTCUT_CHANNEL, handler)
+  },
+  onInAppBrowserNewTab: (cb) => {
+    const handler = (_: IpcRendererEvent, message: InAppBrowserNewTabMessage) => cb(message)
+    ipcRenderer.on(IN_APP_BROWSER_NEW_TAB_CHANNEL, handler)
+    return () => ipcRenderer.removeListener(IN_APP_BROWSER_NEW_TAB_CHANNEL, handler)
   },
   onInAppBrowserCitation: (cb) => {
     const handler = (_: IpcRendererEvent, message: InAppBrowserCitationMessage) => cb(message)

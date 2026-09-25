@@ -16,6 +16,7 @@ export const IN_APP_BROWSER_MESSAGE_CHANNEL = "inapp-browser-message"
 export const IN_APP_BROWSER_FAVICON_CHANNEL = "inapp-browser-favicon"
 export const IN_APP_BROWSER_AUDIO_CHANNEL = "inapp-browser-audio"
 export const IN_APP_BROWSER_SHORTCUT_CHANNEL = "inapp-browser-shortcut"
+export const IN_APP_BROWSER_NEW_TAB_CHANNEL = "inapp-browser-new-tab"
 export const IN_APP_BROWSER_CITATION_CHANNEL = "inapp-browser-citation"
 export type InAppBrowserMouseNavigation = {
   readonly direction: "back" | "forward"
@@ -190,6 +191,11 @@ export type InAppBrowserAudioMessage = {
 export type InAppBrowserShortcutMessage = {
   webContentsID: number
   shortcut: InAppBrowserShortcutID
+}
+
+export type InAppBrowserNewTabMessage = {
+  webContentsID: number
+  url: string
 }
 
 export type InAppBrowserCommandResult =

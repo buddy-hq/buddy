@@ -77,6 +77,7 @@ export function useOpenLink(directory: string): OpenLink {
         const click: InAppBrowserLinkClick = {
           url,
           linkTarget: settings.linkTarget,
+          modifiedLinkTarget: settings.modifiedLinkTarget,
           browserAvailable,
           modified: options?.modified === true,
         }

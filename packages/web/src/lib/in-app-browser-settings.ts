@@ -33,6 +33,7 @@ export type InAppBrowserLinkTarget = "system" | "browser"
 
 export type InAppBrowserSettings = {
   readonly linkTarget: InAppBrowserLinkTarget
+  readonly modifiedLinkTarget: InAppBrowserLinkTarget
   readonly defaultSearchEngine: InAppBrowserSearchEngine
   readonly defaultZoomFactor: InAppBrowserZoomFactor
   readonly zoomFactorsByProfile: InAppBrowserZoomFactorsByProfile
@@ -43,6 +44,7 @@ export type InAppBrowserSettings = {
 
 export const DEFAULT_IN_APP_BROWSER_SETTINGS: InAppBrowserSettings = {
   linkTarget: "system",
+  modifiedLinkTarget: "browser",
   defaultSearchEngine: DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE,
   defaultZoomFactor: DEFAULT_IN_APP_BROWSER_ZOOM_FACTOR,
   zoomFactorsByProfile: {},
@@ -106,6 +108,33 @@ export function newTabInAppBrowserProfiles(
   )
 }
 
+export function parseInAppBrowserLinkTarget<TValue>(
+  value: TValue,
+): InAppBrowserLinkTarget | undefined {
+  if (value === "system") return "system"
+  if (value === "browser") return "browser"
+  return undefined
+}
+
+export function alternateInAppBrowserLinkTarget(
+  linkTarget: InAppBrowserLinkTarget,
+): InAppBrowserLinkTarget {
+  return linkTarget === "browser" ? "system" : "browser"
+}
+
+export function withInAppBrowserLinkTarget(
+  settings: Pick<InAppBrowserSettings, "linkTarget" | "modifiedLinkTarget">,
+  linkTarget: InAppBrowserLinkTarget,
+): Pick<InAppBrowserSettings, "linkTarget" | "modifiedLinkTarget"> {
+  return {
+    linkTarget,
+    modifiedLinkTarget:
+      settings.modifiedLinkTarget === linkTarget
+        ? settings.linkTarget
+        : settings.modifiedLinkTarget,
+  }
+}
+
 export function parseInAppBrowserSettings<TValue>(value: TValue): InAppBrowserSettings {
   const record = parseTJsonObject(value)
   if (!record) return DEFAULT_IN_APP_BROWSER_SETTINGS
@@ -115,8 +144,12 @@ export function parseInAppBrowserSettings<TValue>(value: TValue): InAppBrowserSe
     DEFAULT_IN_APP_BROWSER_PROFILE_ID,
     ...userProfiles.map((profile) => profile.id),
   ]
+  const linkTarget = parseInAppBrowserLinkTarget(record.linkTarget) ?? "system"
   return {
-    linkTarget: record.linkTarget === "browser" ? "browser" : "system",
+    linkTarget,
+    modifiedLinkTarget:
+      parseInAppBrowserLinkTarget(record.modifiedLinkTarget) ??
+      alternateInAppBrowserLinkTarget(linkTarget),
     defaultSearchEngine:
       parseInAppBrowserSearchEngine(record.defaultSearchEngine) ??
       DEFAULT_IN_APP_BROWSER_SEARCH_ENGINE,

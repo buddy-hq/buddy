@@ -14,6 +14,7 @@ import {
   parseInAppBrowserSettings,
   removeInAppBrowserProfile,
   renameInAppBrowserProfile,
+  withInAppBrowserLinkTarget,
   type AddInAppBrowserProfileResult,
   type InAppBrowserLinkTarget,
   type InAppBrowserSettings,
@@ -62,6 +63,7 @@ function finishHydration<TError>(attempt: number, error: TError): void {
 
 type InAppBrowserSettingsState = InAppBrowserSettings & {
   setLinkTarget(linkTarget: InAppBrowserLinkTarget): void
+  setModifiedLinkTarget(modifiedLinkTarget: InAppBrowserLinkTarget): void
   setDefaultSearchEngine(defaultSearchEngine: InAppBrowserSearchEngine): void
   setDefaultZoomFactor(defaultZoomFactor: InAppBrowserZoomFactor): void
   setHostZoomFactor(input: {
@@ -80,6 +82,7 @@ type InAppBrowserSettingsState = InAppBrowserSettings & {
 function settingsOf(state: InAppBrowserSettingsState): InAppBrowserSettings {
   return {
     linkTarget: state.linkTarget,
+    modifiedLinkTarget: state.modifiedLinkTarget,
     defaultSearchEngine: state.defaultSearchEngine,
     defaultZoomFactor: state.defaultZoomFactor,
     zoomFactorsByProfile: state.zoomFactorsByProfile,
@@ -104,7 +107,10 @@ export const useInAppBrowserSettingsStore = create<InAppBrowserSettingsState>()(
     (set, get) => ({
       ...DEFAULT_IN_APP_BROWSER_SETTINGS,
       setLinkTarget(linkTarget) {
-        set({ linkTarget })
+        set((state) => withInAppBrowserLinkTarget(state, linkTarget))
+      },
+      setModifiedLinkTarget(modifiedLinkTarget) {
+        set({ modifiedLinkTarget })
       },
       setDefaultSearchEngine(defaultSearchEngine) {
         set({ defaultSearchEngine })

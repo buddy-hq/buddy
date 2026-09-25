@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
+import { toast } from "@buddy/ui"
 import { chooseLinkTarget } from "../src/components/directory-chat/use-open-link"
 import type { InAppBrowserLinkClick } from "../src/lib/in-app-browser-link-target"
 import { useInAppBrowserSettingsStore } from "../src/state/in-app-browser-settings-store"
@@ -12,6 +13,7 @@ import { useUiPreferences } from "../src/state/ui-preferences"
 const PLAIN_CLICK: InAppBrowserLinkClick = {
   url: "https://developer.mozilla.org/en-US/docs/Web",
   linkTarget: "system",
+  modifiedLinkTarget: "browser",
   browserAvailable: true,
   modified: false,
 }
@@ -28,7 +30,7 @@ beforeEach(() => {
   localStorage.clear()
   useLinkDestinationDialogStore.getState().resolveRequest("cancel")
   useUiPreferences.setState({ seenNotices: {} })
-  useInAppBrowserSettingsStore.getState().setLinkTarget("system")
+  useInAppBrowserSettingsStore.setState({ linkTarget: "system", modifiedLinkTarget: "browser" })
 })
 
 describe("first link click", () => {
@@ -63,6 +65,24 @@ describe("first link click", () => {
     expect(shouldShowOneTimeNotice(ONE_TIME_NOTICE_LINK_DESTINATION)).toBe(true)
     void choose()
     expect(pendingLinkQuestion()).toBe(PLAIN_CLICK.url)
+  })
+
+  test("keeps Cmd/Ctrl-click on the default browser after choosing Buddy", async () => {
+    for (const modifiedLinkTarget of ["system", "browser"] as const) {
+      useUiPreferences.setState({ seenNotices: {} })
+      useInAppBrowserSettingsStore.setState({ linkTarget: "system", modifiedLinkTarget })
+      const answer = choose({ ...PLAIN_CLICK, modifiedLinkTarget })
+      useLinkDestinationDialogStore.getState().resolveRequest("browser")
+      expect(await answer).toBe("browser")
+
+      const settings = useInAppBrowserSettingsStore.getState()
+      expect(settings.linkTarget).toBe("browser")
+      expect(settings.modifiedLinkTarget).toBe("system")
+      const shown = toast.getHistory().at(-1)
+      const description = shown && "description" in shown ? shown.description : undefined
+      expect(shown && "title" in shown ? shown.title : undefined).toBe("Links now open in Buddy")
+      expect(String(description)).toContain("Hold ⌘")
+    }
   })
 
   test("does not ask for Cmd/Ctrl-clicks or links Buddy cannot open", async () => {

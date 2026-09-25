@@ -15,6 +15,7 @@ import type {
   InAppBrowserCommandResult,
   InAppBrowserFaviconMessage,
   InAppBrowserHostMessage,
+  InAppBrowserNewTabMessage,
   InAppBrowserProfileData,
   InAppBrowserShortcutMessage,
 } from "@buddy/browser-contract"
@@ -97,6 +98,7 @@ export type InAppBrowserPlatform = {
   onFavicon(cb: (message: InAppBrowserFaviconMessage) => void): () => void
   onAudio(cb: (message: InAppBrowserAudioMessage) => void): () => void
   onShortcut(cb: (message: InAppBrowserShortcutMessage) => void): () => void
+  onNewTab(cb: (message: InAppBrowserNewTabMessage) => void): () => void
   onCitation(cb: (message: InAppBrowserCitationMessage) => void): () => void
   captureCitation(
     input: InAppBrowserCitationCaptureRequest,

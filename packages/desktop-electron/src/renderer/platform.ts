@@ -192,6 +192,7 @@ export function createDesktopPlatform(): Platform {
       onFavicon: window.api.onInAppBrowserFavicon,
       onAudio: window.api.onInAppBrowserAudio,
       onShortcut: window.api.onInAppBrowserShortcut,
+      onNewTab: window.api.onInAppBrowserNewTab,
       onCitation: window.api.onInAppBrowserCitation,
       captureCitation: window.api.captureInAppBrowserCitation,
       markCitation: window.api.markInAppBrowserCitation,

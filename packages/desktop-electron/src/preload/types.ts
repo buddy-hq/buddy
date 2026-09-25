@@ -13,6 +13,7 @@ import type {
   InAppBrowserCommandResult,
   InAppBrowserFaviconMessage,
   InAppBrowserHostMessage,
+  InAppBrowserNewTabMessage,
   InAppBrowserShortcutMessage,
 } from "@buddy/browser-contract"
 import type {
@@ -79,6 +80,7 @@ export type ElectronAPI = {
   onInAppBrowserFavicon: (cb: (message: InAppBrowserFaviconMessage) => void) => () => void
   onInAppBrowserAudio: (cb: (message: InAppBrowserAudioMessage) => void) => () => void
   onInAppBrowserShortcut: (cb: (message: InAppBrowserShortcutMessage) => void) => () => void
+  onInAppBrowserNewTab: (cb: (message: InAppBrowserNewTabMessage) => void) => () => void
   onInAppBrowserCitation: (cb: (message: InAppBrowserCitationMessage) => void) => () => void
   captureInAppBrowserCitation: (
     input: InAppBrowserCitationCaptureRequest,

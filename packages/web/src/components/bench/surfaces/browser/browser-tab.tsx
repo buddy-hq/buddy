@@ -18,6 +18,7 @@ import { BrowserZoomBadge } from "./browser-zoom-badge"
 import { useBrowserBenchContext } from "./use-browser-bench-context"
 import { useBrowserCitations } from "./use-browser-citations"
 import { useBrowserPage } from "./use-browser-page"
+import { useBrowserNewTabRequests } from "./use-browser-new-tab-requests"
 import { useBrowserPageControls } from "./use-browser-page-controls"
 import { useBrowserProfileName } from "./use-browser-profile-name"
 import { useBrowserShortcuts } from "./use-browser-shortcuts"
@@ -127,6 +128,13 @@ function HydratedBrowserTab(props: {
       zoomOut: controls.zoomOut,
       zoomReset: controls.resetZoom,
     },
+  })
+  useBrowserNewTabRequests({
+    browser,
+    directory,
+    profileID,
+    webContentsID: page.webContentsID,
+    active: surfaceActive,
   })
   useBrowserBenchContext({ target, runtime })
   useBrowserVisitRecording({ directory, profileID, runtime })

@@ -14,10 +14,9 @@ export function useInAppBrowserLinkRouting(directory: string) {
       if (event.button !== 0 || !(event.target instanceof Element)) return
       const link = event.target.closest(EXTERNAL_LINK_SELECTOR)
       if (!(link instanceof HTMLAnchorElement)) return
-      if (event.metaKey || event.ctrlKey) return
       event.preventDefault()
       event.stopPropagation()
-      openLink(link.href)
+      openLink(link.href, { modified: event.metaKey || event.ctrlKey })
     }
     document.addEventListener("click", handleClick, true)
     return () => document.removeEventListener("click", handleClick, true)
