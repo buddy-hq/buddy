@@ -300,6 +300,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const requestedWorkspaceWidthPx = useBenchPresentationPreferences(
     (state) => state.workspaceWidthPx,
   )
+  const requestedBenchWidthPx = useBenchPresentationPreferences((state) => state.benchWidthPx)
   const presentation = useMemo(
     () =>
       resolveWorkspacePresentation({
@@ -308,6 +309,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         layoutProfile,
         viewport: dockedBenchViewport,
         requestedWorkspaceWidthPx,
+        requestedBenchWidthPx,
         leftSidebarPreferredOpen: chatState.leftSidebarOpen,
         leftSidebarWidthPx: chatState.leftSidebarDisplayWidth,
       }),
@@ -316,6 +318,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       chatState.leftSidebarOpen,
       dockedBenchViewport,
       layoutProfile,
+      requestedBenchWidthPx,
       requestedWorkspaceWidthPx,
       workspace.projection,
       workspaceHydrated,
@@ -327,7 +330,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         profile: BENCH_LAYOUT_PROFILE_VISUAL,
         viewport: dockedBenchViewport,
         workspaceChromeWidthPx: 0,
-        requestedWorkspaceWidthPx,
+        requestedWorkspaceWidthPx: requestedBenchWidthPx,
         leftSidebarPreferredOpen: chatState.leftSidebarOpen,
         leftSidebarWidthPx: chatState.leftSidebarDisplayWidth,
       }),
@@ -335,14 +338,11 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       chatState.leftSidebarDisplayWidth,
       chatState.leftSidebarOpen,
       dockedBenchViewport,
-      requestedWorkspaceWidthPx,
+      requestedBenchWidthPx,
     ],
   )
   const transientWorkspaceBounds = transientDockedShellLayout.rightWorkspace
-  const transientWorkspaceWidthPx = Math.min(
-    transientWorkspaceBounds.workspaceMaxWidthPx,
-    Math.max(transientWorkspaceBounds.workspaceMinWidthPx, requestedWorkspaceWidthPx),
-  )
+  const transientWorkspaceWidthPx = transientDockedShellLayout.workspaceWidthPx
   const workspaceLayoutMode = presentation.mode
   const effectiveWorkspaceLayoutMode = transientBenchLayoutMode ?? workspaceLayoutMode
   const workspaceOpen = presentation.workspaceOpen
@@ -501,9 +501,10 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const handleDockedWorkspaceResizeIntent = useCallback(
     (intent: ResizeHandleIntent) => {
       if (transientBenchActive) {
-        setBenchPresentationWorkspaceWidth(intent.rawSize)
+        setBenchPresentationWorkspaceWidth(intent.rawSize, "bench")
         return
       }
+      const widthOwner = presentation.dockedBenchVisible ? "bench" : "drawer"
       const decision = resolveDockedBenchResizeIntent({
         rawWorkspaceWidthPx: intent.rawSize,
         maxWorkspaceWidthPx: dockedWorkspaceMaxWidthPx,
@@ -511,17 +512,17 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         leftSidebarVisible: presentation.leftSidebar.visible,
       })
       if (decision === "clamp") {
-        setBenchPresentationWorkspaceWidth(intent.rawSize)
+        setBenchPresentationWorkspaceWidth(intent.rawSize, widthOwner)
         return
       }
 
       if (decision === "suppress-left-sidebar") {
         setLeftSidebarOverlayOpen(false)
-        setBenchPresentationWorkspaceWidth(intent.rawSize)
+        setBenchPresentationWorkspaceWidth(intent.rawSize, widthOwner)
         return
       }
 
-      setBenchPresentationWorkspaceWidth(intent.rawSize)
+      setBenchPresentationWorkspaceWidth(intent.rawSize, widthOwner)
       setBenchMode({
         mode: BENCH_CHAT_LAYOUT_FLOATING,
         origin: "user",

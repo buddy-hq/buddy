@@ -5,6 +5,10 @@ import {
   BENCH_LAYOUT_PROFILE_READING,
   type BenchTarget,
 } from "../src/lib/bench-navigation"
+import {
+  RIGHT_WORKSPACE_DEFAULT_WIDTH_PX,
+  RIGHT_WORKSPACE_RAIL_WIDTH_PX,
+} from "../src/lib/directory-chat/right-workspace-layout"
 import { resolveWorkspacePresentation } from "../src/lib/directory-chat/workspace-presentation"
 import {
   createCollapsedWorkspaceState,
@@ -38,6 +42,7 @@ function resolvePresentation(input: {
   hydrated?: boolean
   viewport?: typeof WIDE_VIEWPORT
   requestedWorkspaceWidthPx?: number
+  requestedBenchWidthPx?: number | null
   leftSidebarPreferredOpen?: boolean
 }) {
   const expanded = input.expanded ?? false
@@ -56,6 +61,10 @@ function resolvePresentation(input: {
     layoutProfile: BENCH_LAYOUT_PROFILE_READING,
     viewport: input.viewport ?? WIDE_VIEWPORT,
     requestedWorkspaceWidthPx: input.requestedWorkspaceWidthPx ?? 700,
+    requestedBenchWidthPx:
+      input.requestedBenchWidthPx === undefined
+        ? (input.requestedWorkspaceWidthPx ?? 700)
+        : input.requestedBenchWidthPx,
     leftSidebarPreferredOpen: input.leftSidebarPreferredOpen ?? true,
     leftSidebarWidthPx: 280,
   })
@@ -163,6 +172,72 @@ describe("workspace presentation", () => {
     expect(presentation.workspace.widthPx).toBeLessThan(requestedWorkspaceWidthPx)
   })
 
+  test("opens an untouched docked Bench at its profile default and drawers at their own default", () => {
+    const docked = resolveWorkspacePresentation({
+      projection: effectiveWorkspaceProjection(
+        { status: "open", target: TARGET, mode: BENCH_CHAT_LAYOUT_DOCKED },
+        { docked: createExpandedWorkspaceState(null), lastDrawer: "sources" },
+        null,
+      ),
+      hydrated: true,
+      layoutProfile: BENCH_LAYOUT_PROFILE_READING,
+      viewport: WIDE_VIEWPORT,
+      requestedWorkspaceWidthPx: null,
+      requestedBenchWidthPx: null,
+      leftSidebarPreferredOpen: false,
+      leftSidebarWidthPx: 280,
+    })
+    const selector = resolveWorkspacePresentation({
+      projection: effectiveWorkspaceProjection(
+        CLOSED_ROUTE,
+        { docked: createExpandedWorkspaceState("sources"), lastDrawer: "sources" },
+        null,
+      ),
+      hydrated: true,
+      layoutProfile: BENCH_LAYOUT_PROFILE_READING,
+      viewport: WIDE_VIEWPORT,
+      requestedWorkspaceWidthPx: null,
+      requestedBenchWidthPx: null,
+      leftSidebarPreferredOpen: true,
+      leftSidebarWidthPx: 280,
+    })
+
+    expect(docked.kind).toBe("docked-bench")
+    expect(docked.workspace.widthPx).toBe(560 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
+    expect(docked.workspace.minWidthPx).toBe(360 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
+    expect(selector.kind).toBe("selector")
+    expect(selector.workspace.widthPx).toBe(RIGHT_WORKSPACE_DEFAULT_WIDTH_PX)
+  })
+
+  test("ignores a drawer width when the Bench has never been resized", () => {
+    const presentation = resolvePresentation({
+      route: {
+        status: "open",
+        target: TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      expanded: true,
+      requestedWorkspaceWidthPx: 380,
+      requestedBenchWidthPx: null,
+    })
+
+    expect(presentation.workspace.widthPx).toBe(560 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
+  })
+
+  test("keeps a saved docked width below the profile default", () => {
+    const presentation = resolvePresentation({
+      route: {
+        status: "open",
+        target: TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      expanded: true,
+      requestedWorkspaceWidthPx: 420,
+    })
+
+    expect(presentation.workspace.widthPx).toBe(420)
+  })
+
   test("uses the full canvas for floating Bench and hides controls while hydration is pending", () => {
     const floating = resolvePresentation({
       route: {
@@ -236,6 +311,7 @@ describe("workspace presentation", () => {
       layoutProfile: BENCH_LAYOUT_PROFILE_READING,
       viewport: WIDE_VIEWPORT,
       requestedWorkspaceWidthPx: 700,
+      requestedBenchWidthPx: 700,
       leftSidebarPreferredOpen: true,
       leftSidebarWidthPx: 280,
     })
@@ -276,6 +352,7 @@ describe("workspace presentation", () => {
       layoutProfile: BENCH_LAYOUT_PROFILE_READING,
       viewport: WIDE_VIEWPORT,
       requestedWorkspaceWidthPx: 700,
+      requestedBenchWidthPx: 700,
       leftSidebarPreferredOpen: true,
       leftSidebarWidthPx: 280,
     })
@@ -310,6 +387,7 @@ describe("workspace presentation", () => {
       layoutProfile: BENCH_LAYOUT_PROFILE_READING,
       viewport: WIDE_VIEWPORT,
       requestedWorkspaceWidthPx: 700,
+      requestedBenchWidthPx: 700,
       leftSidebarPreferredOpen: true,
       leftSidebarWidthPx: 280,
     })

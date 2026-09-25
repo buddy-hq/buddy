@@ -9,6 +9,7 @@ import {
 } from "@/lib/bench-navigation"
 import {
   RIGHT_WORKSPACE_DEFAULT_MIN_WIDTH_PX,
+  RIGHT_WORKSPACE_DEFAULT_WIDTH_PX,
   RIGHT_WORKSPACE_RAIL_WIDTH_PX,
   resolveRightWorkspaceMaxWidth,
 } from "@/lib/directory-chat/right-workspace-layout"
@@ -60,7 +61,7 @@ function clampNumber(input: { value: number; min: number; max: number }): number
 
 function selectorWorkspaceLayout(input: {
   viewport: BenchViewport
-  requestedWorkspaceWidthPx: number
+  requestedWorkspaceWidthPx: number | null
   leftSidebarVisible: boolean
   leftSidebarWidthPx: number
 }) {
@@ -79,7 +80,7 @@ function selectorWorkspaceLayout(input: {
 
   return {
     widthPx: clampNumber({
-      value: input.requestedWorkspaceWidthPx,
+      value: input.requestedWorkspaceWidthPx ?? RIGHT_WORKSPACE_DEFAULT_WIDTH_PX,
       min: minWidthPx,
       max: maxWidthPx,
     }),
@@ -94,7 +95,8 @@ export function resolveWorkspacePresentation(input: {
   hydrated: boolean
   layoutProfile: BenchLayoutProfileID
   viewport: BenchViewport
-  requestedWorkspaceWidthPx: number
+  requestedWorkspaceWidthPx: number | null
+  requestedBenchWidthPx: number | null
   leftSidebarPreferredOpen: boolean
   leftSidebarWidthPx: number
 }): WorkspacePresentation {
@@ -146,7 +148,7 @@ export function resolveWorkspacePresentation(input: {
         profile: input.layoutProfile,
         viewport: input.viewport,
         workspaceChromeWidthPx: RIGHT_WORKSPACE_RAIL_WIDTH_PX,
-        requestedWorkspaceWidthPx: input.requestedWorkspaceWidthPx,
+        requestedWorkspaceWidthPx: input.requestedBenchWidthPx,
         leftSidebarPreferredOpen: input.leftSidebarPreferredOpen,
         leftSidebarWidthPx: input.leftSidebarWidthPx,
       })
@@ -157,23 +159,18 @@ export function resolveWorkspacePresentation(input: {
       : dockedShellLayout
         ? dockedShellLayout.leftSidebarVisible
         : input.leftSidebarPreferredOpen
-  const dockedLayout = dockedShellLayout?.rightWorkspace ?? null
   const selectorLayout = selectorWorkspaceLayout({
     viewport: input.viewport,
     requestedWorkspaceWidthPx: input.requestedWorkspaceWidthPx,
     leftSidebarVisible,
     leftSidebarWidthPx: input.leftSidebarWidthPx,
   })
-  const workspaceLayout = dockedLayout
+  const workspaceLayout = dockedShellLayout
     ? {
-        widthPx: clampNumber({
-          value: input.requestedWorkspaceWidthPx,
-          min: dockedLayout.workspaceMinWidthPx,
-          max: dockedLayout.workspaceMaxWidthPx,
-        }),
-        minWidthPx: dockedLayout.workspaceMinWidthPx,
-        maxWidthPx: dockedLayout.workspaceMaxWidthPx,
-        chatMinWidthPx: dockedLayout.chatMinWidthPx,
+        widthPx: dockedShellLayout.workspaceWidthPx,
+        minWidthPx: dockedShellLayout.rightWorkspace.workspaceMinWidthPx,
+        maxWidthPx: dockedShellLayout.rightWorkspace.workspaceMaxWidthPx,
+        chatMinWidthPx: dockedShellLayout.rightWorkspace.chatMinWidthPx,
       }
     : selectorLayout
   const workspaceOpen =
