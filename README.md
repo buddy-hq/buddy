@@ -1,18 +1,27 @@
-# Buddy
+<p align="center">
+  <img src=".github/assets/buddy-icon.png" alt="Buddy" width="112" height="112">
+</p>
 
-A learning app for anyone who wants to learn anything. A student preparing for exams, an adult chasing a curiosity, or a teacher building a lesson for a class.
+<h1 align="center">Buddy</h1>
 
-Buddy runs on your own machine. Downloads are at [buddy-releases](https://github.com/prashantbhudwal/buddy-releases/releases).
+<p align="center">
+  <strong>An AI agent for the curious.</strong><br>
+  Read, take notes, draw, build simulations, and practice, all in one desktop app on your own computer.
+</p>
 
-## Built on OpenCode
+<p align="center">
+  <a href="https://hibuddy.in/install">Download</a> ·
+  <a href="https://www.youtube.com/watch?v=FCq4janO7pE">Watch the launch video</a> ·
+  <a href="https://hibuddy.in">hibuddy.in</a>
+</p>
 
-Buddy is built on [OpenCode](https://github.com/sst/opencode), and it is not a small dependency. A full copy of OpenCode lives in `vendor/`, roughly 6,450 files, and it is the agent runtime underneath everything here: the loop, sessions, tools, and permissions all run from those modules.
+---
 
-What Buddy adds is the teaching layer on top. Curriculum and standards, the reading and drawing and math surfaces, the pedagogical models, and the desktop app around it. `packages/opencode-adapter` is the seam between the two.
-
-The vendored code stays MIT and belongs to the OpenCode authors. Buddy does not patch it. It is refreshed from upstream wholesale, and a CI job fails the build if anything drifts.
+Buddy is for anyone learning anything: a student preparing for exams, an adult chasing a curiosity, or a teacher building tomorrow's lesson. It runs on macOS and Windows and needs no account. Your chats, notes, and files stay on your machine. The only thing that goes online is the call to the AI model you choose.
 
 ## Install
+
+Download Buddy from **[hibuddy.in/install](https://hibuddy.in/install)**, or install it from a terminal.
 
 macOS:
 
@@ -26,44 +35,38 @@ Windows, in PowerShell:
 irm -UseBasicParsing https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/install-buddy-windows.ps1 | iex
 ```
 
-## What's built in
+Every release is published on [buddy-releases](https://github.com/prashantbhudwal/buddy-releases/releases).
 
-Teaching and curriculum:
+## For learners
 
-- CCSS, NGSS, digital literacy standards, and standards from all 50 U.S. states
-- Ebook and PDF readers
-- A drawing canvas
-- Advanced math and graphing, backed by Python
-- Flashcards and MCQ tests
-- Teaching models: Socratic, project-based learning, case studies, and more
-- Resource design and creation: assessments, practice sets, revision sets, DOCX, slides, sheets
-- Learning frameworks: Bloom's Taxonomy, DOK, Gagné's model, formative assessment, SOLO, GRR
+- **Read:** open a PDF or EPUB beside the conversation. Highlight a passage, ask about it, and keep the source in view.
+- **Notes:** open your existing Obsidian vault. Wikilinks, embeds, and callouts keep working, and Buddy reads and writes plain Markdown.
+- **Whiteboard:** Buddy sketches an idea step by step, then hands you the board.
+- **Simulations:** turn an explanation into a game, model, or experiment you can interact with.
+- **Remember:** get quizzes and flashcard decks with spaced repetition built in.
+- **Research, advanced math, and graphing:** the math and graphing run on Python.
 
-Agent capabilities:
+## For educators
 
-- Subagents, skills, and custom tools
-- MCP servers
-- Agent files
-- ChatGPT login, GitHub Copilot login, BYOK, and 50+ other providers
+- **Plan:** give Buddy a topic, a grade, and your class to get a lesson with objectives, sequence, timing, and an exit ticket.
+- **Differentiate:** get a worksheet at three levels (support, on-level, and extension).
+- **Assess:** get formative checks, question sets, and answer keys, with each question tagged by Bloom's level and likely misconceptions flagged.
+- **Build:** make slide decks, DOCX handouts, sheets, simulations, and interactive diagrams, and open them right in the app.
+- **Standards:** CCSS, NGSS, all 50 U.S. state standards, NCERT, Indian state boards, or your own textbooks and framework.
+- **Learning science:** Bloom's Taxonomy, Webb's DOK, Understanding by Design, UDL, 5E, gradual release, SOLO, project-based learning, and more.
 
-## Licensing
+## Bring your own AI
 
-Two licenses apply, and the split matters.
+There's no subscription to sell. Buddy includes free models to start. You can also sign in with ChatGPT or GitHub Copilot, bring your own API keys for 50+ providers, or run local models through Ollama.
 
-Buddy's own code is under the [O'Saasy License](LICENSE). It grants what MIT grants, including commercial use, modification, and redistribution, with one restriction: you may not offer Buddy to third parties as a hosted or managed service that competes with the original author.
+Under the hood Buddy is a full agent, with subagents, skills, MCP servers, and custom tools. It asks before it touches a file or takes an action.
 
-That restriction means **Buddy is not open source** under the OSI definition, which does not allow limits on field of use. Source-available is the accurate term. Read the license rather than relying on a label.
+## License
 
-Everything under `vendor/opencode/` is MIT, and stays MIT. Its license is at `vendor/opencode/LICENSE`.
+Buddy is **source-available, not open source**. Its code is under the [O'Saasy License](LICENSE), which grants everything MIT does except the right to offer Buddy as a competing hosted service.
 
-Third-party code, data, models, fonts, and other assets retain their own
-licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution
-and source details.
+Third-party code keeps its own license. That includes [OpenCode](https://github.com/anomalyco/opencode) (MIT) in `vendor/opencode/`, which is vendored because it isn't published as a package. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the rest.
 
 ## Contributing
 
-Issues and pull requests are open, with no promises attached. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the checks a PR has to pass, and the rule about not patching `vendor/`.
-
-Found a security problem? [SECURITY.md](SECURITY.md) has the private reporting route. Please don't file it as a public issue.
-
-By participating you agree to the [code of conduct](CODE_OF_CONDUCT.md).
+Issues and pull requests are welcome, though none come with a promise of a response. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup and the checks a PR has to pass. Report security issues privately through [SECURITY.md](SECURITY.md). By participating, you agree to the [code of conduct](CODE_OF_CONDUCT.md).
