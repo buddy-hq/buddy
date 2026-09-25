@@ -1,12 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  type ReactNode,
-} from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react"
 import {
   allowBenchLeave,
   type BenchLeaveGuardInput,
@@ -17,12 +9,7 @@ import {
   buildBenchSurfaceContextSnapshot,
   type BenchSurfaceContextEnrichment,
 } from "@/components/bench/bench-context-utils"
-import type {
-  BenchLayoutProfileID,
-  BenchMode,
-  BenchRect,
-  BenchTarget,
-} from "@/lib/bench-navigation"
+import type { BenchTarget } from "@/lib/bench-navigation"
 import { benchTargetKey } from "@/lib/bench-navigation"
 import type {
   BenchReadContextOpenOutput,
@@ -32,6 +19,13 @@ import type {
   BenchSurfaceSynchronizationReason,
   BenchSurfaceSynchronizationResult,
 } from "@/lib/directory-workspace-lifecycle"
+import {
+  BenchRouteContext,
+  type BenchFloatingChatState,
+  type BenchRouteContextValue,
+  type BenchRuntimeState,
+  type BenchSetModeRequest,
+} from "@/components/bench/bench-route-context-value"
 
 type BenchContextProvider = {
   read(input: {
@@ -57,44 +51,6 @@ type BenchContextProviderRegistration = {
 type BenchFallbackContextProvider = {
   read(): BenchReadSurfaceContextOpenOutput
 }
-
-type BenchSetModeRequest = {
-  mode: BenchMode
-  origin: "user" | "agent"
-}
-
-type BenchFloatingChatState = "open" | "minimized"
-
-type BenchRuntimeState = {
-  directory: string
-  target: BenchTarget
-  route: string
-  mode: BenchMode
-  layoutProfile: BenchLayoutProfileID
-  floatingRect: BenchRect
-  floatingChatState: BenchFloatingChatState
-}
-
-type BenchRouteContextValue = {
-  state: BenchRuntimeState
-  setMode(input: BenchSetModeRequest): void
-  setFloatingChatState(input: { state: BenchFloatingChatState; origin: "user" }): void
-  registerSurface(input: {
-    target: BenchTarget
-    getSnapshot: () => BenchSurfaceSnapshot
-    subscribe: (listener: () => void) => () => void
-    synchronize?: (
-      reason: BenchSurfaceSynchronizationReason,
-    ) => Promise<BenchSurfaceSynchronizationResult>
-    leaveGuard?: (
-      input: BenchLeaveGuardInput,
-    ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
-  }): () => void
-  flushContext(input: { sessionID: string }): Promise<void>
-  publishCurrent(): Promise<void>
-}
-
-const BenchRouteContext = createContext<BenchRouteContextValue | undefined>(undefined)
 
 /**
  * Wraps every mounted Bench surface — active or parked — so that flipping between the two never
