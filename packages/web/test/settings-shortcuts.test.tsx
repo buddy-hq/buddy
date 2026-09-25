@@ -20,6 +20,7 @@ function desktopPlatform(os: "macos" | "windows" | "linux"): Platform {
       onFavicon: () => () => undefined,
       onAudio: () => () => undefined,
       onShortcut: () => () => undefined,
+      onNewTab: () => () => undefined,
       onCitation: () => () => undefined,
       captureCitation: async () => ({ _tag: "failed" as const, reason: "no-selection" as const }),
       markCitation: async () => ({ _tag: "not-found" as const }),

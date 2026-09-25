@@ -8,6 +8,7 @@ import {
   Menu,
   clipboard,
   nativeImage,
+  shell,
   webContents,
   type BrowserWindow,
   type ContextMenuParams,
@@ -32,10 +33,12 @@ import {
   attachInAppBrowserCitations,
   requestInAppBrowserCitation,
 } from "./in-app-browser-citations"
+import { openDesktopExternalLink } from "./external-links"
 import { inAppBrowserContextMenuTemplate } from "./in-app-browser-context-menu"
 import {
   sendInAppBrowserAudio,
   sendInAppBrowserFavicon,
+  sendInAppBrowserNewTab,
   sendInAppBrowserNotice,
   sendInAppBrowserShortcut,
 } from "./in-app-browser-host-messages"
@@ -193,6 +196,8 @@ function installInAppBrowserContextMenu(
       copyImage: () => {
         if (!contents.isDestroyed()) contents.copyImageAt(params.x, params.y)
       },
+      openLinkInDefaultBrowser: (url) =>
+        openDesktopExternalLink(url, (safeUrl) => shell.openExternal(safeUrl)),
       cite: params.frame === contents.mainFrame ? onCite : undefined,
     })
     Menu.buildFromTemplate(template).popup(
@@ -277,6 +282,7 @@ function attachInAppBrowserGuestFeatures(window: BrowserWindow, guest: WebConten
 function browserGuestBoundary(guest: WebContents): InAppBrowserGuestBoundary {
   return {
     loadURL: (url) => guest.loadURL(url),
+    openInNewTab: (url) => sendInAppBrowserNewTab(guest, url),
     sendMessage: (message) => sendInAppBrowserNotice(guest, message),
     sendShortcut: (shortcut) => sendInAppBrowserShortcut(guest, shortcut),
     setWindowOpenHandler(handler) {

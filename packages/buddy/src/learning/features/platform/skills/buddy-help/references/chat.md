@@ -98,7 +98,7 @@ Structured choices mid-turn appear in the **question UI** above the composer —
 - Undo / Branch on user messages (same idea as `/undo`, `/branch`).
 - **Quote in note** on a chat message opens Note mode with that message selected (`notes.md`).
 - Selecting text in a chat, document, reader, or Browser can offer a citation action that puts a source quote into the composer. The user still sends the message.
-- Web links follow **Settings → Browser → Open links in**; Cmd/Ctrl+click opens in the system browser (`browser.md`).
+- Web links follow **Settings → Browser → Links → Click a link**; Cmd/Ctrl+click follows **Cmd-click a link** (`browser.md`).
 - Jump to latest when scrolled up.
 - Permission dock can appear above the composer — `trust.md` (Allow always = until Buddy restarts).
 - When a chat has tasks, the **Tasks** button by the composer opens a todo dock. It can show list or board view and reflects task progress.

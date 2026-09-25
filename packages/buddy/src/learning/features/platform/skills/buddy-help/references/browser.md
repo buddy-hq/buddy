@@ -13,25 +13,27 @@ Use when the user asks about Buddy's in-app Browser, web tabs, profiles, Incogni
 - Bench **+** → **Open in a new tab** offers Browser profiles, recent items, files, and a URL/search field. Choose **Incognito** here when needed.
 - Ask Buddy to open an HTTP or HTTPS page and it can present a new Browser tab. Buddy can also switch the Bench back to a Browser tab that is already open. The page is controlled by the user: Buddy cannot inspect, click, type, scroll, or screenshot the live Browser tab.
 - The tab has Back, Forward, Reload, an address/search field, and **More**. A blank **New tab** page shows search and **Recently visited** pages from this notebook.
-- **More** offers hard reload, zoom, page Appearance, clear cookies, and clear cache. The address bar can **Open in system browser**.
+- **More** offers hard reload, zoom, page Appearance, clear cookies, and clear cache. The ↗ button at the end of the address bar opens the page in your default browser.
 - Select page text → **Cite selected text**, or use **Cite in Chat** from the page menu, to put a web quote in the chat composer. Clicking a saved quote tries to reopen and highlight the passage.
 
 The Browser is available on the desktop app. A web build says **Browser requires Buddy desktop**.
 
 ## Where links open
 
-**Settings → Browser → Open links in** chooses **Your default browser** (initial default) or **Buddy** for web links in chats, Markdown documents, PDFs, and books.
+**Settings → Browser → Links** sets where web links in chats, Markdown documents, PDFs, and books open: **Click a link** for a plain click, and **Cmd-click a link** (**Ctrl-click a link** on Windows and Linux) for a Cmd/Ctrl+click. Each is **Default browser** or **Buddy** (a new Browser tab on the Bench). Initially, a click uses your default browser and a Cmd/Ctrl+click opens Buddy.
 
 - The first eligible click may ask **Open links in Buddy?** Choose **Use default browser** or **Open in Buddy**. Change the choice in Settings later.
-- **Cmd/Ctrl+click** opens a web link in the system browser either way.
-- Provider and MCP sign-in, and **Open in system browser**, use the system browser regardless of this setting.
+- Changing **Click a link** to the value **Cmd-click a link** already has swaps the two, so Cmd/Ctrl+click still reaches the other destination. Choosing **Open in Buddy** in the prompt does the same.
+- Links Buddy's Browser cannot open, and any click when the Browser is unavailable, still use the system browser.
+- Inside a Browser page, **Cmd/Ctrl+click** and links the page opens in a new tab open a new Browser tab on the Bench with the same profile, whatever these settings say; Settings shows this as a fixed **New Buddy tab** row. To send one of those links to the system browser instead, right-click it and choose **Open Link in Default Browser**.
+- Provider and MCP sign-in, and **Open in default browser**, use the system browser regardless of this setting.
 
 ## Profiles and defaults
 
 - **Settings → Browser → Profiles** separates cookies and logins. **Default** is built in. Add a blank profile or import cookies from Chrome, Edge, or Safari; the source browser may need to be closed for import.
 - **Incognito** is chosen from the Bench tab picker, not the Settings profile list. Its data is cleared when Buddy closes, and its visits do not appear in Recently visited.
 - A profile menu can **Set as default**, **Clear cookies and cache**, or remove a custom profile and its data. Already open tabs in a removed profile stay open until closed.
-- **Settings → Browser → Defaults** controls search engine, zoom for new tabs, page Appearance, and link opening. Browser Appearance tells web pages which color scheme to prefer; the app theme is under Settings → Appearance.
+- **Settings → Browser → Defaults** controls search engine, zoom for new tabs, and page Appearance. Browser Appearance tells web pages which color scheme to prefer; the app theme is under Settings → Appearance.
 
 ## Limits and gotchas
 

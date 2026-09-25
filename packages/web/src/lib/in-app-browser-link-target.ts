@@ -4,6 +4,7 @@ import type { InAppBrowserLinkTarget } from "@/lib/in-app-browser-settings"
 export type InAppBrowserLinkClick = {
   url: string
   linkTarget: InAppBrowserLinkTarget
+  modifiedLinkTarget: InAppBrowserLinkTarget
   browserAvailable: boolean
   modified: boolean
 }
@@ -11,7 +12,8 @@ export type InAppBrowserLinkClick = {
 export function resolveInAppBrowserLinkDestination(
   input: InAppBrowserLinkClick,
 ): InAppBrowserLinkTarget {
-  if (input.modified || input.linkTarget !== "browser" || !input.browserAvailable) return "system"
+  const requested = input.modified ? input.modifiedLinkTarget : input.linkTarget
+  if (requested !== "browser" || !input.browserAvailable) return "system"
   return isAllowedInAppBrowserUrl(input.url) ? "browser" : "system"
 }
 

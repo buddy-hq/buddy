@@ -16,6 +16,7 @@ import {
 } from "@buddy/browser-contract/profiles"
 import { guardInAppBrowserNavigation } from "./in-app-browser-navigation"
 
+const IN_APP_BROWSER_NEW_TAB_DISPOSITIONS = new Set(["foreground-tab", "background-tab"])
 const IN_APP_BROWSER_ALLOWED_PERMISSIONS = new Set([
   "clipboard-read",
   "clipboard-sanitized-write",
@@ -60,6 +61,7 @@ export type InAppBrowserWindowOpenResponse =
 
 export type InAppBrowserGuestBoundary = {
   loadURL(url: string): Promise<void>
+  openInNewTab(url: string): void
   sendMessage(message: string): void
   sendShortcut(shortcut: InAppBrowserShortcutID): void
   setWindowOpenHandler(
@@ -166,7 +168,11 @@ export function attachInAppBrowserGuestBoundary(
       return { action: "allow", overrideBrowserWindowOptions: IN_APP_BROWSER_POPUP_WINDOW_OPTIONS }
     }
     if (isAllowedInAppBrowserUrl(details.url)) {
-      void guest.loadURL(details.url).catch(() => undefined)
+      if (IN_APP_BROWSER_NEW_TAB_DISPOSITIONS.has(details.disposition)) {
+        guest.openInNewTab(details.url)
+      } else {
+        void guest.loadURL(details.url).catch(() => undefined)
+      }
     } else if (details.url !== IN_APP_BROWSER_BLANK_URL) {
       guest.sendMessage(IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE)
     }

@@ -17,6 +17,7 @@ import {
   IN_APP_BROWSER_SEARCH_ENGINE_OPTIONS,
   parseInAppBrowserSearchEngine,
 } from "@/lib/in-app-browser-search"
+import { parseInAppBrowserLinkTarget } from "@/lib/in-app-browser-settings"
 import {
   flushInAppBrowserSettings,
   retryInAppBrowserSettingsHydration,
@@ -46,7 +47,7 @@ const SEARCH_ENGINE_OPTIONS: readonly SelectOption[] = IN_APP_BROWSER_SEARCH_ENG
 )
 
 const LINK_TARGET_OPTIONS: readonly SelectOption[] = [
-  { value: "system", label: "Your default browser" },
+  { value: "system", label: "Default browser" },
   { value: "browser", label: "Buddy" },
 ]
 
@@ -89,7 +90,6 @@ function BrowserDefaultsSection() {
   const defaultSearchEngine = useInAppBrowserSettingsStore((state) => state.defaultSearchEngine)
   const defaultZoomFactor = useInAppBrowserSettingsStore((state) => state.defaultZoomFactor)
   const defaultAppearance = useInAppBrowserSettingsStore((state) => state.defaultAppearance)
-  const linkTarget = useInAppBrowserSettingsStore((state) => state.linkTarget)
 
   return (
     <SettingsSection title="Defaults">
@@ -171,29 +171,80 @@ function BrowserDefaultsSection() {
           />
         }
       />
+    </SettingsSection>
+  )
+}
+
+function BrowserLinksSection() {
+  const settingsHydrated = useInAppBrowserSettingsHydrated()
+  const linkTarget = useInAppBrowserSettingsStore((state) => state.linkTarget)
+  const modifiedLinkTarget = useInAppBrowserSettingsStore((state) => state.modifiedLinkTarget)
+  const modifierClick = usePlatform().os === "macos" ? "Cmd-click" : "Ctrl-click"
+
+  return (
+    <SettingsSection title="Links">
       <SettingsRow
-        title="Open links in"
-        description="Where web links in chats, documents, PDFs and books open. Hold ⌘ or Ctrl while clicking a link to open it in your default browser either way."
+        title="Click a link"
+        description="In chats, documents, PDFs and books."
         control={
           <BrowserSettingSelect
-            label="Open links in"
+            label="Click a link"
             value={linkTarget}
             options={LINK_TARGET_OPTIONS}
             disabled={!settingsHydrated}
             onValueChange={(value) => {
-              if (value === "system" || value === "browser") {
+              const target = parseInAppBrowserLinkTarget(value)
+              if (target) {
                 markOneTimeNoticeSeen(ONE_TIME_NOTICE_LINK_DESTINATION)
                 const store = useInAppBrowserSettingsStore.getState()
-                const previous = store.linkTarget
-                store.setLinkTarget(value)
+                const previous = {
+                  linkTarget: store.linkTarget,
+                  modifiedLinkTarget: store.modifiedLinkTarget,
+                }
+                store.setLinkTarget(target)
                 flushBrowserDefault({
-                  isCurrent: () => useInAppBrowserSettingsStore.getState().linkTarget === value,
-                  revert: () => useInAppBrowserSettingsStore.getState().setLinkTarget(previous),
+                  isCurrent: () => useInAppBrowserSettingsStore.getState().linkTarget === target,
+                  revert: () => {
+                    const current = useInAppBrowserSettingsStore.getState()
+                    current.setLinkTarget(previous.linkTarget)
+                    current.setModifiedLinkTarget(previous.modifiedLinkTarget)
+                  },
                 })
               }
             }}
           />
         }
+      />
+      <SettingsRow
+        title={`${modifierClick} a link`}
+        description="In chats, documents, PDFs and books."
+        control={
+          <BrowserSettingSelect
+            label={`${modifierClick} a link`}
+            value={modifiedLinkTarget}
+            options={LINK_TARGET_OPTIONS}
+            disabled={!settingsHydrated}
+            onValueChange={(value) => {
+              const target = parseInAppBrowserLinkTarget(value)
+              if (target) {
+                const store = useInAppBrowserSettingsStore.getState()
+                const previous = store.modifiedLinkTarget
+                store.setModifiedLinkTarget(target)
+                flushBrowserDefault({
+                  isCurrent: () =>
+                    useInAppBrowserSettingsStore.getState().modifiedLinkTarget === target,
+                  revert: () =>
+                    useInAppBrowserSettingsStore.getState().setModifiedLinkTarget(previous),
+                })
+              }
+            }}
+          />
+        }
+      />
+      <SettingsRow
+        title={`${modifierClick} a link on a web page in Buddy`}
+        description="Always stays in Buddy. Right-click a link to open it in your default browser."
+        control={<p className="w-full px-3 text-sm text-text-weak sm:w-40">New Buddy tab</p>}
       />
     </SettingsSection>
   )
@@ -221,6 +272,7 @@ export function BrowserSettings() {
     <SettingsContent>
       <BrowserProfilesSection browser={browser} />
       <BrowserDefaultsSection />
+      <BrowserLinksSection />
     </SettingsContent>
   )
 }

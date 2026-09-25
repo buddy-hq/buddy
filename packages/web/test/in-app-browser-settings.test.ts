@@ -10,6 +10,7 @@ import {
   parseInAppBrowserSettings,
   removeInAppBrowserProfile,
   renameInAppBrowserProfile,
+  withInAppBrowserLinkTarget,
 } from "../src/lib/in-app-browser-settings"
 import { parseInAppBrowserZoomHost } from "../src/lib/in-app-browser-zoom"
 import {
@@ -53,6 +54,7 @@ describe("Browser settings", () => {
       }),
     ).toEqual({
       linkTarget: "browser",
+      modifiedLinkTarget: "system",
       defaultSearchEngine: "google",
       defaultZoomFactor: 1,
       zoomFactorsByProfile: {},
@@ -60,6 +62,44 @@ describe("Browser settings", () => {
       defaultProfileID: DEFAULT_IN_APP_BROWSER_PROFILE_ID,
       userProfiles: [{ id: profileID("school"), name: "School" }],
     })
+  })
+
+  test("sends Cmd/Ctrl-click to the other destination for records saved before it was a setting", () => {
+    expect(parseInAppBrowserSettings({ linkTarget: "browser" })).toEqual({
+      ...DEFAULT_IN_APP_BROWSER_SETTINGS,
+      linkTarget: "browser",
+      modifiedLinkTarget: "system",
+    })
+    expect(parseInAppBrowserSettings({ linkTarget: "system" }).modifiedLinkTarget).toBe("browser")
+    expect(parseInAppBrowserSettings({}).modifiedLinkTarget).toBe("browser")
+    expect(
+      parseInAppBrowserSettings({ linkTarget: "browser", modifiedLinkTarget: "alternate" })
+        .modifiedLinkTarget,
+    ).toBe("system")
+    expect(parseInAppBrowserSettings({ modifiedLinkTarget: "sideways" }).modifiedLinkTarget).toBe(
+      "browser",
+    )
+  })
+
+  test("swaps Cmd/Ctrl-click when the click destination takes its value", () => {
+    const defaults = { linkTarget: "system", modifiedLinkTarget: "browser" } as const
+    expect(withInAppBrowserLinkTarget(defaults, "browser")).toEqual({
+      linkTarget: "browser",
+      modifiedLinkTarget: "system",
+    })
+    expect(
+      withInAppBrowserLinkTarget({ linkTarget: "system", modifiedLinkTarget: "system" }, "browser"),
+    ).toEqual({ linkTarget: "browser", modifiedLinkTarget: "system" })
+    expect(withInAppBrowserLinkTarget(defaults, "system")).toEqual(defaults)
+  })
+
+  test("restores a saved Cmd/Ctrl-click destination", () => {
+    expect(parseInAppBrowserSettings({ modifiedLinkTarget: "system" }).modifiedLinkTarget).toBe(
+      "system",
+    )
+    expect(parseInAppBrowserSettings({ modifiedLinkTarget: "browser" }).modifiedLinkTarget).toBe(
+      "browser",
+    )
   })
 
   test("never makes Incognito the default profile", () => {

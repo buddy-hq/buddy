@@ -27,6 +27,7 @@ const ACTIONS = {
   replaceMisspelling: () => undefined,
   copyText: () => undefined,
   copyImage: () => undefined,
+  openLinkInDefaultBrowser: () => undefined,
 }
 
 function labels(params: InAppBrowserContextMenuParams, cite?: () => void) {
@@ -53,5 +54,17 @@ describe("in-app Browser context menu", () => {
       "Cite in Chat",
     )
     expect(labels(PARAMS)).not.toContain("Cite in Chat")
+  })
+
+  test("offers to open web links in the default browser", () => {
+    expect(
+      labels({ ...PARAMS, linkURL: "https://hibuddy.in/docs", selectionText: "" }).slice(0, 3),
+    ).toEqual(["Open Link in Default Browser", "Copy Link", "separator"])
+  })
+
+  test("only offers the default browser for web links", () => {
+    for (const linkURL of ["", "mailto:hi@hibuddy.in", "javascript:alert(1)", "not a url"]) {
+      expect(labels({ ...PARAMS, linkURL })).not.toContain("Open Link in Default Browser")
+    }
   })
 })

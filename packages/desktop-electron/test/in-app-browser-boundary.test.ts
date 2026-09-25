@@ -179,6 +179,7 @@ describe("in-app Browser guest wiring", () => {
     let destroyedHandler: Parameters<InAppBrowserGuestBoundary["onDestroyed"]>[0] | undefined
     const disposals: string[] = []
     const loadedUrls: string[] = []
+    const newTabUrls: string[] = []
     const messages: string[] = []
     const appShortcuts: string[] = []
     const browserShortcuts: string[] = []
@@ -197,6 +198,7 @@ describe("in-app Browser guest wiring", () => {
       async loadURL(url) {
         loadedUrls.push(url)
       },
+      openInNewTab: (url) => newTabUrls.push(url),
       sendMessage: (message) => messages.push(message),
       sendShortcut: (shortcut) => browserShortcuts.push(shortcut),
       setWindowOpenHandler(handler) {
@@ -267,8 +269,23 @@ describe("in-app Browser guest wiring", () => {
         frameName: "ordinary",
       }),
     ).toEqual({ action: "deny" })
+    expect(
+      installedPopupHandler({
+        url: "https://hibuddy.in/later",
+        disposition: "background-tab",
+        frameName: "",
+      }),
+    ).toEqual({ action: "deny" })
+    expect(newTabUrls).toEqual(["https://hibuddy.in/next", "https://hibuddy.in/later"])
+    expect(
+      installedPopupHandler({
+        url: "https://hibuddy.in/here",
+        disposition: "default",
+        frameName: "",
+      }),
+    ).toEqual({ action: "deny" })
     await Promise.resolve()
-    expect(loadedUrls).toEqual(["https://hibuddy.in/next"])
+    expect(loadedUrls).toEqual(["https://hibuddy.in/here"])
     expect(
       installedPopupHandler({
         url: "mailto:hello@hibuddy.in",
