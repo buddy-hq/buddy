@@ -54,6 +54,7 @@ function RightWorkspaceHarness(props: { sessionID?: string; suppressDrawerMotion
     layoutProfile: BENCH_LAYOUT_PROFILE_READING,
     viewport: { widthPx: 1_440, heightPx: 900, safeTopPx: 0 },
     requestedWorkspaceWidthPx: 720,
+    requestedBenchWidthPx: 720,
     leftSidebarPreferredOpen: true,
     leftSidebarWidthPx: 280,
   })

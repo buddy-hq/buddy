@@ -126,28 +126,28 @@ describe("bench navigation policy", () => {
     const expectedProfiles = [
       {
         profile: BENCH_LAYOUT_PROFILE_READING,
-        chatMin: 380,
-        surfaceMin: 560,
+        chatMin: 320,
+        surfaceMin: 360,
       },
       {
         profile: BENCH_LAYOUT_PROFILE_DOCUMENT,
-        chatMin: 380,
-        surfaceMin: 600,
+        chatMin: 320,
+        surfaceMin: 360,
       },
       {
         profile: BENCH_LAYOUT_PROFILE_PRACTICE,
-        chatMin: 380,
-        surfaceMin: 600,
+        chatMin: 320,
+        surfaceMin: 360,
       },
       {
         profile: BENCH_LAYOUT_PROFILE_CODE,
-        chatMin: 360,
-        surfaceMin: 720,
+        chatMin: 320,
+        surfaceMin: 480,
       },
       {
         profile: BENCH_LAYOUT_PROFILE_VISUAL,
-        chatMin: 360,
-        surfaceMin: 780,
+        chatMin: 320,
+        surfaceMin: 480,
       },
     ] as const
 
@@ -282,6 +282,56 @@ describe("bench navigation policy", () => {
     expect(constrained.leftSidebarVisible).toBe(false)
     expect(constrained.leftSidebarSuppressed).toBe(true)
     expect(constrained.availableShellWidthPx).toBe(1_280)
+  })
+
+  test("opens an untouched docked Bench at its profile default width", () => {
+    const expectedProfiles = [
+      { profile: BENCH_LAYOUT_PROFILE_READING, defaultWidth: 560 },
+      { profile: BENCH_LAYOUT_PROFILE_DOCUMENT, defaultWidth: 600 },
+      { profile: BENCH_LAYOUT_PROFILE_PRACTICE, defaultWidth: 600 },
+      { profile: BENCH_LAYOUT_PROFILE_CODE, defaultWidth: 720 },
+      { profile: BENCH_LAYOUT_PROFILE_VISUAL, defaultWidth: 780 },
+    ] as const
+
+    for (const expected of expectedProfiles) {
+      const layout = resolveDockedBenchShellLayout({
+        profile: expected.profile,
+        viewport: { widthPx: 1_440, heightPx: 900, safeTopPx: 24 },
+        workspaceChromeWidthPx: RIGHT_WORKSPACE_CHROME_WIDTH_PX,
+        requestedWorkspaceWidthPx: null,
+        leftSidebarPreferredOpen: false,
+        leftSidebarWidthPx: 280,
+      })
+      expect(layout.workspaceWidthPx).toBe(expected.defaultWidth + RIGHT_WORKSPACE_CHROME_WIDTH_PX)
+    }
+
+    const transient = resolveDockedBenchShellLayout({
+      profile: BENCH_LAYOUT_PROFILE_VISUAL,
+      viewport: { widthPx: 1_440, heightPx: 900, safeTopPx: 24 },
+      workspaceChromeWidthPx: 0,
+      requestedWorkspaceWidthPx: null,
+      leftSidebarPreferredOpen: false,
+      leftSidebarWidthPx: 280,
+    })
+    expect(transient.workspaceWidthPx).toBe(780)
+  })
+
+  test("respects a saved docked Bench width down to the profile minimum", () => {
+    function resolveWidth(requestedWorkspaceWidthPx: number) {
+      return resolveDockedBenchShellLayout({
+        profile: BENCH_LAYOUT_PROFILE_DOCUMENT,
+        viewport: { widthPx: 1_440, heightPx: 900, safeTopPx: 24 },
+        workspaceChromeWidthPx: RIGHT_WORKSPACE_CHROME_WIDTH_PX,
+        requestedWorkspaceWidthPx,
+        leftSidebarPreferredOpen: false,
+        leftSidebarWidthPx: 280,
+      }).workspaceWidthPx
+    }
+
+    expect(resolveWidth(900)).toBe(900)
+    expect(resolveWidth(450)).toBe(450)
+    expect(resolveWidth(364)).toBe(360 + RIGHT_WORKSPACE_CHROME_WIDTH_PX)
+    expect(resolveWidth(10_000)).toBe(1_440 - 320)
   })
 
   test("sacrifices the left sidebar before auto-floating after over-drag", () => {
