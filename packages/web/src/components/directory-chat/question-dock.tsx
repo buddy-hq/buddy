@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import {
   ArrowLeftIcon,
   Button,
@@ -27,6 +27,7 @@ type QuestionDockProps = {
 }
 
 const MAX_DIGIT_SHORTCUT = 9
+const OPTION_TEXT_SLOT = "question-option-text"
 
 function isCustomEnabled(value: boolean | undefined): boolean {
   return value !== false
@@ -51,6 +52,35 @@ function PendingLine(props: { count: number }) {
         { count: props.count },
       )}
     </p>
+  )
+}
+
+function isOptionTextTruncated(trigger: HTMLElement): boolean {
+  const text = trigger.querySelector(`[data-slot="${OPTION_TEXT_SLOT}"]`)
+  return text instanceof HTMLElement && text.scrollWidth > text.clientWidth
+}
+
+function skipTooltipUnlessTruncated(event: {
+  currentTarget: HTMLElement
+  preventDefault(): void
+}) {
+  if (!isOptionTextTruncated(event.currentTarget)) event.preventDefault()
+}
+
+function TruncatedOptionTooltip(props: { description: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        asChild
+        onPointerMove={skipTooltipUnlessTruncated}
+        onFocus={skipTooltipUnlessTruncated}
+      >
+        {props.children}
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={6} className="max-w-xs text-left leading-snug">
+        {props.description}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -477,7 +507,7 @@ export function QuestionDock(props: QuestionDockProps) {
             })}
           </div>
         ) : question ? (
-          <TooltipProvider delayDuration={300}>
+          <TooltipProvider delayDuration={0}>
             <div className="flex flex-col gap-0.5">
               {options.map((option, index) => {
                 const picked = answers[tab]?.includes(option.label) ?? false
@@ -524,7 +554,7 @@ export function QuestionDock(props: QuestionDockProps) {
                         ) : null}
                       </div>
                     ) : (
-                      <span className="min-w-0 flex-1 truncate">
+                      <span data-slot={OPTION_TEXT_SLOT} className="min-w-0 flex-1 truncate">
                         <QuestionInlineMarkdown
                           text={option.label}
                           cacheKey={`${optionCacheKey}:label`}
@@ -535,7 +565,6 @@ export function QuestionDock(props: QuestionDockProps) {
                             <QuestionInlineMarkdown
                               text={option.description}
                               cacheKey={`${optionCacheKey}:description`}
-                              className="align-middle"
                               wrapContent
                             />
                           </span>
@@ -551,16 +580,9 @@ export function QuestionDock(props: QuestionDockProps) {
                 )
 
                 return option.description ? (
-                  <Tooltip key={option.label}>
-                    <TooltipTrigger asChild>{row}</TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      sideOffset={6}
-                      className="max-w-xs text-left leading-snug"
-                    >
-                      {option.description}
-                    </TooltipContent>
-                  </Tooltip>
+                  <TruncatedOptionTooltip key={option.label} description={option.description}>
+                    {row}
+                  </TruncatedOptionTooltip>
                 ) : (
                   <div key={option.label}>{row}</div>
                 )

@@ -71,6 +71,27 @@ function createQuestionDockRequest(): QuestionRequest {
   }
 }
 
+function readTooltipText() {
+  return document.querySelector('[data-slot="tooltip-content"]')?.textContent ?? null
+}
+
+function createTruncationQuestionDockRequest(): QuestionRequest {
+  return {
+    id: "req_question_truncation",
+    sessionID: "ses_question_truncation",
+    questions: [
+      {
+        header: "Question",
+        question: "Pick one",
+        options: [
+          { label: "Short", description: "Fits on the line" },
+          { label: "Long", description: "Cut off on the line" },
+        ],
+      },
+    ],
+  }
+}
+
 function createKeyboardNavigationQuestionDockRequest(): QuestionRequest {
   return {
     id: "req_question_keyboard",
@@ -185,6 +206,84 @@ describe("question markdown rendering", () => {
     expect(container.querySelector("strong")?.textContent).toContain("best")
     expect(container.querySelector("code")?.textContent).toContain("option")
     expect(container.querySelector(".katex")).not.toBeNull()
+  })
+
+  test("shows an option's description tooltip only when the option text is truncated", async () => {
+    await act(async () => {
+      root.render(
+        <QuestionDock
+          request={createQuestionDockRequest()}
+          onReply={async () => undefined}
+          onReject={async () => undefined}
+        />,
+      )
+      await flushEffects()
+    })
+
+    const optionText = container.querySelector<HTMLElement>('[data-slot="question-option-text"]')
+    const optionButton = optionText?.closest("button")
+    if (!optionText || !optionButton) throw new Error("Expected a question option row")
+
+    await act(async () => {
+      optionButton.focus()
+      await flushEffects()
+    })
+    expect(document.querySelector('[data-slot="tooltip-content"]')).toBeNull()
+
+    await act(async () => {
+      optionButton.blur()
+      await flushEffects()
+    })
+    Object.defineProperty(optionText, "scrollWidth", { configurable: true, value: 400 })
+    Object.defineProperty(optionText, "clientWidth", { configurable: true, value: 200 })
+
+    await act(async () => {
+      optionButton.focus()
+      await flushEffects()
+    })
+    expect(document.querySelector('[data-slot="tooltip-content"]')?.textContent).toContain(
+      "Supports",
+    )
+  })
+
+  test("shows the tooltip on hover straight away for a truncated option only", async () => {
+    await act(async () => {
+      root.render(
+        <QuestionDock
+          request={createTruncationQuestionDockRequest()}
+          onReply={async () => undefined}
+          onReject={async () => undefined}
+        />,
+      )
+      await flushEffects()
+    })
+
+    const [fittingText, truncatedText] = container.querySelectorAll<HTMLElement>(
+      '[data-slot="question-option-text"]',
+    )
+    const fittingButton = fittingText?.closest("button")
+    const truncatedButton = truncatedText?.closest("button")
+    if (!truncatedText || !fittingButton || !truncatedButton) {
+      throw new Error("Expected two question option rows")
+    }
+    Object.defineProperty(truncatedText, "scrollWidth", { configurable: true, value: 400 })
+    Object.defineProperty(truncatedText, "clientWidth", { configurable: true, value: 200 })
+
+    await act(async () => {
+      fittingButton.dispatchEvent(
+        new PointerEvent("pointermove", { bubbles: true, pointerType: "mouse" }),
+      )
+      await flushEffects()
+    })
+    expect(readTooltipText()).toBeNull()
+
+    await act(async () => {
+      truncatedButton.dispatchEvent(
+        new PointerEvent("pointermove", { bubbles: true, pointerType: "mouse" }),
+      )
+      await flushEffects()
+    })
+    expect(readTooltipText()).toContain("Cut off on the line")
   })
 
   test("focuses the question dock so arrow-key navigation works even if the prompt editor had focus", async () => {
