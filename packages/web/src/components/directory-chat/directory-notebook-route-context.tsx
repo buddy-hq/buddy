@@ -1,17 +1,6 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react"
-import {
-  useDirectoryChatPageController,
-  type DirectoryChatPageControllerState,
-} from "@/lib/directory-chat/use-directory-chat-page-controller"
-
-type DirectoryNotebookRouteContextValue = {
-  directoryToken: string
-  controller: DirectoryChatPageControllerState
-}
-
-const DirectoryNotebookRouteContext = createContext<DirectoryNotebookRouteContextValue | undefined>(
-  undefined,
-)
+import { useContext, useMemo, type ReactNode } from "react"
+import { useDirectoryChatPageController } from "@/lib/directory-chat/use-directory-chat-page-controller"
+import { DirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context-value"
 
 export function DirectoryNotebookRouteProvider(props: {
   directoryToken: string

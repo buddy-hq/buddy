@@ -1,13 +1,6 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-  type ReactNode,
-} from "react"
+import { useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from "react"
 import type { DesktopTheme, ColorScheme } from "./types"
+import { ThemeContext, type ThemeContextValue } from "./context-value"
 import { resolveThemeVariant, themeToCss } from "./resolve"
 import { defaultThemes } from "./default-themes"
 import {
@@ -89,21 +82,6 @@ export type ThemeAppliedDetails = {
   mode: "light" | "dark"
   backgroundColor: string
 }
-
-export type ThemeContextValue = {
-  themeId: string
-  colorScheme: ColorScheme
-  mode: "light" | "dark"
-  themes: Record<string, DesktopTheme>
-  setTheme: (id: string) => void
-  setColorScheme: (scheme: ColorScheme) => void
-  previewTheme: (id: string) => void
-  previewColorScheme: (scheme: ColorScheme) => void
-  commitPreview: () => void
-  cancelPreview: () => void
-}
-
-const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export type ThemeProviderProps = {
   children: ReactNode
