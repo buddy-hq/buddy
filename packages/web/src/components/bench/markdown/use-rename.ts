@@ -12,6 +12,7 @@ import {
   useOpenBench,
   type BenchTarget,
 } from "@/lib/bench-navigation"
+import { benchTargetKey } from "@/lib/bench-targets"
 import { renameProjectExplorerEditableFile } from "@/state/chat-actions"
 import { forgetMarkdownBenchFile } from "@/state/bench-surface-query"
 import { appQueryClient } from "@/state/query-client"
@@ -82,7 +83,9 @@ export function useMarkdownBenchRename(input: {
               },
             }))
 
-        file.store.getState().markRenamed(currentVersion)
+        if (benchTargetKey(renamed.target) !== benchTargetKey(currentTarget)) {
+          file.store.getState().markRenamed(currentVersion)
+        }
         forgetMarkdownBenchFile(appQueryClient, { directory: storageDirectory, path })
         forgetMarkdownBenchFile(appQueryClient, {
           directory: storageDirectory,
