@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react"
-import { Button, Input, cn } from "@buddy/ui"
+import { Button, Input, Tooltip, TooltipContent, TooltipTrigger, cn } from "@buddy/ui"
 import { IN_APP_BROWSER_BLANK_URL, inAppBrowserDisplayUrl } from "@buddy/browser-contract"
 import { ExternalLinkIcon } from "@/icons/app-icons"
 
-const OPEN_EXTERNAL_LABEL = "Open in system browser"
+const OPEN_EXTERNAL_LABEL = "Open in default browser"
 
 function addressFor(pageUrl: string): string {
   return pageUrl === IN_APP_BROWSER_BLANK_URL ? "" : inAppBrowserDisplayUrl(pageUrl)
@@ -46,7 +46,7 @@ export function BrowserAddressBar(props: {
   }
 
   return (
-    <form className="group/address relative flex min-w-0 flex-1 items-center" onSubmit={submit}>
+    <form className="relative flex min-w-0 flex-1 items-center" onSubmit={submit}>
       <Input
         ref={inputRef}
         aria-label={`Search with ${props.searchEngineLabel} or enter an address`}
@@ -64,17 +64,23 @@ export function BrowserAddressBar(props: {
         onKeyDown={revertOnEscape}
       />
       {props.onOpenExternal ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={OPEN_EXTERNAL_LABEL}
-          title={OPEN_EXTERNAL_LABEL}
-          className="absolute right-1 opacity-0 focus-visible:opacity-100 group-hover/address:opacity-100"
-          onClick={props.onOpenExternal}
-        >
-          <ExternalLinkIcon className="size-3.5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={OPEN_EXTERNAL_LABEL}
+              className="absolute right-1"
+              onClick={props.onOpenExternal}
+            >
+              <ExternalLinkIcon className="size-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            {OPEN_EXTERNAL_LABEL}
+          </TooltipContent>
+        </Tooltip>
       ) : null}
     </form>
   )
