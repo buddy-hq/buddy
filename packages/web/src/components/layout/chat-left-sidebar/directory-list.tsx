@@ -149,8 +149,8 @@ type DirectoryThreadRowProps = {
   hidePinBadge?: boolean
 }
 
-const COLLAPSED_COUNT = 10
-const QUICK_CHAT_COLLAPSED_COUNT = 5
+/** Chats a sidebar list shows before "show more": each notebook, Quick chats, and Recents. */
+export const SIDEBAR_COLLAPSED_CHAT_COUNT = 5
 // Maximum number of subagent child rows visible before the "show more" button appears
 const MAX_VISIBLE_SUBAGENTS = 5
 const SESSION_PREFETCH_HOVER_DELAY_MS = 120
@@ -168,10 +168,7 @@ function isInboxDirectory(directory: string) {
 /** The chats a notebook section lists: every chat when expanded, otherwise the first few. */
 export function visibleDirectorySessions(group: DirectoryGroup, expanded: boolean) {
   if (expanded) return group.sessions
-  const collapsedCount = isInboxDirectory(group.directory)
-    ? QUICK_CHAT_COLLAPSED_COUNT
-    : COLLAPSED_COUNT
-  return group.sessions.slice(0, collapsedCount)
+  return group.sessions.slice(0, SIDEBAR_COLLAPSED_CHAT_COUNT)
 }
 
 function getSubagentToneClass(agent: string) {
@@ -289,9 +286,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
     enabled: !isQuickChatGroup,
   })
   const isObsidianVault = obsidianProfileQuery.data?.connected === true
-  const collapsedCount = isQuickChatGroup ? QUICK_CHAT_COLLAPSED_COUNT : COLLAPSED_COUNT
   const visibleSessions = visibleDirectorySessions(props.group, props.expanded)
-  const hasMore = props.group.sessions.length > collapsedCount
+  const hasMore = props.group.sessions.length > SIDEBAR_COLLAPSED_CHAT_COUNT
   const canDrag = props.organizeMode === "project"
   const isCurrentDirectory = props.group.directory === props.currentDirectory
   const isDragging = props.draggedDirectory === props.group.directory

@@ -1281,6 +1281,7 @@ export const dict = {
   "sidebar.libraryTabMedia": "Media",
   "sidebar.notebookLibrary": "Notebook Library",
   "sidebar.quickChat": "Quick chats",
+  "sidebar.recents": "Recents",
   "sidebar.renameThread": "Rename chat",
   "sidebar.renameThreadAction": "Rename chat",
   "sidebar.renameThreadHint": "Use a short, meaningful title.",

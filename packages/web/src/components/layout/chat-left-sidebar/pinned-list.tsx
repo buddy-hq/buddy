@@ -1,11 +1,13 @@
 import { language } from "@/context/language"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
-import { DirectoryThreadRow } from "./directory-list"
-import { SIDEBAR_ROW_PADDING_LEFT_PX } from "./row-geometry"
+import { DirectoryThreadRow, SIDEBAR_COLLAPSED_CHAT_COUNT } from "./directory-list"
+import { SIDEBAR_ROW_LABEL_INSET_PX, SIDEBAR_ROW_PADDING_LEFT_PX } from "./row-geometry"
 import { buildSessionChildrenByParent } from "./thread-helpers"
 
 type ChatLeftSidebarPinnedListProps = {
   directories: string[]
+  expanded: boolean
+  onToggleExpanded: () => void
   sessionsByDirectory: Record<string, SessionInfo[]>
   sessionStatusByDirectory: Record<string, Record<string, SessionStatusInfo>>
   pinnedByDirectory: Record<string, string[]>
@@ -101,6 +103,9 @@ export function ChatLeftSidebarPinnedList(props: ChatLeftSidebarPinnedListProps)
 
   if (entries.length === 0) return null
 
+  const hasMore = entries.length > SIDEBAR_COLLAPSED_CHAT_COUNT
+  const visibleEntries = props.expanded ? entries : entries.slice(0, SIDEBAR_COLLAPSED_CHAT_COUNT)
+
   return (
     <section data-component="left-sidebar-pinned-list" className="mb-2 space-y-0.5 px-1.5">
       <p
@@ -110,7 +115,7 @@ export function ChatLeftSidebarPinnedList(props: ChatLeftSidebarPinnedListProps)
         {language.t("sidebar.pinned")}
       </p>
       <div className="flex flex-col space-y-0.5">
-        {entries.map((entry) => {
+        {visibleEntries.map((entry) => {
           return (
             <DirectoryThreadRow
               key={`pinned:${entry.directory}:${entry.session.id}`}
@@ -146,6 +151,19 @@ export function ChatLeftSidebarPinnedList(props: ChatLeftSidebarPinnedListProps)
             />
           )
         })}
+        {hasMore ? (
+          <div className="group/sibling relative last:mb-1">
+            <button
+              type="button"
+              data-action="left-sidebar-pinned-toggle-more"
+              className="relative w-full py-1 pr-2.5 text-left text-[10px] text-text-weaker hover:text-text-base"
+              style={{ paddingLeft: `${SIDEBAR_ROW_LABEL_INSET_PX}px` }}
+              onClick={props.onToggleExpanded}
+            >
+              {props.expanded ? language.t("sidebar.showLess") : language.t("sidebar.showMore")}
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   )

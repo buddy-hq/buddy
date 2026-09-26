@@ -95,6 +95,8 @@ import {
   Message02Icon as Message02IconData,
   MinusSignIcon as MinusSignIconData,
   MusicNote01Icon as MusicNote01IconData,
+  FolderAddIcon as FolderAddIconData,
+  NoteAddIcon as NoteAddIconData,
   NoteIcon as NoteIconData,
   PauseIcon as PauseIconData,
   PencilEdit01Icon as PencilEdit01IconData,
@@ -293,6 +295,7 @@ export const BookIcon = createIcon(NotebookIconData, "BookIcon")
 export const Notebook = createIcon(NotebookIconData, "Notebook")
 export const NotebookIcon = createIcon(NotebookIconData, "NotebookIcon")
 export const NoteIcon = createIcon(NoteIconData, "NoteIcon")
+export const NoteAddIcon = createIcon(NoteAddIconData, "NoteAddIcon")
 export const Bookmark = createIcon(Bookmark02IconData, "Bookmark")
 export const BookmarkIcon = createIcon(Bookmark02IconData, "BookmarkIcon")
 /** Hugeicons free `BotIcon` (antenna + body + arms + eyes) — not Robot*. */
@@ -346,6 +349,7 @@ export const FileText = createIcon(File02IconData, "FileText")
 export const FileTextIcon = createIcon(File02IconData, "FileTextIcon")
 export const Folder = createIcon(Folder01IconData, "Folder")
 export const FolderIcon = createIcon(Folder01IconData, "FolderIcon")
+export const FolderAddIcon = createIcon(FolderAddIconData, "FolderAddIcon")
 export const FolderOpen = createIcon(FolderOpenIconData, "FolderOpen")
 export const FolderOpenIcon = createIcon(FolderOpenIconData, "FolderOpenIcon")
 export const FitToScreenIcon = createIcon(FitToScreenIconData, "FitToScreenIcon")
