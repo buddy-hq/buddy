@@ -389,6 +389,11 @@ describe("prompt composer submit", () => {
         "citation" in part ? [part.citation.comment] : [],
       ),
     ).toEqual(["saved comment"])
+    // The next Enter must reach the composer, not the chip's edit-comment trigger.
+    await act(async () => {
+      await flushEffects(20)
+    })
+    expect(document.activeElement).toBe(container.querySelector('[data-component="prompt-editor"]'))
   })
 
   test("modifier Enter saves a comment when sending is unavailable", async () => {
