@@ -25,6 +25,7 @@ import {
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 import type { SessionInfo } from "@/state/chat-types"
+import { useHostedBrowserStore } from "@/state/hosted-browser-store"
 import {
   WORKSPACE_DESTINATION_EMPTY,
   WORKSPACE_DESTINATION_INHERIT_CURRENT,
@@ -162,10 +163,12 @@ async function persistedOrDefaultWorkspaceSlot(
   chatKey: PersistedWorkspaceChatKey,
 ): Promise<WorkspacePresentationSlot> {
   return (
+    useHostedBrowserStore.getState().slotsByDirectory[directory]?.[chatKey] ??
     (await readPersistedWorkspaceSlot({
       directory,
       chatKey,
-    })) ?? defaultWorkspacePresentationSlot()
+    })) ??
+    defaultWorkspacePresentationSlot()
   )
 }
 
@@ -329,6 +332,9 @@ class ActiveChatTransitionCoordinator {
             chatKey: destinationState.chatKey,
             slot: destinationSlot,
           })
+          useHostedBrowserStore
+            .getState()
+            .replaceSlot(directory, destinationState.chatKey, destinationSlot)
         }
         destinationRoute = destinationSlot.route
         const releasePreparedNavigation =

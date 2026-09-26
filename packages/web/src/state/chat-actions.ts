@@ -18,6 +18,7 @@ import type {
 } from "@buddy/sdk"
 import type { ReaderLocation, ReaderTrailEntry } from "@buddy/reader-contract"
 import { useChatStore } from "./chat-store"
+import { useHostedBrowserStore } from "./hosted-browser-store"
 import type { AnnotationSummaryEntry } from "./active-reading-state"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "./model-selection-store"
 import type {
@@ -1091,6 +1092,7 @@ export async function closeOpenProject(directory: string) {
   if (!canonicalDirectory) return undefined
 
   useChatStore.getState().closeProject(canonicalDirectory)
+  useHostedBrowserStore.getState().forgetDirectory(canonicalDirectory)
   return canonicalDirectory
 }
 

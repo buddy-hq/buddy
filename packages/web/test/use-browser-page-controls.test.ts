@@ -175,6 +175,7 @@ describe("in-app Browser page zoom", () => {
         webContentsID: 42,
         observedPageUrl: props.observedPageUrl,
         withWebview,
+        audioSuspended: false,
       })
       return null
     }
@@ -222,34 +223,26 @@ describe("in-app Browser page zoom", () => {
     ).toBeUndefined()
   })
 
-  test("applies zoom from the attached guest URL instead of stale rendered navigation state", async () => {
+  test("mutes the guest while its notebook is not mounted and restores it on return", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
-    const exampleHost = parseInAppBrowserZoomHost("https://example.com")
-    const otherHost = parseInAppBrowserZoomHost("https://other.example")
-    if (!exampleHost || !otherHost) throw new Error("Expected test hosts")
-    useInAppBrowserSettingsStore.setState({
-      ...DEFAULT_IN_APP_BROWSER_SETTINGS,
-      zoomFactorsByProfile: {
-        [DEFAULT_IN_APP_BROWSER_PROFILE_ID]: {
-          [exampleHost]: 1.5,
-          [otherHost]: 0.75,
-        },
+    const mutedStates: boolean[] = []
+    const webview = Object.assign(
+      createWebview(() => undefined),
+      {
+        setAudioMuted: (muted: boolean) => mutedStates.push(muted),
       },
-    })
-
-    const appliedZoomFactors: number[] = []
-    const webview = createWebview((factor) => appliedZoomFactors.push(factor))
+    )
     const withWebview: WithInAppBrowserWebview = (action) => action(webview)
-    let controls: ReturnType<typeof useBrowserPageControls> | undefined
 
-    function Probe() {
-      controls = useBrowserPageControls({
+    function Probe(props: { audioSuspended: boolean }) {
+      useBrowserPageControls({
         tabID: "browser-tab",
         profileID: DEFAULT_IN_APP_BROWSER_PROFILE_ID,
         browser,
         webContentsID: 42,
         observedPageUrl: "https://example.com/a",
         withWebview,
+        audioSuspended: props.audioSuspended,
       })
       return null
     }
@@ -257,10 +250,13 @@ describe("in-app Browser page zoom", () => {
     container = document.createElement("div")
     document.body.append(container)
     root = createRoot(container)
-    await act(async () => root?.render(createElement(Probe)))
-    expect(appliedZoomFactors.at(-1)).toBe(1.5)
+    await act(async () => root?.render(createElement(Probe, { audioSuspended: false })))
+    expect(mutedStates.at(-1)).toBe(false)
 
-    controls?.synchronizeAttachedState(webview, 42, "https://other.example/page")
-    expect(appliedZoomFactors.at(-1)).toBe(0.75)
+    await act(async () => root?.render(createElement(Probe, { audioSuspended: true })))
+    expect(mutedStates.at(-1)).toBe(true)
+
+    await act(async () => root?.render(createElement(Probe, { audioSuspended: false })))
+    expect(mutedStates.at(-1)).toBe(false)
   })
 })

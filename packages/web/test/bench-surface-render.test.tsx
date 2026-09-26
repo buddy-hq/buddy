@@ -49,6 +49,7 @@ import {
   type BenchSurfaceRegistrationInput,
 } from "../src/lib/directory-workspace-lifecycle"
 import { useChatStore } from "../src/state/chat-store"
+import { useHostedBrowserStore } from "../src/state/hosted-browser-store"
 import { createDirectoryChatState } from "./test-utils"
 import type {
   ObjectFlashcardDeckQueuedCardsResponse,
@@ -466,6 +467,7 @@ describe("bench surface rendering", () => {
     })
     globalThis.fetch = originalFetch
     setRuntimePlatform(originalPlatform)
+    useHostedBrowserStore.getState().reset()
     container.remove()
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })

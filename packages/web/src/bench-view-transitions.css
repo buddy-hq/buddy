@@ -3,6 +3,8 @@
   ::view-transition-new(root),
   ::view-transition-old(buddy-bench-surface),
   ::view-transition-new(buddy-bench-surface),
+  ::view-transition-old(buddy-bench-browser-page),
+  ::view-transition-new(buddy-bench-browser-page),
   ::view-transition-old(buddy-chat-conversation),
   ::view-transition-new(buddy-chat-conversation) {
     animation-duration: 240ms;
@@ -20,6 +22,8 @@
   ::view-transition-new(root),
   ::view-transition-old(buddy-bench-surface),
   ::view-transition-new(buddy-bench-surface),
+  ::view-transition-old(buddy-bench-browser-page),
+  ::view-transition-new(buddy-bench-browser-page),
   ::view-transition-old(buddy-chat-conversation),
   ::view-transition-new(buddy-chat-conversation) {
     animation-duration: 1ms;

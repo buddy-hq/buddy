@@ -45,9 +45,8 @@ export function useBrowserPage(input: {
   initialUrl: string
   searchEngine: InAppBrowserSearchEngine
   browser: InAppBrowserPlatform
-  onAttached: (webview: InAppBrowserWebview, webContentsID: number, observedPageUrl: string) => void
 }) {
-  const { tabID, browser, onAttached } = input
+  const { tabID, browser } = input
   const webviewRef = useRef<InAppBrowserWebview | null>(null)
   const attachedWebviewRef = useRef<InAppBrowserWebview | null>(null)
   const pendingNavigationUrlRef = useRef<string | null>(null)
@@ -151,7 +150,6 @@ export function useBrowserPage(input: {
       if (!snapshot) return
       attachedWebviewRef.current = webview
       setObservedPageUrl(snapshot.runtime.url)
-      onAttached(webview, snapshot.webContentsID, snapshot.runtime.url)
       setWebContentsID(snapshot.webContentsID)
       const pendingUrl = pendingNavigationUrlRef.current
       if (pendingUrl && snapshot.runtime.url !== pendingUrl) {
@@ -323,7 +321,7 @@ export function useBrowserPage(input: {
       webview.removeEventListener("did-fail-load", didFailLoad)
       webview.removeEventListener("render-process-gone", renderProcessGone)
     }
-  }, [loadNavigation, onAttached, restartWebview, updateRuntime, webviewGeneration])
+  }, [loadNavigation, restartWebview, updateRuntime, webviewGeneration])
 
   const setWebviewRef = useCallback((webview: InAppBrowserWebview | null) => {
     if (webview === null) attachedWebviewRef.current = null

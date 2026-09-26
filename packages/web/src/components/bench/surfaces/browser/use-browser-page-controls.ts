@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   stepInAppBrowserZoomFactor,
   type InAppBrowserAppearance,
@@ -12,7 +12,6 @@ import { inAppBrowserHostZoomFactor, parseInAppBrowserZoomHost } from "@/lib/in-
 import { useInAppBrowserAudioStore } from "@/state/in-app-browser-audio-store"
 import { useInAppBrowserSettingsStore } from "@/state/in-app-browser-settings-store"
 import type { WithInAppBrowserWebview } from "./in-app-browser-webview"
-import type { InAppBrowserWebview } from "./in-app-browser-webview"
 
 type TAppearanceFailedReason = Extract<InAppBrowserCommandResult, { _tag: "failed" }>["reason"]
 type TAppearanceApplyFailure =
@@ -74,8 +73,10 @@ export function useBrowserPageControls(input: {
   webContentsID: number | null
   observedPageUrl: string
   withWebview: WithInAppBrowserWebview
+  audioSuspended: boolean
 }) {
-  const { tabID, profileID, browser, webContentsID, observedPageUrl, withWebview } = input
+  const { tabID, profileID, browser, webContentsID, observedPageUrl, withWebview, audioSuspended } =
+    input
   const zoomHost = parseInAppBrowserZoomHost(observedPageUrl)
   const defaultZoomFactor = useInAppBrowserSettingsStore((state) => state.defaultZoomFactor)
   const savedZoomFactor = useInAppBrowserSettingsStore((state) =>
@@ -100,51 +101,13 @@ export function useBrowserPageControls(input: {
 
   useEffect(() => {
     if (webContentsID === null) return
-    withWebview((webview) => webview.setAudioMuted(muted))
-  }, [muted, webContentsID, withWebview])
+    withWebview((webview) => webview.setAudioMuted(muted || audioSuspended))
+  }, [audioSuspended, muted, webContentsID, withWebview])
 
   useEffect(() => {
     if (webContentsID === null) return
     void applyInAppBrowserAppearance(browser.setAppearance, { webContentsID, appearance })
   }, [appearance, browser, webContentsID])
-
-  useEffect(() => {
-    if (webContentsID === null) return
-    return browser.onAudio((message) => {
-      if (message.webContentsID !== webContentsID) return
-      useInAppBrowserAudioStore.getState().setAudible(tabID, message.audible)
-    })
-  }, [browser, tabID, webContentsID])
-
-  useEffect(() => () => useInAppBrowserAudioStore.getState().removeTab(tabID), [tabID])
-
-  const zoomFactorForPageUrl = useCallback(
-    (pageUrl: string): InAppBrowserZoomFactor => {
-      const state = useInAppBrowserSettingsStore.getState()
-      const attachedHost = parseInAppBrowserZoomHost(pageUrl)
-      return attachedHost
-        ? (inAppBrowserHostZoomFactor(state.zoomFactorsByProfile, profileID, attachedHost) ??
-            state.defaultZoomFactor)
-        : (hostlessZoomFactor ?? state.defaultZoomFactor)
-    },
-    [hostlessZoomFactor, profileID],
-  )
-
-  const synchronizeAttachedState = useCallback(
-    (
-      webview: InAppBrowserWebview,
-      attachedWebContentsID: number,
-      attachedPageUrl: string,
-    ): void => {
-      webview.setZoomFactor(zoomFactorForPageUrl(attachedPageUrl))
-      webview.setAudioMuted(muted)
-      void applyInAppBrowserAppearance(browser.setAppearance, {
-        webContentsID: attachedWebContentsID,
-        appearance,
-      })
-    },
-    [appearance, browser, muted, zoomFactorForPageUrl],
-  )
 
   const stepZoom = useCallback(
     (direction: "in" | "out") => {
@@ -180,13 +143,15 @@ export function useBrowserPageControls(input: {
     })
   }, [profileID, zoomHost])
 
-  return {
-    zoomFactor,
-    zoomIn,
-    zoomOut,
-    resetZoom,
-    appearance,
-    setAppearance,
-    synchronizeAttachedState,
-  }
+  return useMemo(
+    () => ({
+      zoomFactor,
+      zoomIn,
+      zoomOut,
+      resetZoom,
+      appearance,
+      setAppearance,
+    }),
+    [zoomFactor, zoomIn, zoomOut, resetZoom, appearance],
+  )
 }

@@ -27,6 +27,7 @@ import { BENCH_LAYOUT_PROFILE_READING } from "../src/lib/bench-navigation"
 import { resolveWorkspacePresentation } from "../src/lib/directory-chat/workspace-presentation"
 import { processedResourcesQueryKey } from "../src/state/resources-query"
 import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
+import { useHostedBrowserStore } from "../src/state/hosted-browser-store"
 import { skillsCatalogQueryKeys } from "../src/state/skills-catalog-query"
 import { workspaceChatKeyForSession } from "../src/lib/workspace-chat-key"
 import { obsidianVaultQueryKeys } from "../src/state/obsidian-vault-query"
@@ -210,6 +211,7 @@ describe("DirectoryChatRightWorkspace", () => {
     root = undefined
     container = undefined
     localStorage.clear()
+    useHostedBrowserStore.getState().reset()
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
