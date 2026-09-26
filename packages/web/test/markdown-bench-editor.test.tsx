@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { act, createRef } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { Z_INDEX } from "@buddy/ui"
+import { readCitationPromptPart, type Citation } from "@buddy/citation-contract"
 import { BenchSurfaceActivityProvider } from "../src/components/bench/bench-surface-activity"
 import {
   MarkdownBenchEditor,
@@ -12,8 +13,24 @@ import {
   EXPLORER_EMBEDDED_MARKDOWN_LOADER,
   type ObsidianWikiLinkContext,
 } from "../src/components/bench/markdown/plugins/obsidian"
+import {
+  registerCitationNavigationHandler,
+  requestCitationNavigation,
+} from "../src/lib/citations/navigation"
 import { createMermaidThemeConfig } from "../src/components/media/renderers/mermaid/lib/theme"
 import { ThemeProvider } from "../src/theme"
+
+// Bun fails to evaluate @uiw/file-icons SVGs when this file also loads MDX editor CSS.
+mock.module("@/components/files/file-type-icon", () => ({
+  FileTypeIcon: () => null,
+  createFileTypeIconElement: () => document.createElement("span"),
+  resolveFileTypeIconUrl: () => "",
+}))
+
+const { useMarkdownBenchSelectionSync } = await import(
+  "../src/components/bench/markdown/use-selection-sync"
+)
+const { getPromptDraft, usePromptStore } = await import("../src/state/prompt-store")
 
 function createMediaQueryList(matches: boolean): MediaQueryList {
   const mediaQueryList: MediaQueryList = {
@@ -52,6 +69,53 @@ async function flushEffects(delay = 0) {
   await new Promise<void>((resolve) => {
     setTimeout(resolve, delay)
   })
+}
+
+const EXTERNAL_MARKDOWN_PATH = "/tmp/external-notes/outside.md"
+const READ_ONLY_CITATION_PROMPT_KEY = "read-only-citation-prompt"
+
+function ReadOnlyCitationHarness(props: { markdown: string }) {
+  const citeSelection = useMarkdownBenchSelectionSync({
+    path: EXTERNAL_MARKDOWN_PATH,
+    promptKey: READ_ONLY_CITATION_PROMPT_KEY,
+    version: "external-version",
+  })
+  return (
+    <MarkdownBenchEditor
+      markdown={props.markdown}
+      version="external-version"
+      dirty={false}
+      saving={false}
+      conflict={false}
+      directory="/tmp/test-dir"
+      documentFormat="markdown"
+      path={EXTERNAL_MARKDOWN_PATH}
+      readOnly
+      onChange={() => {}}
+      onCiteSelection={citeSelection}
+    />
+  )
+}
+
+function selectRenderedText(container: HTMLElement, text: string, length: number) {
+  const textNode = Array.from(container.querySelectorAll('[data-lexical-text="true"]'))
+    .map((element) => element.firstChild)
+    .find((node) => node?.textContent === text)
+  if (!(textNode instanceof Text)) {
+    throw new Error("Expected rendered Markdown text")
+  }
+  const range = document.createRange()
+  range.setStart(textNode, 0)
+  range.setEnd(textNode, length)
+  const selectionRects = [{ top: 120, height: 18 }]
+  Object.assign(selectionRects, {
+    item: (index: number) => selectionRects[index] ?? null,
+  })
+  Object.defineProperty(range, "getClientRects", { value: () => selectionRects })
+  Object.defineProperty(range, "cloneRange", { value: () => range })
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
 }
 
 describe("MarkdownBenchEditor", () => {
@@ -521,6 +585,160 @@ describe("MarkdownBenchEditor", () => {
     expect(selectedMarkdown).toBe("Select this")
     expect(selectedHeadingPath).toEqual(["Lesson", "Prompt"])
     expect(document.body.querySelector('button[aria-label="Cite selected text"]')).toBeNull()
+  })
+
+  test("cites and reveals selections from a read-only external document", async () => {
+    usePromptStore.getState().clearDraft(READ_ONLY_CITATION_PROMPT_KEY)
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <ReadOnlyCitationHarness
+            markdown={["# External", "", "Quote this outside passage."].join("\n")}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects()
+    })
+
+    const editable = container.querySelector(".mdxeditor-root-contenteditable [contenteditable]")
+    expect(editable?.getAttribute("contenteditable")).toBe("false")
+
+    selectRenderedText(container, "Quote this outside passage.", "Quote this".length)
+    const editor = container.querySelector<HTMLElement>('[data-component="markdown-bench-editor"]')
+    if (!editor) throw new Error("Expected Markdown bench editor")
+    await act(async () => {
+      editor.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, button: 0, isPrimary: true }),
+      )
+      window.dispatchEvent(new MouseEvent("mouseup", { button: 0, clientX: 80, clientY: 180 }))
+      await flushEffects(20)
+    })
+
+    const cite = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Cite selected text"]',
+    )
+    if (!cite) throw new Error("Expected citation action")
+    await act(async () => {
+      cite.click()
+      await flushEffects()
+    })
+
+    const citationParts = getPromptDraft(
+      usePromptStore.getState(),
+      READ_ONLY_CITATION_PROMPT_KEY,
+    ).parts.flatMap((part) => {
+      const parsed = readCitationPromptPart(part)
+      return parsed ? [parsed] : []
+    })
+    expect(citationParts).toHaveLength(1)
+    const citation = citationParts[0]?.citation
+    if (!citation) throw new Error("Expected a document citation in the prompt draft")
+    expect(citation.excerpt).toBe("Quote this")
+    expect(citation.source).toMatchObject({
+      kind: "document",
+      path: EXTERNAL_MARKDOWN_PATH,
+      revision: "external-version",
+    })
+    expect(citation.source).not.toHaveProperty("directory")
+
+    window.getSelection()?.removeAllRanges()
+    let revealed = false
+    await act(async () => {
+      revealed = await requestCitationNavigation(citation)
+      await flushEffects()
+    })
+    expect(revealed).toBe(true)
+    expect(window.getSelection()?.toString()).toBe("Quote this")
+
+    await act(async () => {
+      root.render(<ThemeProvider>{null}</ThemeProvider>)
+      await flushEffects()
+    })
+    window.getSelection()?.removeAllRanges()
+    const reopenedPaths: string[] = []
+    const unregisterFallback = registerCitationNavigationHandler((pendingCitation) => {
+      if (pendingCitation.source.kind !== "document") return false
+      reopenedPaths.push(pendingCitation.source.path)
+      return "pending"
+    })
+    try {
+      await act(async () => {
+        revealed = await requestCitationNavigation(citation)
+        await flushEffects()
+      })
+      expect(revealed).toBe(true)
+      expect(reopenedPaths).toEqual([EXTERNAL_MARKDOWN_PATH])
+      expect(window.getSelection()?.toString()).toBe("")
+
+      await act(async () => {
+        root.render(
+          <ThemeProvider>
+            <ReadOnlyCitationHarness
+              markdown={["# External", "", "Quote this outside passage."].join("\n")}
+            />
+          </ThemeProvider>,
+        )
+        await flushEffects(20)
+      })
+      expect(window.getSelection()?.toString()).toBe("Quote this")
+    } finally {
+      unregisterFallback()
+    }
+  })
+
+  test("leaves external citations to the fallback while its Bench surface is parked", async () => {
+    const citation: Citation = {
+      schemaVersion: 1,
+      id: "parked-external",
+      excerpt: "Quote this",
+      source: {
+        kind: "document",
+        path: EXTERNAL_MARKDOWN_PATH,
+        selector: { version: 1, start: 9, end: 19, prefix: "External\n", suffix: " outside" },
+      },
+    }
+    function renderParkable(surfaceActive: boolean) {
+      root.render(
+        <ThemeProvider>
+          <BenchSurfaceActivityProvider value={surfaceActive}>
+            <ReadOnlyCitationHarness
+              markdown={["# External", "", "Quote this outside passage."].join("\n")}
+            />
+          </BenchSurfaceActivityProvider>
+        </ThemeProvider>,
+      )
+    }
+    const fallbackCitations: string[] = []
+    const unregisterFallback = registerCitationNavigationHandler((pendingCitation) => {
+      fallbackCitations.push(pendingCitation.id)
+      return true
+    })
+    try {
+      await act(async () => {
+        renderParkable(false)
+        await flushEffects()
+      })
+      window.getSelection()?.removeAllRanges()
+      await act(async () => {
+        await requestCitationNavigation(citation)
+        await flushEffects()
+      })
+      expect(fallbackCitations).toEqual(["parked-external"])
+      expect(window.getSelection()?.toString()).toBe("")
+
+      await act(async () => {
+        renderParkable(true)
+        await flushEffects()
+      })
+      await act(async () => {
+        await requestCitationNavigation(citation)
+        await flushEffects()
+      })
+      expect(fallbackCitations).toEqual(["parked-external"])
+      expect(window.getSelection()?.toString()).toBe("Quote this")
+    } finally {
+      unregisterFallback()
+    }
   })
 
   test("renders and serializes MDX components without executing them", async () => {

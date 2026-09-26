@@ -2,14 +2,19 @@ import { afterEach, describe, expect, test } from "bun:test"
 import type { Citation } from "@buddy/citation-contract"
 import {
   openCitationSurface,
+  openExternalCitationSurface,
   resolveCitationSourceOpenTarget,
   resolveRevertedUserMessageCount,
   resolveAutoCompactionWarning,
   resolveCurrentSessionQuestions,
 } from "../src/components/directory-chat/directory-chat-main-pane"
+import type { MarkdownFileBenchOpenResult } from "../src/components/markdown/use-markdown-file-link-open"
 import { canEditImagesForModel } from "../src/lib/image-editing"
 import { benchTargetKey, type BenchTarget } from "../src/lib/bench-navigation"
-import { registerCitationSurfaceRevealer } from "../src/lib/citations/surface-revealers"
+import {
+  registerCitationSurfaceRevealer,
+  registerDocumentCitationSurface,
+} from "../src/lib/citations/surface-revealers"
 import {
   registerCitationNavigationHandler,
   requestCitationNavigation,
@@ -76,15 +81,24 @@ function citationPath(citation: Citation) {
   return source.kind === "document" || source.kind === "reading" ? source.path : undefined
 }
 
-function registerSourceSurface(target: BenchTarget, path: string, revealed: string[]) {
+function registerSourceSurface(
+  target: BenchTarget,
+  path: string,
+  revealed: string[],
+  surface = { active: true },
+) {
   const reveal = (citation: Citation) => {
     if (citationPath(citation) !== path) return false
     revealed.push(citation.id)
     return true
   }
   const unregisterRevealer = registerCitationSurfaceRevealer(benchTargetKey(target), reveal)
-  const unregisterNavigation = registerCitationNavigationHandler(reveal)
+  const unregisterNavigation = registerCitationNavigationHandler((citation) =>
+    surface.active ? reveal(citation) : false,
+  )
+  const unregisterDocument = registerDocumentCitationSurface(path, target)
   return () => {
+    unregisterDocument()
     unregisterNavigation()
     unregisterRevealer()
   }
@@ -93,7 +107,7 @@ function registerSourceSurface(target: BenchTarget, path: string, revealed: stri
 function registerCitationFallback(opened: string[]) {
   return registerCitationNavigationHandler(async (citation) => {
     const target = resolveCitationSourceOpenTarget(citation)
-    if (!target || target.kind === "web") return false
+    if (!target || target.kind === "web" || target.kind === "external-document") return false
     return openCitationSurface({
       citation,
       target,
@@ -105,6 +119,51 @@ function registerCitationFallback(opened: string[]) {
       openResource: async (directory, resource) => {
         opened.push(`${directory}:${resource.path}`)
         return { outcome: "committed" }
+      },
+    })
+  })
+}
+
+const EXTERNAL_PATH = "/tmp/external-notes/outside.md"
+
+const presentedTarget: BenchTarget = {
+  type: "object",
+  ref: { kind: "media-presentation", objectID: "presented-1", revisionID: null, itemID: null },
+  viewID: "media",
+}
+
+function externalCitation(id: string, path = EXTERNAL_PATH): Citation {
+  return {
+    schemaVersion: 1,
+    id,
+    excerpt: "quoted text",
+    source: { kind: "document", path, selector },
+  }
+}
+
+function registerExternalCitationHandler(
+  opened: string[],
+  approve = true,
+  focused: string[] = [],
+  openedAs: MarkdownFileBenchOpenResult = {
+    kind: "external",
+    target: presentedTarget,
+    outcome: "committed",
+  },
+) {
+  return registerCitationNavigationHandler(async (citation) => {
+    const target = resolveCitationSourceOpenTarget(citation)
+    if (target?.kind !== "external-document") return false
+    return openExternalCitationSurface({
+      citation,
+      path: target.path,
+      openSurface: async (surface) => {
+        focused.push(benchTargetKey(surface))
+        return { outcome: "committed" }
+      },
+      openExternalFile: async (path) => {
+        opened.push(path)
+        return approve ? openedAs : undefined
       },
     })
   })
@@ -157,6 +216,145 @@ describe("directory chat main pane helpers", () => {
 
     expect(opened).toEqual(["/notebook:books/cited.pdf"])
     expect(revealed).toEqual(["reader"])
+  })
+
+  test("reveals an external Markdown citation in its mounted read-only surface", async () => {
+    const revealed: string[] = []
+    const opened: string[] = []
+    const externalOpened: string[] = []
+    const focused: string[] = []
+    cleanups.push(registerExternalCitationHandler(externalOpened, true, focused))
+    cleanups.push(registerSourceSurface(presentedTarget, EXTERNAL_PATH, revealed))
+    cleanups.push(registerCitationFallback(opened))
+
+    await expect(requestCitationNavigation(externalCitation("external"))).resolves.toBe(true)
+
+    expect(opened).toEqual([])
+    expect(externalOpened).toEqual([])
+    expect(focused).toEqual([])
+    expect(revealed).toEqual(["external"])
+  })
+
+  test("focuses a parked external Markdown tab instead of reopening it", async () => {
+    const revealed: string[] = []
+    const opened: string[] = []
+    const externalOpened: string[] = []
+    const focused: string[] = []
+    cleanups.push(registerExternalCitationHandler(externalOpened, true, focused))
+    cleanups.push(
+      registerSourceSurface(presentedTarget, EXTERNAL_PATH, revealed, { active: false }),
+    )
+    cleanups.push(registerSourceSurface(markdownTarget, "notes/cited.md", []))
+    cleanups.push(registerCitationFallback(opened))
+
+    await expect(requestCitationNavigation(externalCitation("parked-external"))).resolves.toBe(
+      true,
+    )
+
+    expect(opened).toEqual([])
+    expect(externalOpened).toEqual([])
+    expect(focused).toEqual([benchTargetKey(presentedTarget)])
+    expect(revealed).toEqual(["parked-external"])
+  })
+
+  test("reveals an absolute citation path that resolves inside the notebook", async () => {
+    const revealed: string[] = []
+    const opened: string[] = []
+    const externalOpened: string[] = []
+    cleanups.push(
+      registerExternalCitationHandler(externalOpened, true, [], {
+        kind: "notebook",
+        path: "notes/cited.md",
+      }),
+    )
+    cleanups.push(registerSourceSurface(markdownTarget, "notes/cited.md", revealed))
+    cleanups.push(registerCitationFallback(opened))
+
+    await expect(
+      requestCitationNavigation(externalCitation("notebook-absolute", "/notebook/notes/cited.md")),
+    ).resolves.toBe(true)
+
+    expect(externalOpened).toEqual(["/notebook/notes/cited.md"])
+    expect(opened).toEqual([benchTargetKey(markdownTarget)])
+    expect(revealed).toEqual(["notebook-absolute"])
+  })
+
+  test("reopens a closed external Markdown file and reveals the citation once it mounts", async () => {
+    const revealed: string[] = []
+    const opened: string[] = []
+    const externalOpened: string[] = []
+    cleanups.push(registerExternalCitationHandler(externalOpened))
+    cleanups.push(registerCitationFallback(opened))
+
+    await expect(requestCitationNavigation(externalCitation("closed-external"))).resolves.toBe(true)
+    expect(opened).toEqual([])
+    expect(externalOpened).toEqual([EXTERNAL_PATH])
+    expect(revealed).toEqual([])
+
+    cleanups.push(registerSourceSurface(presentedTarget, EXTERNAL_PATH, revealed))
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(revealed).toEqual(["closed-external"])
+  })
+
+  test("reveals in the opened external surface when its revealer is already registered", async () => {
+    const revealed: string[] = []
+    const externalOpened: string[] = []
+    cleanups.push(registerExternalCitationHandler(externalOpened))
+    cleanups.push(
+      registerCitationSurfaceRevealer(benchTargetKey(presentedTarget), (citation) => {
+        revealed.push(citation.id)
+        return true
+      }),
+    )
+
+    await expect(requestCitationNavigation(externalCitation("focused-external"))).resolves.toBe(
+      true,
+    )
+
+    expect(externalOpened).toEqual([EXTERNAL_PATH])
+    expect(revealed).toEqual(["focused-external"])
+  })
+
+  test("does nothing when opening the external file is declined", async () => {
+    const revealed: string[] = []
+    const externalOpened: string[] = []
+    cleanups.push(registerExternalCitationHandler(externalOpened, false))
+
+    await expect(requestCitationNavigation(externalCitation("declined"))).resolves.toBe(true)
+    cleanups.push(registerSourceSurface(presentedTarget, EXTERNAL_PATH, revealed))
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(externalOpened).toEqual([EXTERNAL_PATH])
+    expect(revealed).toEqual([])
+  })
+
+  test("routes external document citations to the external file open flow", () => {
+    for (const path of [
+      "/Users/learner/outside.md",
+      "C:\\Users\\learner\\outside.md",
+      "\\\\server\\share\\outside.md",
+      "~/notes/outside.md",
+    ]) {
+      expect(resolveCitationSourceOpenTarget(externalCitation("external-document", path))).toEqual({
+        kind: "external-document",
+        path,
+      })
+    }
+  })
+
+  test("leaves notebook document citations to the notebook fallback", async () => {
+    const opened: string[] = []
+    const externalOpened: string[] = []
+    cleanups.push(registerExternalCitationHandler(externalOpened))
+    cleanups.push(registerCitationFallback(opened))
+
+    await expect(requestCitationNavigation(markdownCitation("notebook"))).resolves.toBe(true)
+
+    expect(opened).toEqual([benchTargetKey(markdownTarget)])
+    expect(externalOpened).toEqual([])
   })
 
   test("routes document citations to Markdown Bench instead of the raw file viewer", () => {

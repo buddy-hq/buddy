@@ -170,6 +170,8 @@ type MarkdownBenchEditorProps = Pick<
   renamingTitle?: boolean
 }
 
+const MARKDOWN_BENCH_CONTENT_ROOT_SELECTOR = ".mdxeditor-root-contenteditable [contenteditable]"
+
 const MARKDOWN_SERIALIZATION_OPTIONS = {
   listItemIndent: "one",
   resourceLink: false,
@@ -180,7 +182,7 @@ function revealDocumentCitation(
   excerpt: string,
   selector: CitationTextSelector,
 ) {
-  const contentRoot = editorRoot?.querySelector<HTMLElement>('[contenteditable="true"]')
+  const contentRoot = editorRoot?.querySelector<HTMLElement>(MARKDOWN_BENCH_CONTENT_ROOT_SELECTOR)
   if (!contentRoot) return false
   const range = resolveRenderedTextRange(contentRoot, excerpt, selector)
   if (!range) {
@@ -225,7 +227,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     const commentAnchors = useRenderedTextCommentAnchors({
       quotes: documentQuotes,
       overlayRef: paperRef,
-      textRootSelector: '[contenteditable="true"]',
+      textRootSelector: MARKDOWN_BENCH_CONTENT_ROOT_SELECTOR,
       markerOffset: -QUOTE_COMMENT_MARKER_SIZE_PX - 2,
     })
     const [citationCandidate, setCitationCandidate] = useState<{
@@ -398,7 +400,9 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         getActionElement: () => citationActionRef.current,
         onDismiss: () => setCitationCandidate(undefined),
         onSelection: (pointer) => {
-          const contentRoot = editorRoot.querySelector<HTMLElement>('[contenteditable="true"]')
+          const contentRoot = editorRoot.querySelector<HTMLElement>(
+            MARKDOWN_BENCH_CONTENT_ROOT_SELECTOR,
+          )
           if (!contentRoot) return
           const captured = captureRenderedTextSelection(contentRoot, window.getSelection())
           if (!captured) {
@@ -419,7 +423,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
               observe: editorRoot,
               resolve: () => {
                 const nextContentRoot = editorRoot.querySelector<HTMLElement>(
-                  '[contenteditable="true"]',
+                  MARKDOWN_BENCH_CONTENT_ROOT_SELECTOR,
                 )
                 return nextContentRoot
                   ? resolveRenderedTextRange(nextContentRoot, captured.excerpt, captured.selector)
@@ -434,24 +438,46 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     }, [onCiteSelection])
     const benchTarget = useBenchRouteContextOptional()?.state.target
     const citationSurfaceKey = benchTarget ? benchTargetKey(benchTarget) : undefined
-    useEffect(() => {
-      const revealCitation = (citation: Citation) =>
+    const surfaceActive = useBenchSurfaceActive()
+    const surfaceActiveRef = useRef(surfaceActive)
+    surfaceActiveRef.current = surfaceActive
+    const deferredCitationRef = useRef<Citation | undefined>(undefined)
+    const revealCitation = useCallback(
+      (citation: Citation) =>
         citation.source.kind === "document" && citation.source.path === props.path
           ? revealDocumentCitation(
               editorRootRef.current,
               citation.excerpt,
               citation.source.selector,
             )
-          : false
-      const unregisterNavigation = registerCitationNavigationHandler(revealCitation)
+          : false,
+      [props.path],
+    )
+    useEffect(() => {
+      const unregisterNavigation = registerCitationNavigationHandler((citation) =>
+        surfaceActiveRef.current ? revealCitation(citation) : false,
+      )
       const unregisterRevealer = citationSurfaceKey
-        ? registerCitationSurfaceRevealer(citationSurfaceKey, revealCitation)
+        ? registerCitationSurfaceRevealer(citationSurfaceKey, (citation) => {
+            if (surfaceActiveRef.current) return revealCitation(citation)
+            if (citation.source.kind !== "document" || citation.source.path !== props.path) {
+              return false
+            }
+            deferredCitationRef.current = citation
+            return true
+          })
         : undefined
       return () => {
         unregisterNavigation()
         unregisterRevealer?.()
       }
-    }, [citationSurfaceKey, props.path])
+    }, [citationSurfaceKey, props.path, revealCitation])
+    useEffect(() => {
+      const deferred = deferredCitationRef.current
+      if (!surfaceActive || !deferred) return
+      deferredCitationRef.current = undefined
+      revealCitation(deferred)
+    }, [revealCitation, surfaceActive])
     const onOpenLink = props.onOpenLink
     const openLink = useCallback(
       (event: ReactMouseEvent<HTMLDivElement>) => {

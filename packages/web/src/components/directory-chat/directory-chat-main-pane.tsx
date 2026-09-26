@@ -70,11 +70,16 @@ import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer
 import { appendCitationToDraft } from "@/components/readers/utils/reading-selection-draft"
 import { requestCitationComment, type CitationCommentSource } from "@/lib/citations/comment-request"
 import {
-  registerCitationNavigationHandler,
+  requestCitationNavigation,
   type CitationNavigationResult,
 } from "@/lib/citations/navigation"
-import { citationSurfaceRevealer } from "@/lib/citations/surface-revealers"
+import { useCitationNavigationHandler } from "@/lib/citations/use-citation-navigation-handler"
+import { citationSurfaceRevealer, documentCitationSurface } from "@/lib/citations/surface-revealers"
 import { fileNameFromPath } from "@/lib/workspace-file-paths"
+import {
+  useMarkdownFileOpen,
+  type MarkdownFileBenchOpenResult,
+} from "@/components/markdown/use-markdown-file-link-open"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_MODE_REQUEST_POLICY,
@@ -166,14 +171,22 @@ export type CitationSourceOpenTarget =
       target: Extract<BenchTarget, { type: "workspace-file" }>
       replacesTarget: Extract<BenchTarget, { type: "workspace-file" }>
     }
+  | { kind: "external-document"; path: string }
   | { kind: "reading"; path: string }
   | { kind: "web"; source: WebCitationSource }
+
+function isAbsoluteCitationPath(path: string): boolean {
+  return /^(?:[/\\]|~[/\\]|[A-Za-z]:[/\\])/u.test(path)
+}
 
 export function resolveCitationSourceOpenTarget(
   citation: Citation,
 ): CitationSourceOpenTarget | undefined {
   const { source } = citation
   if (source.kind === "document") {
+    if (isAbsoluteCitationPath(source.path)) {
+      return { kind: "external-document", path: source.path }
+    }
     const sharedTarget = {
       type: "workspace-file" as const,
       root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
@@ -204,7 +217,7 @@ function revealInOpenedSurface(
 
 export async function openCitationSurface(input: {
   citation: Citation
-  target: Exclude<CitationSourceOpenTarget, { kind: "web" }>
+  target: Exclude<CitationSourceOpenTarget, { kind: "web" | "external-document" }>
   directory: string
   openBench: (request: BenchOpenRequest) => Promise<CitationSurfaceOpenResult>
   openResource: (
@@ -226,6 +239,30 @@ export async function openCitationSurface(input: {
   const resource = { path: target.path, name: fileNameFromPath(target.path) }
   const opened = await input.openResource(directory, resource)
   return revealInOpenedSurface(citation, readingResourceBenchTarget(resource), opened)
+}
+
+export async function openExternalCitationSurface(input: {
+  citation: Citation
+  path: string
+  openSurface: (target: BenchTarget) => Promise<CitationSurfaceOpenResult>
+  openExternalFile: (path: string) => Promise<MarkdownFileBenchOpenResult | undefined>
+}): Promise<CitationNavigationResult> {
+  const mountedSurface = documentCitationSurface(input.path)
+  if (mountedSurface) {
+    const focused = await input.openSurface(mountedSurface)
+    return revealInOpenedSurface(input.citation, mountedSurface, focused)
+  }
+  const opened = await input.openExternalFile(input.path)
+  if (!opened) return true
+  if (opened.kind === "notebook") {
+    const { source } = input.citation
+    if (source.kind !== "document") return false
+    return requestCitationNavigation({
+      ...input.citation,
+      source: { ...source, path: opened.path },
+    })
+  }
+  return revealInOpenedSurface(input.citation, opened.target, opened)
 }
 
 const EMPTY_CHAT_LAYOUT_MEASUREMENTS: ChatLayoutMeasurements = {
@@ -439,51 +476,62 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     },
     [promptKey, setPromptDraft],
   )
-  useEffect(
-    () =>
-      registerCitationNavigationHandler(async (citation) => {
-        const target = resolveCitationSourceOpenTarget(citation)
-        if (!target) return false
-        if (target.kind === "web") {
-          if (!platform.inAppBrowser || !workspace) {
-            platform.openLink(
-              citationTextFragmentUrl({
-                url: target.source.url,
-                excerpt: citation.excerpt,
-                selector: target.source.selector,
-              }),
-            )
-            return true
-          }
-          await waitForInAppBrowserSettingsHydration()
-          const { profileID, openTab } = resolveWebCitationTarget({
-            workspace: workspace.store.getState(),
-            source: target.source,
-          })
-          const browserTarget =
-            openTab ?? createInAppBrowserBenchTarget(target.source.url, profileID)
-          const result = await openBench({
+  const openMarkdownFile = useMarkdownFileOpen(directory, onOpenResource)
+  useCitationNavigationHandler(async (citation) => {
+    const target = resolveCitationSourceOpenTarget(citation)
+    if (!target) return false
+    if (target.kind === "external-document") {
+      return openExternalCitationSurface({
+        citation,
+        path: target.path,
+        openSurface: (surface) =>
+          openBench({
             directory,
-            target: browserTarget,
+            target: surface,
             mode: BENCH_MODE_REQUEST_POLICY,
             autoOpen: null,
-          })
-          if (result.outcome !== "committed") return false
-          const reveal = webCitationRevealer(browserTarget.tabID)
-          if (!reveal) return "pending"
-          void reveal({ ...citation, source: target.source })
-          return true
-        }
-        return openCitationSurface({
-          citation,
-          target,
-          directory,
-          openBench,
-          openResource: onOpenResource,
-        })
-      }),
-    [directory, onOpenResource, openBench, platform, workspace],
-  )
+          }),
+        openExternalFile: (path) => openMarkdownFile(path, "citation"),
+      })
+    }
+    if (target.kind === "web") {
+      if (!platform.inAppBrowser || !workspace) {
+        platform.openLink(
+          citationTextFragmentUrl({
+            url: target.source.url,
+            excerpt: citation.excerpt,
+            selector: target.source.selector,
+          }),
+        )
+        return true
+      }
+      await waitForInAppBrowserSettingsHydration()
+      const { profileID, openTab } = resolveWebCitationTarget({
+        workspace: workspace.store.getState(),
+        source: target.source,
+      })
+      const browserTarget =
+        openTab ?? createInAppBrowserBenchTarget(target.source.url, profileID)
+      const result = await openBench({
+        directory,
+        target: browserTarget,
+        mode: BENCH_MODE_REQUEST_POLICY,
+        autoOpen: null,
+      })
+      if (result.outcome !== "committed") return false
+      const reveal = webCitationRevealer(browserTarget.tabID)
+      if (!reveal) return "pending"
+      void reveal({ ...citation, source: target.source })
+      return true
+    }
+    return openCitationSurface({
+      citation,
+      target,
+      directory,
+      openBench,
+      openResource: onOpenResource,
+    })
+  })
 
   // The prompt composer publishes its attachment API here so files dropped
   // anywhere in this pane (not just on the composer) get attached.

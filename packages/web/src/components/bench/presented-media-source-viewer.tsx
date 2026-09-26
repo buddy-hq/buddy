@@ -11,6 +11,7 @@ export type PresentedMediaSourceViewerProps = {
   error: string | undefined
   loading: boolean
   path: string
+  promptKey?: string
   sourceFileName: string
   sourceRawUrl: string | undefined
   title: string
@@ -34,6 +35,7 @@ export function PresentedMediaSourceViewer(props: PresentedMediaSourceViewerProp
         error={props.error}
         loading={props.loading}
         actions={props.actions}
+        promptKey={props.promptKey}
         viewportKey={props.viewportKey}
       />
     )

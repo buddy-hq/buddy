@@ -2,7 +2,12 @@ import { useCallback } from "react"
 import { toast } from "@buddy/ui"
 import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import { usePlatform } from "@/context/platform"
-import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
+import {
+  BENCH_MODE_REQUEST_POLICY,
+  useOpenBench,
+  type BenchTarget,
+  type OpenBenchResult,
+} from "@/lib/bench-navigation"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { canRenderPresentedMediaAsSource } from "@/lib/presented-media-source"
 import { isLikelyExternalMediaPathCandidate } from "@/lib/presented-media"
@@ -15,6 +20,12 @@ import { WORKSPACE_FILE_OPEN_TARGET_REVEAL } from "@/lib/workspace-file-open"
 import { workspaceRelativeFilePath } from "@/lib/workspace-file-paths"
 import { useExternalFileOpenDialogStore } from "@/state/external-file-open-dialog-store"
 import { useUiPreferences } from "@/state/ui-preferences"
+
+export type MarkdownFileBenchOpenResult =
+  | { kind: "external"; target: BenchTarget; outcome: OpenBenchResult["outcome"] }
+  | { kind: "notebook"; path: string }
+
+export type MarkdownFileOpenPurpose = "link" | "citation"
 
 type ResolvedMarkdownFile = Extract<
   Awaited<ReturnType<typeof resolveMarkdownFile>>,
@@ -63,7 +74,7 @@ async function approveExternalFileOpen(path: string): Promise<boolean> {
   return choice === "open" || choice === "always"
 }
 
-export function useMarkdownFileLinkOpen(
+export function useMarkdownFileOpen(
   directory: string | undefined,
   onOpenResource?: WorkspaceResourceOpener,
 ) {
@@ -98,55 +109,79 @@ export function useMarkdownFileLinkOpen(
   )
 
   const openExternalFile = useCallback(
-    async (notebookDirectory: string, file: ResolvedMarkdownFile) => {
+    async (
+      notebookDirectory: string,
+      file: ResolvedMarkdownFile,
+      purpose: MarkdownFileOpenPurpose,
+    ): Promise<MarkdownFileBenchOpenResult | undefined> => {
       if (!canShowInBuddy(file)) {
         await platform.revealPath?.(file.absolutePath)
-        return
+        return undefined
       }
-      if (!(await approveExternalFileOpen(file.absolutePath))) return
+      if (purpose === "link" && !(await approveExternalFileOpen(file.absolutePath))) {
+        return undefined
+      }
       const { objectID } = await presentMarkdownFile(notebookDirectory, file.absolutePath)
-      await openBench({
+      const target = createBenchObjectTarget("media-presentation", objectID)
+      const opened = await openBench({
         directory: notebookDirectory,
-        target: createBenchObjectTarget("media-presentation", objectID),
+        target,
         mode: BENCH_MODE_REQUEST_POLICY,
         autoOpen: null,
       })
+      return { kind: "external", target, outcome: opened.outcome }
     },
     [openBench, platform],
   )
 
   return useCallback(
-    (path: string) => {
-      if (!directory) return
-      void (async () => {
-        try {
-          const result = await resolveMarkdownFile(directory, path)
-          if (result.status === "missing") {
-            const choice = await useExternalFileOpenDialogStore.getState().requestChoice({
-              kind: "missing",
-              path,
-              outsideNotebook: isOutsideNotebookLink(directory, path),
-              canShowFolder: revealContainingFolder !== undefined,
-            })
-            if (choice === "copy-path") {
-              await navigator.clipboard.writeText(path)
-              toast("Path copied")
-            } else if (choice === "show-folder") {
-              await revealContainingFolder?.(directory, path)
-            }
-            return
+    async (
+      path: string,
+      purpose: MarkdownFileOpenPurpose = "link",
+    ): Promise<MarkdownFileBenchOpenResult | undefined> => {
+      if (!directory) return undefined
+      try {
+        const result = await resolveMarkdownFile(directory, path)
+        if (result.status === "missing") {
+          const choice = await useExternalFileOpenDialogStore.getState().requestChoice({
+            kind: "missing",
+            path,
+            outsideNotebook: isOutsideNotebookLink(directory, path),
+            canShowFolder: revealContainingFolder !== undefined,
+          })
+          if (choice === "copy-path") {
+            await navigator.clipboard.writeText(path)
+            toast("Path copied")
+          } else if (choice === "show-folder") {
+            await revealContainingFolder?.(directory, path)
           }
-          const file = result.file
-          if (file.workspacePath !== null) {
-            await openNotebookFile(file, file.workspacePath)
-            return
-          }
-          await openExternalFile(directory, file)
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : String(error))
+          return undefined
         }
-      })()
+        const file = result.file
+        if (file.workspacePath !== null) {
+          if (purpose === "citation") return { kind: "notebook", path: file.workspacePath }
+          await openNotebookFile(file, file.workspacePath)
+          return undefined
+        }
+        return await openExternalFile(directory, file, purpose)
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error))
+        return undefined
+      }
     },
     [directory, openExternalFile, openNotebookFile, revealContainingFolder],
+  )
+}
+
+export function useMarkdownFileLinkOpen(
+  directory: string | undefined,
+  onOpenResource?: WorkspaceResourceOpener,
+) {
+  const openFile = useMarkdownFileOpen(directory, onOpenResource)
+  return useCallback(
+    (path: string) => {
+      void openFile(path)
+    },
+    [openFile],
   )
 }
