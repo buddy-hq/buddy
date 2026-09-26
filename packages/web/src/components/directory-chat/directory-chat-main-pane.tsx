@@ -510,8 +510,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
         workspace: workspace.store.getState(),
         source: target.source,
       })
-      const browserTarget =
-        openTab ?? createInAppBrowserBenchTarget(target.source.url, profileID)
+      const browserTarget = openTab ?? createInAppBrowserBenchTarget(target.source.url, profileID)
       const result = await openBench({
         directory,
         target: browserTarget,

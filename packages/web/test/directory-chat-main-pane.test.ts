@@ -247,9 +247,7 @@ describe("directory chat main pane helpers", () => {
     cleanups.push(registerSourceSurface(markdownTarget, "notes/cited.md", []))
     cleanups.push(registerCitationFallback(opened))
 
-    await expect(requestCitationNavigation(externalCitation("parked-external"))).resolves.toBe(
-      true,
-    )
+    await expect(requestCitationNavigation(externalCitation("parked-external"))).resolves.toBe(true)
 
     expect(opened).toEqual([])
     expect(externalOpened).toEqual([])

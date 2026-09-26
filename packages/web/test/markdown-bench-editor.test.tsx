@@ -27,9 +27,8 @@ mock.module("@/components/files/file-type-icon", () => ({
   resolveFileTypeIconUrl: () => "",
 }))
 
-const { useMarkdownBenchSelectionSync } = await import(
-  "../src/components/bench/markdown/use-selection-sync"
-)
+const { useMarkdownBenchSelectionSync } =
+  await import("../src/components/bench/markdown/use-selection-sync")
 const { getPromptDraft, usePromptStore } = await import("../src/state/prompt-store")
 
 function createMediaQueryList(matches: boolean): MediaQueryList {
