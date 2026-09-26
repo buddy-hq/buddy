@@ -1,6 +1,7 @@
-import { useCallback, useMemo } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import type { MarkdownBenchDocumentFormat } from "@buddy/workspace-file-policy"
 import { BenchMediaMessage } from "@/components/bench/bench-media-preview"
+import { useBenchRouteContextOptional } from "@/components/bench/bench-route-context"
 import { BenchSurfacePending } from "@/components/bench/bench-surface-pending"
 import type { BenchViewerAction } from "@/components/bench/bench-viewer-shell"
 import { BenchSurfaceViewer } from "@/components/bench/bench-viewer-shell"
@@ -10,8 +11,10 @@ import type {
   ObsidianEmbeddedMarkdownLoader,
   ObsidianWikiLinkContext,
 } from "@/components/bench/markdown/plugins/obsidian"
+import { useMarkdownBenchSelectionSync } from "@/components/bench/markdown/use-selection-sync"
 import { useOpenLink, type OpenLinkOptions } from "@/components/directory-chat/use-open-link"
 import { useMarkdownFileLinkOpen } from "@/components/markdown/use-markdown-file-link-open"
+import { registerDocumentCitationSurface } from "@/lib/citations/surface-revealers"
 import {
   resolvePresentedMediaMarkdownImageSrc,
   resolvePresentedMediaMarkdownLink,
@@ -35,6 +38,7 @@ export type TReadOnlyMarkdownBenchViewProps = {
   markdown: string | undefined
   /** Absolute or display path shown in the subtitle and editor. */
   path: string
+  promptKey?: string
   /** Raw URL for the owning media item, used as the authority for relative image reads. */
   sourceRawUrl: string | undefined
   /** Surface title. */
@@ -62,6 +66,16 @@ const EXTERNAL_MARKDOWN_EMBED_LOADER: ObsidianEmbeddedMarkdownLoader = {
  */
 export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps) {
   const { themeId, themes } = useTheme()
+  const citeSelection = useMarkdownBenchSelectionSync({
+    path: props.path,
+    promptKey: props.promptKey,
+    version: props.version,
+  })
+  const benchTarget = useBenchRouteContextOptional()?.state.target
+  useEffect(
+    () => (benchTarget ? registerDocumentCitationSurface(props.path, benchTarget) : undefined),
+    [benchTarget, props.path],
+  )
   const contentFontScale = useMarkdownBenchPreferences((state) => state.contentFontScale)
   const contentThemeMode = useMarkdownBenchPreferences((state) => state.contentThemeMode)
   const contentTheme = useMemo(() => {
@@ -143,6 +157,7 @@ export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps
               obsidianWikiLinkContext={wikiLinkContext}
               onChange={ignoreReadOnlyMarkdownChange}
               onOpenLink={openLink}
+              onCiteSelection={citeSelection}
             />
           </div>
         </div>

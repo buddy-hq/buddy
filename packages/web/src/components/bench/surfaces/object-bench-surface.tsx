@@ -815,6 +815,7 @@ function SelectedMediaObjectBenchView(props: {
         sourceFileName={sourceFileName}
         src={src}
         actions={actions}
+        promptKey={chatState?.promptKey}
       />
     )
   }
@@ -915,6 +916,7 @@ type PresentedMediaSourceBenchViewProps = {
   sourceFileName: string
   src: string | undefined
   actions: BenchViewerAction[]
+  promptKey: string | undefined
 }
 
 function PresentedMediaSourceBenchView(props: PresentedMediaSourceBenchViewProps) {
@@ -1034,6 +1036,7 @@ function PresentedMediaSourceBenchView(props: PresentedMediaSourceBenchViewProps
           error={sourceError}
           loading={sourceQuery.isPending}
           actions={props.actions}
+          promptKey={props.promptKey}
           viewportKey={benchSurfaceUiKey({
             directory: props.directory,
             target: objectBenchTarget(props.view),

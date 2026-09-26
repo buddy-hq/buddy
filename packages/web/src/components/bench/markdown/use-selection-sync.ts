@@ -12,7 +12,7 @@ function createMarkdownSelectionKey() {
 }
 
 export function useMarkdownBenchSelectionSync(input: {
-  directory: string
+  directory?: string
   path: string
   promptKey: string | undefined
   version: string
@@ -31,13 +31,11 @@ export function useMarkdownBenchSelectionSync(input: {
           schemaVersion: CITATION_SCHEMA_VERSION,
           id: selectionKey,
           excerpt: text,
-          source: {
-            kind: "document" as const,
-            directory,
-            path,
-            revision: version,
-            selector: selection.selector,
-          },
+          source: Object.assign(
+            { kind: "document" as const },
+            directory === undefined ? undefined : { directory },
+            { path, revision: version, selector: selection.selector },
+          ),
         },
         selection.headingPath
           ? { presentation: { headingPath: selection.headingPath } }
