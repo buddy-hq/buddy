@@ -21,6 +21,7 @@ export function QuoteChip(props: {
   onCommentChange?: (comment: string) => void
   onCommentSend?: (comment: string) => boolean | void
   canSend?: boolean
+  onReturnFocus?: () => void
   className?: string
 }) {
   const quote = quoteView(props.data)
@@ -66,6 +67,7 @@ export function QuoteChip(props: {
             onSave={props.onCommentChange}
             onSend={props.onCommentSend}
             canSend={props.canSend}
+            onReturnFocus={props.onReturnFocus}
             triggerClassName={CHIP_ACTION_CLASS}
           />
         ) : null}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { CITATION_MAX_COMMENT_LENGTH } from "@buddy/citation-contract"
 import { detectPlatform } from "@tanstack/react-hotkeys"
 import {
@@ -24,6 +24,7 @@ export function CitationCommentPopover(props: {
   onSave: (comment: string) => void
   onSend?: (comment: string) => boolean | void
   canSend?: boolean
+  onReturnFocus?: () => void
   triggerClassName?: string
 }) {
   const [open, setOpen] = useState(false)
@@ -31,6 +32,9 @@ export function CitationCommentPopover(props: {
   const [source, setSource] = useState<CitationCommentSource>()
   const physicalModifiers = usePhysicalModifierKeys(open)
   const sourceAnchorRef = useMemo(() => (source ? { current: source } : undefined), [source])
+  // Committing a comment hands focus back to the composer so the next Enter
+  // sends the prompt instead of reopening this popover from its trigger.
+  const returnFocusToComposerRef = useRef(false)
   const close = () => setOpen(false)
   useEffect(() => {
     if (!props.citationID) return
@@ -49,11 +53,13 @@ export function CitationCommentPopover(props: {
   const save = () => {
     if (tooLong) return
     props.onSave(draft)
+    returnFocusToComposerRef.current = true
     close()
   }
   const send = () => {
     if (tooLong || !props.onSend || props.canSend === false) return
     if (props.onSend(draft) === false) return
+    returnFocusToComposerRef.current = true
     close()
   }
 
@@ -87,6 +93,15 @@ export function CitationCommentPopover(props: {
         hideWhenDetached={source !== undefined}
         aria-label="Edit citation comment"
         className="w-72 max-w-[calc(100vw-1rem)] gap-0 p-3"
+        onCloseAutoFocus={(event) => {
+          // Opened from the source selection, the trigger was never focused,
+          // so there is nothing to return to except the composer.
+          const toComposer = returnFocusToComposerRef.current || source !== undefined
+          returnFocusToComposerRef.current = false
+          if (!toComposer || !props.onReturnFocus) return
+          event.preventDefault()
+          props.onReturnFocus()
+        }}
       >
         <Textarea
           autoFocus
