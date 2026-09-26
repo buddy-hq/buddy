@@ -10,11 +10,11 @@ import {
   FolderIcon,
   Input,
   PlusIcon,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Combobox,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
   Separator,
   SlidersHorizontalIcon,
   SparklesIcon,
@@ -25,6 +25,8 @@ import {
   Z_INDEX,
   cn,
 } from "@buddy/ui"
+import { ComboboxEmpty, ComboboxInput } from "@buddy/ui/components/ui/combobox"
+import { InputGroupAddon } from "@buddy/ui/components/ui/input-group"
 import {
   FileIcon,
   FileTextIcon,
@@ -48,7 +50,6 @@ import { OnboardingDirectionsEasel } from "./easel/onboarding-directions"
 import { EngineStepOptionsEasel } from "./easel/engine-step-options"
 import { LocationStepOptionsEasel } from "./easel/location-step-options"
 import { QuestionToolAnsweredEasel } from "./easel/question-tool-answered"
-import { QuestionDockRedesignsEasel } from "./easel/question-dock-redesigns"
 import { GradientAnimationLoaderEasel } from "./easel/gradient-animation-loader"
 import { WhiteboardOpeningLottieEasel } from "./easel/whiteboard-opening-lottie"
 import { CreationsPanelRedesignsEasel } from "./easel/creations-panel-redesigns"
@@ -132,7 +133,6 @@ type EaselPrototype =
   | "onboarding-nocturne"
   | "onboarding-atelier"
   | "question-tool-answered"
-  | "question-dock-redesigns"
 
 type EaselPrototypeConfig = {
   id: EaselPrototype
@@ -325,11 +325,6 @@ const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
     id: "gradient-animation-loader",
     label: "Gradient animation loader",
     subtitle: "Original fallback palette · Theme-adapted palette",
-  },
-  {
-    id: "question-dock-redesigns",
-    label: "Question dock · Spotlight",
-    subtitle: "One question owns the surface · Skip is first-class",
   },
   {
     id: "question-tool-answered",
@@ -1243,6 +1238,60 @@ function EaselDrawerContent(props: {
   }
 }
 
+function EaselPrototypePicker(props: {
+  value: EaselPrototype
+  onChange: (prototype: EaselPrototype) => void
+}) {
+  const [search, setSearch] = useState("")
+  const query = search.trim().toLowerCase()
+  const ids = EASEL_PROTOTYPES.map((config) => config.id)
+  const matches = EASEL_PROTOTYPES.filter(
+    (config) =>
+      query === "" ||
+      config.label.toLowerCase().includes(query) ||
+      config.subtitle.toLowerCase().includes(query),
+  )
+
+  return (
+    <Combobox
+      items={ids}
+      filteredItems={matches.map((config) => config.id)}
+      autoHighlight
+      inputValue={search}
+      onInputValueChange={setSearch}
+      onOpenChange={() => setSearch("")}
+      value={props.value}
+      onValueChange={(value) => {
+        const next = value === null ? undefined : findCatalogID(value, EASEL_PROTOTYPES)
+        if (next) props.onChange(next)
+      }}
+    >
+      <ComboboxTrigger className="flex h-auto w-fit items-center gap-1 whitespace-nowrap bg-transparent p-0 text-xs font-medium text-text-base outline-none [&_svg]:size-3.5">
+        {EASEL_PROTOTYPES.find((config) => config.id === props.value)?.label}
+      </ComboboxTrigger>
+      <ComboboxContent align="start" className="w-96" zIndex={Z_INDEX.devtoolsFloating}>
+        <ComboboxInput
+          showTrigger={false}
+          aria-label="Search prototypes"
+          placeholder="Search prototypes"
+        >
+          <InputGroupAddon>
+            <SearchIcon />
+          </InputGroupAddon>
+        </ComboboxInput>
+        <ComboboxEmpty>No prototypes match</ComboboxEmpty>
+        <ComboboxList>
+          {matches.map((config, index) => (
+            <ComboboxItem key={config.id} index={index} value={config.id} className="text-xs">
+              {config.label}
+            </ComboboxItem>
+          ))}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  )
+}
+
 export function DevToolsEaselTab(props: { directory?: string }) {
   const stageRef = useRef<HTMLDivElement>(null)
   const previewPrefetchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
@@ -1370,27 +1419,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-weaker-base px-3 py-2">
         <div className="flex min-w-0 flex-col">
-          <Select
-            value={prototype}
-            onValueChange={(value) => {
-              const nextPrototype = findCatalogID(value, EASEL_PROTOTYPES)
-              if (nextPrototype) setPrototype(nextPrototype)
-            }}
-          >
-            <SelectTrigger
-              size="sm"
-              className="h-auto w-fit border-none bg-transparent px-0 py-0 text-xs font-medium text-text-base hover:bg-transparent focus-visible:ring-0"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent style={{ zIndex: Z_INDEX.devtoolsFloating }}>
-              {EASEL_PROTOTYPES.map((config) => (
-                <SelectItem key={config.id} value={config.id} className="text-xs">
-                  {config.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <EaselPrototypePicker value={prototype} onChange={setPrototype} />
           <p className="truncate text-[11px] text-text-weaker">
             {EASEL_PROTOTYPES.find((config) => config.id === prototype)?.subtitle}
           </p>
@@ -1439,7 +1468,6 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             prototype === "onboarding-directions" ||
             prototype === "skills-drawer-calm-density" ||
             prototype === "skill-icon-atlas" ||
-            prototype === "question-dock-redesigns" ||
             prototype === "creations-panel-redesigns" ||
             prototype === "skills-panel-redesigns" ||
             prototype === "error-system-redesign" ||
@@ -1767,14 +1795,6 @@ export function DevToolsEaselTab(props: { directory?: string }) {
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
               <InlineTodoRedesignsEasel />
-            </div>
-          </div>
-        ) : null}
-
-        {prototype === "question-dock-redesigns" ? (
-          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
-            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
-              <QuestionDockRedesignsEasel />
             </div>
           </div>
         ) : null}
