@@ -1,10 +1,19 @@
 import type { ComponentProps, ReactNode } from "react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Button, SquarePenIcon, toast } from "@buddy/ui"
+import {
+  Button,
+  SquarePenIcon,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  toast,
+} from "@buddy/ui"
 import { parseTBoolean, parseTJsonObject } from "@/components/chat/tools/types"
-import { Globe, NoteIcon, PresentationIcon } from "@/icons/app-icons"
+import { FolderAddIcon, Globe, NoteAddIcon, PresentationIcon } from "@/icons/app-icons"
 import { useChatJumpShortcuts, useShortcutCommand } from "@/lib/use-shortcut-command"
+import { useRubberBandOverscroll } from "@/lib/use-rubber-band-overscroll"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
@@ -31,15 +40,13 @@ import {
 import { DESKTOP_TITLEBAR_HEIGHT_PX } from "./desktop-titlebar-inset"
 import {
   ChatLeftSidebarDirectoryList,
+  SIDEBAR_COLLAPSED_CHAT_COUNT,
   visibleDirectorySessions,
 } from "./chat-left-sidebar/directory-list"
 import { ChatLeftSidebarPinnedList, collectPinnedSessions } from "./chat-left-sidebar/pinned-list"
+import { ChatLeftSidebarRecentsList } from "./chat-left-sidebar/recents-list"
 import { stepSidebarChat, type SidebarChat } from "./chat-left-sidebar/chat-navigation"
 import { findRootSessionID } from "./chat-left-sidebar/thread-helpers"
-import {
-  SIDEBAR_ROW_LEADING_GAP_PX,
-  SIDEBAR_ROW_PADDING_LEFT_PX,
-} from "./chat-left-sidebar/row-geometry"
 import { GetStartedChats } from "./chat-left-sidebar/get-started-chats"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
@@ -102,12 +109,50 @@ type ChatLeftSidebarProps = {
   className?: string
 }
 
-/** The action rows above the chat lists — new chat, new board — share one shape. */
-const SIDEBAR_ACTION_ROW_CLASS =
-  "group/sidebar-action flex w-full items-center rounded-lg pr-2 py-1.5 text-left text-sm font-light text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
-const SIDEBAR_ACTION_ROW_STYLE = {
-  paddingLeft: `${SIDEBAR_ROW_PADDING_LEFT_PX}px`,
-  gap: `${SIDEBAR_ROW_LEADING_GAP_PX}px`,
+const SIDEBAR_ACTION_TOOLTIP_DELAY_MS = 500
+
+/** The sidebar's scrolling lists, with elastic overscroll at both ends. */
+function SidebarScrollArea(props: { className: string; children: ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useRubberBandOverscroll(scrollRef)
+
+  return (
+    <div className="flex-1 min-h-0 overflow-hidden">
+      <div ref={scrollRef} className={`scrollbar-hover h-full overflow-y-auto ${props.className}`}>
+        {props.children}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * One icon tile in the action row above the chat lists; its name lives in the tooltip, below
+ * the tile — above it would slide under the macOS traffic lights.
+ */
+function SidebarActionTile(props: {
+  action: string
+  label: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          data-action={props.action}
+          aria-label={props.label}
+          className="flex h-9 min-w-0 flex-1 items-center justify-center rounded-lg bg-surface-raised-base-hover text-icon-base transition-[background-color,color,transform] duration-100 ease-out hover:bg-surface-raised-strong hover:text-text-strong active:scale-[0.97]"
+          onClick={props.onClick}
+        >
+          {props.children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={6} className="px-2 py-1 text-[11px]">
+        {props.label}
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 function toggleDirectoryPresence(current: Record<string, true>, directory: string) {
@@ -132,6 +177,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [renameState, setRenameState] = useState<RenameState | undefined>(undefined)
   const [renameSaving, setRenameSaving] = useState(false)
   const [expandedDirectories, setExpandedDirectories] = useState<Record<string, true>>({})
+  const [pinnedExpanded, setPinnedExpanded] = useState(false)
   const [organizeMode, setOrganizeMode] = useState<OrganizeMode>("project")
   const [sortMode, setSortMode] = useState<SortMode>("updated")
   const [showMode, setShowMode] = useState<ShowMode>("all")
@@ -279,7 +325,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       directories: props.directories,
       sessionsByDirectory: props.sessionsByDirectory,
       pinnedByDirectory: props.pinnedByDirectory,
-    }).map((entry) => ({ directory: entry.directory, sessionID: entry.session.id, visible: true }))
+    }).map((entry, index) => ({
+      directory: entry.directory,
+      sessionID: entry.session.id,
+      visible: pinnedExpanded || index < SIDEBAR_COLLAPSED_CHAT_COUNT,
+    }))
     for (const group of orderedDirectoryGroups) {
       const shownSessions = collapsedDirectories[group.directory]
         ? []
@@ -298,6 +348,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     collapsedDirectories,
     expandedDirectories,
     orderedDirectoryGroups,
+    pinnedExpanded,
     props.children,
     props.directories,
     props.pinnedByDirectory,
@@ -464,150 +515,169 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         />
       ) : null}
       {props.children ? (
-        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-1.5 pt-2 pb-3">
-          {props.children}
-        </div>
+        <SidebarScrollArea className="px-1.5 pt-2 pb-3">{props.children}</SidebarScrollArea>
       ) : (
-        /*
-         * The whitespace under the new-chat row is the group gap (`mb-2` on the action
-         * area) plus the first section header's own leading padding (`pt-1.5` in the
-         * toolbar) — 14px, not 8px. The top inset matches that sum so the row sits
-         * centered in its band instead of riding up against the titlebar.
-         */
-        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-1.5 pt-3.5 pb-3">
-          {getStartedFlow.isActive && onStageGetStartedChat ? (
-            <GetStartedChats
-              chats={getStartedFlow.chats}
-              onStage={handleStageGetStartedChat}
-              onDismiss={handleDismissGetStartedChats}
-            />
-          ) : null}
-
-          <div data-component="left-sidebar-action-area" className="mb-2 px-1.5">
-            <button
-              type="button"
-              data-action="left-sidebar-new-chat"
-              className={SIDEBAR_ACTION_ROW_CLASS}
-              style={SIDEBAR_ACTION_ROW_STYLE}
-              onClick={() => props.onNewSession()}
+        <>
+          {/*
+           * The tile row stays put while the lists scroll under it, and sits outside the
+           * scroller so its stable scrollbar gutter doesn't leave the right edge 10px further
+           * in than the left. The whitespace under it is `pb-4` plus the next section label's
+           * own `pt-1` — 20px, a step more than the 14px top inset so the row reads as its
+           * own group.
+           */}
+          <TooltipProvider delayDuration={SIDEBAR_ACTION_TOOLTIP_DELAY_MS}>
+            <div
+              data-component="left-sidebar-action-area"
+              className="flex shrink-0 gap-1.5 px-3 pt-3.5 pb-4"
             >
-              <SquarePenIcon
-                className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/sidebar-action:scale-110"
-                strokeWidth={2}
+              {props.onNewNote ? (
+                <SidebarActionTile
+                  action="left-sidebar-new-note"
+                  label={language.t("sidebar.newNote")}
+                  onClick={props.onNewNote}
+                >
+                  <NoteAddIcon className="size-4" />
+                </SidebarActionTile>
+              ) : null}
+              {props.onNewBoard ? (
+                <SidebarActionTile
+                  action="left-sidebar-new-board"
+                  label={language.t("sidebar.newBoard")}
+                  onClick={props.onNewBoard}
+                >
+                  <PresentationIcon className="size-4" />
+                </SidebarActionTile>
+              ) : null}
+              {props.onNewBrowserTab ? (
+                <SidebarActionTile
+                  action="left-sidebar-new-browser-tab"
+                  label={language.t("sidebar.newBrowserTab")}
+                  onClick={props.onNewBrowserTab}
+                >
+                  <Globe className="size-4" />
+                </SidebarActionTile>
+              ) : null}
+              <SidebarActionTile
+                action="left-sidebar-new-notebook"
+                label={language.t("sidebar.newNotebook")}
+                onClick={() => {
+                  void openNotebookCreationDialog()
+                }}
+              >
+                <FolderAddIcon className="size-4" />
+              </SidebarActionTile>
+              <SidebarActionTile
+                action="left-sidebar-new-chat"
+                label={language.t("sidebar.newChat")}
+                onClick={() => props.onNewSession()}
+              >
+                <SquarePenIcon className="size-4" strokeWidth={2} />
+              </SidebarActionTile>
+            </div>
+          </TooltipProvider>
+
+          <SidebarScrollArea className="px-1.5 pb-3">
+            {getStartedFlow.isActive && onStageGetStartedChat ? (
+              <GetStartedChats
+                chats={getStartedFlow.chats}
+                onStage={handleStageGetStartedChat}
+                onDismiss={handleDismissGetStartedChats}
               />
-              <span className="truncate">{language.t("sidebar.newChat")}</span>
-            </button>
-            {props.onNewNote ? (
-              <button
-                type="button"
-                data-action="left-sidebar-new-note"
-                className={SIDEBAR_ACTION_ROW_CLASS}
-                style={SIDEBAR_ACTION_ROW_STYLE}
-                onClick={props.onNewNote}
-              >
-                <NoteIcon className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/sidebar-action:scale-110" />
-                <span className="truncate">{language.t("sidebar.newNote")}</span>
-              </button>
             ) : null}
-            {props.onNewBoard ? (
-              <button
-                type="button"
-                data-action="left-sidebar-new-board"
-                className={SIDEBAR_ACTION_ROW_CLASS}
-                style={SIDEBAR_ACTION_ROW_STYLE}
-                onClick={props.onNewBoard}
-              >
-                <PresentationIcon className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/sidebar-action:scale-110" />
-                <span className="truncate">{language.t("sidebar.newBoard")}</span>
-              </button>
-            ) : null}
-            {props.onNewBrowserTab ? (
-              <button
-                type="button"
-                data-action="left-sidebar-new-browser-tab"
-                className={SIDEBAR_ACTION_ROW_CLASS}
-                style={SIDEBAR_ACTION_ROW_STYLE}
-                onClick={props.onNewBrowserTab}
-              >
-                <Globe className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/sidebar-action:scale-110" />
-                <span className="truncate">{language.t("sidebar.newBrowserTab")}</span>
-              </button>
-            ) : null}
-          </div>
 
-          <ChatLeftSidebarPinnedList
-            directories={props.directories}
-            sessionsByDirectory={props.sessionsByDirectory}
-            sessionStatusByDirectory={props.sessionStatusByDirectory}
-            pinnedByDirectory={props.pinnedByDirectory}
-            unreadByDirectory={props.unreadByDirectory}
-            activeSessionID={props.activeSessionID}
-            currentDirectory={props.currentDirectory}
-            onSelectSession={props.onSelectSession}
-            onPrefetchSession={props.onPrefetchSession}
-            onTogglePin={props.onTogglePin}
-            onToggleUnread={props.onToggleUnread}
-            onRequestRename={handleRequestRename}
-            onRequestArchive={handleRequestArchive}
-            onRequestDelete={handleRequestDelete}
-          />
+            <ChatLeftSidebarPinnedList
+              directories={props.directories}
+              expanded={pinnedExpanded}
+              onToggleExpanded={() => setPinnedExpanded((current) => !current)}
+              sessionsByDirectory={props.sessionsByDirectory}
+              sessionStatusByDirectory={props.sessionStatusByDirectory}
+              pinnedByDirectory={props.pinnedByDirectory}
+              unreadByDirectory={props.unreadByDirectory}
+              activeSessionID={props.activeSessionID}
+              currentDirectory={props.currentDirectory}
+              onSelectSession={props.onSelectSession}
+              onPrefetchSession={props.onPrefetchSession}
+              onTogglePin={props.onTogglePin}
+              onToggleUnread={props.onToggleUnread}
+              onRequestRename={handleRequestRename}
+              onRequestArchive={handleRequestArchive}
+              onRequestDelete={handleRequestDelete}
+            />
 
-          <ChatLeftSidebarToolbar
-            organizeMode={organizeMode}
-            sortMode={sortMode}
-            showMode={showMode}
-            onRequestCreateNotebook={() => {
-              void openNotebookCreationDialog()
-            }}
-            onOrganizeModeChange={setOrganizeMode}
-            onSortModeChange={setSortMode}
-            onShowModeChange={setShowMode}
-          />
+            <ChatLeftSidebarRecentsList
+              directories={props.directories}
+              sessionsByDirectory={props.sessionsByDirectory}
+              sessionStatusByDirectory={props.sessionStatusByDirectory}
+              pinnedByDirectory={props.pinnedByDirectory}
+              unreadByDirectory={props.unreadByDirectory}
+              activeSessionID={props.activeSessionID}
+              currentDirectory={props.currentDirectory}
+              onSelectSession={props.onSelectSession}
+              onPrefetchSession={props.onPrefetchSession}
+              onTogglePin={props.onTogglePin}
+              onToggleUnread={props.onToggleUnread}
+              onRequestRename={handleRequestRename}
+              onRequestArchive={handleRequestArchive}
+              onRequestDelete={handleRequestDelete}
+            />
 
-          <ChatLeftSidebarDirectoryList
-            directoryGroups={orderedDirectoryGroups}
-            currentDirectory={props.currentDirectory}
-            activeSessionID={props.activeSessionID}
-            sessionsByDirectory={props.sessionsByDirectory}
-            sessionStatusByDirectory={props.sessionStatusByDirectory}
-            pinnedByDirectory={props.pinnedByDirectory}
-            unreadByDirectory={props.unreadByDirectory}
-            organizeMode={organizeMode}
-            expandedDirectories={expandedDirectories}
-            collapsedDirectories={collapsedDirectories}
-            draggedDirectory={draggedDirectory}
-            dragOverDirectory={dragOverDirectory}
-            dragOverPosition={dragOverPosition}
-            onToggleCollapsedDirectory={setChatSidebarDirectoryOpen}
-            onToggleExpandedDirectory={(directory) => {
-              setExpandedDirectories((current) => toggleDirectoryPresence(current, directory))
-            }}
-            onSelectSession={(directory, sessionID) => {
-              void props.onSelectSession(directory, sessionID)
-            }}
-            onPrefetchSession={props.onPrefetchSession}
-            onTogglePin={props.onTogglePin}
-            onToggleUnread={props.onToggleUnread}
-            onRequestArchive={handleRequestArchive}
-            onRequestDelete={handleRequestDelete}
-            onRequestRename={handleRequestRename}
-            onLabelPointerDown={handleLabelPointerDown}
-            onSectionRef={sectionRefCallback}
-            onNewSession={(directory) => {
-              props.onNewSession(directory)
-            }}
-            onOpenNotebookSettings={setNotebookSettingsDirectory}
-            onDisconnectObsidianVault={(directory) => {
-              disconnectObsidianMutation.mutate(directory)
-            }}
-            disconnectingObsidianDirectory={
-              disconnectObsidianMutation.isPending
-                ? disconnectObsidianMutation.variables
-                : undefined
-            }
-            onCloseDirectory={props.onCloseDirectory}
-          />
-        </div>
+            <ChatLeftSidebarToolbar
+              organizeMode={organizeMode}
+              sortMode={sortMode}
+              showMode={showMode}
+              onRequestCreateNotebook={() => {
+                void openNotebookCreationDialog()
+              }}
+              onOrganizeModeChange={setOrganizeMode}
+              onSortModeChange={setSortMode}
+              onShowModeChange={setShowMode}
+            />
+
+            <ChatLeftSidebarDirectoryList
+              directoryGroups={orderedDirectoryGroups}
+              currentDirectory={props.currentDirectory}
+              activeSessionID={props.activeSessionID}
+              sessionsByDirectory={props.sessionsByDirectory}
+              sessionStatusByDirectory={props.sessionStatusByDirectory}
+              pinnedByDirectory={props.pinnedByDirectory}
+              unreadByDirectory={props.unreadByDirectory}
+              organizeMode={organizeMode}
+              expandedDirectories={expandedDirectories}
+              collapsedDirectories={collapsedDirectories}
+              draggedDirectory={draggedDirectory}
+              dragOverDirectory={dragOverDirectory}
+              dragOverPosition={dragOverPosition}
+              onToggleCollapsedDirectory={setChatSidebarDirectoryOpen}
+              onToggleExpandedDirectory={(directory) => {
+                setExpandedDirectories((current) => toggleDirectoryPresence(current, directory))
+              }}
+              onSelectSession={(directory, sessionID) => {
+                void props.onSelectSession(directory, sessionID)
+              }}
+              onPrefetchSession={props.onPrefetchSession}
+              onTogglePin={props.onTogglePin}
+              onToggleUnread={props.onToggleUnread}
+              onRequestArchive={handleRequestArchive}
+              onRequestDelete={handleRequestDelete}
+              onRequestRename={handleRequestRename}
+              onLabelPointerDown={handleLabelPointerDown}
+              onSectionRef={sectionRefCallback}
+              onNewSession={(directory) => {
+                props.onNewSession(directory)
+              }}
+              onOpenNotebookSettings={setNotebookSettingsDirectory}
+              onDisconnectObsidianVault={(directory) => {
+                disconnectObsidianMutation.mutate(directory)
+              }}
+              disconnectingObsidianDirectory={
+                disconnectObsidianMutation.isPending
+                  ? disconnectObsidianMutation.variables
+                  : undefined
+              }
+              onCloseDirectory={props.onCloseDirectory}
+            />
+          </SidebarScrollArea>
+        </>
       )}
 
       {props.footer !== null && (
