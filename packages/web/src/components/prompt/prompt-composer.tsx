@@ -1732,6 +1732,7 @@ export function PromptComposer(props: PromptComposerProps) {
                   : undefined
               }
               canSend={canSubmit}
+              onReturnFocus={focusEditorAtDraftCursor}
               className="animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-300 ease-out"
             />
           ))}
