@@ -92,12 +92,13 @@ function ComboboxContent({
   align = "start",
   alignOffset = 0,
   anchor,
+  zIndex = Z_INDEX.floating,
   ...props
 }: ComboboxPrimitive.Popup.Props &
   Pick<
     ComboboxPrimitive.Positioner.Props,
     "side" | "align" | "sideOffset" | "alignOffset" | "anchor"
-  >) {
+  > & { zIndex?: number }) {
   return (
     <ComboboxPrimitive.Portal>
       <ComboboxPrimitive.Positioner
@@ -107,7 +108,7 @@ function ComboboxContent({
         alignOffset={alignOffset}
         anchor={anchor}
         className="isolate"
-        style={{ zIndex: Z_INDEX.floating }}
+        style={{ zIndex }}
       >
         <ComboboxPrimitive.Popup
           data-slot="combobox-content"
