@@ -30,7 +30,6 @@ const browser: InAppBrowserPlatform = {
   }),
   openFullDiskAccessSettings: async () => undefined,
 }
-const ignoreAttached = () => undefined
 
 describe("Browser page input", () => {
   let container: HTMLDivElement
@@ -58,7 +57,6 @@ describe("Browser page input", () => {
         initialUrl: IN_APP_BROWSER_BLANK_URL,
         searchEngine: "duckduckgo",
         browser,
-        onAttached: ignoreAttached,
       })
       return null
     }
@@ -109,7 +107,6 @@ describe("Browser page input", () => {
         initialUrl,
         searchEngine: "duckduckgo",
         browser,
-        onAttached: ignoreAttached,
       })
       const { setWebviewRef } = currentPage
       page = currentPage

@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useRef, useState, type WebViewHTMLAttributes } from "react"
+import { useRef, useState, type CSSProperties } from "react"
+import { createPortal } from "react-dom"
 import { IN_APP_BROWSER_BLANK_URL, isAllowedInAppBrowserUrl } from "@buddy/browser-contract"
 import { Button } from "@buddy/ui"
-import {
-  DEFAULT_IN_APP_BROWSER_PROFILE_ID,
-  inAppBrowserProfilePartition,
-} from "@buddy/browser-contract/profiles"
+import { DEFAULT_IN_APP_BROWSER_PROFILE_ID } from "@buddy/browser-contract/profiles"
 import { usePlatform, type InAppBrowserPlatform } from "@/context/platform"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import type { BenchTarget } from "@/lib/bench-navigation"
 import { inAppBrowserSearchEngineLabel } from "@/lib/in-app-browser-search"
+import {
+  hostedBrowserKey,
+  useHostedBrowserStore,
+  type HostedBrowserPage,
+} from "@/state/hosted-browser-store"
 import { BrowserAddressBar } from "./browser-address-bar"
 import { BrowserPageError } from "./browser-error-page"
 import { BrowserMoreMenu } from "./browser-more-menu"
@@ -17,30 +20,18 @@ import { BrowserProfileLabel, BrowserToolbar } from "./browser-toolbar"
 import { BrowserZoomBadge } from "./browser-zoom-badge"
 import { useBrowserBenchContext } from "./use-browser-bench-context"
 import { useBrowserCitations } from "./use-browser-citations"
-import { useBrowserPage } from "./use-browser-page"
+import { BrowserSurfaceSlot } from "./browser-surface-slot"
 import { useBrowserNewTabRequests } from "./use-browser-new-tab-requests"
-import { useBrowserPageControls } from "./use-browser-page-controls"
 import { useBrowserProfileName } from "./use-browser-profile-name"
 import { useBrowserShortcuts } from "./use-browser-shortcuts"
-import { useBrowserVisitRecording } from "./use-browser-visit-recording"
 import { useClearBrowserProfileData } from "./use-clear-browser-profile-data"
 import {
   retryInAppBrowserSettingsHydration,
   useInAppBrowserSettingsHydrationStatus,
   useInAppBrowserSettingsStore,
 } from "@/state/in-app-browser-settings-store"
-import type { InAppBrowserWebview } from "./in-app-browser-webview"
 
 const OPEN_FAILED_NOTICE = "The page could not be opened."
-function createWebviewPopupAttribute(): WebViewHTMLAttributes<HTMLWebViewElement> {
-  const attributes: WebViewHTMLAttributes<HTMLWebViewElement> = {}
-  // React 18 drops unknown boolean DOM attributes, while Electron needs this attribute before
-  // guest attachment. Reflect preserves the runtime string without weakening the owner type.
-  Reflect.set(attributes, "allowpopups", "true")
-  return attributes
-}
-
-const WEBVIEW_POPUP_ATTRIBUTE = createWebviewPopupAttribute()
 
 export function BrowserTab(props: {
   directory: string
@@ -48,6 +39,8 @@ export function BrowserTab(props: {
   browser: InAppBrowserPlatform
 }) {
   const hydrationStatus = useInAppBrowserSettingsHydrationStatus()
+  const pageKey = hostedBrowserKey(props.directory, props.target.tabID)
+  const page = useHostedBrowserStore((state) => state.pagesByKey[pageKey])
   if (hydrationStatus === "hydrating") {
     return (
       <div
@@ -71,50 +64,31 @@ export function BrowserTab(props: {
       </div>
     )
   }
-  return <HydratedBrowserTab {...props} />
+  if (!page) {
+    return <div aria-busy="true" data-component="browser-bench-surface" className="h-full" />
+  }
+  return <HydratedBrowserTab {...props} page={page} pageKey={pageKey} />
 }
 
 function HydratedBrowserTab(props: {
   directory: string
   target: Extract<BenchTarget, { type: "browser" }>
   browser: InAppBrowserPlatform
+  page: HostedBrowserPage
+  pageKey: string
 }) {
   const { directory, target, browser } = props
   const platform = usePlatform()
   const surfaceActive = useBenchSurfaceActive()
-  const defaultProfileID = useInAppBrowserSettingsStore((state) => state.defaultProfileID)
   const defaultSearchEngine = useInAppBrowserSettingsStore((state) => state.defaultSearchEngine)
   const searchEngineLabel = inAppBrowserSearchEngineLabel(defaultSearchEngine)
-  const [profileID] = useState(() => target.profileID ?? defaultProfileID)
+  const profileID = props.page.profileID
   const profileName = useBrowserProfileName(profileID)
   const [addressFocusRequest, setAddressFocusRequest] = useState(0)
   const pageAreaRef = useRef<HTMLDivElement>(null)
-  const attachedStateSynchronizerRef = useRef<
-    ((webview: InAppBrowserWebview, webContentsID: number, observedPageUrl: string) => void) | null
-  >(null)
-  const synchronizeAttachedState = useCallback(
-    (webview: InAppBrowserWebview, webContentsID: number, observedPageUrl: string) => {
-      attachedStateSynchronizerRef.current?.(webview, webContentsID, observedPageUrl)
-    },
-    [],
-  )
-  const page = useBrowserPage({
-    tabID: target.tabID,
-    initialUrl: target.url,
-    searchEngine: defaultSearchEngine,
-    browser,
-    onAttached: synchronizeAttachedState,
-  })
+  const page = props.page
   const { runtime, withWebview } = page
-  const controls = useBrowserPageControls({
-    tabID: target.tabID,
-    profileID,
-    browser,
-    webContentsID: page.webContentsID,
-    observedPageUrl: page.observedPageUrl,
-    withWebview,
-  })
-  attachedStateSynchronizerRef.current = controls.synchronizeAttachedState
+  const controls = page.controls
   const clearProfileData = useClearBrowserProfileData({ browser, profileID, profileName })
   const handleShortcutKeyDown = useBrowserShortcuts({
     browser,
@@ -137,7 +111,6 @@ function HydratedBrowserTab(props: {
     active: surfaceActive,
   })
   useBrowserBenchContext({ target, runtime })
-  useBrowserVisitRecording({ directory, profileID, runtime })
   const citationToolbar = useBrowserCitations({
     directory,
     target,
@@ -150,14 +123,22 @@ function HydratedBrowserTab(props: {
     pageAreaRef,
   })
 
-  useEffect(() => {
-    if (surfaceActive) return
-    withWebview((webview) => webview.blur())
-  }, [surfaceActive, withWebview])
-
-  const partition = inAppBrowserProfilePartition(profileID)
   const pageUrl = runtime.url
   const status = runtime.error?.["_tag"] === "open-failed" ? OPEN_FAILED_NOTICE : page.notice
+  const surface = useHostedBrowserStore((state) => state.surfacesByKey[props.pageKey])
+  const overlayStyle: CSSProperties | undefined =
+    surfaceActive && surface?.visible && surface.rect
+      ? {
+          position: "fixed",
+          left: surface.rect.x,
+          top: surface.rect.y,
+          width: surface.rect.width,
+          height: surface.rect.height,
+          zIndex: 6,
+          pointerEvents: "none",
+          clipPath: surface.clipRight > 0 ? `inset(0 ${surface.clipRight}px 0 0)` : undefined,
+        }
+      : undefined
 
   return (
     <div
@@ -206,29 +187,34 @@ function HydratedBrowserTab(props: {
           {status}
         </div>
       ) : null}
-      <div ref={pageAreaRef} className="relative min-h-0 flex-1">
-        <webview
-          key={`${partition}:${page.webviewKey}`}
-          ref={page.setWebviewRef}
-          {...WEBVIEW_POPUP_ATTRIBUTE}
-          src={page.webviewSource}
-          partition={partition}
-          webpreferences={browser.webPreferences}
-          className="absolute inset-0 bg-white"
-          data-browser-tab-id={target.tabID}
-        />
-        {pageUrl === IN_APP_BROWSER_BLANK_URL && runtime.error === null ? (
-          <BrowserNewTabPage
-            directory={directory}
-            searchEngineLabel={searchEngineLabel}
-            onSubmitInput={page.submitInput}
-            onOpenUrl={page.navigateUrl}
-          />
-        ) : null}
-        <BrowserPageError error={runtime.error} onReload={page.reload} />
-        <BrowserZoomBadge zoomFactor={controls.zoomFactor} />
+      <div className="relative min-h-0 flex-1">
+        <BrowserSurfaceSlot directory={directory} tabID={target.tabID} visible={surfaceActive} />
       </div>
-      {citationToolbar}
+      {overlayStyle
+        ? createPortal(
+            <div ref={pageAreaRef} data-browser-page-overlay={target.tabID} style={overlayStyle}>
+              {pageUrl === IN_APP_BROWSER_BLANK_URL && runtime.error === null ? (
+                <div className="pointer-events-auto absolute inset-0">
+                  <BrowserNewTabPage
+                    directory={directory}
+                    searchEngineLabel={searchEngineLabel}
+                    onSubmitInput={page.submitInput}
+                    onOpenUrl={page.navigateUrl}
+                  />
+                </div>
+              ) : null}
+              {runtime.error?.["_tag"] === "load-failed" ||
+              runtime.error?.["_tag"] === "crashed" ? (
+                <div className="pointer-events-auto absolute inset-0">
+                  <BrowserPageError error={runtime.error} onReload={page.reload} />
+                </div>
+              ) : null}
+              <BrowserZoomBadge zoomFactor={controls.zoomFactor} />
+              {citationToolbar}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }

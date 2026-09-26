@@ -27,6 +27,7 @@ import { getPromptDraft, getPromptScopeKey, usePromptStore } from "../src/state/
 import { parseRequestUrl } from "./parse-test-values"
 import { decodeDirectory, encodeDirectory } from "../src/lib/directory-token"
 import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
+import { useHostedBrowserStore } from "../src/state/hosted-browser-store"
 
 function PresentMediaToolHarness(props: ToolPartProps) {
   return renderPresentMediaTool(props)
@@ -315,6 +316,7 @@ describe("present media renderer", () => {
     })
     container.remove()
     globalThis.fetch = originalFetch
+    useHostedBrowserStore.getState().reset()
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 

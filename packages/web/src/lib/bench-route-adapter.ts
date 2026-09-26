@@ -85,6 +85,10 @@ function readEncodedDirectoryPathSegment(pathname: string): string | undefined {
   return pathname.split("/").find((segment) => segment.length > 0)
 }
 
+function isPathnameInDirectory(input: { directory: string; pathname: string }): boolean {
+  return readEncodedDirectoryPathSegment(input.pathname) === encodeDirectory(input.directory)
+}
+
 function readDirectoryFromPathname(pathname: string): string | undefined {
   const encodedDirectory = readEncodedDirectoryPathSegment(pathname)
   if (!encodedDirectory) return undefined
@@ -265,7 +269,7 @@ function readBenchOpenPolicyStateFromLocation<TSearch>(input: {
   pathname: string
   search: TSearch
 }): BenchOpenPolicyState {
-  if (readEncodedDirectoryPathSegment(input.pathname) !== encodeDirectory(input.directory)) {
+  if (!isPathnameInDirectory(input)) {
     return { status: "closed" }
   }
 
@@ -357,6 +361,7 @@ export {
   buildBenchNavigation,
   isBenchRoutePathname,
   isDirectoryChatRoutePathname,
+  isPathnameInDirectory,
   readBenchOpenPolicyStateFromLocation,
   readBenchTargetFromLocation,
   resolveBenchRouteViewTransitionTypes,

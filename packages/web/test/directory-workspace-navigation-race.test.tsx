@@ -27,6 +27,7 @@ import type { BenchSurfaceSnapshot } from "../src/lib/directory-workspace-lifecy
 import { encodeDirectory } from "../src/lib/directory-token"
 import type { DirectoryWorkspaceCommandResult } from "../src/state/directory-workspace-store"
 import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
+import { useHostedBrowserStore } from "../src/state/hosted-browser-store"
 
 const DIRECTORY = "/workspace/navigation-race"
 const ENCODED_DIRECTORY = encodeDirectory(DIRECTORY)
@@ -204,6 +205,7 @@ describe("DirectoryWorkspaceController navigation arbitration", () => {
     root = undefined
     container = undefined
     localStorage.clear()
+    useHostedBrowserStore.getState().reset()
     window.location.href = TEST_ORIGIN_URL
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })

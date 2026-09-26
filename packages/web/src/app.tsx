@@ -9,6 +9,7 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import { Toaster, TooltipProvider } from "@buddy/ui"
 import { LanguageProvider } from "@/context/language"
 import { useChatStore } from "@/state/chat-store"
+import { useHostedBrowserStore } from "@/state/hosted-browser-store"
 import { appQueryClient } from "@/state/query-client"
 import {
   activateChatDirectory,
@@ -18,6 +19,7 @@ import { decodeDirectory } from "@/lib/directory-token"
 import { resolveBenchRouteViewTransitionTypes } from "@/lib/bench-navigation"
 import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import { ThemeProvider } from "@/theme"
+import { HostedBrowserHost } from "@/components/bench/surfaces/browser/hosted-browser-host"
 import type { ThemeAppliedDetails } from "@/theme"
 import { browserWindow, parseBuddyConfigObject, parseStringValue } from "@/state/parse-external"
 import { routeTree } from "./routeTree.gen"
@@ -78,6 +80,7 @@ export function AppBaseProviders(props: {
 
 export function resetAppRuntimeState() {
   useChatStore.getState().resetRuntimeState()
+  useHostedBrowserStore.getState().reset()
 }
 
 function parseNotificationClickDetail<TValue>(value: TValue): TNotificationClickDetail | undefined {
@@ -132,5 +135,10 @@ export function AppInterface() {
     }
   }, [])
 
-  return <RouterProvider router={router} />
+  return (
+    <>
+      <RouterProvider router={router} />
+      <HostedBrowserHost />
+    </>
+  )
 }

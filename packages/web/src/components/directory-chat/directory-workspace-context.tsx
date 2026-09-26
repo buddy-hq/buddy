@@ -22,7 +22,7 @@ import {
   benchRouteFallbackContextFromTarget,
   routeString,
 } from "@/components/bench/bench-context-utils"
-import { benchTargetKey, isBenchContentTarget } from "@/lib/bench-navigation"
+import { benchTargetKey, isBenchContentTarget, isPathnameInDirectory } from "@/lib/bench-navigation"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { resolveBenchTabTitle, upsertBenchTab, type BenchTab } from "@/lib/bench-tabs"
 import { DirectoryWorkspaceLifecycleService } from "@/lib/directory-workspace-lifecycle"
@@ -31,6 +31,7 @@ import { subagentBenchSelection } from "@/lib/subagent-bench-target"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 import { workspaceChatKeyForSession, type WorkspaceChatKey } from "@/lib/workspace-chat-key"
 import { useChatStore } from "@/state/chat-store"
+import { useHostedBrowserStore } from "@/state/hosted-browser-store"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import {
   inAppBrowserTabContextRuntime,
@@ -134,9 +135,18 @@ export function DirectoryWorkspaceProvider(props: {
   children: ReactNode
   persistenceStorage?: DirectoryWorkspacePersistenceStorage
 }) {
-  const location = useLocation()
+  const currentLocation = useLocation()
   const navigate = useNavigate()
   const router = useRouter()
+  const currentLocationInNotebook = isPathnameInDirectory({
+    directory: props.directory,
+    pathname: currentLocation.pathname,
+  })
+  const [notebookLocation, setNotebookLocation] = useState(currentLocation)
+  if (currentLocationInNotebook && notebookLocation.href !== currentLocation.href) {
+    setNotebookLocation(currentLocation)
+  }
+  const location = currentLocationInNotebook ? currentLocation : notebookLocation
   const route = useMemo(
     () =>
       readBenchRouteSnapshotFromLocation({
@@ -399,7 +409,10 @@ export function DirectoryWorkspaceProvider(props: {
         if (disposed) return
         const persistedState = result.status === WORKSPACE_HYDRATION_READY ? result.state : null
         const activeChatKey = workspaceChatKeyForRoute(props.directory, routeRef.current)
-        const persistedSlots = persistedState?.slots ?? {}
+        const persistedSlots =
+          useHostedBrowserStore.getState().slotsByDirectory[props.directory] ??
+          persistedState?.slots ??
+          {}
         const currentRoute = routeRef.current
         const directoryState = useChatStore.getState().directories[props.directory]
         const unresolvedSessionIDs = directoryState
@@ -515,6 +528,7 @@ export function DirectoryWorkspaceProvider(props: {
         ),
       }))
       if (state.hydration.status === WORKSPACE_HYDRATION_PENDING) return
+      useHostedBrowserStore.getState().rememberDirectory(props.directory, state.slots)
       if (state.slots !== previousState.slots) {
         void lifecycle.publishCurrent()
       }

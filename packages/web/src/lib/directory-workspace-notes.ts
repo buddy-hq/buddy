@@ -1,4 +1,5 @@
 import { listLiveDirectoryWorkspaces } from "@/lib/directory-workspace-registry"
+import { useHostedBrowserStore } from "@/state/hosted-browser-store"
 import {
   removePersistedNotesBenchTargets,
   type DirectoryWorkspacePersistenceStorage,
@@ -14,5 +15,6 @@ export async function invalidateNotesBenchTargets(input?: {
       workspace.removeNotesBenchTargets(input?.matches),
     ),
   )
+  useHostedBrowserStore.getState().invalidateNotesTargets(input?.matches)
   await removePersistedNotesBenchTargets(input)
 }
