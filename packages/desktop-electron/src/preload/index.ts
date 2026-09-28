@@ -159,6 +159,11 @@ const api: ElectronAPI = {
     ipcRenderer.on("deep-link", handler)
     return () => ipcRenderer.removeListener("deep-link", handler)
   },
+  onQuitShortcut: (cb) => {
+    const handler = (_: IpcRendererEvent, visible: boolean) => cb(visible)
+    ipcRenderer.on("quit-shortcut", handler)
+    return () => ipcRenderer.removeListener("quit-shortcut", handler)
+  },
   onFullscreenChanged: (cb) => {
     const handler = (_: IpcRendererEvent, isFullscreen: boolean) => cb(isFullscreen)
     ipcRenderer.on("fullscreen-changed", handler)

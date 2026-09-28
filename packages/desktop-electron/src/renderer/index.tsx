@@ -174,6 +174,10 @@ function wireDesktopEvents(nextPlatform: Platform) {
     window.dispatchEvent(new CustomEvent("buddy:notification-click", { detail: { href } }))
   })
 
+  window.api.onQuitShortcut((visible) => {
+    window.dispatchEvent(new CustomEvent("buddy:quit-shortcut", { detail: { visible } }))
+  })
+
   window.api.onFullscreenChanged((isFullscreen) => {
     window.dispatchEvent(new CustomEvent("buddy:fullscreen-changed", { detail: { isFullscreen } }))
   })

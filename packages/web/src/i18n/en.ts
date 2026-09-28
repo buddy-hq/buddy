@@ -7,6 +7,7 @@ export const dict = {
   "agentsMd.notebookEmptyTitle": "No instructions file",
   "common.cancel": "Cancel",
   "common.close": "Close",
+  "app.quitShortcutHint": "Hold ⌘Q or press twice to quit",
   "common.connect": "Connect",
   "common.remove": "Remove",
   "common.disconnect": "Disconnect",
