@@ -68,6 +68,7 @@ import { exportMarkdownPdf } from "./markdown-pdf"
 import { loadMarkdownPdfAllowedRoots } from "./markdown-pdf-roots"
 import { loadNotesDirectory } from "./note-trash"
 import { createMenu } from "./menu"
+import { concealPendingQuitWindow, createQuitShortcutHandler } from "./quit-shortcut"
 import {
   blockUpdateVersion,
   fetchRecoveryPolicy,
@@ -221,6 +222,29 @@ function setupApplication() {
     event.preventDefault()
     emitDeepLinks([url])
     focusMainWindow()
+  })
+
+  let quitHintWindow: BrowserWindow | null = null
+  const handleQuitShortcut = createQuitShortcutHandler({
+    platform: process.platform,
+    notify: (visible) => {
+      if (visible) quitHintWindow = BrowserWindow.getFocusedWindow()
+      if (quitHintWindow && !quitHintWindow.isDestroyed()) {
+        quitHintWindow.webContents.send("quit-shortcut", visible)
+      }
+      if (!visible) quitHintWindow = null
+    },
+    // Keeps the window focused but invisible until the physical shortcut is released, so the
+    // remaining key repeats cannot reach the next app.
+    concealWindow: () => {
+      const target = quitHintWindow ?? BrowserWindow.getFocusedWindow()
+      if (target) concealPendingQuitWindow(target)
+    },
+    quit: () => app.quit(),
+  })
+  // Covers app windows and in-app browser guests, whichever has keyboard focus.
+  app.on("web-contents-created", (_event, contents) => {
+    contents.on("before-input-event", handleQuitShortcut)
   })
 
   app.on("before-quit", () => {

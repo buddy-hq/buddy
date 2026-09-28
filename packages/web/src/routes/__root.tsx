@@ -14,6 +14,7 @@ import { ExternalFileOpenDialog } from "@/components/files/external-file-open-di
 import { WorkspaceFileOpenDialog } from "@/components/files/workspace-file-open-dialog"
 import { BuddyDevTools } from "@/components/debug/buddy-devtools"
 import { UpdateMenuCommandHandler } from "@/components/updates/update-menu-command-handler"
+import { QuitShortcutHint } from "@/components/layout/quit-shortcut-hint"
 import { language } from "@/context/language"
 import {
   BENCH_CHAT_LAYOUT_FLOATING,
@@ -76,6 +77,7 @@ function RootLayout() {
   return (
     <div className="h-full overflow-hidden bg-background-base text-text-base flex min-h-0 flex-col">
       <UpdateMenuCommandHandler openUpdateSurface={openUpdateSurface} />
+      <QuitShortcutHint />
       <WorkspaceFileOpenDialog />
       <ExternalFileOpenDialog />
       <LinkDestinationDialog />

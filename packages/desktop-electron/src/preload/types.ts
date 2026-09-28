@@ -75,6 +75,8 @@ export type ElectronAPI = {
   onSqliteMigrationProgress: (cb: (progress: SqliteMigrationProgress) => void) => () => void
   onMenuCommand: (cb: (id: string) => void) => () => void
   onDeepLink: (cb: (urls: string[]) => void) => () => void
+  /** True while the first Cmd+Q waits for a second press. */
+  onQuitShortcut: (cb: (visible: boolean) => void) => () => void
   onFullscreenChanged: (cb: (isFullscreen: boolean) => void) => () => void
   onInAppBrowserMessage: (cb: (message: InAppBrowserHostMessage) => void) => () => void
   onInAppBrowserFavicon: (cb: (message: InAppBrowserFaviconMessage) => void) => () => void
