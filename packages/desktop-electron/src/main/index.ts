@@ -198,6 +198,11 @@ setupApplication()
 function setupApplication() {
   ensureLoopbackNoProxy()
   app.commandLine.appendSwitch("proxy-bypass-list", "<-loopback>")
+  if (!app.isPackaged) {
+    // Vite replaces optimized dependency chunks during development. A cached parent
+    // module can otherwise keep requesting a chunk that Vite has already removed.
+    app.commandLine.appendSwitch("disable-http-cache")
+  }
 
   if (app.isPackaged && !app.requestSingleInstanceLock()) {
     app.quit()

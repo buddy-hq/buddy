@@ -19,7 +19,6 @@ Code checks below are 2026-08-30 working-tree reads. Then-resolved launch items 
 | **REN-001** | Rename API can produce a file the editor cannot reopen | Project Files | P2 | Open |
 | **WIN-001** | Windows-reserved note names accepted by title validation | Bench / Editor | P2 | Open |
 | **GPU-001** | Duplicate live HTML widgets saturate GPU process | HTML Widgets | P1 | Open |
-| **DEV-001** | Electron retains obsolete Vite optimized-dependency graph (504) | Desktop Dev | P1 | Open |
 | **BENCH-001** | External source files presented on Bench do not open in editor | Bench | P2 | Open |
 | **SKILL-001** | Skill activity summary drops loaded skill name | Skills / Chat | P2 | Open |
 | **L02-C01** | Raw HTML anchors can navigate the privileged Electron window | Desktop IPC | P0 | Open |
@@ -120,15 +119,6 @@ Code checks below are 2026-08-30 working-tree reads. Then-resolved launch items 
 - **Rejected alternative:** Disabling hardware acceleration is not the recommended solution.
 - **Acceptance:** At most one live iframe per object/revision; parked widgets stop producing frames without widget cooperation; GPU helper near idle when the widget is inactive; hostile non-pausing test widget is covered.
 - **Affected:** `packages/web/src/components/media/renderers/html-widget-frame.tsx`, `packages/web/src/components/media/renderers/html-media.tsx`, `packages/web/src/components/chat/tools/render/html-widget/index.tsx`, `packages/web/src/components/bench/surfaces/object-bench-surface.tsx`, `packages/web/src/lib/bench-surface-keep-alive.ts`, `packages/web/src/components/directory-chat/right-workspace-skills-drawer.tsx`, `packages/web/src/state/skills-catalog-query.ts`, `packages/buddy/src/learning/skill-management/service/catalog.ts`
-
-## DEV-001: Electron Retains Obsolete Vite Optimized-Dependency Graph (504)
-
-- **Behavior:** While `bun dev:desktop` runs, Vite may regenerate optimized deps. Electron's persistent HTTP cache can keep an older parent such as `@mdxeditor_editor.js?v=<hash>` that still imports a dead chunk. Reload then fails with `504 Outdated Optimize Dep` while `app.tsx` is reported as a failed dynamic import and the backend may still be healthy. Restarting Vite or the Buddy backend does not clear the renderer disk cache. Production packaged builds do not use this optimizer.
-- **Confirmed chain:** Electron caches an immutable optimized parent → parent references `chunk-….js` → Vite regenerates a new chunk name → same parent URL is reused from cache → child 504.
-- **Immediate recovery:** DevTools → Network → Disable cache → reload renderer.
-- **2026-08 check:** No development-mode `session.clearCache` / HTTP-cache disable found under `packages/desktop-electron/src`.
-- **Fix:** Disable the renderer HTTP cache in development, or clear it before loading the Vite URL, plus a one-shot Outdated-Optimize-Dep recovery with a loop guard. Distinguish backend-init failures from frontend module-load failures in the bootstrap error boundary.
-- **Affected:** `packages/desktop-electron/src/`
 
 ## BENCH-001: External Source Files Presented On Bench Do Not Open In Editor
 
