@@ -2,6 +2,7 @@ import React from "react"
 import ReactDOM from "react-dom/client"
 import { PlatformProvider, setRuntimePlatform, type Platform } from "@buddy/web/context/platform"
 import { ServerProvider } from "@buddy/web/context/server"
+import type { ServerReadyData } from "../preload/types"
 import { parseTNonEmptyString, readBuddyRendererGlobals } from "../shared/parse-external"
 import { createDesktopPlatform } from "./platform"
 import { createDesktopServerConnection } from "./server"
@@ -16,6 +17,8 @@ const rootHostElement: HTMLElement = rootElement
 
 const ELECTRON_ENTRY_HTML_SUFFIX = "/index.html"
 const BUDDY_ICON_FILENAME = "buddy-icon.png"
+const DEV_FRONTEND_RELOAD_KEY = "buddy:dev-frontend-import-reloaded"
+const DEV_FRONTEND_RELOAD_DELAY_MS = 500
 
 const platform = createDesktopPlatform()
 installLegacyElectronApiBridge(platform)
@@ -180,16 +183,55 @@ function wireDesktopEvents(nextPlatform: Platform) {
   })
 }
 
+function reloadAfterDevelopmentImportFailure() {
+  if (!import.meta.env.DEV) return false
+
+  try {
+    if (window.sessionStorage.getItem(DEV_FRONTEND_RELOAD_KEY) === "1") return false
+    window.sessionStorage.setItem(DEV_FRONTEND_RELOAD_KEY, "1")
+  } catch {
+    return false
+  }
+
+  window.setTimeout(() => window.location.reload(), DEV_FRONTEND_RELOAD_DELAY_MS)
+  return true
+}
+
 async function bootstrap() {
   const root = ReactDOM.createRoot(rootHostElement)
   setRuntimePlatform(platform)
 
   root.render(<LoadingScreen />)
 
+  let server: ServerReadyData
   try {
-    const server = await window.api.awaitInitialization(() => undefined)
+    server = await window.api.awaitInitialization(() => undefined)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    root.render(<ShellMessage tone="error">Failed to start Buddy backend: {message}</ShellMessage>)
+    return
+  }
 
-    const { AppBaseProviders, AppInterface, resetAppRuntimeState } = await import("@buddy/web/app")
+  let webApp: typeof import("@buddy/web/app")
+  try {
+    webApp = await import("@buddy/web/app")
+  } catch (error) {
+    if (reloadAfterDevelopmentImportFailure()) return
+    const message = error instanceof Error ? error.message : String(error)
+    root.render(<ShellMessage tone="error">Failed to load Buddy interface: {message}</ShellMessage>)
+    return
+  }
+
+  if (import.meta.env.DEV) {
+    try {
+      window.sessionStorage.removeItem(DEV_FRONTEND_RELOAD_KEY)
+    } catch {
+      // Storage can be unavailable; the interface can still start.
+    }
+  }
+
+  try {
+    const { AppBaseProviders, AppInterface, resetAppRuntimeState } = webApp
     resetAppRuntimeState()
 
     root.render(
@@ -210,7 +252,7 @@ async function bootstrap() {
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    root.render(<ShellMessage tone="error">Failed to start Buddy backend: {message}</ShellMessage>)
+    root.render(<ShellMessage tone="error">Failed to load Buddy interface: {message}</ShellMessage>)
   }
 }
 
