@@ -1,0 +1,195 @@
+---
+/**
+ * One asset in the /swe/kit organizer kit: a labelled card whose top bar holds
+ * its action. Pass `copy` for text the coordinator pastes elsewhere (the body
+ * defaults to that text), or `download` for a file. The default slot overrides
+ * the body when the display needs more than plain text; the `controls` slot adds
+ * bar controls beside the action.
+ */
+type Props = {
+  label: string
+  copy?: string
+  download?: { href: string; filename: string }
+  /** `line` for single values such as a title; `text` for paragraphs. */
+  size?: "line" | "text"
+  /** Accent the action, for the one block most coordinators need. */
+  primary?: boolean
+}
+
+const { label, copy, download, size = "text", primary = false } = Astro.props
+const hasBody = Astro.slots.has("default")
+---
+
+<div class:list={["kit-block", `kit-block--${size}`, { "kit-block--primary": primary }]}>
+  <div class="kit-block__bar">
+    <span class="kit-block__label">{label}</span>
+    <div class="kit-block__actions">
+      <slot name="controls" />
+      {
+        copy !== undefined && (
+          <button type="button" class="kit-block__action" data-copy={copy}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+            <span>Copy</span>
+          </button>
+        )
+      }
+      {
+        download && (
+          <a class="kit-block__action" href={download.href} download={download.filename}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>Download</span>
+          </a>
+        )
+      }
+    </div>
+  </div>
+  <div class="kit-block__body">
+    {hasBody ? <slot /> : <p class="kit-block__text">{copy}</p>}
+  </div>
+</div>
+
+<style>
+  .kit-block {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: 1px solid var(--border-base);
+    border-radius: 12px;
+    background: var(--surface-base);
+    overflow: hidden;
+  }
+
+  .kit-block--primary {
+    border-color: color-mix(in oklab, var(--accent-base) 45%, var(--border-base));
+    box-shadow: var(--shadow-raised);
+  }
+
+  .kit-block__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 8px 8px 8px 16px;
+    background: var(--chrome-bar);
+    border-bottom: 1px solid var(--border-weak);
+  }
+
+  .kit-block__label {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--fg-weaker);
+  }
+
+  .kit-block__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .kit-block__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 5px 12px;
+    border: 1px solid var(--border-base);
+    border-radius: 7px;
+    background: var(--surface-base);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--fg-strong);
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 120ms var(--ease-out);
+  }
+
+  .kit-block__action:active {
+    transform: scale(0.97);
+  }
+
+  .kit-block--primary .kit-block__action {
+    border-color: transparent;
+    background: var(--accent-fill);
+    color: var(--accent-ink);
+  }
+
+  .kit-block__body {
+    padding: var(--space-5);
+  }
+
+  .kit-block__text {
+    white-space: pre-wrap;
+    line-height: 1.6;
+    color: var(--fg-base);
+  }
+
+  .kit-block--line .kit-block__body {
+    padding-block: var(--space-4);
+  }
+
+  .kit-block--line .kit-block__text {
+    font-size: var(--text-lg);
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--fg-strong);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .kit-block__action:hover {
+      border-color: var(--border-strong);
+    }
+
+    .kit-block--primary .kit-block__action:hover {
+      border-color: transparent;
+      filter: brightness(1.08);
+    }
+  }
+</style>
+
+<script>
+  // Older and embedded browsers can refuse the async Clipboard API; fall back to
+  // copying a selected off-screen textarea.
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      const area = document.createElement("textarea")
+      area.value = text
+      area.setAttribute("readonly", "")
+      area.style.position = "fixed"
+      area.style.opacity = "0"
+      document.body.append(area)
+      area.select()
+      const copied = document.execCommand("copy")
+      area.remove()
+      return copied
+    }
+  }
+
+  // Each copy button carries its plain-text payload in data-copy.
+  for (const button of document.querySelectorAll<HTMLButtonElement>(".kit-block__action[data-copy]")) {
+    const label = button.querySelector("span")
+    button.addEventListener("click", async () => {
+      if (!label) return
+      label.textContent = (await copyText(button.dataset.copy ?? "")) ? "Copied" : "Copy failed"
+      window.setTimeout(() => {
+        label.textContent = "Copy"
+      }, 2000)
+    })
+  }
+</script>

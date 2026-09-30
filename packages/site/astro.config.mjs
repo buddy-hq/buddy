@@ -26,7 +26,7 @@ function rawFonts(extensions) {
   }
 }
 
-const NON_INDEXED_ROUTE_PREFIXES = ["/layouts/", "/mock/", "/404", "/devtools"]
+const NON_INDEXED_ROUTE_PREFIXES = ["/layouts/", "/mock/", "/404", "/devtools", "/swe/kit"]
 
 function isPublicSitemapPage(page) {
   const pathname = new URL(page).pathname

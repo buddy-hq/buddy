@@ -1,0 +1,549 @@
+---
+/**
+ * /swe/kit — the organizer kit for the "Hands-on Agentic Software Engineering" workshop.
+ *
+ * The reader is the faculty coordinator at a college that has already agreed to
+ * host. The page is a set of ready-to-copy assets, most-used first: the message
+ * for students, the pieces of a poster or circular, text for the event report,
+ * and finally the raw workshop facts for anyone writing their own. It is
+ * unlisted: sent by email after a yes, and kept out of search and the sitemap.
+ */
+import { Image } from "astro:assets"
+import KitBlock from "../../components/swe/KitBlock.astro"
+import Landing from "../../layouts/Landing.astro"
+import instructorPhoto from "../../assets/swe/prashant.jpg"
+
+export const prerender = true
+
+const seo = {
+  title: "Organizer kit · Hands-on Agentic Software Engineering workshop",
+  description:
+    "Ready-to-copy text for colleges hosting the Hands-on Agentic Software Engineering workshop: a message for students, poster details, a speaker bio, and text for the event report.",
+}
+
+const workshop = {
+  title: "Hands-on Agentic Software Engineering",
+  subtitle: "How LLMs and coding agents work, and how to build software with them",
+  duration: "2 hours (90 min workshop + 30 min Q&A)",
+} as const
+
+const speaker = {
+  name: "Prashant Bhudwal",
+  role: "Creator of Buddy and edtech entrepreneur",
+  bio: "Prashant is the creator of Buddy, a free and open-source AI agent for students. He has spent the past decade building education ventures. He co-founded FalconAI, founded Medal, and was a founding member of Genius Learning Labs, which was later acquired by Schoolnet India. He now builds Buddy hands-on, bringing both an education entrepreneur’s and a software builder’s perspective to the workshop.",
+  showcase: "Work showcased at OpenAI Codex Meetup, Microsoft LocalHost, and AgentCon Bangalore.",
+  photo: { href: "/swe/prashant-bhudwal.jpg", filename: "prashant-bhudwal.jpg" },
+} as const
+
+// Messages the coordinator posts to class WhatsApp groups, in their own voice.
+// *Asterisks* are WhatsApp bold.
+const whatsappVariants = [
+  {
+    id: "formal",
+    label: "Formal",
+    text: `Dear Students,
+
+The Department of [DEPARTMENT] is organising a workshop on *${workshop.title}*.
+
+*Resource person:* ${speaker.name}, Creator of Buddy
+*Date:* [DATE]
+*Time:* [TIME]
+*Venue:* [VENUE]
+
+The workshop covers how LLMs and coding agents work, followed by hands-on practice building and debugging a small feature with OpenCode, Codex, and Claude Code.
+For more details, visit https://www.hibuddy.in/swe
+
+Students are requested to bring their laptops, if available. No prior machine learning background is required.
+
+Regards,
+[COORDINATOR NAME]`,
+  },
+  {
+    id: "casual",
+    label: "Casual",
+    text: `Hi everyone 👋
+
+We have a workshop on *${workshop.title}* coming up. If you already use AI to write code, this one is for you.
+
+You'll learn how coding agents actually work, then build and debug a small feature with OpenCode, Codex, and Claude Code.
+More about it 👉 https://www.hibuddy.in/swe
+
+🎤 ${speaker.name}, creator of Buddy
+📅 [DATE], [TIME]
+📍 [VENUE]
+
+Bring your laptop if you have one. Pairs are fine, and no ML background is needed.`,
+  },
+] as const
+
+// Preview tokens: *bold* renders bold, [PLACEHOLDERS] are highlighted.
+const toChatLines = (message: string) =>
+  message.split("\n").map((line) =>
+    line
+      .split(/(\*[^*]+\*|\[[^\]]+\])/)
+      .filter(Boolean)
+      .map((part) =>
+        part.startsWith("*")
+          ? { kind: "bold" as const, text: part.slice(1, -1) }
+          : part.startsWith("[")
+            ? { kind: "blank" as const, text: part }
+            : { kind: "text" as const, text: part },
+      ),
+  )
+
+const posterLines = [
+  { label: "Title", value: workshop.title, wide: true },
+  { label: "Subtitle", value: workshop.subtitle, wide: true },
+  { label: "Resource person", value: speaker.name, wide: false },
+  { label: "Designation", value: speaker.role, wide: false },
+  { label: "Duration", value: workshop.duration, wide: false },
+] as const
+
+const abstract = [
+  `Most students now use AI tools to write code, but few understand how these tools work, how to direct them, or how to check what they produce. ${workshop.title} covers that ground in one two-hour, in-person workshop.`,
+  "The workshop starts from first principles: what tokens, context windows and prompt caching are, and how they affect cost and response time. It then opens up the agent loop, in which a model reads the task, acts through tools, and uses feedback from tests and errors to correct itself. In the hands-on part, students build a small feature end to end with a coding agent, alongside Prashant, and see OpenCode, Codex, and Claude Code side by side. The final part shows how agents connect to documents, tools and browsers through RAG, agent skills, MCP servers, and computer-use. The workshop closes with 30 minutes of open Q&A on careers, internships, tools, and anything students want to ask.",
+].join("\n\n")
+
+const objectives = [
+  "Explain how large language models handle text: tokens, context windows and prompt caching.",
+  "Show how a coding agent works, through the loop of context, model, tools and feedback.",
+  "Give students hands-on practice building and debugging software with coding agents.",
+  "Introduce how agents connect to documents, tools and browsers.",
+] as const
+
+const outcomes = [
+  "Explain what tokens and context windows are, and how they affect an agent’s cost, speed and what it can see.",
+  "Describe the agent loop and the role that tools and feedback play in it.",
+  "Build a small feature end to end with a coding agent, and debug it.",
+  "Decide when to steer an agent and when to take over.",
+  "Explain what RAG, agent skills and MCP servers are for.",
+] as const
+
+const numbered = (items: readonly string[]) => items.map((item, index) => `${index + 1}. ${item}`).join("\n")
+
+const facts = [
+  { label: "Title", value: workshop.title },
+  { label: "Subtitle", value: workshop.subtitle },
+  { label: "Resource person", value: `${speaker.name}, ${speaker.role}` },
+  { label: "Duration", value: "~2 hours · 90 min + 30 min Q&A" },
+  {
+    label: "Audience",
+    value: "2nd–4th year CS/IT students. AI/DS, ECE and allied branches welcome. Faculty welcome too.",
+  },
+  {
+    label: "Level",
+    value:
+      "Beginner friendly. Students should be able to write a basic program in any language. No machine learning background needed.",
+  },
+  {
+    label: "Room setup",
+    value:
+      "A lab or hall with Wi-Fi and power sockets, and a projector with HDMI. Students bring laptops if they have them; pairs work fine.",
+  },
+  { label: "Full outline", value: "hibuddy.in/swe" },
+] as const
+---
+
+<Landing title={seo.title} description={seo.description} robots="noindex, follow">
+  <header class="kit-header">
+    <div class="container kit-header__inner">
+      <span class="kit-header__title">Organizer kit <span>· {workshop.title}</span></span>
+      <a href="/swe" class="btn-secondary">Workshop page</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="kit-column">
+      <section class="kit-intro" data-analytics-section="swe_kit_intro">
+        <p class="kit-kicker">Organizer kit</p>
+        <h1 class="kit-intro__title">Everything you need to announce the workshop</h1>
+        <p class="kit-intro__lede">
+          Each block is ready to copy. Start with the WhatsApp message for students. The workshop facts at the bottom are
+          there if you would rather write your own.
+        </p>
+      </section>
+
+      <section class="kit-section" data-analytics-section="swe_kit_message">
+        <h2 class="kit-h2"><span>01</span> WhatsApp message</h2>
+        <p class="kit-lede">Pick the tone that suits your groups, copy it, and fill in the highlighted brackets.</p>
+        <KitBlock label="WhatsApp message" copy={whatsappVariants[0].text} primary>
+          <div slot="controls" class="kit-tone" role="group" aria-label="Message tone">
+            {
+              whatsappVariants.map((variant, index) => (
+                <button type="button" data-variant={variant.id} aria-pressed={index === 0 ? "true" : "false"}>
+                  {variant.label}
+                </button>
+              ))
+            }
+          </div>
+          {
+            whatsappVariants.map((variant, index) => (
+              <div class="kit-chat" data-variant={variant.id} data-text={variant.text} hidden={index !== 0}>
+                <p class="kit-bubble">
+                  {toChatLines(variant.text).map((line) => (
+                    <span class="kit-bubble__line">
+                      {line.map((part) =>
+                        part.kind === "bold" ? (
+                          <strong>{part.text}</strong>
+                        ) : part.kind === "blank" ? (
+                          <mark>{part.text}</mark>
+                        ) : (
+                          part.text
+                        ),
+                      )}
+                    </span>
+                  ))}
+                </p>
+              </div>
+            ))
+          }
+        </KitBlock>
+      </section>
+
+      <section class="kit-section" data-analytics-section="swe_kit_poster">
+        <h2 class="kit-h2"><span>02</span> Poster and circular</h2>
+        <p class="kit-lede">The pieces of a poster, circular or stage introduction.</p>
+        <div class="kit-grid">
+          {
+            posterLines.map((line) => (
+              <div class:list={{ "kit-grid__wide": line.wide }}>
+                <KitBlock label={line.label} copy={line.value} size="line" />
+              </div>
+            ))
+          }
+        </div>
+        <div class="kit-speaker">
+          <KitBlock label="Speaker photo" download={speaker.photo}>
+            <Image src={instructorPhoto} alt="Prashant Bhudwal" class="kit-photo" width={480} height={480} />
+          </KitBlock>
+          <KitBlock label="Speaker bio" copy={`${speaker.bio}\n\n${speaker.showcase}`} />
+        </div>
+      </section>
+
+      <section class="kit-section" data-analytics-section="swe_kit_report">
+        <h2 class="kit-h2"><span>03</span> Event report</h2>
+        <p class="kit-lede">For IQAC, NAAC and NBA documentation, usually written after the workshop.</p>
+        <div class="kit-stack">
+          <KitBlock label="Abstract" copy={abstract} />
+          <KitBlock label="Objectives" copy={numbered(objectives)} />
+          <KitBlock
+            label="Learning outcomes"
+            copy={`By the end of the workshop, students will be able to:\n${numbered(outcomes)}`}
+          />
+        </div>
+      </section>
+
+      <section class="kit-section" data-analytics-section="swe_kit_facts">
+        <h2 class="kit-h2"><span>04</span> Workshop facts</h2>
+        <p class="kit-lede">The raw details, for writing your own announcement or report.</p>
+        <KitBlock label="Workshop facts" copy={facts.map((fact) => `${fact.label}: ${fact.value}`).join("\n")}>
+          <dl class="kit-facts">
+            {
+              facts.map((fact) => (
+                <div>
+                  <dt>{fact.label}</dt>
+                  <dd>{fact.value}</dd>
+                </div>
+              ))
+            }
+          </dl>
+        </KitBlock>
+      </section>
+    </div>
+  </main>
+</Landing>
+
+<style>
+  /* === Header === */
+  .kit-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: var(--surface-sticky);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 1px 0 var(--border-weak);
+  }
+
+  .kit-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    height: 64px;
+  }
+
+  .kit-header__title {
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--fg-strong);
+  }
+
+  .kit-header__title span {
+    font-weight: 400;
+    color: var(--fg-weaker);
+  }
+
+  /* One readable column for the whole page. */
+  .kit-column {
+    max-width: 860px;
+    margin-inline: auto;
+  }
+
+  /* === Intro === */
+  .kit-intro {
+    padding-block: clamp(2.5rem, 6vw, 4rem) var(--space-4);
+  }
+
+  .kit-kicker {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--accent-base);
+    margin-bottom: var(--space-3);
+  }
+
+  .kit-intro__title {
+    font-size: clamp(1.875rem, 1.4rem + 2vw, 2.75rem);
+    font-weight: 560;
+    line-height: 1.08;
+    letter-spacing: -0.028em;
+    color: var(--fg-strong);
+    text-wrap: balance;
+    margin-bottom: var(--space-4);
+  }
+
+  .kit-intro__lede {
+    max-width: 58ch;
+    font-size: var(--text-lg);
+    line-height: 1.5;
+    color: var(--fg-weak);
+    text-wrap: pretty;
+  }
+
+  /* === Sections === */
+  .kit-section {
+    padding-block: clamp(2rem, 4vw, 3rem);
+  }
+
+  .kit-h2 {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    font-size: var(--text-2xl);
+    font-weight: 560;
+    letter-spacing: -0.02em;
+    color: var(--fg-strong);
+    margin-bottom: var(--space-2);
+  }
+
+  .kit-h2 span {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--accent-base);
+  }
+
+  .kit-lede {
+    max-width: 60ch;
+    color: var(--fg-weak);
+    margin-bottom: var(--space-5);
+  }
+
+  /* === WhatsApp message ===
+     Previewed as an outgoing chat bubble so it reads as a group message, not a
+     document. The green is WhatsApp's, mixed into the theme surface. */
+  .kit-chat {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--space-5);
+    margin: calc(var(--space-5) * -1);
+    background: color-mix(in oklab, #25d366 5%, var(--surface-page));
+  }
+
+  .kit-bubble {
+    width: min(100%, 440px);
+    padding: 10px 14px;
+    border-radius: 12px 4px 12px 12px;
+    background: color-mix(in oklab, #25d366 18%, var(--surface-raised));
+    box-shadow: 0 1px 1px color-mix(in oklab, black 12%, transparent);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    color: var(--fg-strong);
+  }
+
+  .kit-chat[hidden] {
+    display: none;
+  }
+
+  .kit-bubble__line {
+    display: block;
+    min-height: 1.5em;
+  }
+
+  /* Formal / Casual switch in the block bar. */
+  .kit-tone {
+    display: inline-flex;
+    padding: 2px;
+    border: 1px solid var(--border-base);
+    border-radius: 8px;
+    background: var(--surface-base);
+  }
+
+  .kit-tone button {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--fg-weak);
+    cursor: pointer;
+  }
+
+  .kit-tone button[aria-pressed="true"] {
+    background: var(--chrome-bar);
+    box-shadow: 0 0 0 1px var(--border-base);
+    color: var(--fg-strong);
+  }
+
+  .kit-bubble strong {
+    font-weight: 700;
+  }
+
+  .kit-bubble mark {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--accent-weak);
+    color: var(--fg-strong);
+    font-weight: 500;
+  }
+
+  /* === Poster and circular === */
+  .kit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .kit-grid > div {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .kit-grid > div > :global(.kit-block) {
+    flex: 1;
+  }
+
+  .kit-grid__wide {
+    grid-column: 1 / -1;
+  }
+
+  .kit-speaker {
+    display: grid;
+    grid-template-columns: 264px minmax(0, 1fr);
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+    align-items: stretch;
+  }
+
+  .kit-photo {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+
+  /* === Event report === */
+  .kit-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  /* === Facts === */
+  .kit-facts div {
+    display: grid;
+    grid-template-columns: 10rem minmax(0, 1fr);
+    gap: var(--space-4);
+    padding-block: var(--space-3);
+  }
+
+  .kit-facts div:first-child {
+    padding-top: 0;
+  }
+
+  .kit-facts div:last-child {
+    padding-bottom: 0;
+  }
+
+  .kit-facts div + div {
+    border-top: 1px solid var(--border-weak);
+  }
+
+  .kit-facts dt {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--fg-weaker);
+    padding-top: 3px;
+  }
+
+  .kit-facts dd {
+    color: var(--fg-strong);
+    line-height: 1.5;
+  }
+
+  /* === Responsive === */
+  @media (max-width: 720px) {
+    .kit-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .kit-speaker {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .kit-speaker > :first-child {
+      max-width: 280px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .kit-header__title span {
+      display: none;
+    }
+
+    .kit-facts div {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-1);
+    }
+  }
+</style>
+
+<script>
+  // Formal / Casual switch: show the chosen message and point Copy at its text.
+  for (const tone of document.querySelectorAll<HTMLElement>(".kit-tone")) {
+    const block = tone.closest(".kit-block")
+    const copyButton = block?.querySelector<HTMLButtonElement>(".kit-block__action[data-copy]")
+    const chats = Array.from(block?.querySelectorAll<HTMLElement>(".kit-chat") ?? [])
+    const buttons = Array.from(tone.querySelectorAll<HTMLButtonElement>("button"))
+
+    for (const button of buttons) {
+      button.addEventListener("click", () => {
+        const variant = button.dataset.variant
+        for (const other of buttons) other.setAttribute("aria-pressed", String(other === button))
+        for (const chat of chats) {
+          chat.hidden = chat.dataset.variant !== variant
+          if (!chat.hidden && copyButton) copyButton.dataset.copy = chat.dataset.text ?? ""
+        }
+      })
+    }
+  }
+</script>
