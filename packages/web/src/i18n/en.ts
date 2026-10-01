@@ -614,6 +614,9 @@ export const dict = {
   "prompt.compactionNotice.threshold":
     "Context is {{usage}}% full, with about {{remaining}} tokens left. Buddy will automatically summarise the conversation around {{thresholdUsage}}%.",
   "prompt.compactionNotice.title": "Context getting full",
+  "prompt.offlineNotice.description":
+    "Online models can’t respond until your connection is back. Local models still work.",
+  "prompt.offlineNotice.title": "You’re offline",
   "prompt.composer.draggingHint": "Drop files to attach or @-mention them in this prompt.",
   "prompt.composer.send": "Send",
   "prompt.composer.stop": "Stop",
