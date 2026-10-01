@@ -1,6 +1,7 @@
 import {
   BookOpenIcon,
   FileTextIcon,
+  Globe,
   ImagesIcon,
   Layers3Icon,
   ListChecksIcon,
@@ -15,8 +16,10 @@ import * as AppIcons from "@/icons/app-icons"
 import { language } from "@/context/language"
 import type { BenchTarget } from "@/lib/bench-targets"
 import { classifyWorkspaceMedia, type WorkspaceMediaKind } from "@/lib/workspace-file-media"
+import { hasFileTypeIcon } from "@/components/files/file-type-icon"
 import {
   OBJECT_KIND_NOTE,
+  OBJECT_KIND_BROWSER,
   OBJECT_KIND_THREAD,
   OBJECT_KIND_WORKSPACE_FILE,
   OBJECT_THUMBNAIL_FILE_TYPE,
@@ -48,6 +51,7 @@ const OBJECT_GLYPH = {
   [OBJECT_KIND_WORKSPACE_FILE]: FileTextIcon,
   [OBJECT_KIND_THREAD]: MessageSquareTextIcon,
   [OBJECT_KIND_NOTE]: NoteIcon,
+  [OBJECT_KIND_BROWSER]: Globe,
 } satisfies Record<ObjectPresentationKind, AppIcon>
 
 const OBJECT_KIND_LABEL_KEY = {
@@ -63,6 +67,7 @@ const OBJECT_KIND_LABEL_KEY = {
   [OBJECT_KIND_WORKSPACE_FILE]: "objectPresentation.kind.workspaceFile",
   [OBJECT_KIND_THREAD]: "objectPresentation.kind.thread",
   [OBJECT_KIND_NOTE]: "objectPresentation.kind.note",
+  [OBJECT_KIND_BROWSER]: "objectPresentation.kind.browser",
 } satisfies Record<ObjectPresentationKind, string>
 
 /**
@@ -134,12 +139,24 @@ type TFileTypeThumbnail = {
   directory?: string
 }
 
+/**
+ * The file a Media object presents, read from its title (`message-timeline.tsx`, say), so it is
+ * drawn as that file wherever it appears. A title the icon library has no mark for keeps the
+ * kind's own visual.
+ */
+export function presentedFileName(kind: ObjectPresentationKind, title: string): string | undefined {
+  return kind === "media-presentation" && hasFileTypeIcon(title) ? title : undefined
+}
+
 function defaultThumbnail(input: ObjectDescriptorInput): ObjectThumbnail | undefined {
   if (input.thumbnail) return input.thumbnail
-  if (input.kind !== OBJECT_KIND_WORKSPACE_FILE) return undefined
-
-  const path = input.target?.type === "workspace-file" ? input.target.path : input.title
-  if (!path.trim()) return undefined
+  const path =
+    input.kind === OBJECT_KIND_WORKSPACE_FILE
+      ? input.target?.type === "workspace-file"
+        ? input.target.path
+        : input.title
+      : presentedFileName(input.kind, input.title)
+  if (!path?.trim()) return undefined
 
   const thumbnail: TFileTypeThumbnail = Object.assign(
     {
@@ -173,8 +190,9 @@ export type ObjectDescriptorInput = {
  */
 export function describeObject(input: ObjectDescriptorInput): ObjectModel {
   const thumbnail = defaultThumbnail(input)
+  // Media that presents a file still reads as Media; only a workspace file is named by its type.
   const kindLabel =
-    thumbnail?.source === OBJECT_THUMBNAIL_FILE_TYPE
+    thumbnail?.source === OBJECT_THUMBNAIL_FILE_TYPE && input.kind !== "media-presentation"
       ? objectFileLabel(thumbnail.path)
       : objectKindLabel(input.kind)
   const meta = (input.meta ?? [kindLabel]).filter((part) => part.trim().length > 0)

@@ -1258,14 +1258,16 @@ describe("bench surface rendering", () => {
 
     await act(async () => {
       root.render(
-        <FlashcardDeckView
-          deck={deck}
-          queue={queue}
-          standing={resolveFlashcardStanding({ deck, queue, now: Date.now() })}
-          peekCardID={undefined}
-          onPeek={() => {}}
-          onAction={() => {}}
-        />,
+        <QueryClientProvider client={new QueryClient()}>
+          <FlashcardDeckView
+            deck={deck}
+            queue={queue}
+            standing={resolveFlashcardStanding({ deck, queue, now: Date.now() })}
+            peekCardID={undefined}
+            onPeek={() => {}}
+            onAction={() => {}}
+          />
+        </QueryClientProvider>,
       )
       await flushEffects()
     })
@@ -1488,19 +1490,21 @@ describe("bench surface rendering", () => {
   test("renders question sets in Bench with wizard and list modes", async () => {
     await act(async () => {
       root.render(
-        <TestBenchContextProvider>
-          <QuestionSetBenchReview
-            directory={TEST_DIRECTORY}
-            target={TEST_QUESTION_SET_TARGET}
-            questionSet={createRandomizedQuestionSet()}
-            onSubmit={async () => ({
-              totalQuestions: 1,
-              correctQuestions: 0,
-              status: "partial",
-              questions: [],
-            })}
-          />
-        </TestBenchContextProvider>,
+        <QueryClientProvider client={new QueryClient()}>
+          <TestBenchContextProvider>
+            <QuestionSetBenchReview
+              directory={TEST_DIRECTORY}
+              target={TEST_QUESTION_SET_TARGET}
+              questionSet={createRandomizedQuestionSet()}
+              onSubmit={async () => ({
+                totalQuestions: 1,
+                correctQuestions: 0,
+                status: "partial",
+                questions: [],
+              })}
+            />
+          </TestBenchContextProvider>
+        </QueryClientProvider>,
       )
       await flushEffects()
     })
@@ -1548,19 +1552,21 @@ describe("bench surface rendering", () => {
     try {
       await act(async () => {
         root.render(
-          <TestBenchContextProvider target={TEST_QUESTION_SET_TARGET}>
-            <QuestionSetBenchReview
-              directory={TEST_DIRECTORY}
-              target={TEST_QUESTION_SET_TARGET}
-              questionSet={createRandomizedQuestionSet()}
-              onSubmit={async () => ({
-                totalQuestions: 2,
-                correctQuestions: 0,
-                status: "partial",
-                questions: [],
-              })}
-            />
-          </TestBenchContextProvider>,
+          <QueryClientProvider client={new QueryClient()}>
+            <TestBenchContextProvider target={TEST_QUESTION_SET_TARGET}>
+              <QuestionSetBenchReview
+                directory={TEST_DIRECTORY}
+                target={TEST_QUESTION_SET_TARGET}
+                questionSet={createRandomizedQuestionSet()}
+                onSubmit={async () => ({
+                  totalQuestions: 2,
+                  correctQuestions: 0,
+                  status: "partial",
+                  questions: [],
+                })}
+              />
+            </TestBenchContextProvider>
+          </QueryClientProvider>,
         )
         await flushEffects()
       })
@@ -1587,17 +1593,19 @@ describe("bench surface rendering", () => {
     const submissionIDs: string[] = []
     await act(async () => {
       root.render(
-        <TestBenchContextProvider>
-          <QuestionSetBenchReview
-            directory={TEST_DIRECTORY}
-            target={TEST_QUESTION_SET_TARGET}
-            questionSet={createRandomizedQuestionSet()}
-            onSubmit={async (_answers, submissionID) => {
-              submissionIDs.push(submissionID)
-              throw new Error("Ambiguous network failure")
-            }}
-          />
-        </TestBenchContextProvider>,
+        <QueryClientProvider client={new QueryClient()}>
+          <TestBenchContextProvider>
+            <QuestionSetBenchReview
+              directory={TEST_DIRECTORY}
+              target={TEST_QUESTION_SET_TARGET}
+              questionSet={createRandomizedQuestionSet()}
+              onSubmit={async (_answers, submissionID) => {
+                submissionIDs.push(submissionID)
+                throw new Error("Ambiguous network failure")
+              }}
+            />
+          </TestBenchContextProvider>
+        </QueryClientProvider>,
       )
       await flushEffects()
     })

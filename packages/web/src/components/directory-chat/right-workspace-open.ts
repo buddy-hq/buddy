@@ -13,12 +13,14 @@ import { useOpenReadingResource } from "@/lib/use-open-reading-resource"
 import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import type { NotebookSearchResult } from "@/state/notebook-search"
 import type { ResourceReadingTarget } from "@/state/resources-query"
+import { useDirectoryWorkspaceOptional } from "./directory-workspace-context"
 
 export type RightWorkspaceResourceTarget = ResourceReadingTarget
 
 export type RightWorkspaceOpenOutcome = "opened" | "focused" | "blocked" | "failed"
 
 export type RightWorkspaceOpenRequest =
+  | { type: "tab"; directory: string; tabKey: string }
   | { type: "object"; directory: string; target: BenchTarget }
   | {
       type: "resource"
@@ -72,12 +74,25 @@ export function resolveRightWorkspaceOpenOutcome(
  */
 export function useRightWorkspaceOpen(options?: RightWorkspaceOpenOptions): RightWorkspaceOpener {
   const mode = options?.mode ?? BENCH_CHAT_LAYOUT_DOCKED
+  const workspace = useDirectoryWorkspaceOptional()
   const openBench = useOpenBench()
   const openReadingResource = useOpenReadingResource({ mode })
 
   return useCallback(
     async (request: RightWorkspaceOpenRequest) => {
       try {
+        if (request.type === "tab") {
+          if (!workspace || workspace.directory !== request.directory) return "failed"
+          const result = await workspace.controller.execute({
+            type: "focus-tab",
+            tabKey: request.tabKey,
+          })
+          return result.outcome === "committed"
+            ? "focused"
+            : result.outcome === "blocked"
+              ? "blocked"
+              : "failed"
+        }
         if (request.type === "resource") {
           return resolveRightWorkspaceOpenOutcome(
             await openReadingResource(request.directory, request.resource),
@@ -97,7 +112,7 @@ export function useRightWorkspaceOpen(options?: RightWorkspaceOpenOptions): Righ
         return "failed"
       }
     },
-    [mode, openBench, openReadingResource],
+    [mode, openBench, openReadingResource, workspace],
   )
 }
 
@@ -112,6 +127,10 @@ export function notebookSearchOpenRequest(input: {
   const { target } = input.result
 
   if (target.type === "thread") return null
+
+  if (target.type === "open-tab") {
+    return { type: "tab", directory: input.directory, tabKey: target.tabKey }
+  }
 
   if (target.type === "resource") {
     return {

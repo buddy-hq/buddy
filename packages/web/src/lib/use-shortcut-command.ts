@@ -2,7 +2,8 @@ import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys"
 import { useEffect, useRef } from "react"
 import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import {
-  CHAT_JUMP_SHORTCUTS,
+  BENCH_TAB_SHORTCUTS,
+  benchTabShortcutPosition,
   SHORTCUTS,
   shouldRunShortcut,
   type ShortcutCommand,
@@ -66,6 +67,13 @@ export function useShortcutCommand(
   useHotkey(
     SHORTCUTS[command],
     (event) => {
+      // Quick open reserves Print even when a dialog owns focus. Its handler
+      // refocuses an existing picker and leaves other dialogs in place.
+      if (command === "file.quickOpen" && !event.defaultPrevented) {
+        event.preventDefault()
+        if (!event.repeat) invokeShortcutHandler(command, handlerRef.current, onErrorRef.current)
+        return
+      }
       if (event.repeat || !shouldRunShortcut(event, ignoreWithin)) return
       event.preventDefault()
       invokeShortcutHandler(command, handlerRef.current, onErrorRef.current)
@@ -88,42 +96,55 @@ export function useShortcutCommand(
 }
 
 /**
- * Runs `handler` with the zero-based position when Mod+1 … Mod+9 is pressed. Only the first
- * `count` keys are handled, so a key with no chat behind it keeps its own meaning.
+ * Runs `handler` with the zero-based strip position when Mod+1 … Mod+9 is pressed; Mod+9 means
+ * the last tab. A key with no tab behind it keeps its own meaning.
  */
-export function useChatJumpShortcuts(
-  handler: (index: number) => void | Promise<void>,
-  options: { count: number; onError?: (error: Error) => void },
+export function useBenchTabShortcuts(
+  handler: (position: number) => void | Promise<void>,
+  options: { count: number; enabled?: boolean; onError?: (error: Error) => void },
 ) {
+  const { count, enabled = true } = options
   const handlerRef = useRef(handler)
   const onErrorRef = useRef(options.onError)
   handlerRef.current = handler
   onErrorRef.current = options.onError
 
   useHotkeys(
-    CHAT_JUMP_SHORTCUTS.map((shortcut, index) => ({
-      hotkey: shortcut.hotkey,
-      callback: (event: KeyboardEvent) => {
-        if (event.repeat || !shouldRunShortcut(event)) return
-        event.preventDefault()
-        invokeShortcutHandler(shortcut.command, () => handlerRef.current(index), onErrorRef.current)
-      },
-      options: { enabled: index < options.count },
-    })),
+    BENCH_TAB_SHORTCUTS.map((shortcut, index) => {
+      const position = benchTabShortcutPosition(shortcut.command, index, count)
+      return {
+        hotkey: shortcut.hotkey,
+        callback: (event: KeyboardEvent) => {
+          if (position === null || event.repeat || !shouldRunShortcut(event)) return
+          event.preventDefault()
+          invokeShortcutHandler(
+            shortcut.command,
+            () => handlerRef.current(position),
+            onErrorRef.current,
+          )
+        },
+        options: { enabled: enabled && position !== null },
+      }
+    }),
     HOTKEY_OPTIONS,
   )
 
   useEffect(() => {
+    if (!enabled) return
+
     function onMenuCommand(event: Event) {
       if (!(event instanceof CustomEvent)) return
       const command = parseTString(parseTJsonObject(event.detail)?.id)
       if (!command) return
-      const index = CHAT_JUMP_SHORTCUTS.findIndex((shortcut) => shortcut.command === command)
-      if (index < 0 || index >= options.count) return
-      invokeShortcutHandler(command, () => handlerRef.current(index), onErrorRef.current)
+      const index = BENCH_TAB_SHORTCUTS.findIndex((shortcut) => shortcut.command === command)
+      const shortcut = BENCH_TAB_SHORTCUTS[index]
+      if (!shortcut) return
+      const position = benchTabShortcutPosition(shortcut.command, index, count)
+      if (position === null) return
+      invokeShortcutHandler(command, () => handlerRef.current(position), onErrorRef.current)
     }
 
     window.addEventListener(MENU_COMMAND_EVENT, onMenuCommand)
     return () => window.removeEventListener(MENU_COMMAND_EVENT, onMenuCommand)
-  }, [options.count])
+  }, [count, enabled])
 }

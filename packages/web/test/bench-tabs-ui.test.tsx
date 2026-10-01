@@ -45,6 +45,161 @@ afterEach(async () => {
 })
 
 describe("BenchTabs", () => {
+  test("keeps the tab strip and new-tab control when there are no open tabs", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    let newTabRequests = 0
+
+    await act(async () => {
+      root?.render(
+        <QueryClientProvider client={new QueryClient()}>
+          <BenchTabs
+            directory="/workspace"
+            tabs={[]}
+            activeTabKey={null}
+            onActivate={() => undefined}
+            onClose={() => undefined}
+            onCloseOthers={() => undefined}
+            onCloseToRight={() => undefined}
+            onCloseAll={() => undefined}
+            onNewTab={() => {
+              newTabRequests += 1
+            }}
+            emptyTabIDs={["new-a"]}
+            activeEmptyTabID="new-a"
+          />
+        </QueryClientProvider>,
+      )
+    })
+
+    expect(container.querySelector('[data-component="bench-tabs"]')).not.toBeNull()
+    expect(container.querySelectorAll('[role="tab"]')).toHaveLength(1)
+    expect(container.querySelector('[role="tab"]')?.textContent).toBe("New tab")
+    expect(container.querySelector('[role="tab"]')?.getAttribute("aria-selected")).toBe("true")
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>('[aria-label="New tab"]')?.click()
+    })
+    expect(newTabRequests).toBe(1)
+  })
+
+  test("offers the bulk closes on a lone item tab only when New tabs follow it", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const tabs = upsertBenchTab([], FIRST_TARGET).tabs
+
+    async function bulkCloseItemsDisabled(emptyTabIDs: string[]) {
+      await act(async () => {
+        root?.render(
+          <QueryClientProvider client={new QueryClient()}>
+            <BenchTabs
+              directory="/workspace"
+              tabs={tabs}
+              activeTabKey={tabs[0]?.key ?? null}
+              onActivate={() => undefined}
+              onClose={() => undefined}
+              onCloseOthers={() => undefined}
+              onCloseToRight={() => undefined}
+              onCloseAll={() => undefined}
+              onNewTab={() => undefined}
+              emptyTabIDs={emptyTabIDs}
+              activeEmptyTabID={null}
+            />
+          </QueryClientProvider>,
+        )
+      })
+      const itemTab = container?.querySelector<HTMLElement>(
+        '[data-component="bench-tab"]:not([data-empty])',
+      )
+      if (!itemTab) throw new Error("Expected the item tab")
+      await act(async () => {
+        itemTab.dispatchEvent(
+          new MouseEvent("contextmenu", {
+            bubbles: true,
+            cancelable: true,
+            clientX: 4,
+            clientY: 4,
+          }),
+        )
+      })
+      const items = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+      const disabledByLabel = new Map(
+        items.map((item) => [item.textContent?.trim(), item.hasAttribute("data-disabled")]),
+      )
+      await act(async () => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+      })
+      return {
+        closeOthers: disabledByLabel.get("Close others"),
+        closeToRight: disabledByLabel.get("Close to the right"),
+      }
+    }
+
+    expect(await bulkCloseItemsDisabled(["new-a"])).toEqual({
+      closeOthers: false,
+      closeToRight: false,
+    })
+    expect(await bulkCloseItemsDisabled([])).toEqual({ closeOthers: true, closeToRight: true })
+  })
+
+  test("lists every New tab after the item tabs while a file is selected", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const tabs = upsertBenchTab([], FIRST_TARGET).tabs
+    let newTabRequests = 0
+    const activated: string[] = []
+    const closed: string[] = []
+
+    await act(async () => {
+      root?.render(
+        <QueryClientProvider client={new QueryClient()}>
+          <BenchTabs
+            directory="/workspace"
+            tabs={tabs}
+            activeTabKey={tabs[0]?.key ?? null}
+            onActivate={() => undefined}
+            onClose={() => undefined}
+            onCloseOthers={() => undefined}
+            onCloseToRight={() => undefined}
+            onCloseAll={() => undefined}
+            onNewTab={() => {
+              newTabRequests += 1
+            }}
+            emptyTabIDs={["new-a", "new-b"]}
+            activeEmptyTabID={null}
+            onActivateEmptyTab={(id) => {
+              activated.push(id)
+            }}
+            onCloseEmptyTab={(id) => {
+              closed.push(id)
+            }}
+          />
+        </QueryClientProvider>,
+      )
+    })
+
+    const labels = Array.from(container.querySelectorAll('[role="tab"]')).map(
+      (tab) => tab.textContent,
+    )
+    expect(labels).toHaveLength(3)
+    expect(labels.slice(1)).toEqual(["New tab", "New tab"])
+    const emptyTabs = Array.from(container.querySelectorAll<HTMLElement>('[data-empty="true"]'))
+    expect(emptyTabs.map((tab) => tab.dataset.tabKey)).toEqual(["new-tab:new-a", "new-tab:new-b"])
+    expect(emptyTabs.map((tab) => tab.dataset.active)).toEqual(["false", "false"])
+    await act(async () => {
+      emptyTabs[1]?.querySelector<HTMLButtonElement>('[role="tab"]')?.click()
+      emptyTabs[0]?.querySelector<HTMLButtonElement>('[aria-label="Close New tab"]')?.click()
+    })
+    expect(activated).toEqual(["new-b"])
+    expect(closed).toEqual(["new-a"])
+    expect(newTabRequests).toBe(0)
+  })
+
   test("marks an older path-keyed Notes tab stale after an ID-bearing capture", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
@@ -74,6 +229,7 @@ describe("BenchTabs", () => {
           onCloseOthers={() => undefined}
           onCloseToRight={() => undefined}
           onCloseAll={() => undefined}
+          onNewTab={() => undefined}
         />
       </QueryClientProvider>
     )
@@ -112,6 +268,7 @@ describe("BenchTabs", () => {
             onCloseOthers={() => undefined}
             onCloseToRight={() => undefined}
             onCloseAll={() => undefined}
+            onNewTab={() => undefined}
           />
         </QueryClientProvider>,
       )
@@ -188,6 +345,7 @@ describe("BenchTabs", () => {
             onCloseOthers={() => undefined}
             onCloseToRight={() => undefined}
             onCloseAll={() => undefined}
+            onNewTab={() => undefined}
           />
         </QueryClientProvider>,
       )
@@ -228,6 +386,7 @@ describe("BenchTabs", () => {
             onCloseOthers={() => undefined}
             onCloseToRight={() => undefined}
             onCloseAll={() => undefined}
+            onNewTab={() => undefined}
             onEnterImmersive={onEnterImmersive}
           />
         </QueryClientProvider>
@@ -303,6 +462,7 @@ describe("BenchTabs", () => {
             onCloseOthers={() => undefined}
             onCloseToRight={() => undefined}
             onCloseAll={() => undefined}
+            onNewTab={() => undefined}
           />
         </QueryClientProvider>,
       )
@@ -324,7 +484,7 @@ describe("BenchTabs", () => {
     expect(tabFavicon()?.getAttribute("src")).toBe("https://mail.google.com/favicon.ico")
   })
 
-  test("falls through a broken captured favicon to the live origin, then the globe", async () => {
+  test("falls through a broken captured favicon to the live origin, then Buddy's browser art", async () => {
     await renderBrowserTab({
       tabID: "browser/gmail-fallback",
       targetUrl: "https://gmail.com/",
@@ -345,8 +505,7 @@ describe("BenchTabs", () => {
     expect(tabFavicon()?.getAttribute("src")).toBe("https://mail.google.com/favicon.ico")
 
     await failTabFavicon()
-    expect(tabFavicon()).toBeNull()
-    expect(container?.querySelector('[role="tab"] svg')).not.toBeNull()
+    expect(tabFavicon()?.getAttribute("src")).toContain("browser.webp")
   })
 })
 
@@ -391,6 +550,7 @@ async function renderBrowserTab(input: {
           onCloseOthers={() => undefined}
           onCloseToRight={() => undefined}
           onCloseAll={() => undefined}
+          onNewTab={() => undefined}
         />
       </QueryClientProvider>,
     )

@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test"
 import {
+  DEFAULT_IN_APP_BROWSER_PROFILE_ID,
+  parseInAppBrowserProfileID,
+} from "@buddy/browser-contract/profiles"
+import {
   benchTabKey,
   closeBenchTab,
   closeBenchTabsToRight,
   closeOtherBenchTabs,
+  existingBrowserTabTarget,
   replaceBenchTab,
   resolveBenchTabTitle,
   upsertBenchTab,
@@ -89,6 +94,42 @@ describe("Bench tabs", () => {
     const blankTab = upsertBenchTab([], BLANK_BROWSER_TAB).tabs[0]
     if (!blankTab) throw new Error("Expected a blank browser tab.")
     expect(resolveBenchTabTitle(blankTab, new Map())).toBe("New tab")
+  })
+
+  test("focuses an existing browser tab by its live URL and profile", () => {
+    const tabs = upsertBenchTab([], {
+      ...BROWSER_TAB,
+      profileID: DEFAULT_IN_APP_BROWSER_PROFILE_ID,
+    }).tabs
+    const requested = {
+      type: "browser" as const,
+      tabID: "browser/new",
+      url: "https://hibuddy.in/lesson",
+      profileID: DEFAULT_IN_APP_BROWSER_PROFILE_ID,
+    }
+    expect(
+      existingBrowserTabTarget({
+        tabs,
+        target: requested,
+        runtimeUrls: { [BROWSER_TAB.tabID]: { url: requested.url } },
+      })?.tabID,
+    ).toBe(BROWSER_TAB.tabID)
+    const workProfile = parseInAppBrowserProfileID("work")
+    if (!workProfile) throw new Error("Expected valid profile")
+    expect(
+      existingBrowserTabTarget({
+        tabs,
+        target: { ...requested, profileID: workProfile },
+        runtimeUrls: { [BROWSER_TAB.tabID]: { url: requested.url } },
+      }),
+    ).toBeUndefined()
+    expect(
+      existingBrowserTabTarget({
+        tabs,
+        target: { ...requested, url: "about:blank" },
+        runtimeUrls: {},
+      }),
+    ).toBeUndefined()
   })
 
   test("uses logical identity and replaces a tab target without moving it", () => {

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import {
@@ -59,14 +60,18 @@ describe("inline question-set idempotency", () => {
       submissionIDs.push(submissionID)
       throw new Error("Response was lost")
     }
+    // Markdown file links in the questions resolve through the query client.
+    const queryClient = new QueryClient()
     const renderQuestionSet = () => (
-      <QuestionSetInlineView
-        questionSet={QUESTION_SET}
-        persistKey="question-set-idempotency-remount"
-        defaultOpen
-        hideCard
-        onSubmit={onSubmit}
-      />
+      <QueryClientProvider client={queryClient}>
+        <QuestionSetInlineView
+          questionSet={QUESTION_SET}
+          persistKey="question-set-idempotency-remount"
+          defaultOpen
+          hideCard
+          onSubmit={onSubmit}
+        />
+      </QueryClientProvider>
     )
 
     root = createRoot(container)

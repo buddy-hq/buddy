@@ -5,23 +5,22 @@ import { immer } from "zustand/middleware/immer"
 import { z } from "zod"
 import { createPlatformJsonStorage } from "../context/platform"
 import { LEFT_SIDEBAR_DEFAULT_WIDTH_PX } from "@/lib/directory-chat/left-sidebar-layout"
+import type { WorkspaceCollection } from "@/lib/directory-chat/workspace-presentation"
 import type { OneTimeNoticeID, SeenOneTimeNotices } from "@/state/one-time-notices"
 import { parseFiniteNumber, parseWithSchema } from "./parse-external"
 
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
-
-const DEFAULT_PROJECT_FILE_TREE_OPEN = false
 
 type TPersistedUiPreferences = {
   pinnedByDirectory?: Record<string, string[]>
   pinnedDirectories?: string[]
   unreadByDirectory?: Record<string, Record<string, true>>
   collapsedChatSidebarDirectories?: Record<string, true>
+  collapsedWorkspaceLists?: Record<string, true>
   leftSidebarOpen?: boolean
   leftSidebarWidth?: number
   chatLeftSidebarWidth?: number
   settingsSidebarWidth?: number
-  projectFileTreeOpen?: boolean
   teacherStandardsAutoSetupComplete?: boolean
   notesScope?: "notebook" | "all"
   notesLocationIntroSeen?: boolean
@@ -34,11 +33,11 @@ const persistedUiPreferencesSchema = z.object({
   pinnedDirectories: z.array(z.string()).optional(),
   unreadByDirectory: z.record(z.string(), z.record(z.string(), z.literal(true))).optional(),
   collapsedChatSidebarDirectories: z.record(z.string(), z.literal(true)).optional(),
+  collapsedWorkspaceLists: z.record(z.string(), z.literal(true)).optional(),
   leftSidebarOpen: z.boolean().optional(),
   leftSidebarWidth: z.number().finite().optional(),
   chatLeftSidebarWidth: z.number().finite().optional(),
   settingsSidebarWidth: z.number().finite().optional(),
-  projectFileTreeOpen: z.boolean().optional(),
   teacherStandardsAutoSetupComplete: z.boolean().optional(),
   notesScope: z.enum(["notebook", "all"]).optional(),
   notesLocationIntroSeen: z.boolean().optional(),
@@ -66,10 +65,15 @@ export type UiPreferencesStore = {
   pinnedDirectories: string[]
   unreadByDirectory: Record<string, Record<string, true>>
   collapsedChatSidebarDirectories: Record<string, true>
+  /**
+   * Right-sidebar sections whose list the user hid. Only hidden sections are stored, so a section
+   * with no entry is shown and a new section starts shown. One choice for the whole app, not per
+   * notebook.
+   */
+  collapsedWorkspaceLists: Partial<Record<WorkspaceCollection, true>>
   leftSidebarOpen: boolean
   chatLeftSidebarWidth: number
   settingsSidebarWidth: number
-  projectFileTreeOpen: boolean
   teacherStandardsAutoSetupComplete: boolean
   notesScope: "notebook" | "all"
   setNotesScope: (scope: "notebook" | "all") => void
@@ -82,12 +86,13 @@ export type UiPreferencesStore = {
   isUnread: (directory: string, sessionID: string) => boolean
   clearDirectorySessionState: (directory: string, sessionID: string) => void
   setChatSidebarDirectoryOpen: (directory: string, open: boolean) => void
+  /** Pins a notebook at the end of the pinned notebooks, or unpins it. */
   togglePinnedDirectory: (directory: string) => void
   setPinnedDirectories: (directories: string[]) => void
+  setWorkspaceListOpen: (collection: WorkspaceCollection, open: boolean) => void
   setLeftSidebarOpen: (open: boolean) => void
   setChatLeftSidebarWidth: (width: number) => void
   setSettingsSidebarWidth: (width: number) => void
-  setProjectFileTreeOpen: (open: boolean) => void
   setTeacherStandardsAutoSetupComplete: (complete: boolean) => void
   markNoticeSeen: (id: OneTimeNoticeID) => void
   setOpenExternalFilesWithoutAsking: (allowed: boolean) => void
@@ -159,25 +164,25 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         UiPreferencesStore,
         | "collapsedChatSidebarDirectories"
         | "pinnedDirectories"
+        | "collapsedWorkspaceLists"
         | "leftSidebarOpen"
         | "chatLeftSidebarWidth"
         | "settingsSidebarWidth"
-        | "projectFileTreeOpen"
         | "setChatSidebarDirectoryOpen"
         | "togglePinnedDirectory"
         | "setPinnedDirectories"
+        | "setWorkspaceListOpen"
         | "setLeftSidebarOpen"
         | "setChatLeftSidebarWidth"
         | "setSettingsSidebarWidth"
-        | "setProjectFileTreeOpen"
       > = {
         collapsedChatSidebarDirectories: {},
         pinnedDirectories: [],
+        collapsedWorkspaceLists: {},
         leftSidebarOpen: true,
         // Settings shows the same directory/thread list, so both start at the same width.
         chatLeftSidebarWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
         settingsSidebarWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
-        projectFileTreeOpen: DEFAULT_PROJECT_FILE_TREE_OPEN,
         setChatSidebarDirectoryOpen(directory, open) {
           set((state) => {
             if (open) {
@@ -199,6 +204,15 @@ export const useUiPreferences = create<UiPreferencesStore>()(
             state.pinnedDirectories = [...new Set(directories)]
           })
         },
+        setWorkspaceListOpen(collection, open) {
+          set((state) => {
+            if (open) {
+              delete state.collapsedWorkspaceLists[collection]
+            } else {
+              state.collapsedWorkspaceLists[collection] = true
+            }
+          })
+        },
         setLeftSidebarOpen(open) {
           set((state) => {
             state.leftSidebarOpen = open
@@ -212,11 +226,6 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         setSettingsSidebarWidth(width) {
           set((state) => {
             state.settingsSidebarWidth = width
-          })
-        },
-        setProjectFileTreeOpen(open) {
-          set((state) => {
-            state.projectFileTreeOpen = open
           })
         },
       }
@@ -269,7 +278,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 22,
+      version: 23,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = parsePersistedUiPreferences(persistedState)
@@ -279,10 +288,10 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           pinnedDirectories: state?.pinnedDirectories ?? [],
           unreadByDirectory: state?.unreadByDirectory ?? {},
           collapsedChatSidebarDirectories: state?.collapsedChatSidebarDirectories ?? {},
+          collapsedWorkspaceLists: state?.collapsedWorkspaceLists ?? {},
           leftSidebarOpen: state?.leftSidebarOpen ?? true,
           chatLeftSidebarWidth: state?.chatLeftSidebarWidth ?? legacyLeftSidebarWidth,
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
-          projectFileTreeOpen: state?.projectFileTreeOpen ?? DEFAULT_PROJECT_FILE_TREE_OPEN,
           teacherStandardsAutoSetupComplete: state?.teacherStandardsAutoSetupComplete ?? false,
           notesScope: state?.notesScope ?? "notebook",
           seenNotices: migrateSeenNotices(state),
@@ -295,10 +304,10 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           pinnedDirectories: state.pinnedDirectories,
           unreadByDirectory: state.unreadByDirectory,
           collapsedChatSidebarDirectories: state.collapsedChatSidebarDirectories,
+          collapsedWorkspaceLists: state.collapsedWorkspaceLists,
           leftSidebarOpen: state.leftSidebarOpen,
           chatLeftSidebarWidth: state.chatLeftSidebarWidth,
           settingsSidebarWidth: state.settingsSidebarWidth,
-          projectFileTreeOpen: state.projectFileTreeOpen,
           teacherStandardsAutoSetupComplete: state.teacherStandardsAutoSetupComplete,
           notesScope: state.notesScope,
           seenNotices: state.seenNotices,

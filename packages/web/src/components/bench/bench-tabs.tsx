@@ -1,12 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-  type CSSProperties,
-  type KeyboardEvent,
-} from "react"
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react"
 import "@/components/prompt/composer-surfaces.css"
 import "@/components/bench/bench-tabs.css"
 import { useQuery } from "@tanstack/react-query"
@@ -25,28 +17,18 @@ import {
   TooltipTrigger,
   cn,
 } from "@buddy/ui"
-import {
-  ArrowExpand02Icon,
-  Bot,
-  BookOpenIcon,
-  FileIcon,
-  FileTextIcon,
-  Globe,
-  ImageIcon,
-  PanelsTopLeftIcon,
-  PresentationIcon,
-  StudyLampIcon,
-  WorkflowIcon,
-  XIcon,
-} from "@/icons/app-icons"
-import type { BenchObjectKind } from "@/lib/bench-navigation"
-import { BenchNewTabPopover } from "@/components/bench/bench-new-tab-popover"
+import { ArrowExpand02Icon, PlusIcon, XIcon, SearchIcon } from "@/icons/app-icons"
 import { BrowserTabAudioButton, BrowserTabMuteMenuItem } from "@/components/bench/browser-tab-audio"
-import { BrowserFaviconImage } from "@/components/bench/surfaces/browser/browser-favicon-image"
-import { benchTabKey, resolveBenchTabTitle, type BenchTab } from "@/lib/bench-tabs"
+import { BenchItemIcon, benchTargetIconSubject } from "@/components/bench/bench-item-icon"
+import {
+  EMPTY_BENCH_TAB_TITLE,
+  benchTabKey,
+  emptyBenchTabKey,
+  resolveBenchTabTitle,
+  type BenchTab,
+} from "@/lib/bench-tabs"
 import { BENCH_WORKSPACE_ROOT_NOTES, createNotesBenchTarget } from "@/lib/bench-targets"
 import { notesLibraryQueryOptions } from "@/features/notes/queries"
-import { inAppBrowserFaviconImageSources } from "@/lib/in-app-browser-favicon"
 import { useNoteCaptureSignal } from "@/features/notes/capture-activity"
 import { parseSubagentSession } from "@/lib/session-family"
 import { useChatStore } from "@/state/chat-store"
@@ -55,6 +37,7 @@ import { useInAppBrowserTabsStore } from "@/state/in-app-browser-tabs-store"
 import type { InAppBrowserTabRuntime } from "@/state/in-app-browser-tabs-store"
 
 const EMPTY_TAB_KEYS: ReadonlySet<string> = new Set()
+const NO_EMPTY_TAB_IDS: readonly string[] = []
 
 type BenchTabsProps = {
   directory: string
@@ -66,6 +49,13 @@ type BenchTabsProps = {
   onCloseOthers: (tabKey: string) => void
   onCloseToRight: (tabKey: string) => void
   onCloseAll: () => void
+  onNewTab: () => void
+  /** New tabs, shown after the item tabs. */
+  emptyTabIDs?: readonly string[]
+  /** The New tab the Bench shows, if any. */
+  activeEmptyTabID?: string | null
+  onActivateEmptyTab?: (emptyTabID: string) => void
+  onCloseEmptyTab?: (emptyTabID: string) => void
   /** Takes the Bench full-window. Absent while the Bench is already immersive. */
   onEnterImmersive?: () => void
 }
@@ -83,7 +73,6 @@ type BenchTabItemProps = {
   onCloseOthers: () => void
   onCloseToRight: () => void
   onCloseAll: () => void
-  browserRuntime?: InAppBrowserTabRuntime
 }
 
 const TAB_ICON_CLASS = "size-3.5 shrink-0"
@@ -98,53 +87,60 @@ const TAB_KEY_ARROW_RIGHT = "ArrowRight"
 const TAB_KEY_HOME = "Home"
 const TAB_KEY_END = "End"
 
-function objectTabIcon(kind: BenchObjectKind): ComponentType<{ className?: string }> {
-  switch (kind) {
-    case "resource":
-      return BookOpenIcon
-    case "whiteboard":
-      return PresentationIcon
-    case "mermaid":
-      return WorkflowIcon
-    case "html-widget":
-      return PanelsTopLeftIcon
-    case "figure":
-    case "freeform-figure":
-      return ImageIcon
-    case "media-presentation":
-      return PresentationIcon
-    case "question-set":
-      return StudyLampIcon
-    case "flashcard-deck":
-      return BookOpenIcon
-  }
-}
+function EmptyBenchTabItem(props: {
+  emptyTabID: string
+  active: boolean
+  onActivate: () => void
+  onClose: (() => void) | undefined
+}) {
+  const tabRef = useRef<HTMLDivElement>(null)
 
-function benchTabIcon(target: BenchTab["target"]): ComponentType<{ className?: string }> {
-  if (target.type === "session") return Bot
-  if (target.type === "browser") return Globe
-  if (target.type === "workspace-file") {
-    return target.viewer === "markdown" ? FileTextIcon : FileIcon
-  }
-  return objectTabIcon(target.ref.kind)
-}
+  useEffect(() => {
+    if (!props.active) return
+    tabRef.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" })
+  }, [props.active])
 
-function BrowserTabFavicon(props: { runtime: InAppBrowserTabRuntime | undefined }) {
   return (
-    <BrowserFaviconImage
-      sources={inAppBrowserFaviconImageSources({
-        capturedDataUrl: props.runtime?.favicon?.dataUrl ?? null,
-        pageUrl: props.runtime?.url ?? null,
-      })}
-      fallback={<Globe className={TAB_ICON_CLASS} />}
-      className={`${TAB_ICON_CLASS} rounded-sm object-contain`}
-    />
+    <div
+      ref={tabRef}
+      data-component="bench-tab"
+      data-empty="true"
+      data-tab-key={emptyBenchTabKey(props.emptyTabID)}
+      data-active={props.active ? "true" : "false"}
+      className={cn(
+        "bench-tab group relative flex h-7 shrink-0 cursor-default items-center gap-1.5 px-2 text-sm [-webkit-app-region:no-drag]",
+        props.active
+          ? "composer-surface-tab composer-grain text-text-strong"
+          : "text-text-weak hover:bg-surface-base-hover hover:text-text-base",
+      )}
+    >
+      <button
+        type="button"
+        role="tab"
+        tabIndex={props.active ? 0 : -1}
+        aria-selected={props.active}
+        className="bench-tab-label flex h-full min-w-0 flex-1 items-center gap-1.5 text-left outline-none"
+        onClick={props.onActivate}
+      >
+        <SearchIcon className={TAB_ICON_CLASS} aria-hidden />
+        <span className="bench-tab-title min-w-0 flex-1">{EMPTY_BENCH_TAB_TITLE}</span>
+      </button>
+      {props.onClose ? (
+        <button
+          type="button"
+          aria-label={`Close ${EMPTY_BENCH_TAB_TITLE}`}
+          className="bench-tab-close relative flex size-4 shrink-0 items-center justify-center rounded-sm text-icon-base hover:bg-surface-base-hover hover:text-text-strong"
+          onClick={props.onClose}
+        >
+          <XIcon className="size-3" />
+        </button>
+      ) : null}
+    </div>
   )
 }
 
 function BenchTabItem(props: BenchTabItemProps) {
   const tabRef = useRef<HTMLDivElement>(null)
-  const Icon = benchTabIcon(props.tab.target)
 
   useEffect(() => {
     if (!props.active) return
@@ -193,11 +189,10 @@ function BenchTabItem(props: BenchTabItemProps) {
                 aria-selected={props.active}
                 className="bench-tab-label flex h-full min-w-0 flex-1 items-center gap-1.5 text-left outline-none"
               >
-                {props.tab.target.type === "browser" ? (
-                  <BrowserTabFavicon runtime={props.browserRuntime} />
-                ) : (
-                  <Icon className={TAB_ICON_CLASS} />
-                )}
+                <BenchItemIcon
+                  subject={benchTargetIconSubject(props.tab.target, props.title)}
+                  className="size-4 shrink-0 object-contain"
+                />
                 <span className="bench-tab-title min-w-0 flex-1">{props.title}</span>
                 {props.stale ? (
                   <span
@@ -381,11 +376,10 @@ export function BenchTabs(props: BenchTabsProps) {
     }
     return titles
   }, [notesLibraryQuery.data?.notes])
+  const emptyTabIDs = props.emptyTabIDs ?? NO_EMPTY_TAB_IDS
   const stripStyle: CSSProperties & Record<typeof TAB_COUNT_PROPERTY, string> = {
-    [TAB_COUNT_PROPERTY]: String(props.tabs.length),
+    [TAB_COUNT_PROPERTY]: String(Math.max(1, props.tabs.length + emptyTabIDs.length)),
   }
-
-  if (props.tabs.length === 0) return null
 
   function handleTablistKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     if (!(event.target instanceof Element)) return
@@ -415,12 +409,14 @@ export function BenchTabs(props: BenchTabsProps) {
         return
     }
 
-    const nextTab = props.tabs[nextIndex]
     const nextTabElement = tabElements[nextIndex]
-    if (!nextTab || !nextTabElement) return
+    if (!nextTabElement) return
     event.preventDefault()
     nextTabElement.focus()
-    props.onActivate(nextTab.key)
+    const nextTab = props.tabs[nextIndex]
+    const nextEmptyTabID = emptyTabIDs[nextIndex - props.tabs.length]
+    if (nextTab) props.onActivate(nextTab.key)
+    else if (nextEmptyTabID) props.onActivateEmptyTab?.(nextEmptyTabID)
   }
 
   return (
@@ -491,23 +487,41 @@ export function BenchTabs(props: BenchTabsProps) {
                 title={title}
                 active={tab.key === props.activeTabKey}
                 stale={staleTabKeys.has(tab.key)}
-                last={index === props.tabs.length - 1}
-                only={props.tabs.length === 1}
+                last={index === props.tabs.length - 1 && emptyTabIDs.length === 0}
+                only={props.tabs.length === 1 && emptyTabIDs.length === 0}
                 onActivate={() => props.onActivate(tab.key)}
                 onClose={() => props.onClose(tab.key)}
                 onCloseOthers={() => props.onCloseOthers(tab.key)}
                 onCloseToRight={() => props.onCloseToRight(tab.key)}
                 onCloseAll={props.onCloseAll}
-                browserRuntime={
-                  tab.target.type === "browser" ? browserRuntimes.get(tab.target.tabID) : undefined
-                }
               />
             )
           })}
+          {emptyTabIDs.map((emptyTabID) => (
+            <EmptyBenchTabItem
+              key={emptyTabID}
+              emptyTabID={emptyTabID}
+              active={props.activeEmptyTabID === emptyTabID}
+              onActivate={() => props.onActivateEmptyTab?.(emptyTabID)}
+              onClose={
+                props.onCloseEmptyTab ? () => props.onCloseEmptyTab?.(emptyTabID) : undefined
+              }
+            />
+          ))}
           {/* Rides with the tabs rather than sitting at the end of the bar, so it
               stays next to the last tab however few tabs are open. */}
           <span data-component="bench-tabs-new" className="bench-tab-new">
-            <BenchNewTabPopover directory={props.directory} />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="New tab"
+              title="New tab"
+              className="size-6 rounded-md [-webkit-app-region:no-drag]"
+              onClick={props.onNewTab}
+            >
+              <PlusIcon aria-hidden />
+            </Button>
           </span>
         </div>
         <div aria-hidden data-component="bench-tabs-end" className="bench-tab-end" />

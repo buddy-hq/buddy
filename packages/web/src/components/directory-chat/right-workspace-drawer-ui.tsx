@@ -1,4 +1,12 @@
-import { forwardRef, useCallback, type ComponentType, type ReactNode } from "react"
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type ComponentType,
+  type ReactNode,
+} from "react"
 import { useDurableScrollTop } from "@/lib/use-durable-scroll-top"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Badge, Button, Input, Skeleton, Spinner, cn } from "@buddy/ui"
@@ -16,6 +24,7 @@ type RightWorkspaceDrawerAction = {
 }
 
 type RightWorkspaceDrawerShellProps = {
+  compact?: boolean
   /**
    * Names the drawer for assistive tech only. On screen the rail says which
    * drawer is open and the search field repeats it — a heading row would be the
@@ -33,6 +42,8 @@ type RightWorkspaceDrawerShellProps = {
   scrollRef?: (node: HTMLDivElement | null) => void
   /** Restores and records this drawer's scroll position across the unmount every chat switch causes. */
   durableScrollKey?: string
+  /** The active row takes precedence over a saved scroll position when switching views. */
+  activeSelectionKey?: string
   onSearchValueChange?: (value: string) => void
   children: ReactNode
 }
@@ -60,13 +71,19 @@ type RightWorkspaceVirtualListProps<TItem> = {
   estimateSize?: (index: number) => number
   /** Defaults to the catalog rhythm; ruled lists can opt into contiguous rows. */
   gap?: number
+  selectedKey?: string
 }
 
 export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps) {
   const ActionIcon = props.action?.icon
-  const { containerRef: durableScrollRef, onScroll: onDurableScroll } = useDurableScrollTop(
-    props.durableScrollKey ?? "",
-  )
+  const {
+    containerRef: durableScrollRef,
+    onScroll: onDurableScroll,
+    cancelPendingRestore,
+  } = useDurableScrollTop(props.durableScrollKey ?? "")
+  useLayoutEffect(() => {
+    if (props.activeSelectionKey) cancelPendingRestore()
+  }, [cancelPendingRestore, props.activeSelectionKey])
   const scrollRef = props.scrollRef
   const setScrollNode = useCallback(
     (node: HTMLDivElement | null) => {
@@ -91,7 +108,12 @@ export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps)
        * guess.
        */}
       {props.searchLabel || props.action ? (
-        <div className="flex shrink-0 items-center gap-2 border-b border-border-weaker-base p-3">
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-2 border-b border-border-weaker-base",
+            props.compact ? "p-2" : "p-3",
+          )}
+        >
           {props.searchLabel ? (
             <div className="relative min-w-0 flex-1">
               {props.searchPending ? (
@@ -109,7 +131,7 @@ export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps)
                 value={props.searchValue ?? ""}
                 aria-label={props.searchLabel}
                 placeholder={props.searchLabel}
-                className="pl-9"
+                className={cn("pl-9", props.compact && "h-8 text-xs")}
                 onChange={(event) => props.onSearchValueChange?.(event.currentTarget.value)}
               />
             </div>
@@ -146,14 +168,25 @@ export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps)
       ) : null}
 
       {props.toolbar ? (
-        <div className="shrink-0 border-b border-border-weaker-base p-3">{props.toolbar}</div>
+        <div
+          className={cn(
+            "shrink-0 border-b border-border-weaker-base",
+            props.compact ? "p-2" : "p-3",
+          )}
+        >
+          {props.toolbar}
+        </div>
       ) : null}
 
       <div
         ref={setScrollNode}
         onScroll={onDurableScroll}
         data-component="right-workspace-drawer-scroll"
-        className={cn("scrollbar-hover min-h-0 flex-1 overflow-y-auto p-3", props.bodyClassName)}
+        className={cn(
+          "scrollbar-hover min-h-0 flex-1 overflow-y-auto",
+          props.compact ? "p-2" : "p-3",
+          props.bodyClassName,
+        )}
       >
         {props.children}
       </div>
@@ -241,6 +274,8 @@ export function RightWorkspaceSectionLabel(props: { children: ReactNode; trailin
 }
 
 export function RightWorkspaceVirtualList<TItem>(props: RightWorkspaceVirtualListProps<TItem>) {
+  const lastRevealedRef = useRef<{ key: string; element: HTMLDivElement } | null>(null)
+  const { items, getKey, scrollElement, selectedKey } = props
   const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
     count: props.items.length,
     getScrollElement: () => props.scrollElement,
@@ -252,6 +287,19 @@ export function RightWorkspaceVirtualList<TItem>(props: RightWorkspaceVirtualLis
     overscan: RIGHT_WORKSPACE_LIST_OVERSCAN,
     gap: props.gap ?? 4,
   })
+
+  useEffect(() => {
+    if (!selectedKey || !scrollElement) return
+    const index = items.findIndex((item) => getKey(item) === selectedKey)
+    if (index < 0) return
+    // Reveal once per selection: a later reorder or filter must not override the user's scroll.
+    const previous = lastRevealedRef.current
+    if (previous?.key === selectedKey && previous.element === scrollElement) return
+    // Practice has a count row above the virtual list. Centering leaves room for that
+    // row and for measurement differences while keeping the selected item visible.
+    virtualizer.scrollToIndex(index, { align: "center" })
+    lastRevealedRef.current = { key: selectedKey, element: scrollElement }
+  }, [getKey, items, scrollElement, selectedKey, virtualizer])
 
   return (
     <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>

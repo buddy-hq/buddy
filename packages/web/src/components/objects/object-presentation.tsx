@@ -183,7 +183,9 @@ function RowVisual(props: { model: ObjectModel; variant: ObjectRowVariant }) {
     props.variant !== OBJECT_VARIANT_SM &&
     thumbnailEarnsItsSpace(model.thumbnail, model.kind)
   const cover = showThumbnail && model.thumbnail ? isCoverThumbnail(model.thumbnail) : false
-  const slot = cover ? ROW_COVER_CLASS[props.variant] : ROW_BOX_CLASS[props.variant]
+  // Reserve the same horizontal slot for every kind. Portrait covers keep
+  // their aspect ratio inside it, while titles all start at one x position.
+  const slot = ROW_BOX_CLASS[props.variant]
 
   /**
    * Preparing shimmers the visual slot alone. Skeletoning the whole row would
@@ -196,8 +198,15 @@ function RowVisual(props: { model: ObjectModel; variant: ObjectRowVariant }) {
 
   if (showThumbnail && model.thumbnail) {
     return (
-      <div className={cn("shrink-0 overflow-hidden", cover ? undefined : "rounded-md", slot)}>
-        <ThumbnailContent thumbnail={model.thumbnail} alt={model.title} />
+      <div className={cn("flex shrink-0 items-center justify-center", slot)}>
+        <div
+          className={cn(
+            "overflow-hidden",
+            cover ? ROW_COVER_CLASS[props.variant] : cn("rounded-md", slot),
+          )}
+        >
+          <ThumbnailContent thumbnail={model.thumbnail} alt={model.title} />
+        </div>
       </div>
     )
   }

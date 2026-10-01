@@ -49,60 +49,6 @@ const SHORTCUT_METADATA = {
     order: 2,
     rowID: "chat.next",
   },
-  "chat.jump.1": {
-    group: "chats",
-    labelKey: "settings.shortcuts.chatByPosition",
-    order: 3,
-    rowID: "chat.jump",
-  },
-  "chat.jump.2": {
-    group: "chats",
-    labelKey: "settings.shortcuts.chatByPosition",
-    order: 3,
-    rowID: "chat.jump",
-  },
-  "chat.jump.3": {
-    group: "chats",
-    labelKey: "settings.shortcuts.chatByPosition",
-    order: 3,
-    rowID: "chat.jump",
-  },
-  "chat.jump.4": {
-    group: "chats",
-    labelKey: "settings.shortcuts.chatByPosition",
-    order: 3,
-    rowID: "chat.jump",
-  },
-  "chat.jump.5": {
-    group: "chats",
-    labelKey: "settings.shortcuts.chatByPosition",
-    order: 3,
-    rowID: "chat.jump",
-  },
-  "chat.jump.6": {
-    group: "chats",
-    labelKey: "settings.shortcuts.chatByPosition",
-    order: 3,
-    rowID: "chat.jump",
-  },
-  "chat.jump.7": {
-    group: "chats",
-    labelKey: "settings.shortcuts.chatByPosition",
-    order: 3,
-    rowID: "chat.jump",
-  },
-  "chat.jump.8": {
-    group: "chats",
-    labelKey: "settings.shortcuts.chatByPosition",
-    order: 3,
-    rowID: "chat.jump",
-  },
-  "chat.jump.9": {
-    group: "chats",
-    labelKey: "settings.shortcuts.chatByPosition",
-    order: 3,
-    rowID: "chat.jump",
-  },
   "composer.focus": {
     group: "navigation",
     labelKey: "settings.shortcuts.focusComposer",
@@ -122,10 +68,16 @@ const SHORTCUT_METADATA = {
     order: 1,
     rowID: "search.open",
   },
+  "file.quickOpen": {
+    group: "navigation",
+    labelKey: "settings.shortcuts.quickOpen",
+    order: 2,
+    rowID: "file.quickOpen",
+  },
   "sidebar.toggle": {
     group: "navigation",
     labelKey: "settings.shortcuts.toggleSidebar",
-    order: 2,
+    order: 3,
     rowID: "sidebar.toggle",
   },
   "bench.toggle": {
@@ -139,6 +91,66 @@ const SHORTCUT_METADATA = {
     labelKey: "settings.shortcuts.newBrowserTab",
     order: 1,
     rowID: "browser.newTab",
+  },
+  "bench.closeTab": {
+    group: "bench",
+    labelKey: "settings.shortcuts.closeBenchTab",
+    order: 2,
+    rowID: "bench.closeTab",
+  },
+  "bench.tab.1": {
+    group: "bench",
+    labelKey: "settings.shortcuts.benchTabByPosition",
+    order: 3,
+    rowID: "bench.tab",
+  },
+  "bench.tab.2": {
+    group: "bench",
+    labelKey: "settings.shortcuts.benchTabByPosition",
+    order: 3,
+    rowID: "bench.tab",
+  },
+  "bench.tab.3": {
+    group: "bench",
+    labelKey: "settings.shortcuts.benchTabByPosition",
+    order: 3,
+    rowID: "bench.tab",
+  },
+  "bench.tab.4": {
+    group: "bench",
+    labelKey: "settings.shortcuts.benchTabByPosition",
+    order: 3,
+    rowID: "bench.tab",
+  },
+  "bench.tab.5": {
+    group: "bench",
+    labelKey: "settings.shortcuts.benchTabByPosition",
+    order: 3,
+    rowID: "bench.tab",
+  },
+  "bench.tab.6": {
+    group: "bench",
+    labelKey: "settings.shortcuts.benchTabByPosition",
+    order: 3,
+    rowID: "bench.tab",
+  },
+  "bench.tab.7": {
+    group: "bench",
+    labelKey: "settings.shortcuts.benchTabByPosition",
+    order: 3,
+    rowID: "bench.tab",
+  },
+  "bench.tab.8": {
+    group: "bench",
+    labelKey: "settings.shortcuts.benchTabByPosition",
+    order: 3,
+    rowID: "bench.tab",
+  },
+  "bench.tab.last": {
+    group: "bench",
+    labelKey: "settings.shortcuts.lastBenchTab",
+    order: 4,
+    rowID: "bench.tab.last",
   },
 } as const satisfies Record<DisplayedShortcutID, ShortcutMetadata>
 
@@ -160,6 +172,7 @@ function shortcutMetadataEntries(): ReadonlyArray<
 function buildShortcutRows(
   group: ShortcutGroupID,
   browserAvailable: boolean,
+  desktop: boolean,
 ): ReadonlyArray<ShortcutRowDefinition> {
   const rows = new Map<
     string,
@@ -174,6 +187,7 @@ function buildShortcutRows(
   for (const [command, metadata] of shortcutMetadataEntries()) {
     if (metadata.group !== group) continue
     if (command === "browser.newTab" && !browserAvailable) continue
+    if (command === "bench.closeTab" && !desktop) continue
     const existing = rows.get(metadata.rowID)
     if (existing) {
       existing.commands.push(command)
@@ -300,7 +314,11 @@ export function ShortcutsSettings() {
       <p className="px-1 text-xs text-text-weak">{language.t(descriptionKey)}</p>
       {SHORTCUT_GROUPS.map((group) => (
         <SettingsSection key={group.id} title={language.t(group.titleKey)}>
-          {buildShortcutRows(group.id, browserAvailable).map((row) => {
+          {buildShortcutRows(
+            group.id,
+            browserAvailable,
+            runtimePlatform.platform === "desktop",
+          ).map((row) => {
             const title = language.t(row.labelKey)
             return (
               <SettingsRow

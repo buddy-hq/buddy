@@ -27,7 +27,7 @@ export const notesQueryKeys = {
 export function notesLibraryQueryOptions(directory: string, query = "") {
   return queryOptions({
     queryKey: query ? notesQueryKeys.search(directory, query) : notesQueryKeys.library(directory),
-    queryFn: async () => listNotes(directory, query),
+    queryFn: async ({ signal }) => listNotes(directory, query, signal),
     staleTime: BUDDY_NOTES_STALE_TIME_MS,
   })
 }

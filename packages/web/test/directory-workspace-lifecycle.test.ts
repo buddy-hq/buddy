@@ -11,6 +11,7 @@ import {
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import {
+  BENCH_ROUTE_STATUS_CLOSED,
   BENCH_ROUTE_STATUS_OPEN,
   createCollapsedWorkspaceState,
   createExpandedWorkspaceState,
@@ -536,6 +537,83 @@ describe("DirectoryWorkspaceLifecycleService", () => {
                 url: "https://hibuddy.in/settings",
               },
             },
+          ],
+        },
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("publishes the shown New tab and lists New tabs after the item tabs", async () => {
+    const publishBodies: unknown[] = []
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-new-tab/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: publishBodies.length }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const projection = {
+        route: { status: BENCH_ROUTE_STATUS_CLOSED },
+        dockedState: createExpandedWorkspaceState(null),
+        bench: { visibility: "closed", target: null, targetKey: null, mode: null },
+        drawer: null,
+        renderedSurface: "empty",
+        pending: { status: "none" },
+      } satisfies EffectiveWorkspaceProjection
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projection,
+        getTabs: () => tabsForTarget(TARGET),
+        getEmptyTabs: () => ({ emptyTabIDs: ["new-a", "new-b"], activeEmptyTabID: "new-b" }),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-new-tab")
+
+      expect(publishBodies.at(-1)).toMatchObject({
+        value: {
+          status: "open",
+          visibility: "new-tab",
+          mode: "docked",
+          selectedTabKey: "new-tab:new-b",
+          drawer: null,
+          tabs: [
+            { target: { type: "workspace-file", path: TARGET.path } },
+            { tabKey: "new-tab:new-a", title: "New tab", target: { type: "new-tab" } },
+            { tabKey: "new-tab:new-b", title: "New tab", target: { type: "new-tab" } },
           ],
         },
       })

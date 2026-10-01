@@ -11,10 +11,7 @@ import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-
 import { urlRef, workspaceFileRef } from "@/components/bench/bench-context-utils"
 import { DirectoryChatReadingPage } from "@/components/directory-chat/directory-chat-reading-page"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
-import {
-  WorkspaceFileActionsMenu,
-  WorkspaceFileLargeWarning,
-} from "@/components/files/workspace-file-actions"
+import { WorkspaceFileLargeWarning } from "@/components/files/workspace-file-actions"
 import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { isSvgMedia } from "@/lib/svg-media"
@@ -126,7 +123,6 @@ function ProjectFileBenchView(props: {
         hints={["The user can choose Open anyway or use an external file action."]}
       >
         <WorkspaceFileLargeWarning
-          directory={props.directory}
           path={props.path}
           sizeBytes={props.metadata.sizeBytes}
           onOpenAnyway={() => setApproved(true)}
@@ -202,27 +198,18 @@ function ProjectFileMediaView(props: {
   )
   useRegisterBenchContextProvider({ target: contextTarget, provider: contextProvider })
 
-  const toolbar = <WorkspaceFileActionsMenu directory={props.directory} path={props.path} />
-
   return svg ? (
     <SvgBenchView
       title={title}
       subtitle={props.path}
       src={rawUrl}
-      toolbar={toolbar}
       viewportKey={benchSurfaceUiKey({
         directory: props.directory,
         target: contextTarget,
       })}
     />
   ) : (
-    <BenchSurfaceViewer
-      title={title}
-      subtitle={props.path}
-      toolbar={toolbar}
-      controlsPlacement="dock"
-      hideHeader
-    >
+    <BenchSurfaceViewer title={title} subtitle={props.path} hideHeader>
       <BenchMediaPreview
         title={props.path}
         src={rawUrl}
@@ -234,7 +221,6 @@ function ProjectFileMediaView(props: {
 }
 
 function ProjectFileUnsupportedView(props: {
-  directory: string
   path: string
   metadata: { mimeType: string | undefined; sizeBytes: number | undefined }
   mediaKind: string
@@ -251,11 +237,7 @@ function ProjectFileUnsupportedView(props: {
       content={`Buddy cannot preview or edit ${props.path}. External file actions are available.`}
       hints={["Use the file actions menu to open, reveal, or copy the path."]}
     >
-      <BenchSurfaceViewer
-        title={title}
-        subtitle={props.path}
-        toolbar={<WorkspaceFileActionsMenu directory={props.directory} path={props.path} />}
-      >
+      <BenchSurfaceViewer title={title}>
         <div className="flex h-full items-center justify-center p-6 text-center text-sm text-text-weak">
           This file cannot be opened in Buddy.
         </div>

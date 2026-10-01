@@ -10,16 +10,16 @@ import {
   type ReactNode,
 } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Button, Separator, cn, toast } from "@buddy/ui"
+import { Button, Input, Separator, cn, toast } from "@buddy/ui"
+import { usePlatform } from "@/context/platform"
 import {
   Books02Icon,
   BoxesIcon,
   FolderIcon,
-  NoteIcon,
+  NotesIcon,
   PresentationIcon,
   RefreshCwIcon,
   ScrollTextIcon,
-  SearchIcon,
   StudyLampIcon,
 } from "@/icons/app-icons"
 import * as AppIcons from "@/icons/app-icons"
@@ -57,19 +57,34 @@ import {
   BENCH_ROUTE_STATUS_OPEN,
   WORKSPACE_DRAWER_NOTES,
   WORKSPACE_DRAWER_NONE,
+  workspacePresentationSlotForChat,
   type DrawerKind,
 } from "@/state/directory-workspace-store"
+import { useBenchEmptyTabDrafts } from "@/state/bench-empty-tab-drafts"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
-import type { WorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
+import {
+  workspaceCollectionForDrawer,
+  workspaceCollectionForTarget,
+  type WorkspacePresentation,
+} from "@/lib/directory-chat/workspace-presentation"
+import { showWorkspaceDrawer } from "./show-workspace-drawer"
+import { useUiPreferences } from "@/state/ui-preferences"
 import { CreationsDrawer, PracticeDrawer, SourcesDrawer } from "./right-workspace-catalog-drawers"
 import { RightWorkspaceBoardsDrawer } from "./right-workspace-boards-drawer"
-import { RightWorkspaceDrawerShell } from "./right-workspace-drawer-ui"
-import { RightWorkspaceSearchDrawer } from "./right-workspace-search-drawer"
 import { RightWorkspaceSkillsDrawer } from "./right-workspace-skills-drawer"
 import { NotesDrawer } from "@/features/notes/notes-drawer"
+import { notesLibraryQueryOptions } from "@/features/notes/queries"
 import { getFilename } from "@/components/layout/sidebar-helpers"
+import { stringifyError } from "@/lib/api-client"
+import { useWorkspaceFileOpen } from "@/lib/use-workspace-file-open"
+import { readWorkspaceFileRawMetadata } from "@/lib/workspace-file-media"
+import { absoluteWorkspaceFilePath, fileNameFromPath } from "@/lib/workspace-file-paths"
 import { obsidianVaultProfileQueryOptions } from "@/state/obsidian-vault-query"
 import { BenchTabs } from "@/components/bench/bench-tabs"
+import { BenchEmptyState } from "@/components/bench/bench-empty-state"
+import { BenchFileView, type BenchFileViewProps } from "@/components/bench/bench-file-view"
+import { WorkspaceFileActionsMenu } from "@/components/files/workspace-file-actions"
+import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import type { BenchTab } from "@/lib/bench-tabs"
 
 const FigureGlyph = AppIcons["ShapesIcon"]
@@ -81,6 +96,8 @@ type DirectoryChatRightWorkspaceProps = {
   workspaceWidth: number
   suppressDrawerMotion?: boolean
   onCreateCreation: () => void
+  onNewBoard: () => Promise<void>
+  onNewNote: () => Promise<void>
   onOpenThread: (sessionID: string) => Promise<boolean>
   onOpenResource: (
     directory: string,
@@ -93,6 +110,13 @@ type DirectoryChatRightWorkspaceProps = {
   onCloseOtherTabs: (tabKey: string) => void
   onCloseTabsToRight: (tabKey: string) => void
   onCloseAllTabs: () => void
+  onNewTab: () => void
+  /** New tabs, shown after the item tabs. */
+  emptyTabIDs?: readonly string[]
+  /** The New tab the empty page shows. */
+  activeEmptyTabID?: string | null
+  onActivateEmptyTab?: (emptyTabID: string) => void
+  onCloseEmptyTab?: (emptyTabID: string) => void
   showTabsInWorkspace?: boolean
   bench?: ReactNode
   presentation: Pick<
@@ -183,8 +207,9 @@ function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
       disabled={props.disabled}
       data-attention={flashing ? "true" : undefined}
       className={cn(
-        "right-workspace-rail-button relative rounded-lg text-icon-base hover:bg-surface-base-hover hover:text-icon-base",
-        props.active ? "bg-surface-raised-base text-icon-base" : undefined,
+        "right-workspace-rail-button relative text-icon-base hover:text-text-strong",
+        props.active &&
+          "composer-surface-tab composer-grain [--composer-surface-bg:var(--surface-raised-base-hover)] text-text-strong",
       )}
       onClick={props.onClick}
     >
@@ -217,13 +242,22 @@ export function DirectoryChatRightWorkspaceContent(props: {
   activeTargetKey?: string | null
   bench?: ReactNode
   selectorContent: ReactNode
+  emptyContent?: ReactNode
   selectorDrawerWidth: number
   suppressDrawerMotion?: boolean
+  fileView?: Omit<BenchFileViewProps, "children" | "toolbar">
 }) {
   // The Bench container is always rendered in the same position and hidden when there is no target.
   // Moving it into a conditional branch unmounts BenchSurfaceHost — and every surface it is keeping
   // alive — on every chat transition, because the projection reports a closed Bench mid-switch.
   const benchVisible = props.hasBenchTarget && Boolean(props.bench)
+  const fileViewVisible = props.fileView?.active === true
+  const noteLibrary = useQuery({
+    ...notesLibraryQueryOptions(props.fileView?.directory ?? ""),
+    enabled: fileViewVisible && props.fileView?.kind === "note" && !!props.fileView.path,
+  })
+  const noteStorageDirectory =
+    props.fileView?.kind === "note" ? noteLibrary.data?.directory : undefined
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -234,12 +268,39 @@ export function DirectoryChatRightWorkspaceContent(props: {
         data-bench-target-key={props.activeTargetKey ?? undefined}
         className={cn(
           "isolate h-full min-h-0 min-w-0 flex-1 bg-background-base",
-          !benchVisible && "hidden",
+          !benchVisible && !fileViewVisible && "hidden",
         )}
       >
-        {props.bench}
+        <BenchFileView
+          directory={props.fileView?.directory ?? ""}
+          drawer={props.fileView?.drawer ?? null}
+          active={fileViewVisible}
+          showEmpty={props.fileView?.showEmpty ?? false}
+          path={props.fileView?.path}
+          kind={props.fileView?.kind}
+          title={props.fileView?.title}
+          onOpenFile={props.fileView?.onOpenFile}
+          treeOpen={props.fileView?.treeOpen ?? false}
+          onTreeOpenChange={props.fileView?.onTreeOpenChange ?? (() => undefined)}
+          suppressLayoutMotion={props.suppressDrawerMotion}
+          toolbar={
+            props.fileView?.kind === "file" && props.fileView?.path ? (
+              <WorkspaceFileActionsMenu
+                directory={props.fileView.directory}
+                path={props.fileView.path}
+              />
+            ) : noteStorageDirectory && props.fileView?.path ? (
+              <WorkspaceFileActionsMenu
+                directory={noteStorageDirectory}
+                path={props.fileView.path}
+              />
+            ) : null
+          }
+        >
+          {props.bench}
+        </BenchFileView>
       </div>
-      {benchVisible ? null : props.selectorContent ? (
+      {benchVisible || fileViewVisible ? null : props.selectorContent ? (
         <div data-component="right-workspace-selector-content" className="min-h-0 min-w-0 flex-1">
           {props.selectorContent}
         </div>
@@ -247,7 +308,9 @@ export function DirectoryChatRightWorkspaceContent(props: {
         <div
           data-component="right-workspace-empty-bench-surface"
           className="min-h-0 min-w-0 flex-1 bg-background-base"
-        />
+        >
+          {props.emptyContent}
+        </div>
       )}
 
       {props.hasBenchTarget && props.selectorContent ? (
@@ -270,8 +333,18 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
   const [openingInstructions, setOpeningInstructions] = useState(false)
   const [fileSearch, setFileSearch] = useState("")
   const [fileRefreshRequest, setFileRefreshRequest] = useState(0)
+  // Hiding a section's list is a personal preference, so it outlives restarts and is shared by notebooks.
+  const collapsedLists = useUiPreferences((state) => state.collapsedWorkspaceLists)
+  const setWorkspaceListOpen = useUiPreferences((state) => state.setWorkspaceListOpen)
   const openBenchRoute = useOpenBench()
-  const openWorkspaceTarget = useRightWorkspaceOpen()
+  // Opens from the empty page and the collection chrome keep the layout they were made in.
+  const openWorkspaceTarget = useRightWorkspaceOpen({ mode: props.presentation.mode })
+  const platform = usePlatform()
+  const { executePrimary: openWorkspaceFile } = useWorkspaceFileOpen(
+    props.directory,
+    props.onOpenResource,
+    { benchMode: props.presentation.mode },
+  )
   const workspace = useDirectoryWorkspace()
   const selectorAccessEnabled = props.presentation.mode !== BENCH_CHAT_LAYOUT_FLOATING
   const obsidianProfileQuery = useQuery(obsidianVaultProfileQueryOptions(props.directory))
@@ -302,6 +375,43 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
   const hasBenchTarget = props.presentation.retainedBenchTarget
   const hasVisibleBench = props.presentation.benchVisible && props.presentation.workspaceOpen
   const resolvedSelector = props.presentation.selector
+  const fileTarget =
+    hasVisibleBench && props.presentation.benchTarget?.type === "workspace-file"
+      ? props.presentation.benchTarget
+      : undefined
+  const visibleTarget = hasVisibleBench ? props.presentation.benchTarget : null
+  const targetCollection = workspaceCollectionForTarget(visibleTarget)
+  const activeCollection =
+    workspaceCollectionForDrawer(resolvedSelector) ?? (resolvedSelector ? null : targetCollection)
+  const fileViewKind =
+    activeCollection === "notes"
+      ? "note"
+      : activeCollection === "sources"
+        ? "resource"
+        : activeCollection === "boards"
+          ? "board"
+          : activeCollection === "practice"
+            ? "practice"
+            : activeCollection === "creations"
+              ? "creation"
+              : "file"
+  // Immersive has no rail, but an item still gets the same breadcrumbs, list toggle, and actions.
+  const fileViewActive = activeCollection !== null
+  const fileViewHasTarget = activeCollection !== null && activeCollection === targetCollection
+  const treeOpen = activeCollection !== null && collapsedLists[activeCollection] !== true
+  const selectedObjectID =
+    fileViewHasTarget && visibleTarget?.type === "object" ? visibleTarget.ref.objectID : undefined
+  const objectsQuery = useQuery({
+    ...workspaceObjectsQueryOptions(props.directory),
+    enabled: selectedObjectID !== undefined,
+  })
+  const selectedTitle = selectedObjectID
+    ? objectsQuery.data?.objects.find((object) => object.objectID === selectedObjectID)?.title
+    : undefined
+  function setCollectionListOpen(open: boolean) {
+    if (!activeCollection) return
+    setWorkspaceListOpen(activeCollection, open)
+  }
   const selectorDrawerWidth =
     resolvedSelector === null
       ? 0
@@ -362,11 +472,21 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       hasVisibleBench,
       workspaceOpen: props.presentation.workspaceOpen,
     })
-    if (resolvedSelector === selector) {
+    const collection = workspaceCollectionForDrawer(selector)
+    if (collection) {
+      if (resolvedSelector === selector) {
+        if (collapsedLists[collection] === true) {
+          setWorkspaceListOpen(collection, true)
+          return
+        }
+        void workspace.controller.execute({ type: "close-drawer" })
+        return
+      }
+    } else if (resolvedSelector === selector) {
       void workspace.controller.execute({ type: "close-drawer" })
       return
     }
-    void workspace.controller.execute({ type: "open-drawer", drawer: selector })
+    showWorkspaceDrawer(workspace.controller, selector)
   }
 
   const openWorkspaceRequest = useCallback(
@@ -386,6 +506,44 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       return outcome
     },
     [benchPolicyState, closeSelector, openWorkspaceTarget],
+  )
+
+  /** An item opened from a New tab takes that tab's place, as in a browser. */
+  async function replacingShownEmptyTab<TResult>(open: () => Promise<TResult>): Promise<TResult> {
+    const emptyTabID = props.activeEmptyTabID
+    const result = await open()
+    const state = workspace.store.getState()
+    const route = workspacePresentationSlotForChat(state.slots, state.activeChatKey).route
+    if (emptyTabID && route.status === BENCH_ROUTE_STATUS_OPEN) {
+      state.removeEmptyTab(emptyTabID)
+      useBenchEmptyTabDrafts.getState().removeDraft(emptyTabID)
+    }
+    return result
+  }
+
+  const openBreadcrumbFile = useCallback(
+    async (path: string): Promise<RightWorkspaceOpenOutcome> => {
+      try {
+        const metadata = await readWorkspaceFileRawMetadata({ directory: props.directory, path })
+        const opened = await openWorkspaceFile({
+          path,
+          absolutePath: absoluteWorkspaceFilePath({ directory: props.directory, path }),
+          name: fileNameFromPath(path),
+          available: true,
+          canOpenInBuddy: true,
+          canOpenDefaultApp: platform.openPath !== undefined,
+          canReveal: platform.revealPath !== undefined,
+          mimeType: metadata.mimeType,
+          sizeBytes: metadata.sizeBytes,
+        })
+        if (opened) closeSelector()
+        return opened ? "opened" : "blocked"
+      } catch (error) {
+        toast.error(stringifyError(error))
+        return "failed"
+      }
+    },
+    [closeSelector, openWorkspaceFile, platform.openPath, platform.revealPath, props.directory],
   )
 
   async function openInstructions() {
@@ -414,63 +572,70 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     }
   }
 
-  const selectorContent = useMemo(() => {
-    if (!selectorAccessEnabled || !resolvedSelector) return null
+  const selectorContent =
+    selectorAccessEnabled && resolvedSelector === "skills" ? (
+      <RightWorkspaceSkillsDrawer directory={props.directory} />
+    ) : null
 
-    if (resolvedSelector === "search") {
-      return (
-        <RightWorkspaceSearchDrawer
-          directory={props.directory}
-          sessionID={props.sessionID}
-          sessions={props.sessions}
-          onClose={closeSelector}
-          onOpen={openWorkspaceRequest}
-          onOpenThread={props.onOpenThread}
-        />
-      )
-    }
-    if (resolvedSelector === "sources") {
-      return <SourcesDrawer directory={props.directory} onOpen={openWorkspaceRequest} />
-    }
-    if (resolvedSelector === "practice") {
-      return <PracticeDrawer directory={props.directory} onOpen={openWorkspaceRequest} />
-    }
-    if (resolvedSelector === "creations") {
-      return (
-        <CreationsDrawer
-          directory={props.directory}
-          onOpen={openWorkspaceRequest}
-          onCreate={() => {
-            closeSelector()
-            props.onCreateCreation()
-          }}
-        />
-      )
-    }
-    if (resolvedSelector === "boards") {
-      return (
-        <RightWorkspaceBoardsDrawer directory={props.directory} onOpen={openWorkspaceRequest} />
-      )
-    }
-    if (resolvedSelector === WORKSPACE_DRAWER_NOTES) {
-      return <NotesDrawer directory={props.directory} onOpen={openWorkspaceRequest} />
-    }
-    if (resolvedSelector === "skills") {
-      return <RightWorkspaceSkillsDrawer directory={props.directory} />
-    }
-    return (
-      <RightWorkspaceDrawerShell
-        title={filesPresentation.title}
-        searchLabel="Search files…"
-        searchValue={fileSearch}
-        action={{
-          label: "Refresh files",
-          icon: RefreshCwIcon,
-          onClick: () => setFileRefreshRequest((current) => current + 1),
-        }}
-        bodyClassName="overflow-hidden p-0"
-        onSearchValueChange={setFileSearch}
-      >
+  const fileViewDrawer =
+    !fileViewActive || !treeOpen ? null : activeCollection === "sources" ? (
+      <SourcesDrawer
+        compact
+        directory={props.directory}
+        onOpen={openWorkspaceRequest}
+        selectedObjectID={selectedObjectID}
+      />
+    ) : activeCollection === "boards" ? (
+      <RightWorkspaceBoardsDrawer
+        compact
+        directory={props.directory}
+        onOpen={openWorkspaceRequest}
+        selectedObjectID={selectedObjectID}
+      />
+    ) : activeCollection === "practice" ? (
+      <PracticeDrawer
+        compact
+        directory={props.directory}
+        onOpen={openWorkspaceRequest}
+        selectedObjectID={selectedObjectID}
+      />
+    ) : activeCollection === "creations" ? (
+      <CreationsDrawer
+        compact
+        directory={props.directory}
+        onOpen={openWorkspaceRequest}
+        selectedObjectID={selectedObjectID}
+        onCreate={props.onCreateCreation}
+      />
+    ) : fileViewKind === "note" ? (
+      <NotesDrawer
+        directory={props.directory}
+        onOpen={openWorkspaceRequest}
+        selectedNote={
+          fileViewHasTarget && fileTarget ? { path: fileTarget.path, id: fileTarget.id } : undefined
+        }
+      />
+    ) : (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex shrink-0 items-center gap-1 p-2">
+          <Input
+            type="search"
+            aria-label="Filter files"
+            placeholder="Filter files…"
+            value={fileSearch}
+            onChange={(event) => setFileSearch(event.currentTarget.value)}
+            className="h-8"
+          />
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Refresh files"
+            onClick={() => setFileRefreshRequest((current) => current + 1)}
+          >
+            <RefreshCwIcon aria-hidden />
+          </Button>
+        </div>
         <ProjectFileExplorerPanel
           directory={props.directory}
           mode="selector"
@@ -480,6 +645,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
           showHeader={false}
           refreshRequest={fileRefreshRequest}
           variant={filesPresentation.variant}
+          selectedPath={fileViewHasTarget ? fileTarget?.path : undefined}
           onFileOpenBlocked={restoreFilesSelector}
           onSelectFile={closeSelector}
           onOpenResource={(directory, resource) => {
@@ -494,71 +660,52 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
             })
           }}
         />
-      </RightWorkspaceDrawerShell>
+      </div>
     )
-  }, [
-    closeSelector,
-    openWorkspaceRequest,
-    props,
-    resolvedSelector,
-    fileRefreshRequest,
-    fileSearch,
-    filesPresentation.title,
-    filesPresentation.variant,
-    restoreFilesSelector,
-    selectorAccessEnabled,
-  ])
 
   const noteCaptureSignal = useNoteCaptureSignal(props.directory)
   const railItems: RightWorkspaceRailItem[] = [
     {
-      id: "search",
-      label: "Search",
-      icon: <SearchIcon />,
-      active: resolvedSelector === "search",
-      onClick: () => openSelector("search"),
-    },
-    {
       id: "sources",
       label: "Sources",
       icon: <Books02Icon />,
-      active: resolvedSelector === "sources",
+      active: activeCollection === "sources",
       onClick: () => openSelector("sources"),
     },
     {
       id: "practice",
       label: "Practice",
       icon: <StudyLampIcon />,
-      active: resolvedSelector === "practice",
+      active: activeCollection === "practice",
       onClick: () => openSelector("practice"),
     },
     {
       id: "creations",
       label: "Creations",
       icon: <FigureGlyph />,
-      active: resolvedSelector === "creations",
+      active: activeCollection === "creations",
       onClick: () => openSelector("creations"),
     },
     {
       id: "boards",
       label: "Boards",
       icon: <PresentationIcon />,
-      active: resolvedSelector === "boards",
+      active: activeCollection === "boards",
       onClick: () => openSelector("boards"),
     },
     {
       id: "files",
       label: "Files",
       icon: obsidianConnected ? <ObsidianRailIcon /> : <FolderIcon />,
-      active: resolvedSelector === "files",
+      active: activeCollection === "files",
       onClick: () => openSelector("files"),
     },
     Object.assign(
       {
         id: WORKSPACE_DRAWER_NOTES,
         label: language.t("notes.library.title"),
-        icon: <NoteIcon />,
-        active: resolvedSelector === WORKSPACE_DRAWER_NOTES,
+        icon: <NotesIcon />,
+        active: activeCollection === "notes",
         onClick: () => openSelector(WORKSPACE_DRAWER_NOTES),
       },
       // The drawer already shows the note landing, and the icon reads as selected
@@ -603,6 +750,11 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
             onCloseOthers={props.onCloseOtherTabs}
             onCloseToRight={props.onCloseTabsToRight}
             onCloseAll={props.onCloseAllTabs}
+            onNewTab={props.onNewTab}
+            emptyTabIDs={props.emptyTabIDs}
+            activeEmptyTabID={props.activeEmptyTabID}
+            onActivateEmptyTab={props.onActivateEmptyTab}
+            onCloseEmptyTab={props.onCloseEmptyTab}
           />
         ) : null}
         <DirectoryChatRightWorkspaceContent
@@ -613,8 +765,33 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
           }
           bench={props.bench}
           selectorContent={selectorContent}
+          emptyContent={
+            <BenchEmptyState
+              key={props.activeEmptyTabID ?? undefined}
+              emptyTabID={props.activeEmptyTabID ?? null}
+              directory={props.directory}
+              sessions={props.sessions}
+              onOpen={(request) => replacingShownEmptyTab(() => openWorkspaceRequest(request))}
+              onOpenThread={props.onOpenThread}
+              onNewBoard={() => void replacingShownEmptyTab(props.onNewBoard)}
+              onNewNote={() => void replacingShownEmptyTab(props.onNewNote)}
+              onOpenDrawer={openSelector}
+            />
+          }
           selectorDrawerWidth={selectorDrawerWidth}
           suppressDrawerMotion={props.suppressDrawerMotion}
+          fileView={{
+            directory: props.directory,
+            kind: fileViewKind,
+            onOpenFile: openBreadcrumbFile,
+            path: fileViewHasTarget ? fileTarget?.path : undefined,
+            title: fileViewHasTarget ? selectedTitle : undefined,
+            active: fileViewActive,
+            showEmpty: !fileViewHasTarget,
+            drawer: fileViewDrawer,
+            treeOpen,
+            onTreeOpenChange: setCollectionListOpen,
+          }}
         />
       </div>
 

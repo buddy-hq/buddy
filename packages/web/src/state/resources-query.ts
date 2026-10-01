@@ -260,6 +260,37 @@ export function findProcessedResourceByKey(
   return processed.find((entry) => entry.alias === resourceKey || entry.objectID === resourceKey)
 }
 
+const processedResourcesByPathCache = new WeakMap<
+  readonly ResourceRecord[],
+  ReadonlyMap<string, ResourceRecord>
+>()
+
+/** Normalized source, origin, and reader paths, indexed once per catalog for per-keystroke lookups. */
+export function processedResourcesByPath(
+  processed: readonly ResourceRecord[],
+): ReadonlyMap<string, ResourceRecord> {
+  const cached = processedResourcesByPathCache.get(processed)
+  if (cached) return cached
+  const byPath = new Map<string, ResourceRecord>()
+  for (const entry of processed) {
+    for (const candidate of [entry.sourceRelpath, entry.sourceOriginRelpath, entry.readerPath]) {
+      const normalized = candidate ? normalizeRelativePath(candidate) : undefined
+      if (normalized && !byPath.has(normalized)) byPath.set(normalized, entry)
+    }
+  }
+  processedResourcesByPathCache.set(processed, byPath)
+  return byPath
+}
+
+export function findProcessedResourceByPath(
+  processed: readonly ResourceRecord[],
+  path: string,
+): ResourceRecord | undefined {
+  const normalizedPath = normalizeRelativePath(path)
+  if (!normalizedPath) return undefined
+  return processedResourcesByPath(processed).get(normalizedPath)
+}
+
 /** Same path/name resolution as the Sources catalog (`buildResourceListItems`). */
 export function resolveResourceReadingTarget(
   record: ResourceRecord,

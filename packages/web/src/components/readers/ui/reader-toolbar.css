@@ -1,0 +1,27 @@
+.reader-toolbar-container {
+  container-type: inline-size;
+}
+
+@container (max-width: 430px) {
+  .reader-toolbar {
+    height: auto;
+    min-height: 44px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding-block: 4px;
+  }
+
+  .reader-toolbar-title {
+    order: -1;
+    flex-basis: 100%;
+  }
+
+  .reader-toolbar-compact .reader-toolbar-title {
+    order: initial;
+    flex-basis: auto;
+  }
+
+  .reader-toolbar > span {
+    margin-left: 0;
+  }
+}

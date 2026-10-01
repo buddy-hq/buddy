@@ -36,6 +36,22 @@ describe("workspace drawer UI state", () => {
     })
   })
 
+  test("retains search and creation filter independently across drawer remounts", () => {
+    const notes = workspaceDrawerUiKey({ directory: DIRECTORY, drawer: "notes" })
+    const creations = workspaceDrawerUiKey({ directory: DIRECTORY, drawer: "creations" })
+
+    writeWorkspaceDrawerUiState(notes, { search: "meeting" })
+    writeWorkspaceDrawerUiState(creations, { search: "diagram", creationFilter: "diagrams" })
+    writeWorkspaceDrawerUiState(creations, { scrollTop: 42 })
+
+    expect(readWorkspaceDrawerUiState(notes)?.search).toBe("meeting")
+    expect(readWorkspaceDrawerUiState(creations)).toEqual({
+      search: "diagram",
+      creationFilter: "diagrams",
+      scrollTop: 42,
+    })
+  })
+
   test("clears one notebook without touching another", () => {
     const kept = workspaceDrawerUiKey({ directory: OTHER_DIRECTORY, drawer: "sources" })
     const cleared = workspaceDrawerUiKey({ directory: DIRECTORY, drawer: "sources" })

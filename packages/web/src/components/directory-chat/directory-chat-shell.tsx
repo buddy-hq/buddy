@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useRef, type ReactNode, type RefCallback } from "react"
 import { ResizeHandle } from "@buddy/ui"
 import {
   DesktopTitlebar,
@@ -13,7 +13,10 @@ type DirectoryChatShellProps = {
   leftSidebar: ReactNode
   contentLayout: ReactNode
   immersive?: boolean
-  showImmersiveTitlebar?: boolean
+  /** Shows the dock control in the immersive titlebar, as the root layout's titlebar does. */
+  showImmersiveDockButton?: boolean
+  /** Receives the immersive titlebar's content slot, where the Bench tabs portal. */
+  immersiveTitlebarContentRef?: RefCallback<HTMLDivElement>
   chatTitle?: string
   projectName?: string
   isTurnActive?: boolean
@@ -50,7 +53,8 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     leftSidebar,
     contentLayout,
     immersive = false,
-    showImmersiveTitlebar = false,
+    showImmersiveDockButton = false,
+    immersiveTitlebarContentRef,
     chatTitle,
     projectName,
     isTurnActive,
@@ -84,8 +88,6 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
   const leftSidebarOverlayRef = useRef<HTMLDivElement>(null)
 
   const leftSidebarResolvedWidth = !immersive && leftSidebarOpen ? leftSidebarDisplayWidth : 0
-  const titlebarVisible = !immersive || showImmersiveTitlebar
-  const titlebarHeight = titlebarVisible ? DESKTOP_TITLEBAR_HEIGHT_PX : 0
   const rightWorkspaceTitlebarWidth =
     !immersive && rightWorkspaceOpen && rightWorkspaceTitlebar ? rightWorkspaceDisplayWidth : 0
   const rightWorkspaceTitlebarInset =
@@ -144,7 +146,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
       className="relative grid h-full w-full overflow-hidden bg-surface-raised-base transition-none"
       style={{
         gridTemplateColumns: `${leftSidebarResolvedWidth}px minmax(0, 1fr) ${rightWorkspaceTitlebarWidth}px`,
-        gridTemplateRows: `${titlebarHeight}px minmax(0, 1fr)`,
+        gridTemplateRows: `${DESKTOP_TITLEBAR_HEIGHT_PX}px minmax(0, 1fr)`,
       }}
     >
       {/* Row 1, Col 1: Sidebar header area — provides background continuity with the sidebar below.
@@ -171,13 +173,14 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
       {/* Row 1, Col 2: Main titlebar.
           No `overflow-hidden` here — it would clip the titlebar's downward shadow. Horizontal
           overflow is already bounded by `min-w-0` plus the truncation inside DesktopTitlebar. */}
-      <div
-        hidden={!titlebarVisible}
-        aria-hidden={!titlebarVisible}
-        className="col-start-2 row-start-1 min-w-0"
-      >
+      <div className="col-start-2 row-start-1 min-w-0">
         {immersive ? (
-          <DesktopTitlebar placement="root" showSidebarToggles={false} />
+          <DesktopTitlebar
+            placement="root"
+            showSidebarToggles={false}
+            showDockFloatingBench={showImmersiveDockButton}
+            rootContentRef={immersiveTitlebarContentRef}
+          />
         ) : (
           <DesktopTitlebar
             placement="chat"

@@ -20,10 +20,16 @@ export type SessionNoteCapture = NotesCaptureResponses[200]
 export type SessionNoteLookup = NotesSessionNoteResponses[200]
 export type NoteCaptureImage = NonNullable<NonNullable<NotesCaptureData["body"]>["images"]>[number]
 
+/** List Notes, preserving the caller's cancellation reason at the SDK boundary. */
 export async function listNotes(directory: string, query = "", signal?: AbortSignal) {
-  return requireBuddyData<NotesLibrary>(
-    await getBuddyClient(directory).notes.list({ query }, signal ? { signal } : undefined),
+  signal?.throwIfAborted()
+  const response = await getBuddyClient(directory).notes.list(
+    { query },
+    signal ? { signal } : undefined,
   )
+  // The SDK returns transport failures as values, including an aborted fetch.
+  signal?.throwIfAborted()
+  return requireBuddyData<NotesLibrary>(response)
 }
 
 export async function createNote(input: { directory: string; title?: string }) {

@@ -63,14 +63,14 @@ describe("shortcuts settings", () => {
     })
   }
 
-  test("lists each shortcut group and collapses numbered chat jumps into one row", async () => {
+  test("lists each shortcut group and collapses numbered tab keys into one row", async () => {
     await renderFor("macos")
 
     expect(container.textContent).toContain("Chats")
     expect(container.textContent).toContain("Composer")
     expect(container.textContent).toContain("Navigation")
     expect(container.textContent).toContain("Bench")
-    expect(container.textContent?.match(/Jump to chat 1–9/gu)).toHaveLength(1)
+    expect(container.textContent?.match(/Go to tab 1–8/gu)).toHaveLength(1)
 
     const accessibleShortcuts = [...container.querySelectorAll('[role="group"]')].map((group) =>
       group.getAttribute("aria-label"),
@@ -79,13 +79,16 @@ describe("shortcuts settings", () => {
       "New chat: Cmd+N",
       "Previous chat: Cmd+Shift+Left Bracket",
       "Next chat: Cmd+Shift+Right Bracket",
-      "Jump to chat 1–9: Cmd+1 through Cmd+9",
       "Toggle Note mode: Cmd+Shift+Enter",
       "Focus chat input: Cmd+L",
       "Search notebook: Cmd+Shift+F",
+      "Quick open: Cmd+P",
       "Toggle sidebar: Cmd+B",
       "Toggle Bench: Cmd+Option+B",
       "New tab: Cmd+T",
+      "Close tab: Cmd+W",
+      "Go to tab 1–8: Cmd+1 through Cmd+8",
+      "Go to last tab: Cmd+9",
     ])
     expect([...container.querySelectorAll("kbd")].map((key) => key.textContent)).toContain("1")
     expect([...container.querySelectorAll("kbd")].map((key) => key.textContent)).toContain("9")
@@ -100,6 +103,7 @@ describe("shortcuts settings", () => {
     expect(accessibleShortcuts).toContain("New chat: Ctrl+N")
     expect(accessibleShortcuts).toContain("Previous chat: Ctrl+Shift+Left Bracket")
     expect(accessibleShortcuts).toContain("Search notebook: Ctrl+Shift+F")
+    expect(accessibleShortcuts).toContain("Quick open: Ctrl+P")
     expect(accessibleShortcuts).toContain("Toggle Note mode: Ctrl+Shift+Enter")
     expect(accessibleShortcuts).toContain("Toggle Bench: Ctrl+Alt+B")
     expect(container.textContent?.includes("⌘")).toBe(false)
@@ -112,7 +116,7 @@ describe("shortcuts settings", () => {
       group.getAttribute("aria-label"),
     )
     expect(accessibleShortcuts).toContain("New chat: Ctrl+N")
-    expect(accessibleShortcuts).toContain("Jump to chat 1–9: Ctrl+1 through Ctrl+9")
+    expect(accessibleShortcuts).toContain("Go to tab 1–8: Ctrl+1 through Ctrl+8")
     expect(container.textContent?.includes("⌘")).toBe(false)
   })
 
@@ -128,5 +132,6 @@ describe("shortcuts settings", () => {
     expect(container.textContent).toContain("Some may be handled by your browser")
     expect(container.textContent).not.toContain("New tab")
     expect(container.querySelector('[data-shortcut-commands="browser.newTab"]')).toBeNull()
+    expect(container.querySelector('[data-shortcut-commands="bench.closeTab"]')).toBeNull()
   })
 })

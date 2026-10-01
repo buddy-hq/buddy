@@ -3,6 +3,7 @@ import { getPlatform } from "@/context/platform"
 import {
   benchTabKey,
   closeBenchTab,
+  createEmptyBenchTabID,
   readBenchTab,
   replaceBenchTab,
   upsertBenchTab,
@@ -93,6 +94,7 @@ export type DockedWorkspaceState =
   | {
       visibility: typeof WORKSPACE_VISIBILITY_EXPANDED
       drawer: DrawerKind | null
+      mode?: typeof BENCH_CHAT_LAYOUT_FLOATING
     }
 
 export type PersistedDirectoryWorkspaceState = {
@@ -104,6 +106,10 @@ export type WorkspacePresentationSlot = {
   tabs: BenchTab[]
   docked: DockedWorkspaceState
   lastDrawer: DrawerKind
+  /** New tabs, in strip order after the item tabs. */
+  emptyTabIDs?: string[]
+  /** The New tab the empty page shows. */
+  activeEmptyTabID?: string
 }
 
 export type WorkspaceDestinationInitialization =
@@ -226,6 +232,8 @@ export type DirectoryWorkspaceCommand =
       replacesTarget?: BenchTabTarget
     }
   | { type: "close" }
+  /** Shows the empty page on `emptyTabID`, or on the last shown New tab when it is omitted. */
+  | { type: "open-empty"; emptyTabID?: string }
   | { type: "focus-tab"; tabKey: string }
   | {
       type: "present-background"
@@ -282,6 +290,10 @@ export type DirectoryWorkspaceStoreState = DirectoryWorkspaceProjectionState & {
     docked: DockedWorkspaceState
     route?: BenchRouteSnapshot
     tabs?: BenchTab[]
+    /** The New tab to show when the commit lands on the empty page. */
+    emptyTabID?: string
+    /** Closes every New tab first, as closing Bench or a bulk tab close does. */
+    clearEmptyTabs?: boolean
   }) => void
   setHydrationReady: () => void
   setHydrationFailed: (message: string) => void
@@ -293,6 +305,7 @@ export type DirectoryWorkspaceStoreState = DirectoryWorkspaceProjectionState & {
     hydration: DirectoryWorkspaceHydrationState
   }) => void
   setLastDrawer: (drawer: DrawerKind) => void
+  removeEmptyTab: (emptyTabID: string) => void
   captureChatSlot: (input: { chatKey: WorkspaceChatKey; route: BenchRouteSnapshot }) => void
   stageChatTransition: (input: {
     commandID: string
@@ -331,6 +344,10 @@ function isSameBenchRouteSnapshot(left: BenchRouteSnapshot, right: BenchRouteSna
 function normalizeDockedState(state: DockedWorkspaceState): DockedWorkspaceState {
   if (state.visibility === WORKSPACE_VISIBILITY_COLLAPSED) {
     return { visibility: WORKSPACE_VISIBILITY_COLLAPSED, drawer: null }
+  }
+  // Saved search drawers become the existing empty search page after the rail is removed.
+  if (state.drawer === WORKSPACE_DRAWER_SEARCH) {
+    return { visibility: WORKSPACE_VISIBILITY_EXPANDED, drawer: null }
   }
   return state
 }
@@ -377,6 +394,9 @@ function readDockedWorkspaceState<TValue>(value: TValue): DockedWorkspaceState |
     return record.drawer === null ? createCollapsedWorkspaceState() : undefined
   }
   if (record.drawer !== null && !isDrawerKind(record.drawer)) return undefined
+  if (record.drawer === null && record.mode === BENCH_CHAT_LAYOUT_FLOATING) {
+    return createImmersiveEmptyWorkspaceState()
+  }
   return createExpandedWorkspaceState(record.drawer)
 }
 
@@ -409,12 +429,81 @@ function readWorkspacePresentationSlot<TValue>(
   const lastDrawer = record.lastDrawer
   if (!route || tabs.some((tab) => !tab) || !docked || !isDrawerKind(lastDrawer)) return undefined
   const parsedTabs = tabs.flatMap((tab) => (tab ? [tab] : []))
-  return {
+  const slot: WorkspacePresentationSlot = {
     route,
     tabs: tabsForRoute(parsedTabs, route),
     docked,
     lastDrawer,
   }
+  Object.assign(slot, readEmptyTabs(record))
+  return slot
+}
+
+const PersistedEmptyTabsSchema = z.object({
+  emptyTabIDs: z.array(z.string().min(1)).optional(),
+  activeEmptyTabID: z.string().min(1).optional(),
+  /** Before several New tabs, a slot kept one flag for its single New tab. */
+  emptyTabOpen: z.boolean().optional(),
+})
+
+function readEmptyTabs<TValue>(
+  value: TValue,
+): Pick<WorkspacePresentationSlot, "emptyTabIDs" | "activeEmptyTabID"> {
+  const persisted = parseWithSchema(PersistedEmptyTabsSchema, value)
+  if (persisted?.emptyTabIDs) {
+    const ids = [...new Set(persisted.emptyTabIDs)]
+    if (ids.length === 0) return {}
+    const active = persisted.activeEmptyTabID
+    return active && ids.includes(active)
+      ? { emptyTabIDs: ids, activeEmptyTabID: active }
+      : { emptyTabIDs: ids }
+  }
+  if (persisted?.emptyTabOpen !== true) return {}
+  const id = createEmptyBenchTabID()
+  return { emptyTabIDs: [id], activeEmptyTabID: id }
+}
+
+/** A closed route on an expanded workspace with no drawer is the New tab page. */
+function showsEmptyPage(route: BenchRouteSnapshot, docked: DockedWorkspaceState): boolean {
+  return (
+    route.status === BENCH_ROUTE_STATUS_CLOSED &&
+    docked.visibility === WORKSPACE_VISIBILITY_EXPANDED &&
+    docked.drawer === null
+  )
+}
+
+/** Puts the empty page on `requestedID`, else on the New tab it last showed, else on a new one. */
+function withShownEmptyTab(
+  slot: WorkspacePresentationSlot,
+  requestedID: string | undefined,
+): Pick<WorkspacePresentationSlot, "emptyTabIDs" | "activeEmptyTabID"> {
+  const ids = slot.emptyTabIDs ?? []
+  const shownID =
+    requestedID ??
+    (slot.activeEmptyTabID && ids.includes(slot.activeEmptyTabID)
+      ? slot.activeEmptyTabID
+      : ids.at(-1)) ??
+    createEmptyBenchTabID()
+  return {
+    emptyTabIDs: ids.includes(shownID) ? [...ids] : [...ids, shownID],
+    activeEmptyTabID: shownID,
+  }
+}
+
+function withoutEmptyTabs(slot: WorkspacePresentationSlot): WorkspacePresentationSlot {
+  const { emptyTabIDs: _emptyTabIDs, activeEmptyTabID: _activeEmptyTabID, ...rest } = slot
+  return rest
+}
+
+/**
+ * A restored slot that lands on the empty page shows a New tab, including state saved before New
+ * tabs existed or with the removed Search drawer.
+ */
+export function withRestoredEmptyPageTab(
+  slot: WorkspacePresentationSlot,
+): WorkspacePresentationSlot {
+  if (!showsEmptyPage(slot.route, normalizeDockedState(slot.docked))) return slot
+  return { ...slot, ...withShownEmptyTab(slot, undefined) }
 }
 
 function storageKeyForDirectory(directory: string): string {
@@ -742,7 +831,9 @@ function withoutTransientBrowserTabs(
 }
 
 function tabsForRoute(tabs: readonly BenchTab[], route: BenchRouteSnapshot): BenchTab[] {
-  if (route.status === BENCH_ROUTE_STATUS_CLOSED) return []
+  // The empty page has no selected target, but the user's tabs remain available.
+  // Commands that close all tabs pass an explicit empty list.
+  if (route.status === BENCH_ROUTE_STATUS_CLOSED) return [...tabs]
   return upsertBenchTab(tabs, route.target).tabs
 }
 
@@ -1038,11 +1129,6 @@ export function persistedDirectoryWorkspaceStateFromStore(input: {
   return { slots }
 }
 
-function drawerForClosedRoute(state: DirectoryWorkspaceProjectionState): DrawerKind | null {
-  if (state.docked.visibility === WORKSPACE_VISIBILITY_COLLAPSED) return null
-  return state.docked.drawer ?? state.lastDrawer
-}
-
 function renderedSurfaceFor(input: {
   route: BenchRouteSnapshot
   docked: DockedWorkspaceState
@@ -1064,7 +1150,7 @@ function projectCommittedState(input: {
   const dockedState = normalizeDockedState(input.state.docked)
   const drawer =
     input.route.status === BENCH_ROUTE_STATUS_CLOSED
-      ? drawerForClosedRoute({ docked: dockedState, lastDrawer: input.state.lastDrawer })
+      ? dockedState.drawer
       : input.route.mode === BENCH_CHAT_LAYOUT_FLOATING
         ? null
         : dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
@@ -1131,9 +1217,12 @@ function workspaceTransitionFrameFor(
     return { kind: "docked-bench" }
   }
   if (
-    projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED &&
-    projection.drawer !== null
+    projection.bench.visibility === "closed" &&
+    isImmersiveEmptyWorkspaceState(projection.dockedState)
   ) {
+    return { kind: "floating-bench" }
+  }
+  if (projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED) {
     return { kind: "selector" }
   }
   return { kind: "closed" }
@@ -1223,6 +1312,22 @@ export function createExpandedWorkspaceState(drawer: DrawerKind | null): DockedW
   return { visibility: WORKSPACE_VISIBILITY_EXPANDED, drawer }
 }
 
+export function createImmersiveEmptyWorkspaceState(): DockedWorkspaceState {
+  return {
+    visibility: WORKSPACE_VISIBILITY_EXPANDED,
+    drawer: null,
+    mode: BENCH_CHAT_LAYOUT_FLOATING,
+  }
+}
+
+export function isImmersiveEmptyWorkspaceState(state: DockedWorkspaceState): boolean {
+  return (
+    state.visibility === WORKSPACE_VISIBILITY_EXPANDED &&
+    state.drawer === null &&
+    state.mode === BENCH_CHAT_LAYOUT_FLOATING
+  )
+}
+
 export function createDirectoryWorkspaceStore(input: {
   directory: string
   initialState?: DirectoryWorkspaceInitialState
@@ -1237,20 +1342,21 @@ export function createDirectoryWorkspaceStore(input: {
   )
   const initialLastDrawer =
     input.initialState?.lastDrawer ?? DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER
+  const priorActiveSlot = input.initialState?.slots?.[initialActiveChatKey]
+  const initialActiveRoute = priorActiveSlot?.route ?? defaultWorkspacePresentationSlot().route
+  const initialActiveSlot: WorkspacePresentationSlot = {
+    route: initialActiveRoute,
+    tabs: tabsForRoute(priorActiveSlot?.tabs ?? [], initialActiveRoute),
+    docked: initialDocked,
+    lastDrawer: initialLastDrawer,
+  }
+  if (priorActiveSlot?.emptyTabIDs) initialActiveSlot.emptyTabIDs = priorActiveSlot.emptyTabIDs
+  if (priorActiveSlot?.activeEmptyTabID) {
+    initialActiveSlot.activeEmptyTabID = priorActiveSlot.activeEmptyTabID
+  }
   const initialSlots = {
     ...input.initialState?.slots,
-    [initialActiveChatKey]: {
-      route:
-        input.initialState?.slots?.[initialActiveChatKey]?.route ??
-        defaultWorkspacePresentationSlot().route,
-      tabs: tabsForRoute(
-        input.initialState?.slots?.[initialActiveChatKey]?.tabs ?? [],
-        input.initialState?.slots?.[initialActiveChatKey]?.route ??
-          defaultWorkspacePresentationSlot().route,
-      ),
-      docked: initialDocked,
-      lastDrawer: initialLastDrawer,
-    },
+    [initialActiveChatKey]: initialActiveSlot,
   }
   return createStore<DirectoryWorkspaceStoreState>()((set) => ({
     directory: input.directory,
@@ -1299,18 +1405,23 @@ export function createDirectoryWorkspaceStore(input: {
           commit,
           nextDocked: docked,
         })
+        const baseSlot = commit.clearEmptyTabs ? withoutEmptyTabs(currentSlot) : currentSlot
+        const nextSlot: WorkspacePresentationSlot = {
+          ...baseSlot,
+          route,
+          tabs,
+          docked,
+          lastDrawer: state.lastDrawer,
+        }
+        if (showsEmptyPage(route, docked)) {
+          Object.assign(nextSlot, withShownEmptyTab(baseSlot, commit.emptyTabID))
+        }
         return {
           docked,
           slots: retainWorkspaceChatSlots({
             slots: {
               ...state.slots,
-              [state.activeChatKey]: {
-                ...currentSlot,
-                route,
-                tabs,
-                docked,
-                lastDrawer: state.lastDrawer,
-              },
+              [state.activeChatKey]: nextSlot,
             },
             touchedChatKey: state.activeChatKey,
           }),
@@ -1375,12 +1486,29 @@ export function createDirectoryWorkspaceStore(input: {
         },
       }))
     },
+    removeEmptyTab: (emptyTabID) =>
+      set((state) => {
+        const current = workspacePresentationSlotForChat(state.slots, state.activeChatKey)
+        if (!current.emptyTabIDs?.includes(emptyTabID)) return {}
+        const slot = { ...current }
+        const emptyTabIDs = current.emptyTabIDs.filter((id) => id !== emptyTabID)
+        if (emptyTabIDs.length > 0) slot.emptyTabIDs = emptyTabIDs
+        else delete slot.emptyTabIDs
+        if (slot.activeEmptyTabID === emptyTabID) delete slot.activeEmptyTabID
+        return {
+          slots: {
+            ...state.slots,
+            [state.activeChatKey]: slot,
+          },
+        }
+      }),
     captureChatSlot: ({ chatKey, route }) =>
       set((state) => ({
         slots: retainWorkspaceChatSlots({
           slots: {
             ...state.slots,
             [chatKey]: {
+              ...workspacePresentationSlotForChat(state.slots, chatKey),
               route,
               tabs: tabsForRoute(
                 workspacePresentationSlotForChat(state.slots, chatKey).tabs,

@@ -133,9 +133,9 @@ export const workspaceObjectsQueryKeys = {
 }
 
 export function refetchActiveWorkspaceObjectQueries(queryClient: QueryClient, directory: string) {
-  return queryClient.refetchQueries({
+  return queryClient.invalidateQueries({
     queryKey: workspaceObjectsQueryKeys.all(directory),
-    type: "active",
+    refetchType: "active",
   })
 }
 
@@ -156,7 +156,7 @@ export function workspaceObjectsQueryOptions(directory: string, kind?: Workspace
       ? workspaceObjectsQueryKeys.kind(directory, kind)
       : workspaceObjectsQueryKeys.all(directory),
     queryFn: () => loadWorkspaceObjects(directory, kind),
-    staleTime: WORKSPACE_OBJECTS_STALE_TIME_MS,
+    staleTime: 15_000,
   })
 }
 

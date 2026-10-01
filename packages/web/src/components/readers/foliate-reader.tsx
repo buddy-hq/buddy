@@ -18,7 +18,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "@buddy/ui"
-import { Loader2Icon } from "@/icons/app-icons"
+import { InfoIcon, Loader2Icon } from "@/icons/app-icons"
+import { useInBenchCollectionChrome } from "@/components/bench/bench-collection-chrome"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import { ReaderEmptyState } from "./ui/reader-empty-state"
 import { ReaderErrorState } from "./ui/reader-error-state"
@@ -172,6 +173,21 @@ ensureFoliateRuntimeCompat()
 
 const WHEEL_GESTURE_IDLE_THRESHOLD_MS = 180
 const READER_PERCENT_MAX = 100
+// The book page is a frame, so app shortcuts typed into it must be passed up to the app.
+const FRAME_FORWARDED_APP_COMMANDS = new Map([
+  ["p", "file.quickOpen"],
+  ["w", "bench.closeTab"],
+  ["t", "browser.newTab"],
+  ["1", "bench.tab.1"],
+  ["2", "bench.tab.2"],
+  ["3", "bench.tab.3"],
+  ["4", "bench.tab.4"],
+  ["5", "bench.tab.5"],
+  ["6", "bench.tab.6"],
+  ["7", "bench.tab.7"],
+  ["8", "bench.tab.8"],
+  ["9", "bench.tab.last"],
+])
 
 function drawAnnotationListener(event: CustomEvent<FoliateDrawAnnotationEventDetail>) {
   drawAnnotation(event)
@@ -230,6 +246,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     },
     ref,
   ) {
+    const compactTitle = useInBenchCollectionChrome()
     const rootRef = useRef<HTMLElement | null>(null)
     const readerSurfaceRef = useRef<HTMLDivElement | null>(null)
     const viewportRef = useRef<HTMLDivElement | null>(null)
@@ -1226,7 +1243,25 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 readSelection()
               }
             })
-            event.detail.doc.addEventListener("keydown", (keyEvent) => handleShortcut(keyEvent))
+            event.detail.doc.addEventListener("keydown", (keyEvent) => {
+              const appCommand =
+                (keyEvent.metaKey || keyEvent.ctrlKey) &&
+                !keyEvent.altKey &&
+                !keyEvent.shiftKey &&
+                !keyEvent.isComposing
+                  ? FRAME_FORWARDED_APP_COMMANDS.get(keyEvent.key.toLowerCase())
+                  : undefined
+              if (appCommand) {
+                keyEvent.preventDefault()
+                if (!keyEvent.repeat) {
+                  window.dispatchEvent(
+                    new CustomEvent("buddy:menu-command", { detail: { id: appCommand } }),
+                  )
+                }
+                return
+              }
+              handleShortcut(keyEvent)
+            })
           }
 
           view.addEventListener("relocate", relocateListener)
@@ -1499,12 +1534,20 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               <ReaderMetadataHoverCard snapshot={readerSnapshot}>
                 <button
                   type="button"
+                  aria-label={compactTitle ? "Resource information" : undefined}
                   className="max-w-full truncate text-xs font-medium text-text-base"
                 >
-                  {snapshot?.title ?? (source ? getSourceName(source) : undefined) ?? DEFAULT_TITLE}
+                  {compactTitle ? (
+                    <InfoIcon aria-hidden className="size-4" />
+                  ) : (
+                    (snapshot?.title ??
+                    (source ? getSourceName(source) : undefined) ??
+                    DEFAULT_TITLE)
+                  )}
                 </button>
               </ReaderMetadataHoverCard>
             }
+            compactTitle={compactTitle}
             view={
               <ReaderPreferencesPopover open={preferencesOpen} onOpenChange={setPreferencesOpen}>
                 <FoliatePreferencesPanel
