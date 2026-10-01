@@ -364,6 +364,8 @@ const BuddyObjectIndexItemSchema = z
     status: BuddyObjectStatusSchema,
     lifecycle: BuddyObjectLifecycleSchema,
     sourceRoot: nonEmptyString.nullable(),
+    /** The one notebook file the object presents, so a client can list that file in its place. */
+    filePath: nonEmptyString.nullable(),
     primaryViewID: nonEmptyString.nullable(),
     surfaces: z.array(BuddyObjectSurfaceSchema),
     hasLibraryView: z.boolean(),

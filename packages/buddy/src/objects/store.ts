@@ -410,6 +410,12 @@ function manifestToIndexItem(input: {
 }): BuddyObjectIndexItem {
   const surfaces = new Set(input.manifest.views.flatMap((view) => view.surfaces))
   const sourceRef = input.manifest.sourceRefs.find((ref) => ref.role === "authoring")
+  // Only an object wrapping exactly one notebook file stands for it; a gallery is its own thing.
+  const [presentedFile, ...otherSources] = input.manifest.sourceRefs
+  const filePath =
+    presentedFile?.role === "external" && otherSources.length === 0
+      ? (presentedFile.workspacePath ?? null)
+      : null
   const primaryView =
     input.manifest.views.find((view) => view.surfaces.includes("inline")) ??
     input.manifest.views.find((view) => view.surfaces.includes("bench")) ??
@@ -422,6 +428,7 @@ function manifestToIndexItem(input: {
     status: input.manifest.status,
     lifecycle: input.manifest.lifecycle,
     sourceRoot: sourceRef?.workspacePath ?? sourceRef?.displayPath ?? null,
+    filePath,
     primaryViewID: primaryView?.viewID ?? null,
     surfaces: [...surfaces].toSorted((left, right) => left.localeCompare(right)),
     hasLibraryView: input.manifest.views.some((view) => view.surfaces.includes("library")),

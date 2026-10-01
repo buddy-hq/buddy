@@ -54,14 +54,12 @@ const findFileQuerySchema = z.object({
   directory: z.string().optional(),
 })
 
-const notebookFileSearchQuerySchema = z.object({
-  query: z.string().trim().min(2).max(200),
-  limit: z.coerce.number().int().min(1).max(50).optional(),
+const notebookFileIndexQuerySchema = z.object({
   directory: z.string().optional(),
 })
 
-const notebookFileSearchResponseSchema = z.object({
-  matches: z.array(z.string()),
+const notebookFileIndexResponseSchema = z.object({
+  paths: z.array(z.string()),
   partial: z.boolean(),
 })
 
@@ -258,37 +256,31 @@ export const CompatibilityRoutes = new Hono()
       }),
   )
   .get(
-    "/find/notebook-file",
+    "/find/notebook-file-index",
     describeRoute({
-      operationId: "find.notebookFiles",
-      summary: "Search notebook file paths with bounded memory",
+      operationId: "find.notebookFileIndex",
+      summary: "List searchable notebook file paths for client-side search",
       responses: {
         200: {
-          description: "Ranked matching file paths and scan completeness",
+          description: "Bounded notebook file paths and scan completeness",
           content: {
             "application/json": {
-              schema: resolver(notebookFileSearchResponseSchema),
+              schema: resolver(notebookFileIndexResponseSchema),
             },
           },
         },
         403: directoryForbiddenResponse,
       },
     }),
-    validator("query", notebookFileSearchQuerySchema),
+    validator("query", notebookFileIndexQuerySchema),
     async (c) =>
       runSdkRoute(c, async () => {
         const directoryContext = resolveDirectoryRequestContext(c)
         if (!directoryContext.ok) return directoryContext.response
 
-        const query = c.req.valid("query")
         const result = await OpenCodeInstance.provide({
           directory: directoryContext.context.directory,
-          fn: () =>
-            OpenCodeFile.searchPaths({
-              query: query.query,
-              limit: query.limit,
-              signal: c.req.raw.signal,
-            }),
+          fn: () => OpenCodeFile.listSearchPaths({ signal: c.req.raw.signal }),
         })
         return c.json(result)
       }),

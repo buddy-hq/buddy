@@ -1,12 +1,10 @@
 import fs from "node:fs/promises"
 import path from "node:path"
-import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
-import { Ripgrep } from "@opencode-ai/core/ripgrep"
 import { NonNegativeInt } from "@opencode-ai/core/schema"
 import { Schema } from "effect"
-import { makeRuntime } from "opencode/effect/run-service"
 import { Instance } from "./instance"
 import { parseErrorCode } from "./parse-external"
+import { scanNotebookFilesWithDeadline } from "./notebook-file-scan"
 
 const FileInfo = Schema.Struct({
   path: Schema.String,
@@ -86,39 +84,28 @@ const KNOWN_BINARY_FILE_EXTENSIONS = new Set([
   ".zip",
 ])
 
-const NOTEBOOK_FILE_SEARCH_SCAN_LIMIT = 25_000
-const NOTEBOOK_FILE_SEARCH_DEFAULT_LIMIT = 20
-const NOTEBOOK_FILE_SEARCH_MAX_LIMIT = 50
-const NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORIES = [
+const NOTEBOOK_FILE_INDEX_SCAN_LIMIT = 25_000
+// Dependency and tool caches, as T3 Code's file finder skips them. Ripgrep
+// already skips hidden and git-ignored paths.
+const NOTEBOOK_FILE_INDEX_EXCLUDED_DIRECTORIES = [
   ".buddy",
   "node_modules",
-  "vendor",
-  "dist",
-  "build",
-  "out",
-  ".turbo",
-  "coverage",
+  "__pycache__",
+  ".venv",
 ] as const
-const NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORY_SET = new Set<string>(
-  NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORIES,
+const NOTEBOOK_FILE_INDEX_EXCLUDED_DIRECTORY_SET = new Set<string>(
+  NOTEBOOK_FILE_INDEX_EXCLUDED_DIRECTORIES,
 )
-const NOTEBOOK_FILE_SEARCH_GLOB = `!**/{${NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORIES.join(",")}}/**`
-const ripgrepRuntime = makeRuntime(Ripgrep.Service, AppNodeBuilder.build(Ripgrep.node))
+// A bare name matches the folder itself, so ripgrep never walks into it.
+const NOTEBOOK_FILE_INDEX_GLOB = `!{${NOTEBOOK_FILE_INDEX_EXCLUDED_DIRECTORIES.join(",")}}`
 
-type RankedFileSearchPath = {
-  path: string
-  score: number
-}
-
-export type NotebookFileSearchInput = {
-  query: string
-  limit?: number
+export type NotebookFileIndexInput = {
   scanLimit?: number
   signal?: AbortSignal
 }
 
-export type NotebookFileSearchResult = {
-  matches: string[]
+export type NotebookFileIndex = {
+  paths: string[]
   partial: boolean
 }
 
@@ -175,84 +162,10 @@ function hasKnownBinaryExtension(filePath: string): boolean {
   return KNOWN_BINARY_FILE_EXTENSIONS.has(path.extname(filePath).toLowerCase())
 }
 
-function normalizeSearchValue(value: string): string {
-  return value.trim().toLocaleLowerCase()
-}
-
-function isNotebookFileSearchPath(filePath: string): boolean {
+function isNotebookFileIndexPath(filePath: string): boolean {
   return !normalizePathForClient(filePath)
     .split("/")
-    .some((segment) => NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORY_SET.has(segment))
-}
-
-export function scoreNotebookFileSearchPath(query: string, filePath: string): number | undefined {
-  const normalizedQuery = normalizeSearchValue(query)
-  if (!normalizedQuery) return undefined
-
-  const normalizedPath = normalizeSearchValue(normalizePathForClient(filePath))
-  const basename = normalizedPath.split("/").at(-1) ?? normalizedPath
-  if (basename === normalizedQuery) return 0
-  if (basename.startsWith(normalizedQuery)) return 10 + basename.length - normalizedQuery.length
-
-  const basenameIndex = basename.indexOf(normalizedQuery)
-  if (basenameIndex >= 0) return 30 + basenameIndex
-
-  const pathIndex = normalizedPath.indexOf(normalizedQuery)
-  if (pathIndex >= 0) return 60 + pathIndex
-
-  const tokens = normalizedQuery.split(/\s+/u).filter(Boolean)
-  let tokenScore = 100
-  for (const token of tokens) {
-    const tokenIndex = normalizedPath.indexOf(token)
-    if (tokenIndex < 0) return undefined
-    tokenScore += tokenIndex
-  }
-  return tokenScore
-}
-
-function compareRankedFileSearchPaths(
-  left: RankedFileSearchPath,
-  right: RankedFileSearchPath,
-): number {
-  if (left.score !== right.score) return left.score - right.score
-  return left.path.localeCompare(right.path)
-}
-
-function retainRankedFileSearchPath(input: {
-  ranked: RankedFileSearchPath[]
-  query: string
-  filePath: string
-  limit: number
-}): RankedFileSearchPath[] {
-  const normalizedPath = normalizePathForClient(input.filePath)
-  const score = scoreNotebookFileSearchPath(input.query, normalizedPath)
-  if (score === undefined) return input.ranked
-
-  const next = [...input.ranked, { path: normalizedPath, score }]
-    .toSorted(compareRankedFileSearchPaths)
-    .slice(0, input.limit)
-  return next
-}
-
-export function rankNotebookFileSearchPaths(input: {
-  query: string
-  paths: readonly string[]
-  limit?: number
-}): string[] {
-  const limit = Math.min(
-    NOTEBOOK_FILE_SEARCH_MAX_LIMIT,
-    Math.max(1, input.limit ?? NOTEBOOK_FILE_SEARCH_DEFAULT_LIMIT),
-  )
-  let ranked: RankedFileSearchPath[] = []
-  for (const filePath of input.paths) {
-    ranked = retainRankedFileSearchPath({
-      ranked,
-      query: input.query,
-      filePath,
-      limit,
-    })
-  }
-  return ranked.map((match) => match.path)
+    .some((segment) => NOTEBOOK_FILE_INDEX_EXCLUDED_DIRECTORY_SET.has(segment))
 }
 
 export namespace File {
@@ -273,41 +186,25 @@ export namespace File {
     return []
   }
 
-  export async function searchPaths(
-    input: NotebookFileSearchInput,
-  ): Promise<NotebookFileSearchResult> {
-    const query = input.query.trim()
-    if (!query) return { matches: [], partial: false }
-
-    const limit = Math.min(
-      NOTEBOOK_FILE_SEARCH_MAX_LIMIT,
-      Math.max(1, input.limit ?? NOTEBOOK_FILE_SEARCH_DEFAULT_LIMIT),
-    )
+  /** Every searchable notebook path; clients rank it locally. */
+  export async function listSearchPaths(
+    input: NotebookFileIndexInput = {},
+  ): Promise<NotebookFileIndex> {
     const scanLimit = Math.min(
-      NOTEBOOK_FILE_SEARCH_SCAN_LIMIT,
-      Math.max(1, input.scanLimit ?? NOTEBOOK_FILE_SEARCH_SCAN_LIMIT),
+      NOTEBOOK_FILE_INDEX_SCAN_LIMIT,
+      Math.max(1, input.scanLimit ?? NOTEBOOK_FILE_INDEX_SCAN_LIMIT),
     )
-    const entries = await ripgrepRuntime.runPromise((ripgrep) =>
-      ripgrep.find({
-        cwd: Instance.directory,
-        pattern: NOTEBOOK_FILE_SEARCH_GLOB,
-        limit: scanLimit + 1,
-        hidden: false,
-        signal: input.signal,
-      }),
-    )
-    const candidates = entries
-      .slice(0, scanLimit)
-      .filter((entry) => isNotebookFileSearchPath(entry.path))
-
-    return {
-      matches: rankNotebookFileSearchPaths({
-        query,
-        paths: candidates.map((entry) => entry.path),
-        limit,
-      }),
-      partial: entries.length > scanLimit,
-    }
+    input.signal?.throwIfAborted()
+    const scan = await scanNotebookFilesWithDeadline({
+      directory: Instance.directory,
+      glob: NOTEBOOK_FILE_INDEX_GLOB,
+      limit: scanLimit,
+      signal: input.signal,
+    })
+    input.signal?.throwIfAborted()
+    // Ripgrep walks in parallel, so sorting keeps an unchanged notebook's list identical
+    // between reloads and lets the client reuse its search index.
+    return { paths: scan.paths.filter(isNotebookFileIndexPath).toSorted(), partial: scan.partial }
   }
 
   export async function read(filePath: string): Promise<Content> {
