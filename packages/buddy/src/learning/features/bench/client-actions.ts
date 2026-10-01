@@ -66,6 +66,12 @@ const BenchClientActionCommandSchema = z.union([
     .strict(),
   z
     .object({
+      type: z.literal("focus_new_tab"),
+      tabKey: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("close"),
     })
     .strict(),
@@ -351,6 +357,15 @@ function commandMatchesCommittedCompletion(
       completion.observedRoute.status === "closed" &&
       completion.observedVisibility === "closed" &&
       completion.context.status === "closed"
+    )
+  }
+
+  if (action.command.type === "focus_new_tab") {
+    return (
+      completion.observedRoute.status === "closed" &&
+      completion.context.status === "open" &&
+      completion.context.visibility === "new-tab" &&
+      completion.context.selectedTabKey === action.command.tabKey
     )
   }
 

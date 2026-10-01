@@ -43,7 +43,7 @@ function selectedBrowserForContext(
   context: OpenBenchContext,
 ): ModelVisibleSelectedBrowser | undefined {
   if (context.visibility === "parked") return context.selectedBrowser ?? undefined
-  if (context.target.type !== "browser") return undefined
+  if (context.visibility === "new-tab" || context.target.type !== "browser") return undefined
   return {
     tabID: context.target.tabID,
     url: context.target.url,
@@ -129,7 +129,7 @@ async function projectModelVisibleBenchContext(input: {
           ),
         }
       : undefined
-  if (context.visibility === "parked") {
+  if (context.visibility !== "visible") {
     return Object.assign(
       {
         status: context.status,
@@ -174,6 +174,9 @@ async function captureCurrentBench(input: {
     throw new Error(
       "Browser pages are user-controlled and cannot be captured by the agent. Use responseFormat context_only.",
     )
+  }
+  if (selectedTab.target.type === "new-tab") {
+    throw new Error("Bench tab context is stale. Call bench_read_context again before capturing.")
   }
   const enqueued = benchClientActionBroker.enqueueRequiredAction({
     directory: input.directory,
@@ -281,6 +284,11 @@ const benchReadContextTool = createBuddyTool({
           "Bench is parked, so there is no visible Bench surface to capture. Use responseFormat context_only or ask the user to reveal Bench.",
         )
       }
+      if (result.visibility === "new-tab") {
+        throw new Error(
+          "Bench shows a New tab, so there is no item to capture. Use responseFormat context_only or focus a tab with an item.",
+        )
+      }
       const capturedBench = await captureCurrentBench({
         directory: ctx.directory,
         sessionID: String(ctx.sessionID),
@@ -340,7 +348,7 @@ const benchReadContextTool = createBuddyTool({
       }
     }
 
-    if (result.visibility === "parked") {
+    if (result.visibility !== "visible") {
       return {
         title: "Read Bench",
         output: JSON.stringify(

@@ -101,6 +101,7 @@ function openContextForAction(input: {
 }) {
   if (
     input.action.command.type === "close" ||
+    input.action.command.type === "focus_new_tab" ||
     input.action.command.type === "capture_bench_screenshot"
   ) {
     return { status: "closed" as const }
@@ -212,7 +213,7 @@ function completeCommittedAction(input: {
   contextContent?: string
 }) {
   const completion =
-    input.action.command.type === "close"
+    input.action.command.type === "close" || input.action.command.type === "focus_new_tab"
       ? {
           outcome: "committed" as const,
           lease: leaseIdentity(input.client.lease),
@@ -455,6 +456,92 @@ describe("bench_present", () => {
       status: "presented",
       reason: "focused_tab",
       benchTarget: backgroundTarget,
+    })
+  })
+
+  test("switches to an open New tab", async () => {
+    await using project = await tmpdir({ git: true })
+    const client = connectTestBenchClient({ directory: project.path })
+    const selectedTarget = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "selected.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    const initialContext = openContextForAction({
+      directory: project.path,
+      action: {
+        version: 2,
+        actionID: "new-tab-context-action",
+        directory: project.path,
+        sessionID: SESSION_ID,
+        messageID: "new-tab-context-message",
+        callID: null,
+        origin: "agent",
+        acknowledgement: "required",
+        expiresAt: Date.now() + 30_000,
+        command: { type: "present", target: selectedTarget, autoOpen: null },
+      },
+    })
+    if (initialContext.status !== "open") throw new Error("Expected open context.")
+    const newTab = {
+      tabKey: "new-tab:new-a",
+      title: "New tab",
+      target: { type: "new-tab" as const },
+    }
+    const tabs = [...initialContext.tabs, newTab]
+    publishSequencedBenchContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      body: {
+        lease: leaseIdentity(client.lease),
+        publicationSequence: nextPublicationSequence(client),
+        idempotencyKey: "focus-new-tab-context",
+        value: { ...initialContext, tabs },
+      },
+    })
+
+    const run = presentOnBench({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "focus-new-tab-message",
+      callID: null,
+      abort: new AbortController().signal,
+      action: "focus_tab",
+      path: null,
+      resourceKey: null,
+      objectID: null,
+      tabKey: newTab.tabKey,
+      ask: async () => undefined,
+    })
+    const action = await readNextAction(client)
+    expect(action.command).toEqual({ type: "focus_new_tab", tabKey: newTab.tabKey })
+    benchClientActionBroker.completeAction({
+      directory: project.path,
+      actionID: action.actionID,
+      completion: {
+        outcome: "committed",
+        lease: leaseIdentity(client.lease),
+        publicationSequence: nextPublicationSequence(client),
+        observedRoute: { status: "closed" },
+        observedVisibility: "closed",
+        drawer: null,
+        context: {
+          status: "open",
+          visibility: "new-tab",
+          mode: "docked",
+          selectedTabKey: newTab.tabKey,
+          tabs,
+          drawer: null,
+        },
+        changed: true,
+      },
+    })
+
+    await expect(run).resolves.toMatchObject({
+      status: "presented",
+      reason: "focused_tab",
+      benchTarget: null,
     })
   })
 
