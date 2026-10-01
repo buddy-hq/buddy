@@ -324,4 +324,45 @@ describe("presented media file routes", () => {
     expect(replacementID).not.toBe(deletedID)
     expect(await mediaObjectID(await postMediaFile(presentUrl, outsidePath))).toBe(replacementID)
   })
+
+  test("lists the notebook file a one-file presentation stands for", async () => {
+    await using repo = await createGitRepo("buddy-presented-media-route-list")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-presented-media-route-list-",
+    })
+    await fs.mkdir(path.join(repo.path, "src"))
+    const notebookPath = path.join(repo.path, "src", "chat.tsx")
+    const otherNotebookPath = path.join(repo.path, "notes.md")
+    const outsidePath = path.join(localDir.path, "outside.md")
+    await fs.writeFile(notebookPath, "export {}")
+    await fs.writeFile(otherNotebookPath, "# Notes")
+    await fs.writeFile(outsidePath, "outside notes")
+    const directory = encodeURIComponent(repo.path)
+    const presentUrl = `/api/objects/media-presentation/files?directory=${directory}`
+    const notebookID = await mediaObjectID(await postMediaFile(presentUrl, notebookPath))
+    const outsideID = await mediaObjectID(await postMediaFile(presentUrl, outsidePath))
+    const gallery = await OpenCodeInstance.provide({
+      directory: repo.path,
+      fn: async () =>
+        buildPresentedMediaObjectOutput({
+          directory: repo.path,
+          items: [{ path: notebookPath }, { path: otherNotebookPath }],
+        }),
+    })
+
+    const listed = await app.request(`/api/objects?directory=${directory}&kind=media-presentation`)
+    expect(listed.status).toBe(200)
+    const { objects } = z
+      .object({
+        objects: z.array(z.object({ objectID: z.string(), filePath: z.string().nullable() })),
+      })
+      .parse(await listed.json())
+    expect(Object.fromEntries(objects.map((object) => [object.objectID, object.filePath]))).toEqual(
+      {
+        [notebookID]: "src/chat.tsx",
+        [outsideID]: null,
+        [gallery.output.objectID]: null,
+      },
+    )
+  })
 })
