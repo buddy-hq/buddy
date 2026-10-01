@@ -222,6 +222,7 @@ const api: ElectronAPI = {
   exportMarkdownPdf: (input) => ipcRenderer.invoke("export-markdown-pdf", input),
   openLink: (url) => ipcRenderer.send("open-link", url),
   openPath: (path, app) => ipcRenderer.invoke("open-path", path, app),
+  listFileApplications: (path) => ipcRenderer.invoke("list-file-applications", path),
   revealPath: (path) => ipcRenderer.invoke("reveal-path", path),
   revealContainingFolder: (directory, path) =>
     ipcRenderer.invoke("reveal-containing-folder", directory, path),
@@ -237,6 +238,7 @@ const api: ElectronAPI = {
   getWindowFocused: () => ipcRenderer.invoke("get-window-focused"),
   setWindowFocus: () => ipcRenderer.invoke("set-window-focus"),
   showWindow: () => ipcRenderer.invoke("show-window"),
+  closeWindow: () => ipcRenderer.send("close-window"),
   relaunch: () => ipcRenderer.send("relaunch"),
   getZoomFactor: () => ipcRenderer.invoke("get-zoom-factor"),
   setZoomFactor: (factor) => ipcRenderer.invoke("set-zoom-factor", factor),

@@ -1,9 +1,18 @@
-import { execFile } from "node:child_process"
+import { execFile, spawn } from "node:child_process"
 import { realpath, stat } from "node:fs/promises"
 import { homedir } from "node:os"
-import { dirname, isAbsolute, join, resolve } from "node:path"
+import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { app, BrowserWindow, Notification, clipboard, dialog, ipcMain, shell } from "electron"
+import {
+  app,
+  BrowserWindow,
+  Notification,
+  clipboard,
+  dialog,
+  ipcMain,
+  nativeImage,
+  shell,
+} from "electron"
 import type { IpcMainEvent, IpcMainInvokeEvent, WebContents } from "electron"
 import type {
   InAppBrowserAppearanceRequest,
@@ -24,6 +33,7 @@ import type {
 
 import type {
   BenchCaptureRectangle,
+  FileApplication,
   InitStep,
   LinuxDisplayBackend,
   MarkdownPdfExportInput,
@@ -36,6 +46,7 @@ import type { UpdateRing, UpdateState } from "@buddy/update-contract"
 import { normalizeUpdateRing } from "@buddy/update-contract"
 import { isValidBenchCaptureRectangle } from "./bench-capture"
 import { openDesktopExternalLink } from "./external-links"
+import { discoverFileApplications, resolveDefaultFileApplication } from "./file-applications"
 import { resolveTrashableNotePath } from "./note-trash"
 import { parseTString } from "../shared/parse-external"
 import { getStore } from "./store"
@@ -298,6 +309,90 @@ export function registerIpcHandlers(deps: Deps) {
     openDesktopExternalLink(url, (safeUrl) => shell.openExternal(safeUrl))
   })
 
+  const iconFor = async (applicationPath: string) => {
+    // Finder displays the bundle artwork. getFileIcon often returns a generic .app icon.
+    const thumbnail =
+      process.platform === "darwin"
+        ? await nativeImage
+            .createThumbnailFromPath(applicationPath, { width: 64, height: 64 })
+            .catch(() => null)
+        : null
+    const image =
+      thumbnail && !thumbnail.isEmpty()
+        ? thumbnail
+        : await app.getFileIcon(applicationPath, { size: FILE_ICON_SIZE }).catch(() => null)
+    return image && !image.isEmpty() ? image.toDataURL() : null
+  }
+  // Installed apps and their icons do not depend on the file, so they are discovered once per
+  // session; only the default association is resolved per extension.
+  let installedFileApplications: Promise<FileApplication[]> | undefined
+  const defaultFileApplicationByExtension = new Map<string, Promise<string | null>>()
+  const listInstalledFileApplications = () => {
+    installedFileApplications ??= (async () => {
+      const roots =
+        process.platform === "darwin"
+          ? ["/Applications", join(homedir(), "Applications"), "/System/Applications"]
+          : process.platform === "win32"
+            ? [
+                process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs") : null,
+                process.env.ProgramFiles,
+                process.env["ProgramFiles(x86)"],
+              ].filter((root): root is string => !!root)
+            : (process.env.PATH ?? "").split(":").filter(Boolean)
+      const applications = await discoverFileApplications({
+        platform: process.platform,
+        roots,
+        systemRoot: process.env.SystemRoot,
+      })
+      return Promise.all(
+        applications.map(async (application) => ({
+          id: application.id,
+          name: application.name,
+          path: application.path,
+          icon: await iconFor(application.path),
+        })),
+      )
+    })()
+    return installedFileApplications
+  }
+  const resolveDefaultFileApplicationForPath = (path: string) => {
+    const extension = extname(path).toLowerCase()
+    // A file without an extension has no association to share with other files.
+    if (!extension) return resolveDefaultFileApplication({ platform: process.platform, path })
+    let resolved = defaultFileApplicationByExtension.get(extension)
+    if (!resolved) {
+      resolved = resolveDefaultFileApplication({ platform: process.platform, path }).then(
+        (applicationPath) => {
+          // A lookup that timed out or failed is retried by the next file rather than kept.
+          if (!applicationPath) defaultFileApplicationByExtension.delete(extension)
+          return applicationPath
+        },
+      )
+      defaultFileApplicationByExtension.set(extension, resolved)
+    }
+    return resolved
+  }
+
+  ipcMain.handle("list-file-applications", async (_event: IpcMainInvokeEvent, path: string) => {
+    const [installed, defaultPath] = await Promise.all([
+      listInstalledFileApplications(),
+      resolveDefaultFileApplicationForPath(path),
+    ])
+    const matchingApplication = installed.find((application) => application.path === defaultPath)
+    const defaultApplication = defaultPath
+      ? (matchingApplication ?? {
+          id: "system-default",
+          name:
+            process.platform === "win32"
+              ? basename(defaultPath, extname(defaultPath))
+              : basename(defaultPath, ".app"),
+          path: defaultPath,
+          icon: await iconFor(defaultPath),
+        })
+      : null
+    return { applications: installed, defaultApplication }
+  })
+
   ipcMain.handle(
     "open-path",
     async (_event: IpcMainInvokeEvent, path: string, appPath?: string) => {
@@ -306,6 +401,20 @@ export function registerIpcHandlers(deps: Deps) {
         if (error) {
           throw new Error(error)
         }
+        return
+      }
+      if (process.platform === "win32") {
+        await new Promise<void>((resolve, reject) => {
+          const child = spawn(appPath, [path], {
+            detached: true,
+            stdio: "ignore",
+          })
+          child.once("error", reject)
+          child.once("spawn", () => {
+            child.unref()
+            resolve()
+          })
+        })
         return
       }
       await new Promise<void>((resolve, reject) => {
@@ -452,6 +561,9 @@ export function registerIpcHandlers(deps: Deps) {
   ipcMain.handle("show-window", (event: IpcMainInvokeEvent) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     win?.show()
+  })
+  ipcMain.on("close-window", (event: IpcMainEvent) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
   })
 
   ipcMain.on("relaunch", () => {

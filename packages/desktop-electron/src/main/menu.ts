@@ -67,7 +67,13 @@ export function createMenu(deps: MenuDeps) {
             createMainWindow({ updaterEnabled: deps.updaterEnabled, version: app.getVersion() }),
         },
         { type: "separator" },
-        { role: "close" },
+        {
+          // No accelerator, as with New Chat: the page owns Cmd+W. It closes the active Bench tab,
+          // or the window when no tab is on screen.
+          label: "Close Tab",
+          click: (_menuItem, browserWindow) => deps.trigger("bench.closeTab", browserWindow),
+        },
+        { role: "close", accelerator: "Cmd+Shift+W" },
       ],
     },
     {
