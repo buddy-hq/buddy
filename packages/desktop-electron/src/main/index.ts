@@ -238,7 +238,11 @@ function setupApplication() {
     // remaining key repeats cannot reach the next app.
     concealWindow: () => {
       const target = quitHintWindow ?? BrowserWindow.getFocusedWindow()
-      if (target) concealPendingQuitWindow(target)
+      if (!target) return
+      concealPendingQuitWindow(
+        target,
+        BrowserWindow.getAllWindows().map((window) => window.webContents),
+      )
     },
     quit: () => app.quit(),
   })
