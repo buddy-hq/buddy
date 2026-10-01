@@ -1,13 +1,18 @@
 #!/usr/bin/env bun
 import { createClient } from "@hey-api/openapi-ts"
+import { existsSync } from "fs"
 import fs from "fs/promises"
+import os from "os"
 import path from "path"
 import { z } from "zod"
 
 // Generate SDK from running backend
 const API_URL = process.env.API_URL || "http://localhost:3000/doc"
 const OPENAPI_PATH = path.resolve("openapi.json")
-const GENERATED_FETCH_CLIENT_PATH = path.resolve("src/gen/client/client.gen.ts")
+const GENERATED_SDK_PATH = path.resolve("src/gen")
+const GENERATED_SDK_STAGING_PREFIX = "buddy-sdk-gen-"
+const GENERATED_SOURCE_EXTENSION = ".ts"
+const GENERATED_FETCH_CLIENT_RELATIVE_PATH = path.join("client", "client.gen.ts")
 const FETCH_BODY_TYPE = "BodyInit" as const
 const PORTABLE_FETCH_BODY_TYPE = 'RequestInit["body"]' as const
 const EXPECTED_FETCH_BODY_TYPE_REFERENCES = 2
@@ -118,8 +123,9 @@ function normalizeSchemaForSdk(schema: OpenApiDocument): OpenApiDocument {
   return OpenApiDocumentSchema.parse(normalizeOpenApiObject(schema))
 }
 
-async function normalizeGeneratedFetchClient() {
-  const source = await fs.readFile(GENERATED_FETCH_CLIENT_PATH, "utf8")
+async function normalizeGeneratedFetchClient(outputPath: string) {
+  const fetchClientPath = path.join(outputPath, GENERATED_FETCH_CLIENT_RELATIVE_PATH)
+  const source = await fs.readFile(fetchClientPath, "utf8")
   const referenceCount = source.split(FETCH_BODY_TYPE).length - 1
   if (referenceCount !== EXPECTED_FETCH_BODY_TYPE_REFERENCES) {
     throw new Error(
@@ -129,10 +135,55 @@ async function normalizeGeneratedFetchClient() {
   // The native TypeScript compiler currently omits the DOM BodyInit alias even when it
   // provides RequestInit. Express the same generated fetch type through that portable API.
   await fs.writeFile(
-    GENERATED_FETCH_CLIENT_PATH,
+    fetchClientPath,
     source.replaceAll(FETCH_BODY_TYPE, PORTABLE_FETCH_BODY_TYPE),
     "utf8",
   )
+}
+
+async function listGeneratedSources(root: string): Promise<string[]> {
+  if (!existsSync(root)) return []
+  const entries = await fs.readdir(root, { recursive: true })
+  return entries.filter((entry) => entry.endsWith(GENERATED_SOURCE_EXTENSION))
+}
+
+async function replaceFileAtomically(targetPath: string, contents: string) {
+  const temporaryPath = `${targetPath}.${process.pid}.tmp`
+  await fs.mkdir(path.dirname(targetPath), { recursive: true })
+  try {
+    await fs.writeFile(temporaryPath, contents, "utf8")
+    await fs.rename(temporaryPath, targetPath)
+  } catch (error) {
+    await fs.rm(temporaryPath, { force: true })
+    throw error
+  }
+}
+
+async function removeEmptyDirectories(root: string) {
+  const entries = await fs.readdir(root, { recursive: true, withFileTypes: true })
+  const deepestFirst = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(entry.parentPath, entry.name))
+    .toSorted((left, right) => right.length - left.length)
+  for (const directory of deepestFirst) {
+    if ((await fs.readdir(directory)).length === 0) await fs.rmdir(directory)
+  }
+}
+
+async function syncGeneratedSources(stagingPath: string, targetPath: string) {
+  const staleFiles = new Set(await listGeneratedSources(targetPath))
+  for (const relativePath of await listGeneratedSources(stagingPath)) {
+    staleFiles.delete(relativePath)
+    const destination = path.join(targetPath, relativePath)
+    const next = await fs.readFile(path.join(stagingPath, relativePath), "utf8")
+    const current = existsSync(destination) ? await fs.readFile(destination, "utf8") : undefined
+    if (current === next) continue
+    await replaceFileAtomically(destination, next)
+  }
+  for (const relativePath of staleFiles) {
+    await fs.rm(path.join(targetPath, relativePath), { force: true })
+  }
+  if (staleFiles.size > 0) await removeEmptyDirectories(targetPath)
 }
 
 async function loadSchema() {
@@ -155,40 +206,44 @@ async function loadSchema() {
 }
 
 const schema = await loadSchema()
-await fs.writeFile(OPENAPI_PATH, JSON.stringify(schema, null, 2), "utf-8")
-
-await createClient({
-  input: OPENAPI_PATH,
-  output: {
-    path: "./src/gen",
-    tsConfigPath: path.resolve("tsconfig.json"),
-    clean: true,
-  },
-  plugins: [
-    {
-      name: "@hey-api/typescript",
-      exportFromIndex: false,
+const stagingPath = await fs.mkdtemp(path.join(os.tmpdir(), GENERATED_SDK_STAGING_PREFIX))
+try {
+  await fs.writeFile(OPENAPI_PATH, JSON.stringify(schema, null, 2), "utf-8")
+  await createClient({
+    input: OPENAPI_PATH,
+    output: {
+      path: stagingPath,
+      tsConfigPath: path.resolve("tsconfig.json"),
+      clean: true,
     },
-    {
-      name: "@hey-api/sdk",
-      operations: {
-        strategy: "single",
-        containerName: "BuddyClient",
-        methods: "instance",
+    plugins: [
+      {
+        name: "@hey-api/typescript",
+        exportFromIndex: false,
       },
-      exportFromIndex: false,
-      auth: false,
-      paramsStructure: "flat",
-    },
-    {
-      name: "@hey-api/client-fetch",
-      exportFromIndex: false,
-      baseUrl: "/api",
-    },
-  ],
-})
-await normalizeGeneratedFetchClient()
-
-await fs.rm(OPENAPI_PATH, { force: true })
+      {
+        name: "@hey-api/sdk",
+        operations: {
+          strategy: "single",
+          containerName: "BuddyClient",
+          methods: "instance",
+        },
+        exportFromIndex: false,
+        auth: false,
+        paramsStructure: "flat",
+      },
+      {
+        name: "@hey-api/client-fetch",
+        exportFromIndex: false,
+        baseUrl: "/api",
+      },
+    ],
+  })
+  await normalizeGeneratedFetchClient(stagingPath)
+  await syncGeneratedSources(stagingPath, GENERATED_SDK_PATH)
+} finally {
+  await fs.rm(stagingPath, { recursive: true, force: true })
+  await fs.rm(OPENAPI_PATH, { force: true })
+}
 
 console.log("✅ SDK generated successfully!")
