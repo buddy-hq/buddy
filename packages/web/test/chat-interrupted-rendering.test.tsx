@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import { AssistantTextPart } from "../src/components/chat/parts/assistant-part/text-part"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import type { ChatTextPart } from "../src/components/chat/utils/part-guards"
@@ -67,7 +68,7 @@ describe("interrupted chat rendering", () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
     transcriptViewport = createChatTranscriptTestViewport()
 
     originalResizeObserver = globalThis.ResizeObserver

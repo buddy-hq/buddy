@@ -1,7 +1,8 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import { ChatScrollProvider } from "../src/components/chat/chat-scroll-context"
 import { VirtualizedMarkdown } from "../src/components/markdown/virtualized-markdown"
 
@@ -87,7 +88,7 @@ describe("virtualized Markdown residency", () => {
     container = document.createElement("div")
     viewport.append(container)
     document.body.append(viewport)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
   })
 
   afterEach(async () => {

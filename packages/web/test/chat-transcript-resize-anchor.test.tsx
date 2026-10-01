@@ -1,7 +1,8 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 
 import {
   ChatTranscript,
@@ -116,7 +117,7 @@ describe("chat transcript resize anchoring", () => {
     transcriptViewport = createChatTranscriptTestViewport()
     container = document.createElement("div")
     transcriptViewport.ref.current?.append(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
     probe = installTranscriptPerformanceProbe({ observeBrowserEvents: false })
   })
 

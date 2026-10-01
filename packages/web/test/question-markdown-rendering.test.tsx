@@ -2,7 +2,8 @@ import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { flushSync } from "react-dom"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import { renderQuestionTool } from "../src/components/chat/tools/render/question"
 import { QuestionDock } from "../src/components/directory-chat/question-dock"
 import { QuestionInlineMarkdown } from "../src/components/chat/tools/render/question-set/question-markdown"
@@ -166,7 +167,7 @@ describe("question markdown rendering", () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
   })
 
   afterEach(async () => {
@@ -427,7 +428,7 @@ describe("question tool answered states", () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
   })
 
   afterEach(async () => {

@@ -1,7 +1,8 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 
 import type { MessagePart } from "../src/state/chat-types"
 import { activityPresentation, presentationMetadata } from "./tool-presentation-fixtures"
@@ -142,7 +143,7 @@ describe("opening changed files on the Bench from their names", () => {
     openBench.mockClear()
     container = document.createElement("div")
     document.body.append(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
   })
 
   afterEach(async () => {

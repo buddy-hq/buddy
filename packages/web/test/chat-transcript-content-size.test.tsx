@@ -1,7 +1,8 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import { useChatStore } from "../src/state/chat-store"
@@ -143,7 +144,7 @@ describe("chat transcript content size reporting", () => {
     transcriptViewport = createChatTranscriptTestViewport()
     container = document.createElement("div")
     transcriptViewport.ref.current?.append(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
   })
 
   afterEach(async () => {
