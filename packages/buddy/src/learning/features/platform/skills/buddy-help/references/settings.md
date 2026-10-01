@@ -64,7 +64,13 @@ resolve: `advanced` / `labs` / `tools` / `teaching` / `learnerMemory` land on **
 
 ### Shortcuts
 
-**Settings → Shortcuts** lists Buddy's built-in keys under Chats, Composer, Navigation, and Bench. Customization is not available yet. Common entries: **Cmd/Ctrl+N** new chat, **Cmd/Ctrl+Shift+F** Search, **Cmd/Ctrl+B** sidebar, **Cmd/Ctrl+T** new Browser tab on desktop. The Note mode shortcut works while the composer is focused.
+**Settings → Shortcuts** lists Buddy's built-in keys under Chats, Composer, Navigation, and Bench. Customization is not available yet. Common entries:
+
+- Chats: **Cmd/Ctrl+N** new chat, **Cmd/Ctrl+Shift+[** / **]** previous / next chat.
+- Navigation: **Cmd/Ctrl+L** chat input, **Cmd/Ctrl+Shift+F** Search (Bench New tab page), **Cmd/Ctrl+P** Quick open (the New tab search in a popup), **Cmd/Ctrl+B** sidebar.
+- Bench: **Cmd/Ctrl+Option/Alt+B** toggle Bench, **Cmd/Ctrl+1–8** go to that tab, **Cmd/Ctrl+9** last tab; desktop **Cmd/Ctrl+T** New tab and **Cmd/Ctrl+W** close tab (on Mac, with no tab on screen, Cmd+W closes the window).
+
+Number keys switch Bench tabs, not chats. The Note mode shortcut works while the composer is focused.
 
 ## Notebook settings (separate)
 
