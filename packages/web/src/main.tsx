@@ -1,6 +1,7 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
 import "@buddy/ui/styles"
+import "./app-viewport.css"
 import { PlatformProvider, createBrowserPlatform, setRuntimePlatform } from "./context/platform"
 import { ServerProvider, createBrowserServerConnection } from "./context/server"
 
