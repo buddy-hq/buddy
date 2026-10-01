@@ -6,15 +6,15 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
   toast,
+  cn,
 } from "@buddy/ui"
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { FileTextIcon, MessageSquareIcon, NoteIcon, PlusIcon, Trash2Icon } from "@/icons/app-icons"
+import { NotesIcon, NoteAddIcon, Trash2Icon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import {
   RightWorkspaceDrawerShell,
-  RightWorkspaceListRow,
   RightWorkspaceListSkeleton,
   RightWorkspaceSectionLabel,
   RightWorkspaceVirtualList,
@@ -23,7 +23,7 @@ import { createNotesBenchTarget } from "@/lib/bench-targets"
 import { notesLibraryQueryOptions } from "@/features/notes/queries"
 import type { NoteSummary } from "@/features/notes/api"
 import { useNoteCaptureSignal } from "@/features/notes/capture-activity"
-import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
+import { useWorkspaceDrawerSearch, workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import type { RightWorkspaceOpener } from "@/components/directory-chat/right-workspace-open"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { NOTEBOOK_SEARCH_DEBOUNCE_MS } from "@/state/notebook-search"
@@ -31,7 +31,7 @@ import { createNoteAndUpdateCache } from "./create-note"
 import { deleteNoteWithUndo } from "./delete-note"
 
 const NOTES_SECTION_ROW_HEIGHT_PX = 28
-const NOTES_DOCUMENT_ROW_HEIGHT_PX = 76
+const NOTES_DOCUMENT_ROW_HEIGHT_PX = 32
 
 type NotesSection = "standalone" | "fromChats"
 type NotesDrawerRow =
@@ -43,40 +43,24 @@ function sectionForNote(note: NoteSummary): NotesSection {
   return "standalone"
 }
 
-function sectionLabel(section: NotesSection) {
-  if (section === "fromChats") return language.t("notes.section.fromChats")
-  return language.t("notes.section.standalone")
-}
-
-function iconForNote(note: NoteSummary) {
-  if (note.type === "buddy-session-note") return MessageSquareIcon
-  return FileTextIcon
-}
-
 function notesRows(notes: NoteSummary[]): NotesDrawerRow[] {
   const sections: NotesSection[] = ["standalone", "fromChats"]
   const rows: NotesDrawerRow[] = []
   for (const section of sections) {
     const matches = notes.filter((note) => sectionForNote(note) === section)
     if (matches.length === 0) continue
-    rows.push({ type: "section", id: `section:${section}`, label: sectionLabel(section) })
+    if (section === "fromChats") {
+      rows.push({
+        type: "section",
+        id: `section:${section}`,
+        label: language.t("notes.section.fromChats"),
+      })
+    }
     for (const note of matches) {
       rows.push({ type: "note", id: note.relativePath, note })
     }
   }
   return rows
-}
-
-function noteMetadata(note: NoteSummary, showNotebook: boolean) {
-  const date = new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-  }).format(note.updatedAt)
-  if (!showNotebook) return date
-  if (note.kind === "plain" || !note.notebook) return date
-  return note.notebookAvailable
-    ? `${note.notebook} · ${date}`
-    : language.t("notes.library.missingNotebook", { date })
 }
 
 const NOTE_HIGHLIGHT_DURATION_MS = 1_200
@@ -99,11 +83,15 @@ function useCapturedNoteHighlight(directory: string) {
 }
 
 /** Main UI entry for browsing, creating, and opening Notes. */
-export function NotesDrawer(props: { directory: string; onOpen: RightWorkspaceOpener }) {
+export function NotesDrawer(props: {
+  directory: string
+  onOpen: RightWorkspaceOpener
+  selectedNote?: { path: string; id?: string }
+}) {
   const trashNoteFile = usePlatform().trashNoteFile
   const scope = useUiPreferences((state) => state.notesScope)
   const setScope = useUiPreferences((state) => state.setNotesScope)
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useWorkspaceDrawerSearch(props.directory, "notes")
   const [creating, setCreating] = useState(false)
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
   const allScopeRef = useRef<HTMLButtonElement>(null)
@@ -128,6 +116,13 @@ export function NotesDrawer(props: { directory: string; onOpen: RightWorkspaceOp
     })
   }, [libraryQuery.data, scope])
   const rows = useMemo(() => notesRows(filteredNotes), [filteredNotes])
+  const selectedRowKey = rows.find(
+    (row) =>
+      row.type === "note" &&
+      (props.selectedNote?.id
+        ? props.selectedNote.id === row.note.id
+        : props.selectedNote?.path === row.note.relativePath),
+  )?.id
   const hasBroaderResults =
     scope === "notebook" &&
     Boolean(query) &&
@@ -159,41 +154,46 @@ export function NotesDrawer(props: { directory: string; onOpen: RightWorkspaceOp
 
   return (
     <RightWorkspaceDrawerShell
+      compact
       title={language.t("notes.library.title")}
       durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "notes" })}
+      activeSelectionKey={selectedRowKey}
       searchLabel={language.t("notes.library.search")}
       searchValue={search}
       searchPending={query !== normalizedSearch || libraryQuery.isFetching}
       searchMaxLength={500}
       action={{
         label: language.t("notes.action.new"),
-        icon: PlusIcon,
+        icon: NoteAddIcon,
         busy: creating,
         onClick: () => void createNote(),
       }}
       scrollRef={setScrollElement}
+      bodyClassName="p-2"
       toolbar={
         <div className="grid grid-cols-2 rounded-lg bg-surface-raised-base p-0.5">
           <Button
             type="button"
             variant={scope === "notebook" ? "secondary" : "ghost"}
             size="sm"
-            className="h-7"
+            className="h-7 min-w-0 px-1 text-xs"
+            aria-label={language.t("notes.library.thisNotebook")}
+            title={language.t("notes.library.thisNotebook")}
             aria-pressed={scope === "notebook"}
             onClick={() => setScope("notebook")}
           >
-            {language.t("notes.library.thisNotebook")}
+            <span className="min-w-0 truncate">{language.t("notes.library.notebook")}</span>
           </Button>
           <Button
             ref={allScopeRef}
             type="button"
             variant={scope === "all" ? "secondary" : "ghost"}
             size="sm"
-            className="h-7"
+            className="h-7 min-w-0 px-1 text-xs"
             aria-pressed={scope === "all"}
             onClick={() => setScope("all")}
           >
-            {language.t("notes.library.all")}
+            <span className="min-w-0 truncate">{language.t("notes.library.all")}</span>
           </Button>
         </div>
       }
@@ -216,7 +216,7 @@ export function NotesDrawer(props: { directory: string; onOpen: RightWorkspaceOp
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
           <span className="flex size-10 items-center justify-center rounded-xl bg-surface-raised-base text-icon-base">
-            <NoteIcon className="size-5" aria-hidden />
+            <NotesIcon className="size-5" aria-hidden />
           </span>
           <p className="text-sm font-medium text-text-base">
             {normalizedSearch
@@ -238,8 +238,10 @@ export function NotesDrawer(props: { directory: string; onOpen: RightWorkspaceOp
         </div>
       ) : (
         <RightWorkspaceVirtualList
+          gap={0}
           items={rows}
           scrollElement={scrollElement}
+          selectedKey={selectedRowKey}
           getKey={(row) => row.id}
           estimateSize={(index) =>
             rows[index]?.type === "section"
@@ -257,19 +259,22 @@ export function NotesDrawer(props: { directory: string; onOpen: RightWorkspaceOp
                     : undefined
                 }
               >
-                <RightWorkspaceListRow
-                  title={row.note.title}
-                  metadata={[
-                    row.note.relativePath.includes("/")
-                      ? row.note.relativePath.slice(0, row.note.relativePath.lastIndexOf("/"))
-                      : undefined,
-                    noteMetadata(row.note, scope === "all"),
+                <Button
+                  type="button"
+                  variant="ghost"
+                  title={[
+                    row.note.title,
+                    scope === "all" ? row.note.notebook : undefined,
+                    row.note.relativePath,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
-                  description={row.note.preview}
-                  icon={iconForNote(row.note)}
-                  highlighted={row.note.relativePath === highlightedPath}
+                  aria-current={row.id === selectedRowKey ? "page" : undefined}
+                  className={cn(
+                    "h-8 w-full min-w-0 justify-start px-2 text-left text-xs font-normal",
+                    row.id === selectedRowKey && "bg-surface-raised-base",
+                    row.note.relativePath === highlightedPath && "right-workspace-row-highlight",
+                  )}
                   onClick={() => {
                     void props.onOpen({
                       type: "object",
@@ -277,7 +282,9 @@ export function NotesDrawer(props: { directory: string; onOpen: RightWorkspaceOp
                       target: createNotesBenchTarget(row.note),
                     })
                   }}
-                />
+                >
+                  <span className="min-w-0 flex-1 truncate">{row.note.title}</span>
+                </Button>
               </NoteRowContextMenu>
             )
           }

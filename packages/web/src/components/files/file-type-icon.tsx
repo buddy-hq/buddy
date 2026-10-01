@@ -362,6 +362,11 @@ function detectIconKey(fileName: string) {
   return "file"
 }
 
+/** Whether the icon library has a mark for this name beyond the generic file. */
+export function hasFileTypeIcon(fileName: string): boolean {
+  return detectIconKey(fileName) !== "file"
+}
+
 export function resolveFileTypeIconUrl(input: FileIconResolverInput) {
   return resolveFileTypeIcon(input).url
 }

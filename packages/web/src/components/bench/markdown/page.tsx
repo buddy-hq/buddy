@@ -345,7 +345,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         />
       }
       controlsPlacement="dock"
-      hideHeader
+      hideHeader={contextTarget.type !== "workspace-file"}
       dockPanel={
         advancedToolsOpen ? (
           <MarkdownBenchAdvancedToolbarSlot ref={setAdvancedToolbarContainer} />

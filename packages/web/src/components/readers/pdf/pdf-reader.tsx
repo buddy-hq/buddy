@@ -25,7 +25,8 @@ import {
   cn,
   toast,
 } from "@buddy/ui"
-import { LoaderCircleIcon, TriangleAlertIcon } from "@/icons/app-icons"
+import { InfoIcon, LoaderCircleIcon, TriangleAlertIcon } from "@/icons/app-icons"
+import { useInBenchCollectionChrome } from "@/components/bench/bench-collection-chrome"
 import { PasswordResponses } from "pdfjs-dist"
 import "pdfjs-dist/web/pdf_viewer.css"
 import {
@@ -323,6 +324,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
   },
   ref,
 ) {
+  const compactTitle = useInBenchCollectionChrome()
   const repositoryRef = useRef(createLocalReaderStateRepository())
   const rootRef = useRef<HTMLElement | null>(null)
   const readerSurfaceRef = useRef<HTMLDivElement | null>(null)
@@ -1678,12 +1680,18 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
             <ReaderMetadataHoverCard snapshot={snapshot}>
               <button
                 type="button"
+                aria-label={compactTitle ? "Resource information" : undefined}
                 className="max-w-full truncate text-xs font-medium text-text-base"
               >
-                {snapshot?.title ?? source.sourceId}
+                {compactTitle ? (
+                  <InfoIcon aria-hidden className="size-4" />
+                ) : (
+                  (snapshot?.title ?? source.sourceId)
+                )}
               </button>
             </ReaderMetadataHoverCard>
           }
+          compactTitle={compactTitle}
           zoom={
             <ReaderPdfZoomControls
               onZoomOut={() => sessionRef.current?.zoomOut()}

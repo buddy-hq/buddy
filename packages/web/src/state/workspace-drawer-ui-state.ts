@@ -1,3 +1,4 @@
+import { useCallback } from "react"
 import { create } from "zustand"
 
 /**
@@ -6,7 +7,7 @@ import { create } from "zustand"
  * Drawers are deliberately not kept alive: they are directory-scoped views with live queries, and
  * mounting them while hidden means every notebook fetches and polls drawer data for chats the user
  * is not in. They therefore unmount on every chat switch — including a switch that reopens the same
- * drawer — and lose tree expansion and scroll.
+ * drawer — and lose search, filters, tree expansion, and scroll.
  *
  * This store holds those small serializable values so the drawer comes back where the user left it.
  * The listings themselves come back from the query cache; nothing here caches data.
@@ -19,7 +20,11 @@ type WorkspaceDrawerUiKey = string
 type WorkspaceDrawerUiState = {
   scrollTop?: number
   expandedPaths?: string[]
+  search?: string
+  creationFilter?: CreationFilter
 }
+
+export type CreationFilter = "all" | "widgets" | "diagrams" | "media"
 
 type WorkspaceDrawerUiStateStore = {
   byKey: Record<WorkspaceDrawerUiKey, WorkspaceDrawerUiState>
@@ -60,4 +65,17 @@ export function writeWorkspaceDrawerUiState(
   state: WorkspaceDrawerUiState,
 ): void {
   useWorkspaceDrawerUiState.getState().write(key, state)
+}
+
+export function useWorkspaceDrawerSearch(
+  directory: string,
+  drawer: string,
+): [string, (value: string) => void] {
+  const key = workspaceDrawerUiKey({ directory, drawer })
+  const search = useWorkspaceDrawerUiState((state) => state.byKey[key]?.search ?? "")
+  const setSearch = useCallback(
+    (value: string) => writeWorkspaceDrawerUiState(key, { search: value }),
+    [key],
+  )
+  return [search, setSearch]
 }

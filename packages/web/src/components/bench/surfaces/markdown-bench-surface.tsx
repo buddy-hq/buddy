@@ -114,7 +114,6 @@ function LargeMarkdownBenchGate(props: {
         hints={["The user can choose Open anyway or use an external file action."]}
       >
         <WorkspaceFileLargeWarning
-          directory={props.directory}
           path={props.path}
           sizeBytes={props.fileData.sizeBytes}
           onOpenAnyway={() => setApproved(true)}

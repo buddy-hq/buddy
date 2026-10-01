@@ -1,6 +1,7 @@
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@buddy/ui"
 import { MinusIcon, PlusIcon, RotateCcwIcon } from "@/icons/app-icons"
 import { readBenchSurfaceViewport, writeBenchSurfaceViewport } from "@/state/bench-surface-ui-state"
+import { useInBenchCollectionChrome } from "./bench-collection-chrome"
 import {
   useCallback,
   useEffect,
@@ -43,6 +44,8 @@ type BenchViewerShellProps = {
   subtitle?: string
   actions?: BenchViewerAction[]
   toolbar?: ReactNode
+  /** Controls that remain in the header when the main toolbar is docked. */
+  headerToolbar?: ReactNode
   zoomControls?: BenchZoomControls
   controlsPlacement?: "header" | "dock"
   hideHeader?: boolean
@@ -375,8 +378,11 @@ function BenchViewerControls(props: {
 }
 
 export function BenchViewerShell(props: BenchViewerShellProps) {
-  const controlsPlacement = props.controlsPlacement ?? "header"
-  const showHeader = props.hideHeader !== true
+  // Collection chrome is the item's header in every layout, so the shell's own header only
+  // stands in outside it, and header controls move to the dock.
+  const inCollectionChrome = useInBenchCollectionChrome()
+  const controlsPlacement = props.controlsPlacement ?? (inCollectionChrome ? "dock" : "header")
+  const showHeader = props.hideHeader !== true && !inCollectionChrome
   const headerControls =
     controlsPlacement === "header" && showHeader ? (
       <BenchViewerControls
@@ -411,14 +417,17 @@ export function BenchViewerShell(props: BenchViewerShellProps) {
       >
         {showHeader ? (
           <header className="flex shrink-0 items-center gap-3 border-b border-border-base/70 bg-surface-base/85 px-4 py-2.5 backdrop-blur md:px-5">
-            <div className="min-w-0 flex-1">
+            <div className={cn("min-w-0", props.headerToolbar ? "max-w-[55%]" : "flex-1")}>
               <h1 className="truncate text-sm font-semibold text-text-strong">{props.title}</h1>
               {props.subtitle ? (
                 <p className="truncate text-xs text-text-weak">{props.subtitle}</p>
               ) : null}
             </div>
-            {headerControls ? (
-              <div className="flex shrink-0 items-center gap-2">{headerControls}</div>
+            {headerControls || props.headerToolbar ? (
+              <div className="flex shrink-0 items-center gap-2">
+                {props.headerToolbar}
+                {headerControls}
+              </div>
             ) : null}
           </header>
         ) : null}

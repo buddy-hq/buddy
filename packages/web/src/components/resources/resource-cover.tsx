@@ -15,8 +15,17 @@ const RESOURCE_COVER_ICON_CLASS = "size-14 drop-shadow-sm"
 const RESOURCE_COVER_EXTENSION_CLASS = "text-[10px] font-semibold uppercase tracking-[0.16em]"
 const RESOURCE_COVER_TITLE_CLASS =
   "mt-1.5 line-clamp-2 break-words text-[11px] font-medium leading-[1.4] text-text-stronger"
+// The shelf is the tile placeholder at under 100px wide, where the tile's type would clip.
+const RESOURCE_COVER_SHELF_HERO_PADDING_CLASS = "px-2 py-1.5"
+const RESOURCE_COVER_SHELF_ICON_CLASS = "size-9 drop-shadow-sm"
+const RESOURCE_COVER_SHELF_LABEL_PADDING_CLASS = "px-2 py-1.5"
+const RESOURCE_COVER_SHELF_EXTENSION_CLASS =
+  "text-[9px] font-semibold uppercase leading-none tracking-[0.16em]"
+const RESOURCE_COVER_SHELF_TITLE_CLASS =
+  "mt-1 line-clamp-2 break-words text-[10px] font-medium leading-[1.3] text-text-stronger"
 const RESOURCE_COVER_PRESENTATION_TILE = "tile"
 const RESOURCE_COVER_PRESENTATION_THUMBNAIL = "thumbnail"
+const RESOURCE_COVER_PRESENTATION_SHELF = "shelf"
 
 type ResourceCoverPalette = {
   accentClass: string
@@ -62,6 +71,7 @@ const RESOURCE_COVER_PALETTE_BY_MEDIA_KIND = new Map<WorkspaceMediaKind, Resourc
 type ResourceCoverPresentation =
   | typeof RESOURCE_COVER_PRESENTATION_TILE
   | typeof RESOURCE_COVER_PRESENTATION_THUMBNAIL
+  | typeof RESOURCE_COVER_PRESENTATION_SHELF
 
 type ResourceCoverContentProps = {
   directory: string
@@ -111,10 +121,16 @@ function ResourceCoverContent({
   const objectUrl = useResourceCoverObjectUrl(directory, coverRelpath)
   const displayName = title || extension.toUpperCase()
   const thumbnail = presentation === RESOURCE_COVER_PRESENTATION_THUMBNAIL
+  const shelf = presentation === RESOURCE_COVER_PRESENTATION_SHELF
 
   if (objectUrl) {
+    // A thumbnail or shelf cover sits beside a visible title, so its image is decorative.
     return (
-      <img src={objectUrl} alt={thumbnail ? "" : displayName} className="size-full object-cover" />
+      <img
+        src={objectUrl}
+        alt={thumbnail || shelf ? "" : displayName}
+        className="size-full object-cover"
+      />
     )
   }
 
@@ -141,12 +157,35 @@ function ResourceCoverContent({
       data-resource-format={extension}
       data-resource-media-kind={mediaKind}
     >
-      <div className={cn("flex min-h-0 items-center justify-center px-4 py-3", palette.heroClass)}>
-        <FileTypeIcon fileName={resolvedFileName} className={RESOURCE_COVER_ICON_CLASS} />
+      <div
+        className={cn(
+          "flex min-h-0 items-center justify-center",
+          shelf ? RESOURCE_COVER_SHELF_HERO_PADDING_CLASS : "px-4 py-3",
+          palette.heroClass,
+        )}
+      >
+        <FileTypeIcon
+          fileName={resolvedFileName}
+          className={shelf ? RESOURCE_COVER_SHELF_ICON_CLASS : RESOURCE_COVER_ICON_CLASS}
+        />
       </div>
-      <div className="flex min-h-0 flex-col justify-center overflow-hidden border-t border-border-weaker-base bg-surface-raised-base px-3 py-2 text-left">
-        <span className={cn(RESOURCE_COVER_EXTENSION_CLASS, palette.accentClass)}>{extension}</span>
-        <span className={RESOURCE_COVER_TITLE_CLASS}>{displayName}</span>
+      <div
+        className={cn(
+          "flex min-h-0 flex-col justify-center overflow-hidden border-t border-border-weaker-base bg-surface-raised-base text-left",
+          shelf ? RESOURCE_COVER_SHELF_LABEL_PADDING_CLASS : "px-3 py-2",
+        )}
+      >
+        <span
+          className={cn(
+            shelf ? RESOURCE_COVER_SHELF_EXTENSION_CLASS : RESOURCE_COVER_EXTENSION_CLASS,
+            palette.accentClass,
+          )}
+        >
+          {extension}
+        </span>
+        <span className={shelf ? RESOURCE_COVER_SHELF_TITLE_CLASS : RESOURCE_COVER_TITLE_CLASS}>
+          {displayName}
+        </span>
       </div>
     </div>
   )
@@ -157,7 +196,9 @@ export function ResourceCover({ className, ...contentProps }: ResourceCoverProps
     <div
       className={cn(
         RESOURCE_COVER_FRAME_CLASS,
-        contentProps.presentation === RESOURCE_COVER_PRESENTATION_THUMBNAIL && "rounded-md",
+        (contentProps.presentation === RESOURCE_COVER_PRESENTATION_THUMBNAIL ||
+          contentProps.presentation === RESOURCE_COVER_PRESENTATION_SHELF) &&
+          "rounded-md",
         className,
       )}
     >

@@ -10,11 +10,18 @@ import {
   type BenchMode,
   type BenchTarget,
 } from "@/lib/bench-navigation"
-import { benchTabFallbackTitle, benchTabKey, type BenchTab } from "@/lib/bench-tabs"
-import type {
-  DirectoryWorkspaceHydrationState,
-  DrawerKind,
-  EffectiveWorkspaceProjection,
+import {
+  EMPTY_BENCH_TAB_TITLE,
+  benchTabFallbackTitle,
+  benchTabKey,
+  emptyBenchTabKey,
+  type BenchTab,
+} from "@/lib/bench-tabs"
+import {
+  isImmersiveEmptyWorkspaceState,
+  type DirectoryWorkspaceHydrationState,
+  type DrawerKind,
+  type EffectiveWorkspaceProjection,
 } from "@/state/directory-workspace-store"
 import type {
   BenchClientActionsCompleteData,
@@ -46,7 +53,7 @@ type BenchEventStreamLeaseQuery = Pick<
   "workspaceInstanceID" | "connectionGeneration"
 >
 type BenchClientActionCompletion = BenchClientActionsCompleteData["body"]
-type BenchProtocolTarget = BenchContextTabSummary["target"]
+type BenchProtocolTarget = Exclude<BenchContextTabSummary["target"], { type: "new-tab" }>
 type BenchProtocolRoute = NonNullable<BenchClientActionCompletion["observedRoute"]>
 type BenchCommittedClientActionCompletion = Extract<
   BenchClientActionCompletion,
@@ -119,6 +126,13 @@ type BenchSurfaceRegistration = BenchSurfaceRegistrationInput & {
   order: number
   unsubscribe: () => void
 }
+
+type DirectoryWorkspaceEmptyTabs = {
+  emptyTabIDs: readonly string[]
+  activeEmptyTabID: string | undefined
+}
+
+const NO_EMPTY_TABS: DirectoryWorkspaceEmptyTabs = { emptyTabIDs: [], activeEmptyTabID: undefined }
 
 type BenchContextPublishSnapshot =
   | {
@@ -419,6 +433,14 @@ function contextTargetDiagnostic(value: BenchReadContextOutput) {
       selectedBrowser: value.selectedBrowser,
     }
   }
+  if (value.visibility === "new-tab") {
+    return {
+      status: value.status,
+      visibility: value.visibility,
+      selectedTabKey: value.selectedTabKey,
+      tabCount: value.tabs.length,
+    }
+  }
   return {
     status: value.status,
     targetKey: value.targetKey,
@@ -447,6 +469,7 @@ export class DirectoryWorkspaceLifecycleService {
   readonly #directory: string
   readonly #getProjection: () => EffectiveWorkspaceProjection
   readonly #getTabs: () => readonly BenchTab[]
+  readonly #getEmptyTabs: () => DirectoryWorkspaceEmptyTabs
   readonly #getTabTitle: (tab: BenchTab) => string | undefined
   readonly #getBrowserTabRuntime: (
     tabID: string,
@@ -475,6 +498,7 @@ export class DirectoryWorkspaceLifecycleService {
     directory: string
     getProjection: () => EffectiveWorkspaceProjection
     getTabs: () => readonly BenchTab[]
+    getEmptyTabs?: () => DirectoryWorkspaceEmptyTabs
     getTabTitle?: (tab: BenchTab) => string | undefined
     getBrowserTabRuntime?: (
       tabID: string,
@@ -487,6 +511,7 @@ export class DirectoryWorkspaceLifecycleService {
     this.#directory = input.directory
     this.#getProjection = input.getProjection
     this.#getTabs = input.getTabs
+    this.#getEmptyTabs = input.getEmptyTabs ?? (() => NO_EMPTY_TABS)
     this.#getTabTitle = input.getTabTitle ?? (() => undefined)
     this.#getBrowserTabRuntime = input.getBrowserTabRuntime ?? (() => undefined)
     this.#getHydrationStatus = input.getHydrationStatus
@@ -1073,6 +1098,44 @@ export class DirectoryWorkspaceLifecycleService {
   }
 
   #readTabSummaries(): BenchContextTabSummary[] {
+    const emptyTabs = this.#getEmptyTabs().emptyTabIDs.map((id) => ({
+      tabKey: emptyBenchTabKey(id),
+      title: EMPTY_BENCH_TAB_TITLE,
+      target: { type: "new-tab" as const },
+    }))
+    return [...this.#readItemTabSummaries(), ...emptyTabs]
+  }
+
+  /** The New tab the empty page shows, which the agent sees as the selected tab. */
+  #readNewTabPublishSnapshot(sessionID: string): BenchContextPublishSnapshot | null {
+    const projection = this.#getProjection()
+    const activeEmptyTabID = this.#getEmptyTabs().activeEmptyTabID
+    if (
+      !activeEmptyTabID ||
+      projection.route.status !== "closed" ||
+      projection.dockedState.visibility !== "expanded" ||
+      projection.drawer !== null
+    ) {
+      return null
+    }
+    const tabs = this.#readTabSummaries()
+    const selectedTabKey = emptyBenchTabKey(activeEmptyTabID)
+    const mode = isImmersiveEmptyWorkspaceState(projection.dockedState) ? "floating" : "docked"
+    return {
+      status: "open",
+      publicationKey: [
+        this.#directory,
+        sessionID,
+        "new-tab",
+        selectedTabKey,
+        mode,
+        JSON.stringify(tabs),
+      ].join("\u0000"),
+      value: { status: "open", visibility: "new-tab", mode, selectedTabKey, tabs, drawer: null },
+    }
+  }
+
+  #readItemTabSummaries(): BenchContextTabSummary[] {
     return this.#getTabs().flatMap((tab) =>
       isBenchContentTarget(tab.target)
         ? (() => {
@@ -1102,6 +1165,9 @@ export class DirectoryWorkspaceLifecycleService {
     drawer: DrawerKind | null
   }): BenchContextPublishSnapshot {
     if (input.route.status === "closed" || input.visibility === "closed") {
+      const newTabSnapshot =
+        input.route.status === "closed" ? this.#readNewTabPublishSnapshot(input.sessionID) : null
+      if (newTabSnapshot) return newTabSnapshot
       return {
         status: "closed",
         publicationKey: closedPublicationKey({

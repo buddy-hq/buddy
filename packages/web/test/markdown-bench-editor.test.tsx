@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act, createRef } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { Z_INDEX } from "@buddy/ui"
@@ -19,17 +19,8 @@ import {
 } from "../src/lib/citations/navigation"
 import { createMermaidThemeConfig } from "../src/components/media/renderers/mermaid/lib/theme"
 import { ThemeProvider } from "../src/theme"
-
-// Bun fails to evaluate @uiw/file-icons SVGs when this file also loads MDX editor CSS.
-mock.module("@/components/files/file-type-icon", () => ({
-  FileTypeIcon: () => null,
-  createFileTypeIconElement: () => document.createElement("span"),
-  resolveFileTypeIconUrl: () => "",
-}))
-
-const { useMarkdownBenchSelectionSync } =
-  await import("../src/components/bench/markdown/use-selection-sync")
-const { getPromptDraft, usePromptStore } = await import("../src/state/prompt-store")
+import { useMarkdownBenchSelectionSync } from "../src/components/bench/markdown/use-selection-sync"
+import { getPromptDraft, usePromptStore } from "../src/state/prompt-store"
 
 function createMediaQueryList(matches: boolean): MediaQueryList {
   const mediaQueryList: MediaQueryList = {

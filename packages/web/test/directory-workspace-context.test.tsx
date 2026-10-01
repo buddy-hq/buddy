@@ -12,10 +12,6 @@ import { createRoot, type Root } from "react-dom/client"
 import { createPortal } from "react-dom"
 import { useStore } from "zustand"
 import { DesktopTitlebar } from "../src/components/layout/desktop-titlebar"
-import {
-  DesktopTitlebarContentProvider,
-  useDesktopTitlebarContentTarget,
-} from "../src/components/layout/desktop-titlebar-content"
 import { encodeDirectory } from "../src/lib/directory-token"
 import {
   createBrowserPlatform,
@@ -190,21 +186,14 @@ function ThreadControlsTitlebarProbe(props: { showSidebarThreadControls: boolean
   )
 }
 
-function FloatingBenchTitlebarContentProbe() {
-  const target = useDesktopTitlebarContentTarget()
-  return target
-    ? createPortal(<span data-testid="floating-bench-tabs">Bench tabs</span>, target)
-    : null
-}
-
 function RootFloatingBenchTitlebarProbe() {
   const [target, setTarget] = useState<HTMLDivElement | null>(null)
   return (
     <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
-      <DesktopTitlebarContentProvider target={target}>
-        <DesktopTitlebar showDockFloatingBench rootContentRef={setTarget} />
-        <FloatingBenchTitlebarContentProbe />
-      </DesktopTitlebarContentProvider>
+      <DesktopTitlebar showDockFloatingBench rootContentRef={setTarget} />
+      {target
+        ? createPortal(<span data-testid="floating-bench-tabs">Bench tabs</span>, target)
+        : null}
     </PlatformProvider>
   )
 }
@@ -802,6 +791,7 @@ describe("DirectoryWorkspaceProvider", () => {
     )
     expect(writes.length).toBeGreaterThan(0)
     for (const write of writes) {
+      // The restored empty page also gains the New tab it shows.
       expect(JSON.parse(write)).toEqual({
         version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
         state: {
@@ -814,11 +804,57 @@ describe("DirectoryWorkspaceProvider", () => {
                 drawer: null,
               },
               lastDrawer: WORKSPACE_DRAWER_SOURCES,
+              emptyTabIDs: [expect.any(String)],
+              activeEmptyTabID: expect.any(String),
             },
           },
         },
       })
     }
+  })
+
+  test("restoring the New tab page keeps its New tabs and the tabs behind it", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const tabs = upsertBenchTab([], TEST_SETTINGS_FIRST_FILE_TARGET).tabs
+    const persistedPayload = JSON.stringify({
+      version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
+      state: {
+        slots: {
+          [WORKSPACE_CHAT_DRAFT_KEY]: {
+            route: { status: BENCH_ROUTE_STATUS_CLOSED },
+            tabs,
+            docked: { visibility: WORKSPACE_VISIBILITY_EXPANDED, drawer: null },
+            lastDrawer: WORKSPACE_DRAWER_SOURCES,
+            emptyTabIDs: ["new-a", "new-b"],
+            activeEmptyTabID: "new-b",
+          },
+        },
+      },
+    })
+    const writes: string[] = []
+    const persistenceStorage: DirectoryWorkspacePersistenceStorage = {
+      getItem: () => persistedPayload,
+      setItem: (_name, value) => {
+        writes.push(value)
+      },
+      removeItem: () => undefined,
+    }
+
+    await act(async () => {
+      root?.render(<TestStrictModeRouterProvider persistenceStorage={persistenceStorage} />)
+      await flushEffects()
+    })
+
+    expect(writes.length).toBeGreaterThan(0)
+    expect(JSON.parse(writes.at(-1) ?? "{}").state.slots[WORKSPACE_CHAT_DRAFT_KEY]).toMatchObject({
+      route: { status: BENCH_ROUTE_STATUS_CLOSED },
+      tabs,
+      emptyTabIDs: ["new-a", "new-b"],
+      activeEmptyTabID: "new-b",
+    })
   })
 
   test("queues commands while hydration is pending and drains them after hydration", async () => {

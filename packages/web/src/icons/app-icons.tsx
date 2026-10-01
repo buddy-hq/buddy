@@ -57,6 +57,7 @@ import {
   FileImageIcon as FileImageIconData,
   FileUnknownIcon as FileUnknownIconData,
   Folder01Icon as Folder01IconData,
+  Folder03Icon as Folder03IconData,
   FolderOpenIcon as FolderOpenIconData,
   FitToScreenIcon as FitToScreenIconData,
   Gamepad2Icon as Gamepad2IconData,
@@ -98,6 +99,7 @@ import {
   FolderAddIcon as FolderAddIconData,
   NoteAddIcon as NoteAddIconData,
   NoteIcon as NoteIconData,
+  Note01Icon as Note01IconData,
   PauseIcon as PauseIconData,
   PencilEdit01Icon as PencilEdit01IconData,
   PencilEdit02Icon as PencilEdit02IconData,
@@ -294,7 +296,8 @@ export const Books02Icon = createIcon(Books02IconData, "Books02Icon")
 export const BookIcon = createIcon(NotebookIconData, "BookIcon")
 export const Notebook = createIcon(NotebookIconData, "Notebook")
 export const NotebookIcon = createIcon(NotebookIconData, "NotebookIcon")
-export const NoteIcon = createIcon(NoteIconData, "NoteIcon")
+export const NoteIcon = createIcon(Note01IconData, "NoteIcon")
+export const NotesIcon = createIcon(NoteIconData, "NotesIcon")
 export const NoteAddIcon = createIcon(NoteAddIconData, "NoteAddIcon")
 export const Bookmark = createIcon(Bookmark02IconData, "Bookmark")
 export const BookmarkIcon = createIcon(Bookmark02IconData, "BookmarkIcon")
@@ -349,6 +352,8 @@ export const FileText = createIcon(File02IconData, "FileText")
 export const FileTextIcon = createIcon(File02IconData, "FileTextIcon")
 export const Folder = createIcon(Folder01IconData, "Folder")
 export const FolderIcon = createIcon(Folder01IconData, "FolderIcon")
+export const Folder03 = createIcon(Folder03IconData, "Folder03")
+export const Folder03Icon = createIcon(Folder03IconData, "Folder03Icon")
 export const FolderAddIcon = createIcon(FolderAddIconData, "FolderAddIcon")
 export const FolderOpen = createIcon(FolderOpenIconData, "FolderOpen")
 export const FolderOpenIcon = createIcon(FolderOpenIconData, "FolderOpenIcon")

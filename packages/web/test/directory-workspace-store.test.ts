@@ -23,6 +23,7 @@ import {
   createCollapsedWorkspaceState,
   createDirectoryWorkspaceStore,
   createExpandedWorkspaceState,
+  createImmersiveEmptyWorkspaceState,
   defaultWorkspacePresentationSlot,
   effectiveWorkspaceProjection,
   isSameBenchRouteSnapshot,
@@ -32,6 +33,7 @@ import {
   removeNotesBenchTargetsFromSlot,
   removePersistedNotesBenchTargets,
   removeSessionBenchTargetsFromSlots,
+  withRestoredEmptyPageTab,
   writePersistedDirectoryWorkspace,
   writePersistedWorkspaceSlot,
   type BenchRouteSnapshot,
@@ -288,7 +290,7 @@ describe("effectiveWorkspaceProjection", () => {
     })
   })
 
-  test("derives the no-target expanded drawer from last drawer without storing it", () => {
+  test("shows the empty Bench when expanded without a target or drawer", () => {
     const state = projectionState({
       visibility: WORKSPACE_VISIBILITY_EXPANDED,
       drawer: null,
@@ -299,8 +301,8 @@ describe("effectiveWorkspaceProjection", () => {
 
     expect(projection).toMatchObject({
       bench: { visibility: "closed" },
-      drawer: WORKSPACE_DRAWER_SOURCES,
-      renderedSurface: "drawer",
+      drawer: null,
+      renderedSurface: "empty",
     })
     expect(state.docked.drawer).toBeNull()
   })
@@ -729,6 +731,38 @@ describe("createDirectoryWorkspaceStore", () => {
     })
   })
 
+  test("a slot restored onto the empty page shows a New tab, keeping the saved ones", () => {
+    const emptyPage = {
+      route: CLOSED_ROUTE,
+      tabs: [],
+      docked: createExpandedWorkspaceState(null),
+      lastDrawer: WORKSPACE_DRAWER_SOURCES,
+    } satisfies WorkspacePresentationSlot
+
+    // Saved before New tabs existed: the empty page has no tab of its own yet.
+    const created = withRestoredEmptyPageTab(emptyPage)
+    expect(created.emptyTabIDs).toHaveLength(1)
+    expect(created.activeEmptyTabID).toBe(created.emptyTabIDs?.[0])
+
+    // The removed Search drawer restores to the empty page too.
+    const fromSearch = withRestoredEmptyPageTab({
+      ...emptyPage,
+      docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SEARCH),
+    })
+    expect(fromSearch.emptyTabIDs).toHaveLength(1)
+
+    expect(
+      withRestoredEmptyPageTab({
+        ...emptyPage,
+        emptyTabIDs: ["new-a", "new-b"],
+        activeEmptyTabID: "new-a",
+      }),
+    ).toMatchObject({ emptyTabIDs: ["new-a", "new-b"], activeEmptyTabID: "new-a" })
+
+    const collapsed = { ...emptyPage, docked: createCollapsedWorkspaceState() }
+    expect(withRestoredEmptyPageTab(collapsed)).toBe(collapsed)
+  })
+
   test("bounds the persisted slot map and evicts least recently touched chats", () => {
     const store = createDirectoryWorkspaceStore({
       directory: "/workspace",
@@ -801,6 +835,28 @@ describe("createDirectoryWorkspaceStore", () => {
 
     expect(store.getState().activeChatKey).toBe(durableChatKey)
     expect(store.getState().slots[transitionKey]).toBeUndefined()
+  })
+
+  test("retains the expanded empty Bench layout while switching chats", () => {
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: { docked: createExpandedWorkspaceState(null), hydration: { status: "ready" } },
+    })
+    const previousProjection = effectiveWorkspaceProjection(CLOSED_ROUTE, store.getState(), null)
+    store.getState().stageChatTransition({
+      commandID: "switch-empty-bench",
+      chatKey: workspaceChatKeyForSession("next-chat"),
+      previousProjection,
+    })
+    const projection = effectiveWorkspaceProjection(
+      CLOSED_ROUTE,
+      store.getState(),
+      store.getState().pendingIntent,
+    )
+    expect(projection.pending).toMatchObject({
+      status: "chat-transition",
+      transitionFrame: { kind: "selector" },
+    })
   })
 
   test("keeps a persisted slot when the transition moves on", () => {
@@ -936,6 +992,95 @@ describe("directory workspace persistence", () => {
           }),
         },
       },
+    })
+  })
+
+  test("restores an immersive empty page and ignores the immersive flag beside a drawer", async () => {
+    const storage = createMemoryStorage()
+    const immersiveChatKey = workspaceChatKeyForSession("session-immersive")
+    const drawerChatKey = workspaceChatKeyForSession("session-drawer")
+    const closedRoute = { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot
+    await storage.setItem(
+      "directory-workspace:%2Fworkspace",
+      JSON.stringify({
+        version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
+        state: {
+          slots: {
+            [immersiveChatKey]: {
+              route: closedRoute,
+              tabs: [],
+              docked: {
+                visibility: WORKSPACE_VISIBILITY_EXPANDED,
+                drawer: null,
+                mode: BENCH_CHAT_LAYOUT_FLOATING,
+              },
+              lastDrawer: WORKSPACE_DRAWER_SOURCES,
+            },
+            [drawerChatKey]: {
+              route: closedRoute,
+              tabs: [],
+              docked: {
+                visibility: WORKSPACE_VISIBILITY_EXPANDED,
+                drawer: WORKSPACE_DRAWER_FILES,
+                mode: BENCH_CHAT_LAYOUT_FLOATING,
+              },
+              lastDrawer: WORKSPACE_DRAWER_FILES,
+            },
+          },
+        },
+      }),
+    )
+
+    const persisted = await readPersistedDirectoryWorkspace({ directory: "/workspace", storage })
+
+    expect(persisted.state?.slots[immersiveChatKey]?.docked).toEqual(
+      createImmersiveEmptyWorkspaceState(),
+    )
+    expect(persisted.state?.slots[drawerChatKey]?.docked).toEqual(
+      createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
+    )
+  })
+
+  test("restores New tabs and migrates the single empty-tab flag", async () => {
+    const storage = createMemoryStorage()
+    const legacyChatKey = workspaceChatKeyForSession("session-legacy")
+    const currentChatKey = workspaceChatKeyForSession("session-current")
+    const closedRoute = { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot
+    const emptyPage = { visibility: WORKSPACE_VISIBILITY_EXPANDED, drawer: null }
+    await storage.setItem(
+      "directory-workspace:%2Fworkspace",
+      JSON.stringify({
+        version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
+        state: {
+          slots: {
+            [legacyChatKey]: {
+              route: closedRoute,
+              tabs: [],
+              docked: emptyPage,
+              lastDrawer: WORKSPACE_DRAWER_SOURCES,
+              emptyTabOpen: true,
+            },
+            [currentChatKey]: {
+              route: closedRoute,
+              tabs: [],
+              docked: emptyPage,
+              lastDrawer: WORKSPACE_DRAWER_SOURCES,
+              emptyTabIDs: ["new-a", "new-b", "new-a"],
+              activeEmptyTabID: "new-b",
+            },
+          },
+        },
+      }),
+    )
+
+    const persisted = await readPersistedDirectoryWorkspace({ directory: "/workspace", storage })
+
+    const legacy = persisted.state?.slots[legacyChatKey]
+    expect(legacy?.emptyTabIDs).toHaveLength(1)
+    expect(legacy?.activeEmptyTabID).toBe(legacy?.emptyTabIDs?.[0])
+    expect(persisted.state?.slots[currentChatKey]).toMatchObject({
+      emptyTabIDs: ["new-a", "new-b"],
+      activeEmptyTabID: "new-b",
     })
   })
 

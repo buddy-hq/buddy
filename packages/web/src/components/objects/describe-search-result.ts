@@ -8,6 +8,7 @@ import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/l
 import { describeObject, type ObjectDescriptorInput } from "./describe-object"
 import {
   OBJECT_KIND_NOTE,
+  OBJECT_KIND_BROWSER,
   OBJECT_KIND_THREAD,
   OBJECT_KIND_WORKSPACE_FILE,
   OBJECT_THUMBNAIL_COVER,
@@ -31,6 +32,13 @@ type TCoverThumbnail = {
  * sharing one "creation" icon.
  */
 export function notebookSearchResultKind(result: NotebookSearchResult): ObjectPresentationKind {
+  if (result.target.type === "open-tab") {
+    const target = result.target.target
+    if (target.type === "object") return target.ref.kind
+    if (target.type === "browser") return OBJECT_KIND_BROWSER
+    if (target.type === "session") return OBJECT_KIND_THREAD
+    return target.root === "notes" ? OBJECT_KIND_NOTE : OBJECT_KIND_WORKSPACE_FILE
+  }
   if (result.target.type === "object") return result.target.kind
   if (result.target.type === "resource") return RESOURCE_OBJECT_KIND
   if (result.target.type === "thread") return OBJECT_KIND_THREAD
@@ -45,13 +53,17 @@ export function describeNotebookSearchResult(input: {
 }): ObjectModel {
   const { result } = input
   const thumbnail: TCoverThumbnail | undefined =
-    result.target.type === "resource" && result.resourceVisual
+    (result.target.type === "resource" ||
+      (result.target.type === "open-tab" &&
+        result.target.target.type === "object" &&
+        result.target.target.ref.kind === "resource")) &&
+    result.resourceVisual
       ? Object.assign(
           {
             source: OBJECT_THUMBNAIL_COVER,
             directory: input.directory,
             extension: result.resourceVisual.extension,
-            fileName: result.target.name,
+            fileName: result.target.type === "resource" ? result.target.name : result.title,
           } as const,
           result.resourceVisual.coverRelpath
             ? { coverRelpath: result.resourceVisual.coverRelpath }
@@ -66,7 +78,7 @@ export function describeNotebookSearchResult(input: {
       meta: [result.metadata],
       directory: input.directory,
     },
-    result.target.type === "resource" && result.resourceVisual ? { thumbnail } : undefined,
+    thumbnail ? { thumbnail } : undefined,
     // An unprocessed source has no object yet, so the file on disk is its identity.
     result.target.type === "resource"
       ? {
@@ -96,6 +108,9 @@ export function describeNotebookSearchResult(input: {
           }
         : undefined,
       result.target.type === "note" ? { target: createNotesBenchTarget(result.target) } : undefined,
+      result.target.type === "open-tab" && result.target.target.type !== "session"
+        ? { target: result.target.target }
+        : undefined,
     ),
   )
 

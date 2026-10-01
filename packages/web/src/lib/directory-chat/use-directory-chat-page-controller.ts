@@ -30,7 +30,6 @@ import type {
   MentionableAgent,
   MentionableReference,
 } from "@/components/prompt/mention-autocomplete"
-import { filterIgnoredMentionFiles } from "@/components/prompt/mention-file-ignores"
 import type { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
 import type { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
 import {
@@ -51,7 +50,6 @@ import {
   abortPrompt,
   closeOpenProject,
   ensureDirectorySession,
-  findWorkspaceFiles,
   prefetchSessionMessages,
   createManagedNotebook,
   compactSession,
@@ -75,6 +73,8 @@ import {
 } from "../../state/directory-chat-query"
 import { teachingSessionStateQueryOptions } from "../../state/teaching-session-query"
 import { invalidateObsidianWatcherCaches } from "../../state/obsidian-vault-query"
+import { invalidateNotebookFileIndex } from "../../state/notebook-file-search"
+import { refetchActiveWorkspaceObjectQueries } from "../../state/workspace-objects-query"
 import {
   clonePromptDraft,
   getPromptScopeKey,
@@ -83,6 +83,7 @@ import {
 } from "../../state/prompt-store"
 import { useChatStore } from "../../state/chat-store"
 import { useNotifications } from "../../state/notifications"
+import type { SessionInfo } from "../../state/chat-types"
 import type { PermissionReply } from "../../state/permission-types"
 import { useShallow } from "zustand/react/shallow"
 import { stringifyError } from "../../state/teaching-actions"
@@ -142,11 +143,9 @@ import {
 import { useNoteCaptureWorkflow } from "@/features/notes/use-note-capture-workflow"
 
 const SIDEBAR_MIN_WIDTH = 220
-// Over-fetched so filterIgnoredMentionFiles still leaves a full menu after
-// pruning ignored dirs; the view state caps the displayed options separately.
-const MENTION_FILE_SEARCH_LIMIT = 40
 const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const EMPTY_MENTIONABLE_REFERENCES: MentionableReference[] = []
+const EMPTY_SESSIONS: SessionInfo[] = []
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
 const COMPACT_SESSION_MISSING_MODEL_ERROR = "Select a model before compacting this session."
 const COMPACT_SESSION_MISSING_SESSION_ERROR = "Start a session before compacting it."
@@ -383,15 +382,23 @@ export function useDirectoryChatPageController(
     [benchActionLedger, workspace.lifecycle],
   )
   const onBenchClientAction = useCallback(
-    (action: Parameters<DirectoryWorkspaceClientActionLedger["handle"]>[0]) =>
-      benchActionLedger.handle(action),
-    [benchActionLedger],
+    (action: Parameters<DirectoryWorkspaceClientActionLedger["handle"]>[0]) => {
+      // The agent presents what it creates, so search learns about it before the turn ends.
+      if (action.command.type === "present") {
+        void refetchActiveWorkspaceObjectQueries(queryClient, decodedDirectory)
+      }
+      return benchActionLedger.handle(action)
+    },
+    [benchActionLedger, decodedDirectory, queryClient],
   )
   const onAgentTurnComplete = useCallback(() => {
+    // Watchers do not cover every notebook, so a finished turn refreshes what search sees.
+    void invalidateNotebookFileIndex(queryClient, decodedDirectory)
+    void refetchActiveWorkspaceObjectQueries(queryClient, decodedDirectory)
     return workspace.lifecycle.synchronizeCurrentWorkspaceFile({
       reason: "turn-complete",
     })
-  }, [workspace.lifecycle])
+  }, [decodedDirectory, queryClient, workspace.lifecycle])
   const onWorkspaceFileChanged = useCallback(
     async (input: { path: string; event: "add" | "change" | "unlink" }) => {
       await Promise.all([
@@ -404,6 +411,9 @@ export function useDirectoryChatPageController(
           path: input.path,
           event: input.event,
         }),
+        input.event === "change"
+          ? undefined
+          : invalidateNotebookFileIndex(queryClient, decodedDirectory),
       ])
     },
     [decodedDirectory, queryClient, workspace.lifecycle],
@@ -995,21 +1005,6 @@ export function useDirectoryChatPageController(
     return false
   }
 
-  async function onSearchMentionFiles(query: string) {
-    if (!decodedDirectory) return []
-    try {
-      // Over-fetch so the ignore filter (node_modules etc.) still has enough
-      // real matches left for the menu after pruning.
-      const files = await findWorkspaceFiles(decodedDirectory, query, {
-        includeDirectories: true,
-        limit: MENTION_FILE_SEARCH_LIMIT,
-      })
-      return filterIgnoredMentionFiles(files.map((path) => ({ path })))
-    } catch {
-      return []
-    }
-  }
-
   const sendRuntimePrompt = useCallback(
     async (input: {
       content: string
@@ -1597,6 +1592,7 @@ export function useDirectoryChatPageController(
     })),
     mentionableAgents: EMPTY_MENTIONABLE_AGENTS,
     mentionableReferences,
+    sessions: cs.sessionsByDirectory[decodedDirectory] ?? EMPTY_SESSIONS,
     slashCommands,
     modelOptions: cs.modelOptions,
     selectedModel: cs.selectedModelKey,
@@ -1628,7 +1624,6 @@ export function useDirectoryChatPageController(
     onOpenMcpDialog: () => {
       openSettings("mcps")
     },
-    onSearchFiles: onSearchMentionFiles,
     onRefreshSlashCommands: chatConfig.refreshSlashCommands,
     onSubmit: (draft) => {
       void onSend(draft)

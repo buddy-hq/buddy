@@ -106,5 +106,11 @@ export function useDurableScrollTop(key: string) {
     writeWorkspaceDrawerUiState(key, { scrollTop: container.scrollTop })
   }, [key])
 
-  return { containerRef, onScroll }
+  const cancelPendingRestore = useCallback(() => {
+    pendingRestoreRef.current = undefined
+    lastProgrammaticScrollTopRef.current = undefined
+    restoredRef.current = true
+  }, [])
+
+  return { containerRef, onScroll, cancelPendingRestore }
 }

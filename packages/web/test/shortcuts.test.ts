@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { matchesKeyboardEvent, normalizeRegisterableHotkey } from "@tanstack/react-hotkeys"
 import {
   BENCH_EDITOR_SELECTOR,
-  CHAT_JUMP_SHORTCUTS,
+  BENCH_TAB_SHORTCUTS,
+  benchTabShortcutPosition,
   SHORTCUTS,
   shouldRunShortcut,
   type ShortcutCommand,
@@ -40,6 +41,13 @@ describe("app shortcuts", () => {
     )
   })
 
+  test("Cmd+P opens the notebook file picker on macOS and Ctrl+P on Windows", () => {
+    expect(matches("file.quickOpen", { key: "p", code: "KeyP", metaKey: true })).toBe(true)
+    expect(matches("file.quickOpen", { key: "p", code: "KeyP", ctrlKey: true }, "windows")).toBe(
+      true,
+    )
+  })
+
   test("Cmd+Option+B toggles the Bench although Option types another character", () => {
     expect(matches("bench.toggle", { key: "∫", code: "KeyB", metaKey: true, altKey: true })).toBe(
       true,
@@ -50,7 +58,7 @@ describe("app shortcuts", () => {
     expect(matches("sidebar.toggle", { key: "b", code: "KeyB", metaKey: true })).toBe(true)
   })
 
-  test("Cmd+T opens a browser tab on the Bench", () => {
+  test("Cmd+T opens a new empty tab on the Bench", () => {
     expect(matches("browser.newTab", { key: "t", code: "KeyT", metaKey: true })).toBe(true)
   })
 
@@ -77,12 +85,20 @@ describe("app shortcuts", () => {
     expect(matches("chat.next", { key: "{", code: "BracketLeft", ...bracket })).toBe(false)
   })
 
-  test("Cmd+3 matches the third chat jump", () => {
+  test("Cmd+3 matches the third Bench tab", () => {
     const event = new KeyboardEvent("keydown", { key: "3", code: "Digit3", metaKey: true })
-    const shortcut = CHAT_JUMP_SHORTCUTS[2]
+    const shortcut = BENCH_TAB_SHORTCUTS[2]
     const hotkey = normalizeRegisterableHotkey(shortcut.hotkey, "mac")
     expect(matchesKeyboardEvent(event, hotkey, "mac")).toBe(true)
-    expect(shortcut.command).toBe("chat.jump.3")
+    expect(shortcut.command).toBe("bench.tab.3")
+  })
+
+  test("Cmd+9 opens the last Bench tab and missing positions open nothing", () => {
+    expect(benchTabShortcutPosition("bench.tab.last", 8, 3)).toBe(2)
+    expect(benchTabShortcutPosition("bench.tab.last", 8, 12)).toBe(11)
+    expect(benchTabShortcutPosition("bench.tab.last", 8, 0)).toBeNull()
+    expect(benchTabShortcutPosition("bench.tab.3", 2, 3)).toBe(2)
+    expect(benchTabShortcutPosition("bench.tab.4", 3, 3)).toBeNull()
   })
 })
 

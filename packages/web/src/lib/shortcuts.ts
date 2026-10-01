@@ -18,29 +18,43 @@ export const SHORTCUTS = {
   "composer.focus": APP_SHORTCUTS["composer.focus"],
   "composer.note.toggle": { key: "Enter", mod: true, shift: true },
   "search.open": APP_SHORTCUTS["search.open"],
+  "file.quickOpen": APP_SHORTCUTS["file.quickOpen"],
   "bench.toggle": APP_SHORTCUTS["bench.toggle"],
   "browser.newTab": APP_SHORTCUTS["browser.newTab"],
+  "bench.closeTab": APP_SHORTCUTS["bench.closeTab"],
   "sidebar.toggle": APP_SHORTCUTS["sidebar.toggle"],
 } as const satisfies Record<string, RegisterableHotkey>
 
-/** Application shortcut handled by one command hook rather than the indexed chat hook. */
+/** Application shortcut handled by one command hook rather than the indexed Bench tab hook. */
 export type ShortcutCommand = keyof typeof SHORTCUTS
 
-/** Mod+1 … Mod+9 open chats in sidebar order. */
-export const CHAT_JUMP_SHORTCUTS = [
-  { command: "chat.jump.1", hotkey: APP_SHORTCUTS["chat.jump.1"] },
-  { command: "chat.jump.2", hotkey: APP_SHORTCUTS["chat.jump.2"] },
-  { command: "chat.jump.3", hotkey: APP_SHORTCUTS["chat.jump.3"] },
-  { command: "chat.jump.4", hotkey: APP_SHORTCUTS["chat.jump.4"] },
-  { command: "chat.jump.5", hotkey: APP_SHORTCUTS["chat.jump.5"] },
-  { command: "chat.jump.6", hotkey: APP_SHORTCUTS["chat.jump.6"] },
-  { command: "chat.jump.7", hotkey: APP_SHORTCUTS["chat.jump.7"] },
-  { command: "chat.jump.8", hotkey: APP_SHORTCUTS["chat.jump.8"] },
-  { command: "chat.jump.9", hotkey: APP_SHORTCUTS["chat.jump.9"] },
+/**
+ * Mod+1 … Mod+8 open Bench tabs in strip order, and Mod+9 opens the last one, as in browsers.
+ */
+export const BENCH_TAB_SHORTCUTS = [
+  { command: "bench.tab.1", hotkey: APP_SHORTCUTS["bench.tab.1"] },
+  { command: "bench.tab.2", hotkey: APP_SHORTCUTS["bench.tab.2"] },
+  { command: "bench.tab.3", hotkey: APP_SHORTCUTS["bench.tab.3"] },
+  { command: "bench.tab.4", hotkey: APP_SHORTCUTS["bench.tab.4"] },
+  { command: "bench.tab.5", hotkey: APP_SHORTCUTS["bench.tab.5"] },
+  { command: "bench.tab.6", hotkey: APP_SHORTCUTS["bench.tab.6"] },
+  { command: "bench.tab.7", hotkey: APP_SHORTCUTS["bench.tab.7"] },
+  { command: "bench.tab.8", hotkey: APP_SHORTCUTS["bench.tab.8"] },
+  { command: "bench.tab.last", hotkey: APP_SHORTCUTS["bench.tab.last"] },
 ] as const satisfies readonly {
   command: AppShortcutID
   hotkey: RegisterableHotkey
 }[]
+
+/** Zero-based strip position a Bench tab key opens, or null when no tab sits there. */
+export function benchTabShortcutPosition(
+  command: (typeof BENCH_TAB_SHORTCUTS)[number]["command"],
+  index: number,
+  count: number,
+): number | null {
+  const position = command === "bench.tab.last" ? count - 1 : index
+  return position >= 0 && position < count ? position : null
+}
 
 /**
  * Surfaces that keep their own editing chords: the Bench markdown page, the dialogs MDXEditor

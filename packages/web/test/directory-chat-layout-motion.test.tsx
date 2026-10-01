@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, mock, test } from "bun:test"
 import {
   createMemoryHistory,
   createRootRoute,
@@ -28,11 +28,14 @@ function flushEffects(): Promise<void> {
   })
 }
 
-function LayoutMotionHarness(props: {
+type LayoutMotionHarnessProps = {
   platform?: Platform
   immersive?: boolean
-  showImmersiveTitlebar?: boolean
-}) {
+  showImmersiveDockButton?: boolean
+  immersiveTitlebarContentRef?: (element: HTMLDivElement | null) => void
+}
+
+function LayoutMotionHarness(props: LayoutMotionHarnessProps) {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
 
   return (
@@ -59,7 +62,8 @@ function LayoutMotionHarness(props: {
         leftSidebar={<div>Left sidebar</div>}
         contentLayout={<div>Chat and right workspace</div>}
         immersive={props.immersive}
-        showImmersiveTitlebar={props.showImmersiveTitlebar}
+        showImmersiveDockButton={props.showImmersiveDockButton}
+        immersiveTitlebarContentRef={props.immersiveTitlebarContentRef}
         leftSidebarOpen={leftSidebarOpen}
         leftSidebarDisplayWidth={280}
         leftSidebarWidth={280}
@@ -76,11 +80,7 @@ function LayoutMotionHarness(props: {
   )
 }
 
-function createTestRouter(options?: {
-  platform?: Platform
-  immersive?: boolean
-  showImmersiveTitlebar?: boolean
-}) {
+function createTestRouter(options?: LayoutMotionHarnessProps) {
   const rootRoute = createRootRoute({
     component: () => <LayoutMotionHarness {...options} />,
   })
@@ -179,11 +179,7 @@ describe("directory chat layout motion", () => {
     root = createRoot(container)
 
     await act(async () => {
-      root?.render(
-        <RouterProvider
-          router={createTestRouter({ immersive: true, showImmersiveTitlebar: true })}
-        />,
-      )
+      root?.render(<RouterProvider router={createTestRouter({ immersive: true })} />)
       await flushEffects()
     })
 
@@ -194,5 +190,33 @@ describe("directory chat layout motion", () => {
     expect(
       container.querySelector('[data-component="desktop-titlebar-chat-left-spacer"]'),
     ).toBeNull()
+  })
+
+  test("draws the immersive titlebar with its dock control and tab slot", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const tabSlotRef = mock((_element: HTMLDivElement | null) => undefined)
+
+    await act(async () => {
+      root?.render(
+        <RouterProvider
+          router={createTestRouter({
+            immersive: true,
+            showImmersiveDockButton: true,
+            immersiveTitlebarContentRef: tabSlotRef,
+          })}
+        />,
+      )
+      await flushEffects()
+    })
+
+    const shell = container.querySelector<HTMLElement>('[data-component="directory-chat-shell"]')
+    expect(shell?.style.gridTemplateRows).toBe("40px minmax(0, 1fr)")
+    expect(container.querySelector('[data-action="titlebar-dock-floating-bench"]')).not.toBeNull()
+    const tabSlot = container.querySelector('[data-component="desktop-titlebar-root-content"]')
+    expect(tabSlot).not.toBeNull()
+    expect(tabSlotRef).toHaveBeenLastCalledWith(tabSlot)
   })
 })

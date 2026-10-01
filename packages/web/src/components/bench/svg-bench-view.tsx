@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 import { BenchZoomableViewer, type BenchViewerAction } from "@/components/bench/bench-viewer-shell"
 
 const SVG_DEFAULT_WIDTH = 640
@@ -12,7 +12,6 @@ type SvgBenchViewProps = {
   subtitle?: string
   src?: string
   actions?: BenchViewerAction[]
-  toolbar?: ReactNode
   /** Persists zoom and pan so a bounded-cache eviction does not reset the view. */
   viewportKey?: string
 }
@@ -45,7 +44,7 @@ function normalizeSvgRenderBounds(bounds: SvgBounds): SvgBounds {
 }
 
 function SvgBenchViewContent(props: SvgBenchViewProps) {
-  const { actions, src, subtitle, title, toolbar } = props
+  const { actions, src, subtitle, title } = props
   const [state, setState] = useState<SvgObjectState>({ kind: "loading" })
 
   const bounds =
@@ -58,7 +57,6 @@ function SvgBenchViewContent(props: SvgBenchViewProps) {
           title,
           subtitle,
           actions,
-          toolbar,
           controlsPlacement: "dock" as const,
           hideHeader: true,
           fitContent: true,

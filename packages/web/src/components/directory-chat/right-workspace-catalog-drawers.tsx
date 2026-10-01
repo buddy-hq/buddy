@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
+import {
+  useWorkspaceDrawerSearch,
+  useWorkspaceDrawerUiState,
+  workspaceDrawerUiKey,
+  writeWorkspaceDrawerUiState,
+  type CreationFilter,
+} from "@/state/workspace-drawer-ui-state"
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSearch } from "@tanstack/react-router"
 import {
@@ -134,10 +140,13 @@ import {
 import type { FlashcardDeckSurfaceMode } from "@/state/bench-surface-ui-state"
 import { prepareFlashcardBenchTarget } from "@/components/flashcard/flashcard-bench-target"
 import { parseTString } from "@/components/chat/tools/types"
+import { scoreNotebookSearchText } from "@/state/notebook-search"
 
 const FigureGlyph = AppIcons["ShapesIcon"]
 
 type CatalogDrawerProps = {
+  compact?: boolean
+  selectedObjectID?: string
   directory: string
   onOpen: (request: RightWorkspaceOpenRequest) => Promise<RightWorkspaceOpenOutcome>
 }
@@ -145,8 +154,6 @@ type CatalogDrawerProps = {
 type CreationsDrawerProps = CatalogDrawerProps & {
   onCreate: () => void
 }
-
-type CreationFilter = "all" | "widgets" | "diagrams" | "media"
 
 type PracticeFeedItem =
   | { kind: "flashcards"; object: FlashcardDeckLibraryObject }
@@ -210,7 +217,13 @@ function normalizeSearch(value: string): string {
 }
 
 function includesSearch(value: string, search: string): boolean {
-  return !search || value.toLocaleLowerCase().includes(search)
+  return scoreNotebookSearchText({ query: search, title: value }) !== undefined
+}
+
+function matchesResourceSearch(resource: ResourceListItem, search: string): boolean {
+  return [resource.title, resource.name, resource.extension].some(
+    (value) => value !== undefined && includesSearch(value, search),
+  )
 }
 
 function formatTimestamp(value: string): string {
@@ -374,6 +387,48 @@ function SourceContextMenu(props: {
   )
 }
 
+function CompactCatalogRow(props: {
+  icon: AppIcon
+  title: string
+  detail?: string
+  active?: boolean
+  disabled?: boolean
+  pending?: boolean
+  action?: ReactNode
+  onOpen: () => void
+}) {
+  const Icon = props.icon
+  return (
+    <div
+      data-component="compact-catalog-row"
+      className={cn(
+        "flex h-8 min-w-0 items-center rounded-md",
+        props.active && "bg-surface-raised-base",
+      )}
+    >
+      <button
+        type="button"
+        aria-current={props.active ? "page" : undefined}
+        disabled={props.disabled}
+        title={props.detail ? `${props.title} · ${props.detail}` : props.title}
+        className={cn(
+          "flex h-full min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-xs text-text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base disabled:opacity-50",
+          props.active ? "hover:bg-surface-raised-base-hover" : "hover:bg-surface-base",
+        )}
+        onClick={props.onOpen}
+      >
+        {props.pending ? (
+          <Loader2Icon className="size-4 shrink-0 animate-spin text-icon-base" aria-hidden />
+        ) : (
+          <Icon className="size-4 shrink-0 text-icon-base" aria-hidden />
+        )}
+        <span className="min-w-0 flex-1 truncate">{props.title}</span>
+      </button>
+      {props.action}
+    </div>
+  )
+}
+
 function CatalogError(props: { message: string }) {
   return (
     <p className="rounded-lg border border-border-critical-base bg-surface-critical-weak px-3 py-2 text-xs text-text-critical-strong">
@@ -426,7 +481,7 @@ function useStickyReadingPath() {
 
 export function SourcesDrawer(props: CatalogDrawerProps) {
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useWorkspaceDrawerSearch(props.directory, "sources")
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
   const [isAdding, setIsAdding] = useState(false)
   const [busyKeys, setBusyKeys] = useState<Set<string>>(() => new Set())
@@ -439,16 +494,24 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
   )
   const normalizedSearch = normalizeSearch(search)
   const visibleResources = useMemo(
-    () =>
-      resources.filter((resource) =>
-        includesSearch(
-          `${resource.title ?? ""} ${resource.name} ${resource.extension}`,
-          normalizedSearch,
-        ),
-      ),
+    () => resources.filter((resource) => matchesResourceSearch(resource, normalizedSearch)),
     [normalizedSearch, resources],
   )
-  const feedRows = useMemo(() => toSourceFeedRows(visibleResources), [visibleResources])
+  const feedRows = useMemo(
+    () =>
+      props.compact
+        ? visibleResources.map(
+            (resource): SourceFeedRow => ({ type: "row", key: resource.key, resource }),
+          )
+        : toSourceFeedRows(visibleResources),
+    [props.compact, visibleResources],
+  )
+  const activeSourceRowKey = feedRows.find((row) => {
+    const active = (resource: ResourceListItem) =>
+      (props.selectedObjectID !== undefined && resource.objectID === props.selectedObjectID) ||
+      (stickyReadingPath !== undefined && resource.path === stickyReadingPath)
+    return row.type === "shelf" ? row.resources.some(active) : active(row.resource)
+  })?.key
   // Resolved against the list so the resume row gets the real cover and state,
   // and so a source deleted since it was last read stops being offered.
   const resumeResource =
@@ -475,8 +538,14 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
   }
 
   async function addFromPicker() {
-    const sourcePath = await pickResourceFilePath()
-    if (sourcePath) await addPaths([sourcePath])
+    try {
+      const sourcePath = await pickResourceFilePath()
+      if (sourcePath) await addPaths([sourcePath])
+    } catch (error) {
+      const message = stringifyError(error)
+      setActionError(message)
+      toast.error(message)
+    }
   }
 
   async function processResource(resource: ResourceListItem) {
@@ -577,7 +646,9 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
 
   return (
     <RightWorkspaceDrawerShell
+      compact={props.compact}
       durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "sources" })}
+      activeSelectionKey={props.selectedObjectID ?? stickyReadingPath}
       title="Sources"
       searchLabel="Search sources…"
       searchValue={search}
@@ -591,26 +662,30 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
         onClick: () => void addFromPicker(),
       }}
       toolbar={
-        <div className="flex flex-col gap-3">
-          {resumeResource ? (
-            <div className="flex flex-col gap-2">
-              <RightWorkspaceSectionLabel>Continue</RightWorkspaceSectionLabel>
-              <ObjectRow
-                model={{
-                  ...describe(resumeResource, OBJECT_VARIANT_LG),
-                  meta: [SOURCE_RESUME_META],
-                }}
-                variant={OBJECT_VARIANT_LG}
-                disabled={busyKeys.has(resumeResource.key)}
-                onOpen={() => openResourceItem(resumeResource)}
-              />
-            </div>
-          ) : null}
-          <RightWorkspaceSectionLabel>
-            {visibleResources.length} {visibleResources.length === 1 ? "source" : "sources"}
-          </RightWorkspaceSectionLabel>
-          {actionError ? <CatalogError message={actionError} /> : null}
-        </div>
+        !props.compact || actionError ? (
+          <div className="flex flex-col gap-3">
+            {!props.compact && resumeResource ? (
+              <div className="flex flex-col gap-2">
+                <RightWorkspaceSectionLabel>Continue</RightWorkspaceSectionLabel>
+                <ObjectRow
+                  model={{
+                    ...describe(resumeResource, OBJECT_VARIANT_LG),
+                    meta: [SOURCE_RESUME_META],
+                  }}
+                  variant={OBJECT_VARIANT_LG}
+                  disabled={busyKeys.has(resumeResource.key)}
+                  onOpen={() => openResourceItem(resumeResource)}
+                />
+              </div>
+            ) : null}
+            {!props.compact && (
+              <RightWorkspaceSectionLabel>
+                {visibleResources.length} {visibleResources.length === 1 ? "source" : "sources"}
+              </RightWorkspaceSectionLabel>
+            )}
+            {actionError ? <CatalogError message={actionError} /> : null}
+          </div>
+        ) : undefined
       }
       onSearchValueChange={setSearch}
     >
@@ -624,30 +699,39 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
           <CatalogError message={stringifyError(resourcesQuery.error)} />
         ) : null}
         {!resourcesQuery.isPending && !resourcesQuery.error && visibleResources.length === 0 ? (
-          <EmptyInventory
-            icon={UploadIcon}
-            title={resources.length === 0 ? "No sources yet" : "No matching sources"}
-            description={
-              resources.length === 0
-                ? "Add a PDF or EPUB to read and use with Buddy."
-                : "Try a different search."
-            }
-            action={
-              resources.length === 0 ? (
-                <Button type="button" onClick={() => void addFromPicker()}>
-                  <PlusIcon data-icon="inline-start" aria-hidden />
-                  Add source
-                </Button>
-              ) : undefined
-            }
-          />
+          props.compact ? (
+            <p className="px-2 py-3 text-xs text-text-weak">
+              {resources.length === 0 ? "No sources yet" : "No matching sources"}
+            </p>
+          ) : (
+            <EmptyInventory
+              icon={UploadIcon}
+              title={resources.length === 0 ? "No sources yet" : "No matching sources"}
+              description={
+                resources.length === 0
+                  ? "Add a PDF or EPUB to read and use with Buddy."
+                  : "Try a different search."
+              }
+              action={
+                resources.length === 0 ? (
+                  <Button type="button" onClick={() => void addFromPicker()}>
+                    <PlusIcon data-icon="inline-start" aria-hidden />
+                    Add source
+                  </Button>
+                ) : undefined
+              }
+            />
+          )
         ) : null}
         {!resourcesQuery.isPending && feedRows.length > 0 ? (
           <RightWorkspaceVirtualList
             items={feedRows}
             scrollElement={scrollElement}
+            selectedKey={activeSourceRowKey}
             getKey={(row) => row.key}
+            gap={props.compact ? 0 : undefined}
             estimateSize={(index) => {
+              if (props.compact) return 32
               const row = feedRows[index]
               if (row?.type !== "shelf") return OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_LG]
               return (
@@ -670,7 +754,11 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
                         <ObjectTile
                           className="w-full"
                           model={describe(resource, OBJECT_VARIANT_TILE)}
-                          active={stickyReadingPath === resource.path}
+                          active={
+                            (props.selectedObjectID !== undefined &&
+                              props.selectedObjectID === resource.objectID) ||
+                            stickyReadingPath === resource.path
+                          }
                           disabled={busyKeys.has(resource.key)}
                           onOpen={() => openResourceItem(resource)}
                         />
@@ -685,14 +773,56 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
                   onProcess={(item) => void processResource(item)}
                   onDelete={(item) => void deleteResource(item)}
                 >
-                  <ObjectRow
-                    model={describe(row.resource, OBJECT_VARIANT_LG)}
-                    variant={OBJECT_VARIANT_LG}
-                    actions={sourceActions(row.resource)}
-                    active={stickyReadingPath === row.resource.path}
-                    disabled={busyKeys.has(row.resource.key)}
-                    onOpen={() => openResourceItem(row.resource)}
-                  />
+                  {props.compact ? (
+                    <CompactCatalogRow
+                      icon={
+                        row.resource.status === "error" || row.resource.status === "unsupported"
+                          ? AppIcons.AlertCircleIcon
+                          : describe(row.resource, OBJECT_VARIANT_MD).glyph
+                      }
+                      title={row.resource.title || row.resource.name}
+                      detail={resourceMetadata(row.resource)}
+                      active={
+                        (props.selectedObjectID !== undefined &&
+                          props.selectedObjectID === row.resource.objectID) ||
+                        stickyReadingPath === row.resource.path
+                      }
+                      pending={
+                        busyKeys.has(row.resource.key) || row.resource.status === "preparing"
+                      }
+                      disabled={busyKeys.has(row.resource.key)}
+                      onOpen={() => openResourceItem(row.resource)}
+                      action={
+                        row.resource.status !== "ready" ? (
+                          <button
+                            type="button"
+                            aria-label={`${resourceActionLabel(row.resource.status)} ${row.resource.title || row.resource.name}`}
+                            title={resourceActionLabel(row.resource.status)}
+                            disabled={
+                              busyKeys.has(row.resource.key) || row.resource.status === "preparing"
+                            }
+                            className="flex size-7 shrink-0 items-center justify-center rounded-md text-icon-base hover:bg-surface-base disabled:opacity-50"
+                            onClick={() => void processResource(row.resource)}
+                          >
+                            <RefreshCwIcon className="size-3.5" aria-hidden />
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                  ) : (
+                    <ObjectRow
+                      model={describe(row.resource, OBJECT_VARIANT_LG)}
+                      variant={OBJECT_VARIANT_LG}
+                      actions={sourceActions(row.resource)}
+                      active={
+                        (props.selectedObjectID !== undefined &&
+                          props.selectedObjectID === row.resource.objectID) ||
+                        stickyReadingPath === row.resource.path
+                      }
+                      disabled={busyKeys.has(row.resource.key)}
+                      onOpen={() => openResourceItem(row.resource)}
+                    />
+                  )}
                 </SourceContextMenu>
               )
             }
@@ -747,6 +877,8 @@ function openFlashcardPracticeTarget(input: {
 }
 
 function PracticeRow(props: {
+  compact?: boolean
+  selectedObjectID?: string
   directory: string
   item: PracticeFeedItem
   onOpen: CatalogDrawerProps["onOpen"]
@@ -758,6 +890,8 @@ function PracticeRow(props: {
 }
 
 function FlashcardPracticeRow(props: {
+  compact?: boolean
+  selectedObjectID?: string
   directory: string
   item: FlashcardDeckLibraryObject
   onOpen: CatalogDrawerProps["onOpen"]
@@ -779,6 +913,11 @@ function FlashcardPracticeRow(props: {
   })
   const summary = detail ? getFlashcardDeckObjectSummary(detail) : undefined
   const dueCount = getFlashcardDueCount(queueQuery.data)
+  const returnLabel = queueQuery.data
+    ? practiceReturnLabel(queueQuery.data, Date.now())
+    : queueQuery.isError
+      ? "Unavailable"
+      : "Loading…"
   const metadata = summary
     ? `${summary.cardCount} ${summary.cardCount === 1 ? "card" : "cards"}`
     : detailQuery.error || queueQuery.error
@@ -792,6 +931,36 @@ function FlashcardPracticeRow(props: {
       onOpen: props.onOpen,
     })
 
+  if (props.compact) {
+    return (
+      <CompactCatalogRow
+        icon={Layers3Icon}
+        title={detail?.title ?? props.item.title}
+        detail={metadata}
+        active={props.selectedObjectID === props.item.objectID}
+        onOpen={() => open("deck")}
+        action={
+          dueCount > 0 ? (
+            <button
+              type="button"
+              className="h-7 shrink-0 rounded-md px-1.5 text-[11px] font-medium text-text-base hover:bg-surface-base"
+              onClick={() => open("review")}
+            >
+              Study {dueCount}
+            </button>
+          ) : (
+            <span
+              className="max-w-16 shrink-0 truncate px-1.5 text-[10px] text-text-weaker"
+              title={returnLabel}
+            >
+              {returnLabel}
+            </span>
+          )
+        }
+      />
+    )
+  }
+
   return (
     <FlashcardPracticeDrawerRow
       icon={Layers3Icon}
@@ -800,7 +969,7 @@ function FlashcardPracticeRow(props: {
       action={
         dueCount > 0
           ? { kind: "action", label: `Study ${dueCount}`, onClick: () => open("review") }
-          : { kind: "note", label: practiceReturnLabel(queueQuery.data, Date.now()) }
+          : { kind: "note", label: returnLabel }
       }
       onOpen={() => open("deck")}
     />
@@ -808,6 +977,8 @@ function FlashcardPracticeRow(props: {
 }
 
 function QuestionSetPracticeRow(props: {
+  compact?: boolean
+  selectedObjectID?: string
   directory: string
   item: QuestionSetLibraryObject
   onOpen: CatalogDrawerProps["onOpen"]
@@ -830,6 +1001,27 @@ function QuestionSetPracticeRow(props: {
       target: createBenchObjectTarget(props.item.kind, props.item.objectID),
     })
 
+  if (props.compact) {
+    return (
+      <CompactCatalogRow
+        icon={ListChecksIcon}
+        title={props.item.title}
+        detail={metadata}
+        active={props.selectedObjectID === props.item.objectID}
+        onOpen={open}
+        action={
+          <button
+            type="button"
+            className="h-7 shrink-0 rounded-md px-1.5 text-[11px] font-medium text-text-base hover:bg-surface-base"
+            onClick={open}
+          >
+            Start
+          </button>
+        }
+      />
+    )
+  }
+
   return (
     <FlashcardPracticeDrawerRow
       icon={ListChecksIcon}
@@ -842,7 +1034,7 @@ function QuestionSetPracticeRow(props: {
 }
 
 export function PracticeDrawer(props: CatalogDrawerProps) {
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useWorkspaceDrawerSearch(props.directory, "practice")
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
   const objectsQuery = useQuery(workspaceObjectsQueryOptions(props.directory))
   useInvalidateQueryOnChatIdle({
@@ -874,6 +1066,7 @@ export function PracticeDrawer(props: CatalogDrawerProps) {
       .filter((item) => includesSearch(item.object.title, normalizedSearch))
       .toSorted((left, right) => right.object.updatedAt.localeCompare(left.object.updatedAt))
   }, [flashcards, normalizedSearch, questionSets])
+  const activePracticeItem = items.find((item) => item.object.objectID === props.selectedObjectID)
   const loadErrors = selectWorkspaceObjectLoadErrors(objectsQuery, [
     "flashcard-deck",
     "question-set",
@@ -881,7 +1074,9 @@ export function PracticeDrawer(props: CatalogDrawerProps) {
 
   return (
     <RightWorkspaceDrawerShell
+      compact={props.compact}
       durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "practice" })}
+      activeSelectionKey={props.selectedObjectID}
       title="Practice"
       searchLabel="Search practice…"
       searchValue={search}
@@ -892,31 +1087,54 @@ export function PracticeDrawer(props: CatalogDrawerProps) {
       <>
         <section className="flex flex-col gap-2">
           {/* The count is the only thing a heading row here was carrying, so it rides the rule. */}
-          <FlashcardPracticeDrawerRuledHead
-            label={`${totalDue} due`}
-            trailing={<FlashcardPracticeDrawerColumnLabel />}
-          />
+          {props.compact ? (
+            items.length > 0 ? (
+              <span className="px-2 text-[11px] text-text-weaker">{totalDue} due</span>
+            ) : null
+          ) : (
+            <FlashcardPracticeDrawerRuledHead
+              label={`${totalDue} due`}
+              trailing={<FlashcardPracticeDrawerColumnLabel />}
+            />
+          )}
           {objectsQuery.isPending ? <RightWorkspaceListSkeleton /> : null}
           {!objectsQuery.isPending && !objectsQuery.error && items.length === 0 ? (
-            <EmptyInventory
-              icon={ListChecksIcon}
-              title={normalizedSearch ? "No matches" : "No practice yet"}
-              description={
-                normalizedSearch
-                  ? "No flashcard deck or question set matches that name."
-                  : "Ask Buddy to create flashcards or a question set."
-              }
-            />
+            props.compact ? (
+              <p className="px-2 py-3 text-xs text-text-weak">
+                {normalizedSearch ? "No matches" : "No practice yet"}
+              </p>
+            ) : (
+              <EmptyInventory
+                icon={ListChecksIcon}
+                title={normalizedSearch ? "No matches" : "No practice yet"}
+                description={
+                  normalizedSearch
+                    ? "No flashcard deck or question set matches that name."
+                    : "Ask Buddy to create flashcards or a question set."
+                }
+              />
+            )
           ) : null}
           {items.length > 0 ? (
             <RightWorkspaceVirtualList
               items={items}
               scrollElement={scrollElement}
+              selectedKey={
+                activePracticeItem
+                  ? `${activePracticeItem.kind}:${activePracticeItem.object.objectID}`
+                  : undefined
+              }
               getKey={(item) => `${item.kind}:${item.object.objectID}`}
-              estimateSize={() => PRACTICE_ROW_ESTIMATE_PX}
+              estimateSize={() => (props.compact ? 32 : PRACTICE_ROW_ESTIMATE_PX)}
               gap={0}
               renderItem={(item) => (
-                <PracticeRow directory={props.directory} item={item} onOpen={props.onOpen} />
+                <PracticeRow
+                  directory={props.directory}
+                  item={item}
+                  onOpen={props.onOpen}
+                  compact={props.compact}
+                  selectedObjectID={props.selectedObjectID}
+                />
               )}
             />
           ) : null}
@@ -1205,8 +1423,13 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
   const prefetchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
   const openTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
-  const [search, setSearch] = useState("")
-  const [filter, setFilter] = useState<CreationFilter>("all")
+  const [search, setSearch] = useWorkspaceDrawerSearch(props.directory, "creations")
+  const drawerKey = workspaceDrawerUiKey({ directory: props.directory, drawer: "creations" })
+  const filter = useWorkspaceDrawerUiState(
+    (state) => state.byKey[drawerKey]?.creationFilter ?? "all",
+  )
+  const setFilter = (value: CreationFilter) =>
+    writeWorkspaceDrawerUiState(drawerKey, { creationFilter: value })
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
   const [preview, setPreview] = useState<CreationPreviewState>()
   const objectsQuery = useQuery(workspaceObjectsQueryOptions(props.directory))
@@ -1229,6 +1452,7 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
       .filter((item) => includesSearch(item.object.title, normalizedSearch))
       .toSorted((left, right) => right.object.updatedAt.localeCompare(left.object.updatedAt))
   }, [diagrams, filter, media, normalizedSearch, widgets])
+  const activeCreationItem = items.find((item) => item.object.objectID === props.selectedObjectID)
   const loadErrors = selectWorkspaceObjectLoadErrors(objectsQuery, [
     "html-widget",
     "mermaid",
@@ -1306,7 +1530,9 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
 
   return (
     <RightWorkspaceDrawerShell
+      compact={props.compact}
       durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "creations" })}
+      activeSelectionKey={props.selectedObjectID}
       title="Creations"
       searchLabel="Search creations…"
       searchValue={search}
@@ -1318,39 +1544,41 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
       }}
       toolbar={
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="outline" size="sm">
-                  <FigureGlyph data-icon="inline-start" aria-hidden />
-                  {creationFilterLabel(filter)}
-                  <ChevronDownIcon data-icon="inline-end" aria-hidden />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuGroup>
-                  <DropdownMenuRadioGroup
-                    value={filter}
-                    onValueChange={(value) => {
-                      if (
-                        value === "all" ||
-                        value === "widgets" ||
-                        value === "diagrams" ||
-                        value === "media"
-                      ) {
-                        setFilter(value)
-                      }
-                    }}
-                  >
-                    <DropdownMenuRadioItem value="all">All types</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="widgets">Widgets</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="diagrams">Diagrams</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="media">Media</DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          {(!props.compact || widgets.length + diagrams.length + media.length > 0) && (
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">
+                    <FigureGlyph data-icon="inline-start" aria-hidden />
+                    {creationFilterLabel(filter)}
+                    <ChevronDownIcon data-icon="inline-end" aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuGroup>
+                    <DropdownMenuRadioGroup
+                      value={filter}
+                      onValueChange={(value) => {
+                        if (
+                          value === "all" ||
+                          value === "widgets" ||
+                          value === "diagrams" ||
+                          value === "media"
+                        ) {
+                          setFilter(value)
+                        }
+                      }}
+                    >
+                      <DropdownMenuRadioItem value="all">All types</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="widgets">Widgets</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="diagrams">Diagrams</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="media">Media</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
           {objectsQuery.error ? (
             <CatalogError message={stringifyError(objectsQuery.error)} />
           ) : null}
@@ -1366,32 +1594,55 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
     >
       {objectsQuery.isPending ? <RightWorkspaceListSkeleton /> : null}
       {!objectsQuery.isPending && !objectsQuery.error && items.length === 0 ? (
-        <EmptyInventory
-          icon={FigureGlyph}
-          title={
-            widgets.length + diagrams.length + media.length === 0
+        props.compact ? (
+          <p className="px-2 py-3 text-xs text-text-weak">
+            {widgets.length + diagrams.length + media.length === 0
               ? "No creations yet"
-              : "No matches"
-          }
-          description={
-            widgets.length + diagrams.length + media.length === 0
-              ? "Widgets, diagrams, figures, and media created with Buddy appear here."
-              : "Try another search or filter."
-          }
-        />
+              : "No matches"}
+          </p>
+        ) : (
+          <EmptyInventory
+            icon={FigureGlyph}
+            title={
+              widgets.length + diagrams.length + media.length === 0
+                ? "No creations yet"
+                : "No matches"
+            }
+            description={
+              widgets.length + diagrams.length + media.length === 0
+                ? "Widgets, diagrams, figures, and media created with Buddy appear here."
+                : "Try another search or filter."
+            }
+          />
+        )
       ) : null}
       {items.length > 0 ? (
         <RightWorkspaceVirtualList
           items={items}
           scrollElement={scrollElement}
+          selectedKey={
+            activeCreationItem
+              ? `${activeCreationItem.object.kind}:${activeCreationItem.object.objectID}`
+              : undefined
+          }
           getKey={(item) => `${item.object.kind}:${item.object.objectID}`}
+          gap={props.compact ? 0 : undefined}
           estimateSize={(index) =>
-            index < CREATION_FEATURED_COUNT
-              ? objectCardHeightPx(RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX)
-              : OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_MD]
+            props.compact
+              ? 32
+              : index < CREATION_FEATURED_COUNT
+                ? objectCardHeightPx(RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX)
+                : OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_MD]
           }
           renderItem={(item, index) =>
-            index < CREATION_FEATURED_COUNT ? (
+            props.compact ? (
+              <CompactCatalogRow
+                icon={describeCreation(item).glyph}
+                title={item.object.title}
+                active={props.selectedObjectID === item.object.objectID}
+                onOpen={() => openCreation(item)}
+              />
+            ) : index < CREATION_FEATURED_COUNT ? (
               <ObjectCard
                 model={describeCreation(item)}
                 allowLive

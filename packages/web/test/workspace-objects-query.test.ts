@@ -85,7 +85,7 @@ describe("workspace object query", () => {
     ])
   })
 
-  test("refetches only mounted workspace object queries after reconnect", async () => {
+  test("refetches mounted object queries and invalidates closed lists", async () => {
     const queryClient = new QueryClient()
     const activeKey = workspaceObjectsQueryKeys.view({
       directory: "/repo",
@@ -121,6 +121,9 @@ describe("workspace object query", () => {
 
     expect(activeLoads).toBe(2)
     expect(inactiveLoads).toBe(1)
+    expect(queryClient.getQueryState(inactiveKey)?.isInvalidated).toBe(true)
+    await queryClient.fetchQuery(inactiveQuery)
+    expect(inactiveLoads).toBe(2)
     unsubscribe()
     queryClient.clear()
   })

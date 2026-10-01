@@ -53,6 +53,7 @@ import {
   persistedDirectoryWorkspaceStateFromStore,
   readPersistedDirectoryWorkspace,
   removeSessionBenchTargetsFromSlots,
+  withRestoredEmptyPageTab,
   workspacePresentationSlotForChat,
   writePersistedDirectoryWorkspace,
   type DirectoryWorkspacePersistenceStorage,
@@ -219,6 +220,13 @@ export function DirectoryWorkspaceProvider(props: {
         getTabs: () =>
           workspacePresentationSlotForChat(store.getState().slots, store.getState().activeChatKey)
             .tabs,
+        getEmptyTabs: () => {
+          const slot = workspacePresentationSlotForChat(
+            store.getState().slots,
+            store.getState().activeChatKey,
+          )
+          return { emptyTabIDs: slot.emptyTabIDs ?? [], activeEmptyTabID: slot.activeEmptyTabID }
+        },
         getTabTitle: (tab) => resolveBenchTabTitle(tab, objectTitlesRef.current),
         getBrowserTabRuntime: inAppBrowserTabContextRuntime,
         getHydrationStatus: () => store.getState().hydration.status,
@@ -435,10 +443,11 @@ export function DirectoryWorkspaceProvider(props: {
           (currentRoute.target.type !== "session" ||
             !unresolvedSessionIDs.has(currentRoute.target.sessionID))
         const restoredRoute = routeWins ? currentRoute : persistedSlot.route
+        // A closed route keeps its tabs: the New tab page sits in front of them.
         const restoredTabs =
           restoredRoute.status === BENCH_ROUTE_STATUS_OPEN
             ? upsertBenchTab(persistedSlot.tabs, restoredRoute.target).tabs
-            : []
+            : persistedSlot.tabs
         // The URL is authoritative for *which* target is open, never for whether the workspace is
         // expanded or which drawer is showing — those belong to the chat's saved slot. Reloading a
         // collapsed Bench leaves the same route in the URL, so deriving docked state from the route
@@ -459,12 +468,14 @@ export function DirectoryWorkspaceProvider(props: {
         }
         const slots = {
           ...restoredPersistedSlots,
-          [activeChatKey]: {
+          [activeChatKey]: withRestoredEmptyPageTab({
+            // Carries the chat's New tabs.
+            ...persistedSlot,
             route: restoredRoute,
             tabs: restoredTabs,
             docked: restoredDocked,
             lastDrawer: restoredLastDrawer,
-          },
+          }),
         }
         store.getState().finishHydration({
           activeChatKey,

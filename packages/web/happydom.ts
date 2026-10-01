@@ -7,6 +7,19 @@ import { parseTString } from "./scripts/parse-values"
 GlobalRegistrator.register()
 installTestNetworkGuard()
 
+// Vite imports an image as its URL. Bun does as well until a test file has loaded CSS, after which
+// it evaluates the image as a module (an SVG with no default export, a WebP as broken source), so
+// resolve it to its path here.
+Bun.plugin({
+  name: "image-as-url",
+  setup(build) {
+    build.onLoad({ filter: /\.(svg|webp|png|jpe?g|gif|avif)$/ }, (args) => ({
+      contents: `export default ${JSON.stringify(args.path)}`,
+      loader: "js",
+    }))
+  },
+})
+
 // Packaged skill icons are enumerated with `import.meta.glob`, which only exists
 // inside a Vite build — evaluating that module under the test runtime throws and
 // takes every importer down with it. Tests that assert on icon URLs replace this

@@ -2,6 +2,7 @@ import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import { inAppBrowserFallbackTitle } from "@buddy/browser-contract"
 import { isSameBenchTarget, readBenchTabTarget, type BenchTabTarget } from "@/lib/bench-targets"
 import { BENCH_WORKSPACE_ROOT_NOTES } from "@/lib/bench-targets"
+import { normalizeInAppBrowserHistoryUrl } from "@/lib/in-app-browser-history"
 
 export type BenchTab = {
   key: string
@@ -13,7 +14,47 @@ export type BenchTabSelection = {
   activeTabKey: string | null
 }
 
+/** Reuse the live page URL, which can differ from the URL that created its tab. */
+export function existingBrowserTabTarget(input: {
+  tabs: readonly BenchTab[]
+  target: Extract<BenchTabTarget, { type: "browser" }>
+  runtimeUrls: Readonly<Record<string, { url: string } | undefined>>
+}): Extract<BenchTabTarget, { type: "browser" }> | undefined {
+  const url = normalizeInAppBrowserHistoryUrl(input.target.url)
+  if (!url) return undefined
+  const match = input.tabs.find(
+    (tab) =>
+      tab.target.type === "browser" &&
+      (tab.target.profileID ?? "default") === (input.target.profileID ?? "default") &&
+      normalizeInAppBrowserHistoryUrl(
+        input.runtimeUrls[tab.target.tabID]?.url ?? tab.target.url,
+      ) === url,
+  )
+  return match?.target.type === "browser" ? match.target : undefined
+}
+
 const EMPTY_BENCH_TAB_TITLES = new Map<string, string>()
+const EMPTY_BENCH_TAB_KEY_PREFIX = "new-tab:"
+
+export const EMPTY_BENCH_TAB_TITLE = "New tab"
+
+export function createEmptyBenchTabID(): string {
+  return crypto.randomUUID()
+}
+
+/** A New tab shares the tab key space, so the agent can list and focus it like an item tab. */
+export function emptyBenchTabKey(id: string): string {
+  return `${EMPTY_BENCH_TAB_KEY_PREFIX}${encodeURIComponent(id)}`
+}
+
+export function readEmptyBenchTabID(tabKey: string): string | undefined {
+  if (!tabKey.startsWith(EMPTY_BENCH_TAB_KEY_PREFIX)) return undefined
+  try {
+    return decodeURIComponent(tabKey.slice(EMPTY_BENCH_TAB_KEY_PREFIX.length)) || undefined
+  } catch {
+    return undefined
+  }
+}
 
 function workspaceFileTabKey(
   target: Extract<BenchTabTarget, { type: "workspace-file" }>,

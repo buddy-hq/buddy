@@ -9,7 +9,7 @@ import {
   RouterProvider,
   useLocation,
 } from "@tanstack/react-router"
-import { act } from "react"
+import { act, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import {
   DirectoryChatRightWorkspace,
@@ -31,8 +31,13 @@ import { useHostedBrowserStore } from "../src/state/hosted-browser-store"
 import { skillsCatalogQueryKeys } from "../src/state/skills-catalog-query"
 import { workspaceChatKeyForSession } from "../src/lib/workspace-chat-key"
 import { obsidianVaultQueryKeys } from "../src/state/obsidian-vault-query"
-import { WORKSPACE_DESTINATION_RESTORE } from "../src/state/directory-workspace-store"
+import {
+  WORKSPACE_DESTINATION_RESTORE,
+  workspacePresentationSlotForChat,
+} from "../src/state/directory-workspace-store"
+import { useStore } from "zustand"
 import { notesQueryKeys } from "../src/features/notes/queries"
+import { useUiPreferences } from "../src/state/ui-preferences"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_RESOURCE_ID = "resource-1"
@@ -46,9 +51,22 @@ function flushEffects(): Promise<void> {
   })
 }
 
+function withQueryClient(content: ReactNode) {
+  return (
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      {content}
+    </QueryClientProvider>
+  )
+}
+
 function RightWorkspaceHarness(props: { sessionID?: string; suppressDrawerMotion?: boolean }) {
   const workspace = useDirectoryWorkspace()
   const location = useLocation()
+  const slot = useStore(workspace.store, (state) =>
+    workspacePresentationSlotForChat(state.slots, state.activeChatKey),
+  )
   const presentation = resolveWorkspacePresentation({
     projection: workspace.projection,
     hydrated: true,
@@ -65,6 +83,13 @@ function RightWorkspaceHarness(props: { sessionID?: string; suppressDrawerMotion
       <span data-testid="pathname">{location.pathname}</span>
       <span data-testid="bench-visibility">{workspace.projection.bench.visibility}</span>
       <span data-testid="drawer">{workspace.projection.drawer ?? "none"}</span>
+      <button
+        type="button"
+        data-testid="open-empty"
+        onClick={() => void workspace.controller.execute({ type: "open-empty" })}
+      >
+        New tab
+      </button>
       <button
         type="button"
         data-testid="prepare-chat-change"
@@ -98,6 +123,8 @@ function RightWorkspaceHarness(props: { sessionID?: string; suppressDrawerMotion
         workspaceWidth={720}
         suppressDrawerMotion={props.suppressDrawerMotion}
         onCreateCreation={() => undefined}
+        onNewBoard={async () => undefined}
+        onNewNote={async () => undefined}
         onOpenThread={async () => true}
         onOpenResource={() => undefined}
         tabs={[]}
@@ -107,6 +134,9 @@ function RightWorkspaceHarness(props: { sessionID?: string; suppressDrawerMotion
         onCloseOtherTabs={() => undefined}
         onCloseTabsToRight={() => undefined}
         onCloseAllTabs={() => undefined}
+        onNewTab={() => undefined}
+        emptyTabIDs={slot.emptyTabIDs}
+        activeEmptyTabID={slot.activeEmptyTabID ?? null}
         bench={<div data-testid="bench-target">Reader target</div>}
         presentation={presentation}
       />
@@ -115,7 +145,12 @@ function RightWorkspaceHarness(props: { sessionID?: string; suppressDrawerMotion
 }
 
 function ChatRouteMarker() {
-  return <span data-testid="chat-route">Chat route</span>
+  return (
+    <>
+      <span data-testid="chat-route">Chat route</span>
+      <RightWorkspaceHarness />
+    </>
+  )
 }
 
 function createTestRouter(options?: {
@@ -211,11 +246,12 @@ describe("DirectoryChatRightWorkspace", () => {
     root = undefined
     container = undefined
     localStorage.clear()
+    useUiPreferences.setState({ collapsedWorkspaceLists: {} })
     useHostedBrowserStore.getState().reset()
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
-  test("opens Sources as a drawer over the retained Bench target", async () => {
+  test("opens Resources as a pushed list beside the retained reader", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -226,9 +262,9 @@ describe("DirectoryChatRightWorkspace", () => {
       await flushEffects()
     })
 
-    const sourcesButton = container.querySelector<HTMLButtonElement>('[aria-label="Sources"]')
+    const sourcesButton = container.querySelector<HTMLButtonElement>('button[aria-label="Sources"]')
     expect(sourcesButton).not.toBeNull()
-    expect(sourcesButton?.getAttribute("aria-pressed")).toBe("false")
+    expect(sourcesButton?.getAttribute("aria-pressed")).toBe("true")
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
 
     await act(async () => {
@@ -243,21 +279,76 @@ describe("DirectoryChatRightWorkspace", () => {
     )
     expect(container.querySelector('[data-testid="bench-visibility"]')?.textContent).toBe("visible")
     expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("sources")
+    expect(container.querySelector('[data-component="right-workspace-selector-drawer"]')).toBeNull()
+    expect(container.querySelector('aside[aria-label="Resources"]')).not.toBeNull()
+    const hideList = container.querySelector<HTMLButtonElement>('[aria-label="Hide resources"]')
+    expect(hideList?.getAttribute("aria-expanded")).toBe("true")
+    await act(async () => {
+      hideList?.click()
+      await flushEffects()
+    })
     expect(
-      container.querySelector('[data-component="right-workspace-selector-drawer"]')?.className,
-    ).toContain("animate-in")
-    expect(
-      container.querySelector('[data-component="right-workspace-selector-drawer"]'),
-    ).not.toBeNull()
+      container.querySelector('[aria-label="Show resources"]')?.getAttribute("aria-expanded"),
+    ).toBe("false")
+    expect(container.querySelector('[data-component="right-workspace-selector-drawer"]')).toBeNull()
+    expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
 
     await act(async () => {
       sourcesButton?.click()
       await flushEffects()
     })
+    expect(
+      container.querySelector('[aria-label="Hide resources"]')?.getAttribute("aria-expanded"),
+    ).toBe("true")
+    expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("sources")
 
+    await act(async () => {
+      sourcesButton?.click()
+      await flushEffects()
+    })
     expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("none")
-    expect(container.querySelector('[data-component="right-workspace-selector-drawer"]')).toBeNull()
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
+  })
+
+  test("keeps a hidden list hidden when the sidebar is opened again", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<RouterProvider router={createTestRouter()} />)
+      await flushEffects()
+    })
+
+    const hideList = container.querySelector<HTMLButtonElement>('[aria-label="Hide resources"]')
+    expect(hideList?.getAttribute("aria-expanded")).toBe("true")
+    await act(async () => {
+      hideList?.click()
+      await flushEffects()
+    })
+    expect(container.querySelector('[aria-label="Show resources"]')).not.toBeNull()
+
+    // Leaving and returning (a restart, or a trip to Settings) rebuilds the sidebar from scratch.
+    await act(async () => {
+      root?.unmount()
+      await flushEffects()
+    })
+    container.remove()
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await act(async () => {
+      root?.render(<RouterProvider router={createTestRouter()} />)
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[aria-label="Hide resources"]')).toBeNull()
+    expect(
+      container.querySelector('[aria-label="Show resources"]')?.getAttribute("aria-expanded"),
+    ).toBe("false")
+    expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
+    expect(useUiPreferences.getState().collapsedWorkspaceLists).toEqual({ sources: true })
   })
 
   test("renders the accepted notebook-scoped rail in order", async () => {
@@ -278,7 +369,6 @@ describe("DirectoryChatRightWorkspace", () => {
       (button) => button.getAttribute("aria-label"),
     )
     expect(labels).toEqual([
-      "Search",
       "Sources",
       "Practice",
       "Creations",
@@ -344,31 +434,27 @@ describe("DirectoryChatRightWorkspace", () => {
     ).toEqual({ title: "Vault", variant: "obsidian" })
   })
 
-  test("opens Search as the first notebook-scoped drawer", async () => {
+  test("provides the empty search page without a search rail button", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
-
     await act(async () => {
       root?.render(<RouterProvider router={createTestRouter()} />)
       await flushEffects()
     })
-
-    const searchButton = container.querySelector<HTMLButtonElement>('[aria-label="Search"]')
     await act(async () => {
-      searchButton?.click()
+      container?.querySelector<HTMLButtonElement>('[data-testid="open-empty"]')?.click()
       await flushEffects()
-      await new Promise((resolve) => setTimeout(resolve, 50))
     })
-
-    expect(searchButton?.getAttribute("aria-pressed")).toBe("true")
+    expect(container.querySelector('[aria-label="Search"]')).toBeNull()
+    expect(container.querySelector('[data-component="bench-empty-state"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="Search this notebook"]')).not.toBeNull()
+    expect(container.querySelector('[data-component="bench-tabs"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="New tab"]')).not.toBeNull()
     expect(
-      container
-        .querySelector('[data-component="right-workspace-drawer"]')
-        ?.getAttribute("aria-label"),
-    ).toBe("Search")
-    expect(container.querySelector('[aria-label="Search this notebook…"]')).not.toBeNull()
+      container.querySelector('[data-component="bench-tab"][data-empty="true"]'),
+    ).not.toBeNull()
   })
 
   test("opens Skills as a real right-workspace drawer", async () => {
@@ -486,7 +572,7 @@ describe("DirectoryChatRightWorkspace", () => {
         ?.getAttribute("aria-label"),
     ).toBe("Boards")
     expect(container.textContent).toContain("No boards yet")
-    expect(container.textContent).toContain("Create board")
+    expect(container.querySelector('button[aria-label="Create board"]')).not.toBeNull()
     expect(container.textContent).not.toContain("Start a chat first")
   })
 
@@ -521,12 +607,14 @@ describe("DirectoryChatRightWorkspace", () => {
 
     await act(async () => {
       root?.render(
-        <DirectoryChatRightWorkspaceContent
-          hasBenchTarget={false}
-          bench={<div data-testid="bench-target">Reader target</div>}
-          selectorContent={<div data-testid="selector-content">Explorer</div>}
-          selectorDrawerWidth={360}
-        />,
+        withQueryClient(
+          <DirectoryChatRightWorkspaceContent
+            hasBenchTarget={false}
+            bench={<div data-testid="bench-target">Reader target</div>}
+            selectorContent={<div data-testid="selector-content">Explorer</div>}
+            selectorDrawerWidth={360}
+          />,
+        ),
       )
       await flushEffects()
     })
@@ -546,6 +634,31 @@ describe("DirectoryChatRightWorkspace", () => {
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
   })
 
+  test("renders the search landing when the Bench has no tab or drawer", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        withQueryClient(
+          <DirectoryChatRightWorkspaceContent
+            hasBenchTarget={false}
+            selectorContent={null}
+            emptyContent={<div data-testid="search-landing">Search landing</div>}
+            selectorDrawerWidth={0}
+          />,
+        ),
+      )
+    })
+
+    expect(container.querySelector('[data-testid="search-landing"]')).not.toBeNull()
+    expect(
+      container.querySelector('[data-component="right-workspace-selector-content"]'),
+    ).toBeNull()
+  })
+
   test("overlays a selector when Bench has a retained target", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
@@ -554,12 +667,14 @@ describe("DirectoryChatRightWorkspace", () => {
 
     await act(async () => {
       root?.render(
-        <DirectoryChatRightWorkspaceContent
-          hasBenchTarget
-          bench={<div data-testid="bench-target">Reader target</div>}
-          selectorContent={<div data-testid="selector-content">Explorer</div>}
-          selectorDrawerWidth={360}
-        />,
+        withQueryClient(
+          <DirectoryChatRightWorkspaceContent
+            hasBenchTarget
+            bench={<div data-testid="bench-target">Reader target</div>}
+            selectorContent={<div data-testid="selector-content">Explorer</div>}
+            selectorDrawerWidth={360}
+          />,
+        ),
       )
       await flushEffects()
     })
@@ -581,14 +696,16 @@ describe("DirectoryChatRightWorkspace", () => {
 
     await act(async () => {
       root?.render(
-        <BenchContent bordered={false}>
-          <DirectoryChatRightWorkspaceContent
-            hasBenchTarget
-            bench={<div data-testid="bench-target">Reader target</div>}
-            selectorContent={null}
-            selectorDrawerWidth={0}
-          />
-        </BenchContent>,
+        withQueryClient(
+          <BenchContent bordered={false}>
+            <DirectoryChatRightWorkspaceContent
+              hasBenchTarget
+              bench={<div data-testid="bench-target">Reader target</div>}
+              selectorContent={null}
+              selectorDrawerWidth={0}
+            />
+          </BenchContent>,
+        ),
       )
       await flushEffects()
     })

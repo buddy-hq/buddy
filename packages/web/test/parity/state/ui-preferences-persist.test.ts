@@ -12,8 +12,10 @@ import { parsePersistedStoreState } from "../../parse-test-values"
 function resetUiPreferences() {
   useUiPreferences.setState({
     pinnedByDirectory: {},
+    pinnedDirectories: [],
     unreadByDirectory: {},
     collapsedChatSidebarDirectories: {},
+    collapsedWorkspaceLists: {},
     leftSidebarOpen: true,
     chatLeftSidebarWidth: 344,
     settingsSidebarWidth: 344,
@@ -91,6 +93,50 @@ describe("ui preference persistence parity", () => {
     })
   })
 
+  test("remembers which right-sidebar lists are hidden and restores them after a restart", () => {
+    const state = useUiPreferences.getState()
+
+    expect(state.collapsedWorkspaceLists).toEqual({})
+
+    state.setWorkspaceListOpen("notes", false)
+    state.setWorkspaceListOpen("files", false)
+    state.setWorkspaceListOpen("files", true)
+
+    expect(useUiPreferences.getState().collapsedWorkspaceLists).toEqual({ notes: true })
+    expect(
+      parsePersistedStoreState(localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)),
+    ).toMatchObject({
+      collapsedWorkspaceLists: { notes: true },
+    })
+
+    // Simulate a restart: memory is empty, but what was saved is still on disk.
+    const saved = localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
+    expect(saved).not.toBeNull()
+    useUiPreferences.setState({ collapsedWorkspaceLists: {} })
+    localStorage.setItem(UI_PREFERENCES_STORAGE_KEY, saved ?? "")
+    void useUiPreferences.persist.rehydrate()
+
+    expect(useUiPreferences.getState().collapsedWorkspaceLists).toEqual({ notes: true })
+  })
+
+  test("starts every right-sidebar list shown and drops the retired file-tree flag", () => {
+    localStorage.setItem(
+      UI_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        state: { pinnedDirectories: ["/kept"], projectFileTreeOpen: true, leftSidebarOpen: false },
+        version: 22,
+      }),
+    )
+
+    void useUiPreferences.persist.rehydrate()
+
+    const next = useUiPreferences.getState()
+    expect(next.collapsedWorkspaceLists).toEqual({})
+    expect(next.pinnedDirectories).toEqual(["/kept"])
+    expect(next.leftSidebarOpen).toBe(false)
+    expect("projectFileTreeOpen" in next).toBe(false)
+  })
+
   test("migrates legacy left sidebar width into chat and settings widths", () => {
     localStorage.setItem(
       UI_PREFERENCES_STORAGE_KEY,
@@ -140,13 +186,12 @@ describe("ui preference persistence parity", () => {
     await useUiPreferences.persist.rehydrate()
 
     expect(useUiPreferences.getState().pinnedDirectories).toEqual([])
-    expect(useUiPreferences.getState().projectFileTreeOpen).toBe(true)
+    expect("projectFileTreeOpen" in useUiPreferences.getState()).toBe(false)
     expect(
       parsePersistedStoreState(localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)),
     ).toMatchObject({
       pinnedByDirectory: { "/repo": ["session_1"] },
       pinnedDirectories: [],
-      projectFileTreeOpen: true,
     })
   })
 })

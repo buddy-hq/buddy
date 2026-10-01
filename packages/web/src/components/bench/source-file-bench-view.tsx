@@ -6,7 +6,6 @@ import {
   type VersionedTextFileEditorHandle,
   type VersionedTextFileEditorSnapshot,
 } from "@/components/editors/versioned-text-file-editor"
-import { WorkspaceFileActionsMenu } from "@/components/files/workspace-file-actions"
 import {
   useRegisterBenchContextProvider,
   type BenchContextProvider,
@@ -22,6 +21,7 @@ import { fileNameFromPath } from "@/lib/workspace-file-paths"
 import { BENCH_WORKSPACE_ROOT_NOTEBOOK, type BenchTarget } from "@/lib/bench-navigation"
 import {
   ProjectExplorerFileVersionConflictError,
+  ProjectExplorerUnsupportedFileError,
   readProjectExplorerEditableFile,
   readProjectExplorerEditableFileStatus,
   saveProjectExplorerEditableFile,
@@ -60,10 +60,16 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
   }, [])
 
   const load = useCallback(async () => {
-    const file = await readProjectExplorerEditableFile({
-      directory: props.directory,
-      path: props.path,
-    })
+    let file: Awaited<ReturnType<typeof readProjectExplorerEditableFile>>
+    try {
+      file = await readProjectExplorerEditableFile({
+        directory: props.directory,
+        path: props.path,
+      })
+    } catch (error) {
+      if (error instanceof ProjectExplorerUnsupportedFileError) setUnreadable(true)
+      throw error
+    }
     if (!isReadableWorkspaceText(file.content)) {
       setUnreadable(true)
     }
@@ -235,6 +241,7 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
   }, [props.directory, props.path, updateExistsOnDisk])
 
   useEffect(() => {
+    if (unreadable) return
     const shouldBlock = Boolean(
       snapshot?.dirty || snapshot?.saving || snapshot?.conflict || snapshot?.saveError,
     )
@@ -246,75 +253,92 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
     }
     window.addEventListener("beforeunload", handleBeforeUnload)
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [snapshot?.conflict, snapshot?.dirty, snapshot?.saveError, snapshot?.saving])
+  }, [snapshot?.conflict, snapshot?.dirty, snapshot?.saveError, snapshot?.saving, unreadable])
 
-  const saveStatus = snapshot?.loading
-    ? "Loading"
-    : !existsOnDisk
-      ? "Unavailable"
-      : snapshot?.conflict
-        ? "Conflict"
-        : snapshot?.saving
-          ? "Saving"
-          : snapshot?.saveError
-            ? "Save failed"
-            : snapshot?.dirty
-              ? "Dirty"
-              : undefined
+  const saveStatus = unreadable
+    ? undefined
+    : snapshot?.loading
+      ? "Loading"
+      : !existsOnDisk
+        ? "Unavailable"
+        : snapshot?.conflict
+          ? "Conflict"
+          : snapshot?.saving
+            ? "Saving"
+            : snapshot?.saveError
+              ? "Save failed"
+              : snapshot?.dirty
+                ? "Dirty"
+                : undefined
 
   return (
-    <BenchViewerShell
-      title={title}
-      subtitle={saveStatus ? `${props.path} · ${saveStatus}` : props.path}
-      toolbar={<WorkspaceFileActionsMenu directory={props.directory} path={props.path} />}
-      contentClassName="overflow-hidden"
-    >
-      {unreadable ? (
-        <div className="flex h-full items-center justify-center p-6 text-center text-sm text-text-weak">
-          <div className="max-w-sm">
-            <AlertCircleIcon className="mx-auto mb-2 size-5 text-icon-critical-base" aria-hidden />
-            This file is not readable UTF-8 text. Use the file actions to open it externally.
+    <BenchViewerShell title={title} contentClassName="overflow-hidden">
+      <div className="flex h-full min-h-0 flex-col">
+        {saveStatus ? (
+          <div
+            className="shrink-0 border-b border-border-weaker-base px-3 py-1 text-right text-xs text-text-weak"
+            role="status"
+          >
+            {saveStatus}
           </div>
-        </div>
-      ) : !existsOnDisk && !snapshot?.dirty ? (
-        <div className="flex h-full items-center justify-center p-6 text-center text-sm text-text-weak">
-          <div className="max-w-sm rounded-2xl border border-border-base bg-surface-base px-5 py-4 shadow-sm">
-            <AlertCircleIcon className="mx-auto mb-2 size-5 text-icon-warning-base" aria-hidden />
-            <h2 className="text-sm font-medium text-text-base">File deleted or moved</h2>
-            <p className="mt-2 text-sm text-text-weak">{props.path} no longer exists on disk.</p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex h-full min-h-0 flex-col">
-          {!existsOnDisk ? (
-            <div className="border-b border-border-warning-base/50 bg-surface-warning-weak px-4 py-2 text-xs text-text-on-warning-weak">
-              File deleted or moved on disk. Save/overwrite only after deciding to restore it.
+        ) : null}
+        <div className="min-h-0 flex-1">
+          {unreadable ? (
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-text-weak">
+              <div className="max-w-sm">
+                <AlertCircleIcon
+                  className="mx-auto mb-2 size-5 text-icon-critical-base"
+                  aria-hidden
+                />
+                This file is not readable UTF-8 text. Use the file actions to open it externally.
+              </div>
             </div>
-          ) : null}
-          <VersionedTextFileEditor
-            ref={editorRef}
-            viewStateScope={props.directory}
-            fallbackPath={props.path}
-            languageId={monacoLanguageForWorkspacePath(props.path)}
-            statusIndicator="none"
-            errorPresentation="inline"
-            reloadBehavior="once"
-            externalReloadIntervalMs={EXTERNAL_FILE_REFRESH_INTERVAL_MS}
-            className="gap-0 p-0"
-            editorOptions={{
-              lineNumbers: "on",
-              minimap: { enabled: false },
-              wordWrap: "off",
-            }}
-            load={load}
-            save={save}
-            isVersionConflictError={(error) =>
-              error instanceof ProjectExplorerFileVersionConflictError
-            }
-            onSnapshotChange={handleSnapshotChange}
-          />
+          ) : !existsOnDisk && !snapshot?.dirty ? (
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-text-weak">
+              <div className="max-w-sm rounded-2xl border border-border-base bg-surface-base px-5 py-4 shadow-sm">
+                <AlertCircleIcon
+                  className="mx-auto mb-2 size-5 text-icon-warning-base"
+                  aria-hidden
+                />
+                <h2 className="text-sm font-medium text-text-base">File deleted or moved</h2>
+                <p className="mt-2 text-sm text-text-weak">
+                  {props.path} no longer exists on disk.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-full min-h-0 flex-col">
+              {!existsOnDisk ? (
+                <div className="border-b border-border-warning-base/50 bg-surface-warning-weak px-4 py-2 text-xs text-text-on-warning-weak">
+                  File deleted or moved on disk. Save/overwrite only after deciding to restore it.
+                </div>
+              ) : null}
+              <VersionedTextFileEditor
+                ref={editorRef}
+                viewStateScope={props.directory}
+                fallbackPath={props.path}
+                languageId={monacoLanguageForWorkspacePath(props.path)}
+                statusIndicator="none"
+                errorPresentation="inline"
+                reloadBehavior="once"
+                externalReloadIntervalMs={EXTERNAL_FILE_REFRESH_INTERVAL_MS}
+                className="gap-0 p-0"
+                editorOptions={{
+                  lineNumbers: "on",
+                  minimap: { enabled: false },
+                  wordWrap: "off",
+                }}
+                load={load}
+                save={save}
+                isVersionConflictError={(error) =>
+                  error instanceof ProjectExplorerFileVersionConflictError
+                }
+                onSnapshotChange={handleSnapshotChange}
+              />
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </BenchViewerShell>
   )
 }

@@ -12,7 +12,7 @@ import {
 } from "@buddy/ui"
 import { parseTBoolean, parseTJsonObject } from "@/components/chat/tools/types"
 import { FolderAddIcon, Globe, NoteAddIcon, PresentationIcon } from "@/icons/app-icons"
-import { useChatJumpShortcuts, useShortcutCommand } from "@/lib/use-shortcut-command"
+import { useShortcutCommand } from "@/lib/use-shortcut-command"
 import { useRubberBandOverscroll } from "@/lib/use-rubber-band-overscroll"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
@@ -389,10 +389,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     },
     [selectSidebarSession],
   )
-  const openChatAt = useCallback(
-    (index: number) => openChat(visibleChats[index]),
-    [openChat, visibleChats],
-  )
   const stepChat = useCallback(
     (step: 1 | -1) => {
       const currentSessions = props.sessionsByDirectory[props.currentDirectory] ?? []
@@ -419,7 +415,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   useShortcutCommand("chat.new", () => props.onNewSession())
   useShortcutCommand("chat.previous", openPreviousChat, { enabled: chatShortcutsEnabled })
   useShortcutCommand("chat.next", openNextChat, { enabled: chatShortcutsEnabled })
-  useChatJumpShortcuts(openChatAt, { count: visibleChats.length })
 
   const {
     draggedDirectory,

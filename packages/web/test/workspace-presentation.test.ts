@@ -5,14 +5,12 @@ import {
   BENCH_LAYOUT_PROFILE_READING,
   type BenchTarget,
 } from "../src/lib/bench-navigation"
-import {
-  RIGHT_WORKSPACE_DEFAULT_WIDTH_PX,
-  RIGHT_WORKSPACE_RAIL_WIDTH_PX,
-} from "../src/lib/directory-chat/right-workspace-layout"
+import { RIGHT_WORKSPACE_RAIL_WIDTH_PX } from "../src/lib/directory-chat/right-workspace-layout"
 import { resolveWorkspacePresentation } from "../src/lib/directory-chat/workspace-presentation"
 import {
   createCollapsedWorkspaceState,
   createExpandedWorkspaceState,
+  createImmersiveEmptyWorkspaceState,
   effectiveWorkspaceProjection,
   WORKSPACE_DRAWER_SOURCES,
   type BenchRouteSnapshot,
@@ -107,7 +105,7 @@ describe("workspace presentation", () => {
     })
   })
 
-  test("fills the workspace with a targetless selector without suppressing the sidebar", () => {
+  test("protects the collection preview and chat widths in a narrow window", () => {
     const presentation = resolvePresentation({
       expanded: true,
       drawer: "sources",
@@ -119,9 +117,53 @@ describe("workspace presentation", () => {
       kind: "selector",
       workspaceOpen: true,
       selector: "sources",
-      leftSidebar: { visible: true, overlayEnabled: false },
+      leftSidebar: { visible: false, managedByWorkspace: true, overlayEnabled: true },
     })
     expect(presentation.workspace.widthPx).toBe(presentation.workspace.maxWidthPx)
+  })
+
+  test("keeps the hidden sidebar reachable from an empty Bench in a narrow window", () => {
+    expect(resolvePresentation({ expanded: true, viewport: NARROW_VIEWPORT })).toMatchObject({
+      kind: "selector",
+      selector: null,
+      leftSidebar: { visible: false, managedByWorkspace: true, overlayEnabled: true },
+    })
+  })
+
+  test("opens an empty Bench when revealed without a tab or drawer", () => {
+    expect(resolvePresentation({ expanded: true })).toMatchObject({
+      kind: "selector",
+      workspaceOpen: true,
+      benchVisible: false,
+      selector: null,
+    })
+  })
+
+  test("shows an immersive empty page full-window with the floating chat", () => {
+    const presentation = resolveWorkspacePresentation({
+      projection: effectiveWorkspaceProjection(
+        CLOSED_ROUTE,
+        { docked: createImmersiveEmptyWorkspaceState(), lastDrawer: "sources" },
+        null,
+      ),
+      hydrated: true,
+      layoutProfile: BENCH_LAYOUT_PROFILE_READING,
+      viewport: WIDE_VIEWPORT,
+      requestedWorkspaceWidthPx: 700,
+      requestedBenchWidthPx: 700,
+      leftSidebarPreferredOpen: true,
+      leftSidebarWidthPx: 280,
+    })
+
+    expect(presentation).toMatchObject({
+      kind: "floating-bench",
+      mode: BENCH_CHAT_LAYOUT_FLOATING,
+      benchVisible: false,
+      workspaceOpen: true,
+      selector: null,
+      leftSidebar: { visible: false, managedByWorkspace: false, overlayEnabled: false },
+      controls: { showThreadBrowserInPane: true, showFloatChat: false },
+    })
   })
 
   test("shows docked controls and suppresses the sidebar only when the visible Bench needs space", () => {
@@ -203,10 +245,10 @@ describe("workspace presentation", () => {
     })
 
     expect(docked.kind).toBe("docked-bench")
-    expect(docked.workspace.widthPx).toBe(560 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
+    expect(docked.workspace.widthPx).toBe(540 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
     expect(docked.workspace.minWidthPx).toBe(360 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
     expect(selector.kind).toBe("selector")
-    expect(selector.workspace.widthPx).toBe(RIGHT_WORKSPACE_DEFAULT_WIDTH_PX)
+    expect(selector.workspace.widthPx).toBe(540 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
   })
 
   test("ignores a drawer width when the Bench has never been resized", () => {
@@ -221,7 +263,7 @@ describe("workspace presentation", () => {
       requestedBenchWidthPx: null,
     })
 
-    expect(presentation.workspace.widthPx).toBe(560 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
+    expect(presentation.workspace.widthPx).toBe(540 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
   })
 
   test("keeps a saved docked width below the profile default", () => {

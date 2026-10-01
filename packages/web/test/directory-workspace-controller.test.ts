@@ -581,6 +581,219 @@ describe("DirectoryWorkspaceController", () => {
     ])
   })
 
+  test("opens the empty page while retaining tabs, and can return to the file", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    const tabs = harness.store.getState().slots[CHAT_A_KEY]?.tabs
+    const opened = await harness.execute({ type: "open-empty" }, CLOSED_ROUTE)
+    expect(opened).toMatchObject({
+      outcome: "committed",
+      projection: { route: CLOSED_ROUTE, dockedState: { visibility: "expanded", drawer: null } },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual(tabs)
+    const emptyTabIDs = harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs
+    expect(emptyTabIDs).toHaveLength(1)
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.activeEmptyTabID).toBe(emptyTabIDs?.[0])
+    const focused = await harness.execute(
+      { type: "focus-tab", tabKey: benchTabKey(FILE_TARGET) },
+      DOCKED_FILE_ROUTE,
+    )
+    expect(focused).toMatchObject({
+      outcome: "committed",
+      projection: { route: DOCKED_FILE_ROUTE },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs).toEqual(emptyTabIDs)
+  })
+
+  test("opening an empty Bench creates a reusable empty tab", async () => {
+    const harness = createHarness()
+    const opened = await harness.execute({ type: "reveal" }, CLOSED_ROUTE)
+    expect(opened).toMatchObject({
+      outcome: "committed",
+      projection: { renderedSurface: "empty" },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs).toHaveLength(1)
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([])
+  })
+
+  test("keeps several New tabs and shows the one asked for", async () => {
+    const harness = createHarness()
+    await harness.execute({ type: "open-empty", emptyTabID: "new-a" }, CLOSED_ROUTE)
+    await harness.execute({ type: "open-empty", emptyTabID: "new-b" })
+    expect(harness.store.getState().slots[CHAT_A_KEY]).toMatchObject({
+      emptyTabIDs: ["new-a", "new-b"],
+      activeEmptyTabID: "new-b",
+    })
+
+    await harness.execute({ type: "open-empty", emptyTabID: "new-a" })
+    expect(harness.store.getState().slots[CHAT_A_KEY]).toMatchObject({
+      emptyTabIDs: ["new-a", "new-b"],
+      activeEmptyTabID: "new-a",
+    })
+
+    // Without an id, the empty page returns to the New tab it showed last.
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    await harness.execute({ type: "open-empty" }, CLOSED_ROUTE)
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.activeEmptyTabID).toBe("new-a")
+
+    harness.store.getState().removeEmptyTab("new-a")
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs).toEqual(["new-b"])
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.activeEmptyTabID).toBeUndefined()
+  })
+
+  test("an agent focuses only a New tab that is still open", async () => {
+    const harness = createHarness()
+    await harness.execute({ type: "open-empty", emptyTabID: "new-a" }, CLOSED_ROUTE)
+    await harness.execute({ type: "open-empty", emptyTabID: "new-b" })
+    harness.store.getState().removeEmptyTab("new-a")
+
+    const stale = await harness.controller.execute(
+      { type: "open-empty", emptyTabID: "new-a" },
+      { origin: "agent" },
+    )
+    expect(stale.outcome).toBe("superseded")
+    expect(harness.store.getState().slots[CHAT_A_KEY]).toMatchObject({
+      emptyTabIDs: ["new-b"],
+      activeEmptyTabID: "new-b",
+    })
+
+    const focused = await harness.controller.execute(
+      { type: "open-empty", emptyTabID: "new-b" },
+      { origin: "agent" },
+    )
+    expect(focused.outcome).toBe("committed")
+  })
+
+  test("closing Bench or several tabs at once also closes New tabs", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    await harness.execute({ type: "open-empty", emptyTabID: "new-a" }, CLOSED_ROUTE)
+
+    // The New tab on screen is right of the file, so it closes and the file takes over.
+    const right = await harness.execute(
+      { type: "close-tabs-to-right", tabKey: benchTabKey(FILE_TARGET) },
+      DOCKED_FILE_ROUTE,
+    )
+    expect(right).toMatchObject({ outcome: "committed", projection: { route: DOCKED_FILE_ROUTE } })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs).toBeUndefined()
+
+    await harness.execute({ type: "open-empty", emptyTabID: "new-b" }, CLOSED_ROUTE)
+    await harness.execute(
+      { type: "focus-tab", tabKey: benchTabKey(FILE_TARGET) },
+      DOCKED_FILE_ROUTE,
+    )
+    const all = await harness.execute({ type: "close-all-tabs" }, CLOSED_ROUTE)
+    expect(all).toMatchObject({ outcome: "committed", projection: { route: CLOSED_ROUTE } })
+    const afterAll = harness.store.getState().slots[CHAT_A_KEY]
+    expect(afterAll?.tabs).toEqual([])
+    // A docked Bench keeps showing one fresh New tab page.
+    expect(afterAll?.emptyTabIDs).toHaveLength(1)
+    expect(afterAll?.emptyTabIDs).not.toContain("new-b")
+
+    const closed = await harness.controller.execute({ type: "close" }, { origin: "agent" })
+    expect(closed.outcome).toBe("committed")
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs).toBeUndefined()
+  })
+
+  test("opening a New tab from an immersive Bench keeps the empty page immersive", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_FLOATING,
+      },
+      FLOATING_FILE_ROUTE,
+    )
+    const immersiveEmpty = {
+      visibility: WORKSPACE_VISIBILITY_EXPANDED,
+      drawer: null,
+      mode: BENCH_CHAT_LAYOUT_FLOATING,
+    }
+
+    const opened = await harness.execute({ type: "open-empty" }, CLOSED_ROUTE)
+    expect(opened).toMatchObject({
+      outcome: "committed",
+      projection: { route: CLOSED_ROUTE, renderedSurface: "empty", dockedState: immersiveEmpty },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs).toHaveLength(1)
+
+    const reopened = await harness.execute({ type: "open-empty" })
+    expect(reopened).toMatchObject({
+      outcome: "committed",
+      changed: false,
+      projection: { dockedState: immersiveEmpty },
+    })
+
+    const focused = await harness.execute(
+      { type: "focus-tab", tabKey: benchTabKey(FILE_TARGET) },
+      FLOATING_FILE_ROUTE,
+    )
+    expect(focused).toMatchObject({
+      outcome: "committed",
+      projection: { route: FLOATING_FILE_ROUTE },
+    })
+  })
+
+  test("docks an immersive empty page and makes it immersive again", async () => {
+    const harness = createHarness({ initialRoute: FLOATING_FILE_ROUTE })
+    await harness.execute({ type: "open-empty" }, CLOSED_ROUTE)
+
+    const docked = await harness.execute({ type: "set-mode", mode: BENCH_CHAT_LAYOUT_DOCKED })
+    expect(docked).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      projection: { renderedSurface: "empty" },
+    })
+    expect(docked.projection.dockedState).toEqual(createExpandedWorkspaceState(null))
+
+    const immersive = await harness.execute({ type: "set-mode", mode: BENCH_CHAT_LAYOUT_FLOATING })
+    expect(immersive).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      projection: {
+        dockedState: {
+          visibility: WORKSPACE_VISIBILITY_EXPANDED,
+          drawer: null,
+          mode: BENCH_CHAT_LAYOUT_FLOATING,
+        },
+      },
+    })
+  })
+
+  test("opening the empty page respects the active editor leave guard", async () => {
+    const harness = createHarness({ initialRoute: DOCKED_FILE_ROUTE, guard: blockLeave })
+    const result = await harness.execute({ type: "open-empty" }, CLOSED_ROUTE)
+    expect(result.outcome).toBe("blocked")
+    expect(harness.readRoute()).toEqual(DOCKED_FILE_ROUTE)
+    expect(harness.guardCalls).toHaveLength(1)
+  })
+
   test("focuses an open Browser tab for an agent request", async () => {
     const browserTarget = {
       type: "browser",
@@ -841,6 +1054,25 @@ describe("DirectoryWorkspaceController", () => {
     })
   })
 
+  test("focusing the selected tab restores it from an open collection", async () => {
+    const harness = createHarness({ initialRoute: DOCKED_FILE_ROUTE, initialExpanded: true })
+    const state = harness.store.getState()
+    state.captureChatSlot({ chatKey: state.activeChatKey, route: DOCKED_FILE_ROUTE })
+    await harness.controller.execute({ type: "open-drawer", drawer: WORKSPACE_DRAWER_FILES })
+
+    const focused = await harness.controller.execute({
+      type: "focus-tab",
+      tabKey: benchTabKey(FILE_TARGET),
+    })
+
+    expect(focused).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      projection: { route: DOCKED_FILE_ROUTE, drawer: null, bench: { visibility: "visible" } },
+    })
+    expect(harness.readNavigationEvents()).toEqual([])
+  })
+
   test("supersedes a focus request after its tab has gone stale", async () => {
     const harness = createHarness({ initialRoute: DOCKED_FILE_ROUTE, initialExpanded: true })
     const state = harness.store.getState()
@@ -881,6 +1113,224 @@ describe("DirectoryWorkspaceController", () => {
       { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
     ])
     expect(harness.readRoute()).toEqual(DOCKED_FILE_ROUTE)
+  })
+
+  test("closing the final docked tab leaves the empty Bench open", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+
+    const result = await harness.execute(
+      { type: "close-tab", tabKey: benchTabKey(FILE_TARGET) },
+      CLOSED_ROUTE,
+    )
+
+    expect(result).toMatchObject({ outcome: "committed", projection: { route: CLOSED_ROUTE } })
+    expect(harness.store.getState().docked).toEqual(createExpandedWorkspaceState(null))
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([])
+  })
+
+  test("a parked Bench stays collapsed when its last tab is removed", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: SESSION_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_SESSION_ROUTE,
+    )
+    const parked = await harness.execute({ type: "collapse" })
+    expect(parked.projection.bench.visibility).toBe("parked")
+
+    const removed = await harness.execute(
+      { type: "remove-session-targets", sessionIDs: [SESSION_TARGET.sessionID] },
+      CLOSED_ROUTE,
+    )
+
+    expect(removed).toMatchObject({ outcome: "committed", projection: { route: CLOSED_ROUTE } })
+    expect(harness.store.getState().docked).toEqual(createCollapsedWorkspaceState())
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([])
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs).toBeUndefined()
+  })
+
+  test("closing the last item tab in an immersive Bench lands on its New tab", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_FLOATING,
+      },
+      FLOATING_FILE_ROUTE,
+    )
+    await harness.execute({ type: "open-empty", emptyTabID: "new-a" }, CLOSED_ROUTE)
+    await harness.execute(
+      { type: "focus-tab", tabKey: benchTabKey(FILE_TARGET) },
+      FLOATING_FILE_ROUTE,
+    )
+
+    const closed = await harness.execute(
+      { type: "close-tab", tabKey: benchTabKey(FILE_TARGET) },
+      CLOSED_ROUTE,
+    )
+
+    expect(closed).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: CLOSED_ROUTE,
+        dockedState: {
+          visibility: WORKSPACE_VISIBILITY_EXPANDED,
+          drawer: null,
+          mode: BENCH_CHAT_LAYOUT_FLOATING,
+        },
+      },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]).toMatchObject({
+      tabs: [],
+      emptyTabIDs: ["new-a"],
+      activeEmptyTabID: "new-a",
+    })
+  })
+
+  test("closing the last item tab in an immersive Bench without a New tab returns to chat", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_FLOATING,
+      },
+      FLOATING_FILE_ROUTE,
+    )
+
+    const closed = await harness.execute(
+      { type: "close-tab", tabKey: benchTabKey(FILE_TARGET) },
+      CLOSED_ROUTE,
+    )
+
+    expect(closed).toMatchObject({ outcome: "committed", projection: { route: CLOSED_ROUTE } })
+    expect(harness.store.getState().docked).toEqual(createCollapsedWorkspaceState())
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs).toBeUndefined()
+  })
+
+  test("closing the rightmost item tab lands on the New tab to its right", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: NEXT_FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_NEXT_FILE_ROUTE,
+    )
+    await harness.execute({ type: "open-empty", emptyTabID: "new-a" }, CLOSED_ROUTE)
+    await harness.execute({ type: "open-empty", emptyTabID: "new-b" })
+    await harness.execute(
+      { type: "focus-tab", tabKey: benchTabKey(NEXT_FILE_TARGET) },
+      DOCKED_NEXT_FILE_ROUTE,
+    )
+
+    const closed = await harness.execute(
+      { type: "close-tab", tabKey: benchTabKey(NEXT_FILE_TARGET) },
+      CLOSED_ROUTE,
+    )
+
+    expect(closed).toMatchObject({ outcome: "committed", projection: { route: CLOSED_ROUTE } })
+    expect(harness.store.getState().docked).toEqual(createExpandedWorkspaceState(null))
+    expect(harness.store.getState().slots[CHAT_A_KEY]).toMatchObject({
+      tabs: [{ key: benchTabKey(FILE_TARGET), target: FILE_TARGET }],
+      emptyTabIDs: ["new-a", "new-b"],
+      activeEmptyTabID: "new-a",
+    })
+  })
+
+  test("closing an item tab that has another item tab to its right stays on item tabs", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: NEXT_FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_NEXT_FILE_ROUTE,
+    )
+    await harness.execute({ type: "open-empty", emptyTabID: "new-a" }, CLOSED_ROUTE)
+    await harness.execute(
+      { type: "focus-tab", tabKey: benchTabKey(FILE_TARGET) },
+      DOCKED_FILE_ROUTE,
+    )
+
+    const closed = await harness.execute(
+      { type: "close-tab", tabKey: benchTabKey(FILE_TARGET) },
+      DOCKED_NEXT_FILE_ROUTE,
+    )
+
+    expect(closed).toMatchObject({
+      outcome: "committed",
+      projection: { route: DOCKED_NEXT_FILE_ROUTE },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs).toEqual(["new-a"])
+  })
+
+  test("an agent closing Bench from the New tab page also closes the item tabs", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    await harness.execute({ type: "open-empty" }, CLOSED_ROUTE)
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toHaveLength(1)
+
+    const closed = await harness.controller.execute({ type: "close" }, { origin: "agent" })
+
+    expect(closed).toMatchObject({ outcome: "committed", changed: true })
+    expect(harness.store.getState().docked).toEqual(createCollapsedWorkspaceState())
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([])
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.emptyTabIDs).toBeUndefined()
+  })
+
+  test("closing a drawer without a Bench target returns to the empty Bench", async () => {
+    const harness = createHarness()
+    await harness.execute({ type: "open-drawer", drawer: WORKSPACE_DRAWER_FILES })
+    await harness.execute({ type: "close-drawer" })
+    expect(harness.store.getState().docked).toEqual(createExpandedWorkspaceState(null))
+    expect(harness.readRoute()).toEqual(CLOSED_ROUTE)
   })
 
   test("inherits the visible whiteboard without treating it as session-owned", async () => {
