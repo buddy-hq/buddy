@@ -5,9 +5,13 @@ import { SkillIconMark } from "../skills/skill-icon-mark"
 import { useSkillPresentationLookup } from "../skills/skill-presentation"
 import { useDirectoryWorkspaceOptional } from "../directory-chat/directory-workspace-context"
 import { RubiksCube } from "@/icons/app-icons"
+import { BenchItemIcon, notebookReferenceIconSubject } from "../bench/bench-item-icon"
+import type { PromptNotebookReferencePart } from "../prompt/prompt-types"
 import type { ChatAgentPart, ChatFilePart } from "./utils/part-guards"
 
-type HighlightSegment = { text: string; type?: "file" | "agent" | "skill" }
+type HighlightSegment =
+  | { text: string; type?: "file" | "agent" | "skill" }
+  | { text: string; type: "notebook"; reference: PromptNotebookReferencePart }
 
 type HighlightReference = {
   start: number
@@ -66,9 +70,40 @@ type THighlightedTextProps = {
   references: ChatFilePart[]
   agents: ChatAgentPart[]
   inlineReferences?: string[]
+  /** Notebook items mentioned with @; each shows as a chip where its locator text sits. */
+  notebookReferences?: readonly PromptNotebookReferencePart[]
 }
 
 const EMPTY_INLINE_REFERENCES: string[] = []
+const EMPTY_NOTEBOOK_REFERENCES: readonly PromptNotebookReferencePart[] = []
+
+/** Replaces each notebook reference's locator in plain text with its chip, earliest first. */
+function splitNotebookReferences(
+  segments: HighlightSegment[],
+  references: readonly PromptNotebookReferencePart[],
+): HighlightSegment[] {
+  if (references.length === 0) return segments
+  return segments.flatMap((segment): HighlightSegment[] => {
+    if (segment.type !== undefined) return [segment]
+    const pieces: HighlightSegment[] = []
+    let rest = segment.text
+    while (rest.length > 0) {
+      let match: { index: number; reference: PromptNotebookReferencePart } | undefined
+      for (const reference of references) {
+        const index = rest.indexOf(reference.text)
+        if (index >= 0 && (!match || index < match.index)) match = { index, reference }
+      }
+      if (!match) {
+        pieces.push({ text: rest })
+        break
+      }
+      if (match.index > 0) pieces.push({ text: rest.slice(0, match.index) })
+      pieces.push({ text: match.reference.text, type: "notebook", reference: match.reference })
+      rest = rest.slice(match.index + match.reference.text.length)
+    }
+    return pieces
+  })
+}
 
 function stripMentionPrefix(value: string) {
   return value.startsWith("@") ? value.slice(1) : value
@@ -116,11 +151,25 @@ function InlineSkillReference({ text }: { text: string }) {
   )
 }
 
+/** The sent form of a composer notebook chip: the same icon and title. */
+function InlineNotebookReference({ reference }: { reference: PromptNotebookReferencePart }) {
+  return (
+    <span className={INLINE_REFERENCE_CLASS} title={reference.text}>
+      <BenchItemIcon
+        subject={notebookReferenceIconSubject(reference)}
+        className={INLINE_REFERENCE_ICON_CLASS}
+      />
+      <span className="truncate">{reference.title}</span>
+    </span>
+  )
+}
+
 export function HighlightedText({
   text,
   references,
   agents,
   inlineReferences = EMPTY_INLINE_REFERENCES,
+  notebookReferences = EMPTY_NOTEBOOK_REFERENCES,
 }: THighlightedTextProps) {
   const segments = useMemo(() => {
     const allRefs = [
@@ -149,10 +198,11 @@ export function HighlightedText({
       result.push({ text: text.slice(lastIndex) })
     }
 
-    if (inlineReferences.length === 0) return result
+    const withNotebookReferences = splitNotebookReferences(result, notebookReferences)
+    if (inlineReferences.length === 0) return withNotebookReferences
 
     const inlineReferenceSet = new Set(inlineReferences)
-    return result.flatMap((segment): HighlightSegment[] => {
+    return withNotebookReferences.flatMap((segment): HighlightSegment[] => {
       if (segment.type !== undefined) return [segment]
       const nestedSegments: HighlightSegment[] = []
       let cursor = 0
@@ -172,7 +222,7 @@ export function HighlightedText({
       }
       return nestedSegments.length > 0 ? nestedSegments : [segment]
     })
-  }, [agents, inlineReferences, references, text])
+  }, [agents, inlineReferences, notebookReferences, references, text])
 
   const keyedSegments = useMemo(() => {
     let cursor = 0
@@ -189,7 +239,9 @@ export function HighlightedText({
   return (
     <>
       {keyedSegments.map(({ key, segment }) =>
-        segment.type === "file" ? (
+        segment.type === "notebook" ? (
+          <InlineNotebookReference key={key} reference={segment.reference} />
+        ) : segment.type === "file" ? (
           <InlineFileReference key={key} text={segment.text} />
         ) : segment.type === "skill" ? (
           <InlineSkillReference key={key} text={segment.text} />

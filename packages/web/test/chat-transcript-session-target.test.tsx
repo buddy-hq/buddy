@@ -1,5 +1,6 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
@@ -38,10 +39,13 @@ describe("ChatTranscript session target", () => {
   let container: HTMLDivElement
   let root: Root
   let transcriptViewport: ChatTranscriptTestViewport
+  // Markdown links in the transcript open files through a query-backed hook.
+  let queryClient: QueryClient
   let originalResizeObserver: typeof globalThis.ResizeObserver | undefined
 
   beforeEach(() => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -106,11 +110,13 @@ describe("ChatTranscript session target", () => {
         },
       })
       root.render(
-        <ChatTranscript
-          directory={DIRECTORY}
-          sessionID={CHILD_SESSION_ID}
-          scrollViewportRef={transcriptViewport.ref}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ChatTranscript
+            directory={DIRECTORY}
+            sessionID={CHILD_SESSION_ID}
+            scrollViewportRef={transcriptViewport.ref}
+          />
+        </QueryClientProvider>,
       )
       await flushEffects()
     })
@@ -203,15 +209,17 @@ describe("ChatTranscript session target", () => {
 
     function renderSession(sessionID: string) {
       root.render(
-        <ChatTranscript
-          directory={DIRECTORY}
-          sessionID={sessionID}
-          scrollViewportRef={transcriptViewport.ref}
-          onOpenSession={(nextSessionID) => {
-            openedSessionIDs.push(nextSessionID)
-            renderSession(nextSessionID)
-          }}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ChatTranscript
+            directory={DIRECTORY}
+            sessionID={sessionID}
+            scrollViewportRef={transcriptViewport.ref}
+            onOpenSession={(nextSessionID) => {
+              openedSessionIDs.push(nextSessionID)
+              renderSession(nextSessionID)
+            }}
+          />
+        </QueryClientProvider>,
       )
     }
 
@@ -295,11 +303,13 @@ describe("ChatTranscript session target", () => {
     try {
       await act(async () => {
         root.render(
-          <ChatTranscript
-            directory={DIRECTORY}
-            sessionID={ROOT_SESSION_ID}
-            scrollViewportRef={transcriptViewport.ref}
-          />,
+          <QueryClientProvider client={queryClient}>
+            <ChatTranscript
+              directory={DIRECTORY}
+              sessionID={ROOT_SESSION_ID}
+              scrollViewportRef={transcriptViewport.ref}
+            />
+          </QueryClientProvider>,
         )
         await flushEffects()
       })

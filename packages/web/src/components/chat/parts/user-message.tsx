@@ -9,6 +9,7 @@ import type { ChatAgentPart, ChatFilePart, ChatTextPart } from "../utils/part-gu
 import { MessageNoteAction } from "@/features/notes/message-note-action"
 import { CHAT_BODY_TEXT_STYLE } from "../chat-text-styles"
 import { QuoteBand, type QuoteBandItem } from "@/components/citations/quote-band"
+import type { PromptNotebookReferencePart } from "@/components/prompt/prompt-types"
 
 // Collapsed height cap for a long sent message. Anything taller gets clamped
 // behind a fade with a "Show more" toggle instead of running full-length.
@@ -26,6 +27,7 @@ type UserMessagePartProps = {
   references: ChatFilePart[]
   agents: ChatAgentPart[]
   inlineReferences?: string[]
+  notebookReferences?: readonly PromptNotebookReferencePart[]
   providers?: ProviderInfo[]
   queued?: boolean
   onRevertMessage?: () => Promise<void> | void
@@ -51,6 +53,7 @@ function userMessagePartEqual(
   if (prevProps.references !== nextProps.references) return false
   if (prevProps.agents !== nextProps.agents) return false
   if (prevProps.inlineReferences !== nextProps.inlineReferences) return false
+  if (prevProps.notebookReferences !== nextProps.notebookReferences) return false
   if (prevProps.providers !== nextProps.providers) return false
   if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
   if (prevProps.onQuoteMessage !== nextProps.onQuoteMessage) return false
@@ -65,6 +68,7 @@ export const UserMessagePart = memo(function UserMessagePart({
   references,
   agents,
   inlineReferences,
+  notebookReferences,
   providers: _providers,
   queued,
   onRevertMessage,
@@ -164,6 +168,7 @@ export const UserMessagePart = memo(function UserMessagePart({
                   references={references}
                   agents={agents}
                   inlineReferences={inlineReferences}
+                  notebookReferences={notebookReferences}
                 />
               </div>
               {overflowing && (

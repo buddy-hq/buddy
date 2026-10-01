@@ -25,6 +25,7 @@ function createObjectBase<TKind extends ObjectIndexItem["kind"]>(input: {
     status: "ready",
     lifecycle: "revisioned",
     sourceRoot: null,
+    filePath: null,
     primaryViewID: input.primaryViewID,
     surfaces: ["bench", "library"],
     hasLibraryView: true,

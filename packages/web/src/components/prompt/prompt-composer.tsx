@@ -18,6 +18,14 @@ import {
   cn,
 } from "@buddy/ui"
 import { Gamepad2Icon, PenLineIcon } from "@/icons/app-icons"
+import { NOTEBOOK_SEARCH_FILTER_ALL } from "@/state/notebook-search"
+import {
+  confirmNotebookFileAvailable,
+  notebookFileMissingMessage,
+} from "@/state/notebook-file-search"
+import { useQueryClient } from "@tanstack/react-query"
+import { useNotebookSearch } from "@/state/use-notebook-search"
+import type { SessionInfo } from "@/state/chat-types"
 import {
   lazy,
   startTransition,
@@ -75,7 +83,6 @@ import {
   getMentionMatch,
   type MentionOption,
   type MentionableAgent,
-  type MentionableFile,
   type MentionableReference,
 } from "./mention-autocomplete"
 import {
@@ -206,6 +213,7 @@ type PromptComposerProps = {
   }>
   mentionableAgents: MentionableAgent[]
   mentionableReferences: MentionableReference[]
+  sessions?: readonly SessionInfo[]
   slashCommands: Array<{
     name: string
     description?: string
@@ -238,7 +246,6 @@ type PromptComposerProps = {
   onNewSession: () => void
   onOpenSettings?: () => void
   onOpenMcpDialog?: () => void
-  onSearchFiles?: (query: string) => Promise<MentionableFile[]>
   onRefreshSlashCommands?: () => void
   selectorMode?: PromptSelectMode
   className?: string
@@ -594,6 +601,7 @@ export function PromptComposer(props: PromptComposerProps) {
   const [localModelMenuOpenRequest, setLocalModelMenuOpenRequest] = useState(0)
   const modelMenuOpenRequest = localModelMenuOpenRequest + (props.modelMenuOpenRequest ?? 0)
   const [focusRequestID, setFocusRequestID] = useState(0)
+  const [editorFocused, setEditorFocused] = useState(false)
   const [placeholderVisible, setPlaceholderVisible] = useState(() =>
     isPromptPlaceholderVisible(draft),
   )
@@ -671,18 +679,35 @@ export function PromptComposer(props: PromptComposerProps) {
   const historyIndex = historyNavigation.historyIndex
   const savedHistoryDraft = historyNavigation.savedDraft
 
+  const liveMention = getMentionMatch(autocompleteInput.value, autocompleteInput.cursor)
+  const notebookSearch = useNotebookSearch({
+    directory: props.directory,
+    query: liveMention?.query ?? "",
+    filter: NOTEBOOK_SEARCH_FILTER_ALL,
+    sessions: props.sessions,
+    enabled: liveMention !== undefined,
+  })
   const viewState = usePromptComposerViewState({
     cursorOffset: autocompleteInput.cursor,
     draftValue: autocompleteInput.value,
     mentionableAgents: props.mentionableAgents,
     mentionableReferences: props.mentionableReferences,
+    notebookResults: liveMention
+      ? notebookSearch.hasQuery
+        ? notebookSearch.results
+        : notebookSearch.recents
+      : [],
+    notebookSearching: notebookSearch.searching,
     slashCommands: props.slashCommands,
     modelOptions: props.modelOptions,
     skillPresentation,
     noteCommandAvailable: !!props.onSaveNote && !noteMode.active,
-    onSearchFiles: props.onSearchFiles,
     onRefreshSlashCommands: props.onRefreshSlashCommands,
   })
+  const queryClient = useQueryClient()
+  const openMentionKeyRef = useRef<string | undefined>(undefined)
+  const mentionMenuGenerationRef = useRef(0)
+  const pickingMentionGenerationRef = useRef<number | undefined>(undefined)
   const sketchImageModelOptions = useMemo(
     () =>
       [
@@ -1400,6 +1425,44 @@ export function PromptComposer(props: PromptComposerProps) {
     handleEditorInput()
   }
 
+  // A file offered from a cached index may have been moved or deleted since; check the
+  // one being picked so the prompt never references a file that is gone.
+  async function pickMention(option: MentionOption) {
+    const target = option.type === "notebook" ? option.result.target : undefined
+    // An unprocessed PDF or EPUB is a plain notebook file; a processed resource comes from
+    // the catalog and its path may not be one.
+    const path =
+      option.type === "file"
+        ? option.path
+        : target?.type === "file" ||
+            (target?.type === "resource" && target.status === "unprocessed")
+          ? target.path
+          : undefined
+    // Folders end in a slash and are never files, so there is nothing to check.
+    if (path && !path.endsWith("/")) {
+      const menuGeneration = mentionMenuGenerationRef.current
+      if (pickingMentionGenerationRef.current === menuGeneration) return
+      pickingMentionGenerationRef.current = menuGeneration
+      try {
+        const available = await confirmNotebookFileAvailable({
+          queryClient,
+          directory: props.directory,
+          path,
+        })
+        if (mentionMenuGenerationRef.current !== menuGeneration) return
+        if (!available) {
+          toast.error(notebookFileMissingMessage(path))
+          return
+        }
+      } finally {
+        if (pickingMentionGenerationRef.current === menuGeneration) {
+          pickingMentionGenerationRef.current = undefined
+        }
+      }
+    }
+    applyMention(option)
+  }
+
   function applyMention(option: MentionOption) {
     if (option.type === "file") {
       viewState.appendRecentMentionFile({ path: option.path, recent: true })
@@ -1633,9 +1696,18 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   const slashMenuVisible =
-    viewState.slashMatch !== undefined && viewState.slashKey !== viewState.dismissedSlashKey
+    editorFocused &&
+    viewState.slashMatch !== undefined &&
+    viewState.slashKey !== viewState.dismissedSlashKey
   const mentionMenuVisible =
-    viewState.mentionMatch !== undefined && viewState.mentionKey !== viewState.dismissedMentionKey
+    editorFocused &&
+    viewState.mentionMatch !== undefined &&
+    viewState.mentionKey !== viewState.dismissedMentionKey
+  const openMentionKey = mentionMenuVisible ? viewState.mentionKey : undefined
+  if (openMentionKeyRef.current !== openMentionKey) {
+    openMentionKeyRef.current = openMentionKey
+    mentionMenuGenerationRef.current += 1
+  }
 
   const isGamePromptSuggestionAvailable =
     gamePromptPreference !== GAME_PROMPT_PREFERENCE_DISABLED &&
@@ -1847,7 +1919,7 @@ export function PromptComposer(props: PromptComposerProps) {
                     <PromptAutocompleteMenu
                       slashVisible={slashMenuVisible}
                       mentionVisible={mentionMenuVisible}
-                      showMentionLoading={viewState.showMentionLoading}
+                      showMentionLoading={editorFocused && viewState.showMentionLoading}
                       mentionQuery={viewState.mentionMatch?.query}
                       slashOptions={viewState.slashOptions}
                       slashIndex={viewState.slashIndex}
@@ -1855,7 +1927,7 @@ export function PromptComposer(props: PromptComposerProps) {
                       mentionIndex={viewState.mentionIndex}
                       skillPresentation={skillPresentation}
                       onApplySlash={applySlash}
-                      onApplyMention={applyMention}
+                      onApplyMention={(option) => void pickMention(option)}
                       onSetSlashIndex={viewState.setSlashIndex}
                       onSetMentionIndex={viewState.setMentionIndex}
                     />
@@ -1890,6 +1962,7 @@ export function PromptComposer(props: PromptComposerProps) {
                         handleEditorInput()
                       }}
                       onFocus={() => {
+                        setEditorFocused(true)
                         const editor = editorRef.current
                         if (!editor) return
 
@@ -1919,6 +1992,7 @@ export function PromptComposer(props: PromptComposerProps) {
                         syncAutocompleteInputFromEditor()
                         updateDraftCursorFromComposer(nextCursor, "debounced")
                       }}
+                      onBlur={() => setEditorFocused(false)}
                       onClick={() => {
                         syncEditorCursorToDraft()
                       }}
@@ -1971,7 +2045,7 @@ export function PromptComposer(props: PromptComposerProps) {
                           if (event.key === "ArrowDown") {
                             event.preventDefault()
                             viewState.setMentionIndex(
-                              (current) => (current + 1) % viewState.mentionOptions.length,
+                              (viewState.mentionIndex + 1) % viewState.mentionOptions.length,
                             )
                             return
                           }
@@ -1979,8 +2053,7 @@ export function PromptComposer(props: PromptComposerProps) {
                           if (event.key === "ArrowUp") {
                             event.preventDefault()
                             viewState.setMentionIndex(
-                              (current) =>
-                                (current - 1 + viewState.mentionOptions.length) %
+                              (viewState.mentionIndex - 1 + viewState.mentionOptions.length) %
                                 viewState.mentionOptions.length,
                             )
                             return
@@ -1997,7 +2070,7 @@ export function PromptComposer(props: PromptComposerProps) {
                           ) {
                             event.preventDefault()
                             const selected = viewState.mentionOptions[viewState.mentionIndex]
-                            if (selected) applyMention(selected)
+                            if (selected) void pickMention(selected)
                             return
                           }
 

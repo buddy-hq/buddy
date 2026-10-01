@@ -11,6 +11,12 @@ import {
 import { createSkillIconMarkElement } from "../skills/skill-icon-mark"
 import type { SkillPresentationLookup } from "../skills/skill-presentation"
 import { createTextFragment } from "./editor-dom"
+import {
+  createBenchItemIconElement,
+  notebookReferenceIcon,
+  notebookReferenceIconSubject,
+  searchResultIconSubject,
+} from "../bench/bench-item-icon"
 import type { MentionOption } from "./mention-autocomplete"
 import {
   readReaderTextAnchor,
@@ -22,6 +28,7 @@ import {
   PROMPT_PART_TYPE_SKILL,
   PROMPT_PART_TYPE_TEXT,
   PROMPT_STRUCTURED_MASK_CHAR,
+  NOTEBOOK_REFERENCE_PART_TYPE,
   OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
@@ -31,6 +38,7 @@ import {
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptAgentPart,
   type PromptComposerPart,
+  type PromptNotebookReferencePart,
   type PromptOpenCodeReferencePart,
   type PromptMarkdownSelectionContextPart,
   type PromptMessageSelectionContextPart,
@@ -93,6 +101,18 @@ function createResourceReferencePart(key: string): PromptResourceReferencePart {
     type: RESOURCE_REFERENCE_PART_TYPE,
     key,
   }
+}
+
+function createNotebookReferencePart(input: {
+  text: string
+  title: string
+  kind: string
+  url?: string
+}): PromptNotebookReferencePart {
+  return Object.assign(
+    { type: NOTEBOOK_REFERENCE_PART_TYPE, text: input.text, title: input.title, kind: input.kind },
+    input.url ? { url: input.url } : undefined,
+  )
 }
 
 function createReadingSelectionPart(
@@ -203,6 +223,10 @@ export function clonePromptParts(parts: PromptComposerPart[]): PromptComposerPar
       return createResourceReferencePart(part.key)
     }
 
+    if (part.type === NOTEBOOK_REFERENCE_PART_TYPE) {
+      return createNotebookReferencePart(part)
+    }
+
     if (part.type === READING_SELECTION_PART_TYPE) {
       return createReadingSelectionPart(part)
     }
@@ -255,6 +279,18 @@ export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptCom
     if (leftPart.type === RESOURCE_REFERENCE_PART_TYPE) {
       if (rightPart.type !== RESOURCE_REFERENCE_PART_TYPE || leftPart.key !== rightPart.key)
         return false
+      continue
+    }
+    if (leftPart.type === NOTEBOOK_REFERENCE_PART_TYPE) {
+      if (
+        rightPart.type !== NOTEBOOK_REFERENCE_PART_TYPE ||
+        leftPart.text !== rightPart.text ||
+        leftPart.title !== rightPart.title ||
+        leftPart.kind !== rightPart.kind ||
+        leftPart.url !== rightPart.url
+      ) {
+        return false
+      }
       continue
     }
 
@@ -358,6 +394,7 @@ export function serializePromptParts(parts: PromptComposerPart[]): string {
       if (part.type === PROMPT_PART_TYPE_SKILL) return `/${part.name}`
       if (part.type === OPENCODE_REFERENCE_PART_TYPE) return `@${part.name}`
       if (part.type === RESOURCE_REFERENCE_PART_TYPE) return `resource:${part.key}`
+      if (part.type === NOTEBOOK_REFERENCE_PART_TYPE) return part.text
       if (part.type === READING_SELECTION_PART_TYPE) return `"${part.text}"`
       if (part.type === SELECTION_CONTEXT_PART_TYPE) return `"${part.text}"`
       return `@${part.path}`
@@ -440,6 +477,7 @@ function isStructuredPromptElement(element: HTMLElement) {
     element.dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
     element.dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
     element.dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
+    element.dataset.type === NOTEBOOK_REFERENCE_PART_TYPE ||
     element.dataset.type === READING_SELECTION_PART_TYPE ||
     element.dataset.type === SELECTION_CONTEXT_PART_TYPE
   )
@@ -507,6 +545,19 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       const key = element.dataset.key
       if (key) {
         parts.push(createResourceReferencePart(key))
+      }
+      return
+    }
+
+    if (element.dataset.type === NOTEBOOK_REFERENCE_PART_TYPE) {
+      flush()
+      const { text, title, kind, url } = element.dataset
+      if (text && title && kind) {
+        parts.push(
+          createNotebookReferencePart(
+            Object.assign({ text, title, kind }, url ? { url } : undefined),
+          ),
+        )
       }
       return
     }
@@ -681,6 +732,7 @@ type StructuredPillPart =
   | PromptOpenCodeReferencePart
   | PromptWorkspaceFileReferencePart
   | PromptResourceReferencePart
+  | PromptNotebookReferencePart
 
 // Inline, borderless mention — reads like an attached file in the message body
 // (icon + accent-coloured name), not a boxed chip. Kept in lockstep with the
@@ -792,6 +844,18 @@ export function createPromptPill(
     return pill
   }
 
+  if (part.type === NOTEBOOK_REFERENCE_PART_TYPE) {
+    pill.dataset.text = part.text
+    pill.dataset.title = part.title
+    pill.dataset.kind = part.kind
+    if (part.url) pill.dataset.url = part.url
+    pill.appendChild(
+      createBenchItemIconElement(notebookReferenceIconSubject(part), PROMPT_PILL_ICON_CLASS),
+    )
+    appendPillLabel(pill, part.title)
+    return pill
+  }
+
   pill.dataset.path = part.path
   if (isDirectoryPath(part.path)) {
     const directoryName = basename(part.path.replace(/\/+$/, "")) || part.path
@@ -806,9 +870,61 @@ export function createPromptPill(
 }
 
 export function promptPartFromMentionOption(option: MentionOption): StructuredPillPart {
+  if (option.type === "notebook") {
+    const target = option.result.target
+    if (target.type === "file") return createWorkspaceFileReferencePart(target.path)
+    if (target.type === "resource")
+      return target.objectID
+        ? createResourceReferencePart(target.objectID)
+        : createWorkspaceFileReferencePart(target.path)
+    if (target.type === "object" && target.kind === "resource")
+      return createResourceReferencePart(target.objectID)
+    if (target.type === "open-tab") {
+      const tab = target.target
+      if (tab.type === "workspace-file" && tab.root === "notebook")
+        return createWorkspaceFileReferencePart(tab.path)
+      if (tab.type === "object" && tab.ref.kind === "resource")
+        return createResourceReferencePart(tab.ref.objectID)
+    }
+    // Everything else (a chat, note, Browser tab, or Bench object) is a chip whose text is its locator.
+    return createNotebookReferencePart({
+      text: notebookMentionLocator(option),
+      title: option.result.title,
+      ...notebookReferenceIcon(searchResultIconSubject(option.result)),
+    })
+  }
   if (option.type === "agent") return createAgentPart(option.name)
   if (option.type === "reference") return createOpenCodeReferencePart(option.name, option.path)
   return createWorkspaceFileReferencePart(option.path)
+}
+
+/** Whether a mention attaches the item's content (a file or source) rather than only naming it. */
+export function notebookMentionAttachesContent(option: MentionOption): boolean {
+  if (option.type !== "notebook") return true
+  const target = option.result.target
+  if (target.type === "file" || target.type === "resource") return true
+  if (target.type === "object") return target.kind === "resource"
+  if (target.type !== "open-tab") return false
+  return (
+    (target.target.type === "workspace-file" && target.target.root === "notebook") ||
+    (target.target.type === "object" && target.target.ref.kind === "resource")
+  )
+}
+
+export function notebookMentionLocator(
+  option: Extract<MentionOption, { type: "notebook" }>,
+): string {
+  const { result } = option
+  const target = result.target
+  if (target.type === "open-tab") {
+    const page =
+      target.target.type === "browser" ? `; URL: ${result.metadata || target.target.url}` : ""
+    return `${result.title} (open Bench tab ${target.tabKey}${page})`
+  }
+  if (target.type === "note") return `${result.title} (note: ${target.relativePath})`
+  if (target.type === "thread") return `${result.title} (chat: ${target.sessionID})`
+  if (target.type === "object") return `${result.title} (${target.kind}: ${target.objectID})`
+  return result.title
 }
 
 export function renderPromptParts(

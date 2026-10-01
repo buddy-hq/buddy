@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { ObjectsListResponse } from "@buddy/sdk/types"
 import {
   notebookSearchResultFromNote,
+  notebookSearchResultFromFilePath,
   notebookSearchResultFromWorkspaceObject,
 } from "../src/state/notebook-search-results"
 import { searchNotebookResults } from "../src/state/notebook-search"
@@ -19,6 +20,7 @@ const legacyHtmlWidgetObject: ObjectIndexItem = {
   status: "ready",
   lifecycle: "live",
   sourceRoot: ".buddy/objects/v1/html-widget/01ARZ3NDEKTSV4RRFFQ69G5FAV/source",
+  filePath: null,
   primaryViewID: "runtime",
   surfaces: ["bench", "inline", "source"],
   hasLibraryView: false,
@@ -65,6 +67,30 @@ describe("notebook search results", () => {
       },
     })
   })
+
+  test.each(["pdf", "epub"])(
+    "ranks unprocessed %s paths without synthetic source labels",
+    (extension) => {
+      const pathHit = notebookSearchResultFromFilePath(
+        `pro/readme-with-a-very-long-name.${extension}`,
+      )
+      const filenameHit = notebookSearchResultFromFilePath(`export-report.${extension}`)
+      expect(
+        searchNotebookResults({
+          query: "pro",
+          filter: "source",
+          results: [filenameHit, pathHit],
+        }).map((result) => result.id),
+      ).toEqual([pathHit.id, filenameHit.id])
+      expect(
+        searchNotebookResults({
+          query: "unprocessed",
+          filter: "source",
+          results: [pathHit, filenameHit],
+        }),
+      ).toEqual([])
+    },
+  )
 
   test("converts legacy Bench-visible HTML widgets into creation results", () => {
     const result = notebookSearchResultFromWorkspaceObject(legacyHtmlWidgetObject)

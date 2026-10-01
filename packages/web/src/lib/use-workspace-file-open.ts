@@ -1,7 +1,12 @@
 import { useCallback } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { usePlatform } from "@/context/platform"
 import { type ResourceReadingTarget, type ResourceViewStatus } from "@/state/resources-query"
-import { fileNameFromPath } from "./workspace-file-paths"
+import { fileExtensionFromPath, fileNameFromPath } from "./workspace-file-paths"
+import {
+  findProcessedResourceByPath,
+  processedResourcesQueryOptions,
+} from "@/state/resources-query"
 import {
   resolveWorkspaceFileOpenPlan,
   WORKSPACE_FILE_OPEN_TARGET_COPY_PATH,
@@ -48,6 +53,7 @@ export function useWorkspaceFileOpen(
   options?: WorkspaceFileOpenOptions,
 ) {
   const openBenchRoute = useOpenBench()
+  const queryClient = useQueryClient()
   const platform = usePlatform()
   const benchMode = options?.benchMode ?? BENCH_MODE_REQUEST_POLICY
 
@@ -126,34 +132,59 @@ export function useWorkspaceFileOpen(
 
   const executePrimary = useCallback(
     async (input: WorkspaceFileActionInput): Promise<boolean> => {
-      const plan = resolvePlan(input)
+      let resolvedInput = input
+      const extension = fileExtensionFromPath(input.path)
+      if (
+        directory &&
+        onOpenResource &&
+        !input.objectID &&
+        (extension === "pdf" || extension === "epub")
+      ) {
+        try {
+          const records = await queryClient.fetchQuery({
+            ...processedResourcesQueryOptions(directory),
+            staleTime: 0,
+          })
+          const processed = findProcessedResourceByPath(records, input.path)
+          if (processed) {
+            resolvedInput = {
+              ...input,
+              objectID: processed.objectID,
+              resourceStatus: processed.status,
+            }
+          }
+        } catch {
+          // The reader can still open the source file when its catalog is unavailable.
+        }
+      }
+      const plan = resolvePlan(resolvedInput)
       const target = plan.primaryTarget
       if (!target) return false
-      if (plan.requiresLargeFileApproval && input.sizeBytes !== undefined) {
+      if (plan.requiresLargeFileApproval && resolvedInput.sizeBytes !== undefined) {
         const choice = await useWorkspaceFileOpenDialogStore.getState().requestApproval({
-          path: input.path,
-          sizeBytes: input.sizeBytes,
+          path: resolvedInput.path,
+          sizeBytes: resolvedInput.sizeBytes,
           canOpenDefaultApp: plan.targets.includes(WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP),
         })
         if (choice === "cancel") return false
         if (choice === "default-app") {
-          await executeTarget(input, WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP)
+          await executeTarget(resolvedInput, WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP)
           return true
         }
 
         if (!directory) return false
-        grantWorkspaceFileLargeOpenApproval(directory, input.path)
-        const result = await executeTarget(input, target)
+        grantWorkspaceFileLargeOpenApproval(directory, resolvedInput.path)
+        const result = await executeTarget(resolvedInput, target)
         if (result && result.outcome !== "committed") {
-          revokeWorkspaceFileLargeOpenApproval(directory, input.path)
+          revokeWorkspaceFileLargeOpenApproval(directory, resolvedInput.path)
         }
         return result === undefined || result.outcome === "committed"
       }
 
-      const result = await executeTarget(input, target)
+      const result = await executeTarget(resolvedInput, target)
       return result === undefined || result.outcome === "committed"
     },
-    [directory, executeTarget, resolvePlan],
+    [directory, executeTarget, onOpenResource, queryClient, resolvePlan],
   )
 
   return {

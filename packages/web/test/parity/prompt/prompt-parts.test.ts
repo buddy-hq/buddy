@@ -7,8 +7,12 @@ import {
 import {
   collectPromptParts,
   createPromptPartsFromValue,
+  createPromptPill,
   extractResourceReferenceParts,
   extractWorkspaceFileReferenceParts,
+  notebookMentionAttachesContent,
+  notebookMentionLocator,
+  promptPartFromMentionOption,
   renderPromptParts,
   serializePromptParts,
 } from "../../../src/components/prompt/prompt-parts"
@@ -51,6 +55,88 @@ const PDF_TEXT_ANCHOR: ReaderTextAnchor = {
 }
 
 describe("prompt parts", () => {
+  test("notebook mentions attach resources and files while other items become locator chips", () => {
+    const source = {
+      type: "notebook" as const,
+      result: {
+        id: "resource:book",
+        kind: "source" as const,
+        title: "Physics",
+        metadata: "Source",
+        updatedAtMs: 0,
+        target: {
+          type: "resource" as const,
+          path: "physics.pdf",
+          name: "Physics",
+          objectID: "01M0TK829PD2067YDMZ1Y8RCBF",
+        },
+      },
+    }
+    expect(notebookMentionAttachesContent(source)).toBe(true)
+    expect(promptPartFromMentionOption(source)).toEqual({
+      type: "resource-reference",
+      key: "01M0TK829PD2067YDMZ1Y8RCBF",
+    })
+
+    const browser = {
+      type: "notebook" as const,
+      result: {
+        id: "open-tab:browser:one",
+        kind: "tab" as const,
+        title: "Article",
+        metadata: "https://example.com/article",
+        updatedAtMs: 0,
+        target: {
+          type: "open-tab" as const,
+          tabKey: "browser:one",
+          target: { type: "browser" as const, tabID: "one", url: "https://example.com/old" },
+        },
+      },
+    }
+    expect(notebookMentionAttachesContent(browser)).toBe(false)
+    expect(notebookMentionLocator(browser)).toContain(
+      "browser:one; URL: https://example.com/article",
+    )
+    expect(promptPartFromMentionOption(browser)).toEqual({
+      type: "notebook-reference",
+      text: notebookMentionLocator(browser),
+      title: "Article",
+      kind: "browser",
+      url: "https://example.com/old",
+    })
+
+    const media = {
+      type: "notebook" as const,
+      result: {
+        id: "creation:media",
+        kind: "creation" as const,
+        title: "_chat.tsx",
+        metadata: "Media",
+        updatedAtMs: 0,
+        target: {
+          type: "object" as const,
+          kind: "media-presentation" as const,
+          objectID: "01KZGMGX84CM3G9Q35SQ46GN24",
+        },
+      },
+    }
+    const mediaPart = promptPartFromMentionOption(media)
+    expect(mediaPart).toEqual({
+      type: "notebook-reference",
+      text: "_chat.tsx (media-presentation: 01KZGMGX84CM3G9Q35SQ46GN24)",
+      title: "_chat.tsx",
+      kind: "media-presentation",
+    })
+    // The chip shows the title with the file's own mark; the model still reads the locator.
+    const pill = createPromptPill(mediaPart)
+    expect(pill.textContent).toBe("_chat.tsx")
+    expect(serializePromptParts([mediaPart])).toBe(
+      "_chat.tsx (media-presentation: 01KZGMGX84CM3G9Q35SQ46GN24)",
+    )
+    const root = document.createElement("div")
+    root.append(pill)
+    expect(collectPromptParts(root)).toEqual([mediaPart])
+  })
   test("keeps manually typed file references as plain text while preserving selected agent pills", () => {
     const parts = createPromptPartsFromValue(
       "Review @buddy and @docs/book with spaces.pdf",

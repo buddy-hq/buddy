@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { language } from "@/context/language"
+import type { NotebookSearchResult } from "@/state/notebook-search"
 import { RESOURCE_LOCAL_SLASH_COMMANDS } from "../../lib/resource-commands"
 import type { SkillPresentationLookup } from "../skills/skill-presentation"
 import {
   filterMentionOptions,
   getMentionMatch,
+  isFolderPrefixMention,
+  mentionOptionIdentity,
   type MentionOption,
   type MentionableAgent,
   type MentionableFile,
@@ -114,11 +117,35 @@ function dedupeMentionFiles(files: MentionableFile[]) {
   })
 }
 
+function notebookMentionDirectories(results: readonly NotebookSearchResult[]): MentionableFile[] {
+  const paths = new Set<string>()
+  for (const result of results) {
+    const target = result.target.type === "open-tab" ? result.target.target : result.target
+    const filePath =
+      target.type === "file"
+        ? target.path
+        : target.type === "workspace-file" && target.root === "notebook"
+          ? target.path
+          : target.type === "resource"
+            ? target.path
+            : undefined
+    if (!filePath) continue
+    let slash = filePath.lastIndexOf("/")
+    while (slash > 0) {
+      paths.add(`${filePath.slice(0, slash)}/`)
+      slash = filePath.lastIndexOf("/", slash - 1)
+    }
+  }
+  return [...paths].map((path) => ({ path }))
+}
+
 type UsePromptComposerViewStateProps = {
   cursorOffset: number
   draftValue: string
   mentionableAgents: MentionableAgent[]
   mentionableReferences: MentionableReference[]
+  notebookResults: readonly NotebookSearchResult[]
+  notebookSearching: boolean
   slashCommands: Array<{
     name: string
     description?: string
@@ -133,18 +160,19 @@ type UsePromptComposerViewStateProps = {
   }>
   skillPresentation: SkillPresentationLookup
   noteCommandAvailable: boolean
-  onSearchFiles?: (query: string) => Promise<MentionableFile[]>
   onRefreshSlashCommands?: () => void
 }
 
 export function usePromptComposerViewState(props: UsePromptComposerViewStateProps) {
-  const { onRefreshSlashCommands, onSearchFiles, skillPresentation } = props
-  const [mentionIndex, setMentionIndex] = useState(0)
+  const { onRefreshSlashCommands, skillPresentation } = props
+  // The highlight follows a row, not a position: undefined tracks the top result as it
+  // changes, and a row the user moved to stays highlighted when late results arrive.
+  const [selectedMentionIdentity, setSelectedMentionIdentity] = useState<string | undefined>(
+    undefined,
+  )
   const [dismissedMentionKey, setDismissedMentionKey] = useState<string | undefined>(undefined)
   const [slashIndex, setSlashIndex] = useState(0)
   const [dismissedSlashKey, setDismissedSlashKey] = useState<string | undefined>(undefined)
-  const [searchMentionFiles, setSearchMentionFiles] = useState<MentionableFile[]>([])
-  const [searchingFiles, setSearchingFiles] = useState(false)
   const [recentMentionFiles, setRecentMentionFiles] = useState<MentionableFile[]>([])
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState(
     language.t("prompt.placeholder.initial"),
@@ -198,21 +226,69 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
   )
   const mentionKey = mentionMatch ? `${mentionMatch.start}:${mentionMatch.query}` : undefined
   const mentionFiles = useMemo(
-    () => dedupeMentionFiles([...recentMentionFiles, ...searchMentionFiles]),
-    [recentMentionFiles, searchMentionFiles],
+    () =>
+      dedupeMentionFiles([
+        ...recentMentionFiles,
+        ...notebookMentionDirectories(props.notebookResults),
+      ]),
+    [recentMentionFiles, props.notebookResults],
   )
   const mentionOptions = useMemo<MentionOption[]>(() => {
     if (!mentionMatch) return []
-    return filterMentionOptions(
+    const existing = filterMentionOptions(
       props.mentionableReferences,
       props.mentionableAgents,
       mentionFiles,
       mentionMatch.query,
-    ).slice(0, 10)
-  }, [mentionFiles, mentionMatch, props.mentionableAgents, props.mentionableReferences])
+    )
+    const notebook = props.notebookResults.map(
+      (result): MentionOption => ({ type: "notebook", result }),
+    )
+    const notebookPaths = new Set(
+      notebook.flatMap((option) =>
+        option.type === "notebook" && option.result.target.type === "file"
+          ? [option.result.target.path]
+          : [],
+      ),
+    )
+    const prefixFolders = existing.filter((option) =>
+      isFolderPrefixMention(option, mentionMatch.query),
+    )
+    return [
+      ...existing.filter((option) => option.type !== "file"),
+      ...prefixFolders,
+      ...notebook,
+      ...existing.filter(
+        (option) =>
+          option.type === "file" &&
+          !prefixFolders.includes(option) &&
+          !notebookPaths.has(option.path),
+      ),
+    ].slice(0, 10)
+  }, [
+    mentionFiles,
+    mentionMatch,
+    props.mentionableAgents,
+    props.mentionableReferences,
+    props.notebookResults,
+  ])
+  const mentionIndex = useMemo(() => {
+    if (selectedMentionIdentity === undefined) return 0
+    const index = mentionOptions.findIndex(
+      (option) => mentionOptionIdentity(option) === selectedMentionIdentity,
+    )
+    return index < 0 ? 0 : index
+  }, [mentionOptions, selectedMentionIdentity])
+  const mentionOptionsRef = useRef(mentionOptions)
+  mentionOptionsRef.current = mentionOptions
+  const setMentionIndex = useCallback((index: number) => {
+    const option = mentionOptionsRef.current[index]
+    setSelectedMentionIdentity(option ? mentionOptionIdentity(option) : undefined)
+  }, [])
   const mentionVisible =
     !!mentionMatch && mentionOptions.length > 0 && mentionKey !== dismissedMentionKey
-  const showMentionLoading = !!mentionMatch && mentionKey !== dismissedMentionKey && searchingFiles
+  const showMentionLoading =
+    !!mentionMatch && mentionKey !== dismissedMentionKey && props.notebookSearching
 
   // `@` wins over `/` when both could match (mirrors opencode's
   // `if (atMatch) … else if (slashMatch)`): typing "@" after an abandoned
@@ -281,7 +357,7 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
   }, [placeholder, displayedPlaceholder])
 
   useEffect(() => {
-    setMentionIndex(0)
+    setSelectedMentionIdentity(undefined)
   }, [mentionKey])
 
   useEffect(() => {
@@ -320,39 +396,6 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
     slashRefreshRequestedRef.current = true
     onRefreshSlashCommands?.()
   }, [onRefreshSlashCommands, slashMatch])
-
-  useEffect(() => {
-    if (!mentionMatch || !onSearchFiles) {
-      setSearchMentionFiles([])
-      setSearchingFiles(false)
-      return
-    }
-
-    const query = mentionMatch.query.trim()
-    if (!query) {
-      setSearchMentionFiles([])
-      setSearchingFiles(false)
-      return
-    }
-
-    let cancelled = false
-    setSearchingFiles(true)
-    onSearchFiles(query)
-      .then((files) => {
-        if (cancelled) return
-        setSearchMentionFiles(files)
-        setSearchingFiles(false)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setSearchMentionFiles([])
-        setSearchingFiles(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [mentionKey, mentionMatch, onSearchFiles])
 
   function appendRecentMentionFile(file: MentionableFile) {
     setRecentMentionFiles((current) =>
