@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Button } from "@buddy/ui"
 import { ExternalLinkIcon, type AppIcon } from "@/icons/app-icons"
+import { useNetworkStatus, type NetworkStatus } from "@/lib/network-status"
 import type { RetryStateModel } from "@/state/chat-error-model"
 import "@/components/prompt/composer-surfaces.css"
 
@@ -31,6 +32,8 @@ type RetryCategoryCopy = {
 
 type StructuredRetryAction = NonNullable<RetryStateModel["action"]>
 
+type RetryCopyKey = RetryStateModel["category"] | "offline"
+
 const RETRY_COPY_BY_CATEGORY = {
   overloaded: {
     notice: "The model is busy",
@@ -48,7 +51,23 @@ const RETRY_COPY_BY_CATEGORY = {
     notice: "Retrying the request",
     persistent: "Still retrying — this is taking longer than usual",
   },
-} satisfies Record<RetryStateModel["category"], RetryCategoryCopy>
+  offline: {
+    notice: "You’re offline",
+    persistent: "Still offline — check your internet connection",
+  },
+} satisfies Record<RetryCopyKey, RetryCategoryCopy>
+
+/**
+ * Being offline explains a network or unclassified failure better than its message does.
+ * Rate limits and overloads came back from the provider, so they keep their own copy.
+ */
+export function retryCopyKey(
+  category: RetryStateModel["category"],
+  network: NetworkStatus,
+): RetryCopyKey {
+  if (network !== "offline") return category
+  return category === "network" || category === "unknown" ? "offline" : category
+}
 
 function secondsUntil(next: number) {
   return Math.max(0, Math.round((next - Date.now()) / 1000))
@@ -139,13 +158,13 @@ function RetrySurface(props: { content: RetryContent; onAction: (action: RetryAc
 
 function RetryNotice(props: {
   stage: Exclude<RetryStage, "quiet">
-  category: RetryStateModel["category"]
+  copyKey: RetryCopyKey
   attempt: number
   seconds: number
   onAction: (action: RetryActionID) => void
 }) {
   const persistent = props.stage === "persistent"
-  const copy = RETRY_COPY_BY_CATEGORY[props.category]
+  const copy = RETRY_COPY_BY_CATEGORY[props.copyKey]
   return (
     <RetrySurface
       content={{
@@ -189,6 +208,7 @@ export function SessionRetryNotice(props: {
   onAction: (action: RetryActionID) => void
 }) {
   const [secondsRemaining, setSecondsRemaining] = useState(() => secondsUntil(props.model.next))
+  const network = useNetworkStatus()
 
   useEffect(() => {
     const update = () => {
@@ -218,7 +238,7 @@ export function SessionRetryNotice(props: {
   return (
     <RetryNotice
       stage={props.model.stage}
-      category={props.model.category}
+      copyKey={retryCopyKey(props.model.category, network)}
       attempt={props.model.attempt}
       seconds={secondsRemaining}
       onAction={props.onAction}

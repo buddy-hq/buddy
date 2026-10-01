@@ -46,6 +46,7 @@ import { JumpToLatestButton } from "@/components/chat/jump-to-latest-button"
 import { BenchClosedContextPublisher } from "@/components/bench/bench-route-context"
 import { isBenchRoutePathname } from "@/lib/bench-navigation"
 import { canEditImagesForModel } from "@/lib/image-editing"
+import { useNetworkStatus } from "@/lib/network-status"
 import { useLocation } from "@tanstack/react-router"
 import { WhiteboardOpeningPreview } from "@/components/whiteboard/whiteboard-opening-preview"
 import { findLatestTodoSnapshot } from "@/components/chat/tools/todo-state"
@@ -543,6 +544,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     EMPTY_CHAT_LAYOUT_MEASUREMENTS,
   )
   const [dismissedTerminalMessageID, setDismissedTerminalMessageID] = useState<string>()
+  const networkStatus = useNetworkStatus()
   const isGameVisible = useGameStore((state) => state.isGameVisible)
   const setGameVisible = useGameStore((state) => state.setGameVisible)
   const setGamePaused = useGameStore((state) => state.setPaused)
@@ -882,6 +884,20 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                   alert
                   onAction={handleTerminalAction}
                 />
+              </div>
+            ) : null}
+
+            {networkStatus === "offline" && !chatState.parentSession ? (
+              <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
+                <div
+                  role="status"
+                  className="rounded-md border border-border-base/70 bg-surface-weak/35 px-3 py-2 text-xs text-text-weak"
+                >
+                  <p className="font-medium text-text-base">
+                    {language.t("prompt.offlineNotice.title")}
+                  </p>
+                  <p className="mt-0.5">{language.t("prompt.offlineNotice.description")}</p>
+                </div>
               </div>
             ) : null}
           </div>
