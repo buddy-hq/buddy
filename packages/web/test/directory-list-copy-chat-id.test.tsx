@@ -57,6 +57,7 @@ describe("Chat sidebar chat menu", () => {
               onToggleExpandedDirectory={() => {}}
               onSelectSession={() => {}}
               onTogglePin={() => {}}
+              onTogglePinDirectory={() => {}}
               onToggleUnread={() => {}}
               onRequestArchive={() => {}}
               onRequestDelete={() => {}}

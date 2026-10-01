@@ -124,6 +124,31 @@ describe("ui preference persistence parity", () => {
     expect("rightSidebarTab" in next).toBe(false)
     expect("rightWorkspaceLastSelectorByDirectory" in next).toBe(false)
   })
+
+  test("adds an empty notebook pin order when upgrading version 21 preferences", async () => {
+    localStorage.setItem(
+      UI_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          pinnedByDirectory: { "/repo": ["session_1"] },
+          projectFileTreeOpen: true,
+        },
+        version: 21,
+      }),
+    )
+
+    await useUiPreferences.persist.rehydrate()
+
+    expect(useUiPreferences.getState().pinnedDirectories).toEqual([])
+    expect(useUiPreferences.getState().projectFileTreeOpen).toBe(true)
+    expect(
+      parsePersistedStoreState(localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)),
+    ).toMatchObject({
+      pinnedByDirectory: { "/repo": ["session_1"] },
+      pinnedDirectories: [],
+      projectFileTreeOpen: true,
+    })
+  })
 })
 
 describe("one-time notices", () => {

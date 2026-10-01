@@ -14,6 +14,7 @@ const DEFAULT_PROJECT_FILE_TREE_OPEN = false
 
 type TPersistedUiPreferences = {
   pinnedByDirectory?: Record<string, string[]>
+  pinnedDirectories?: string[]
   unreadByDirectory?: Record<string, Record<string, true>>
   collapsedChatSidebarDirectories?: Record<string, true>
   leftSidebarOpen?: boolean
@@ -30,6 +31,7 @@ type TPersistedUiPreferences = {
 
 const persistedUiPreferencesSchema = z.object({
   pinnedByDirectory: z.record(z.string(), z.array(z.string())).optional(),
+  pinnedDirectories: z.array(z.string()).optional(),
   unreadByDirectory: z.record(z.string(), z.record(z.string(), z.literal(true))).optional(),
   collapsedChatSidebarDirectories: z.record(z.string(), z.literal(true)).optional(),
   leftSidebarOpen: z.boolean().optional(),
@@ -60,6 +62,8 @@ function migrateSeenNotices(state: TPersistedUiPreferences | undefined): SeenOne
 
 export type UiPreferencesStore = {
   pinnedByDirectory: Record<string, string[]>
+  /** Pinned notebooks in sidebar order; closed notebooks keep their saved place. */
+  pinnedDirectories: string[]
   unreadByDirectory: Record<string, Record<string, true>>
   collapsedChatSidebarDirectories: Record<string, true>
   leftSidebarOpen: boolean
@@ -78,6 +82,8 @@ export type UiPreferencesStore = {
   isUnread: (directory: string, sessionID: string) => boolean
   clearDirectorySessionState: (directory: string, sessionID: string) => void
   setChatSidebarDirectoryOpen: (directory: string, open: boolean) => void
+  togglePinnedDirectory: (directory: string) => void
+  setPinnedDirectories: (directories: string[]) => void
   setLeftSidebarOpen: (open: boolean) => void
   setChatLeftSidebarWidth: (width: number) => void
   setSettingsSidebarWidth: (width: number) => void
@@ -152,17 +158,21 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       const layoutSlice: Pick<
         UiPreferencesStore,
         | "collapsedChatSidebarDirectories"
+        | "pinnedDirectories"
         | "leftSidebarOpen"
         | "chatLeftSidebarWidth"
         | "settingsSidebarWidth"
         | "projectFileTreeOpen"
         | "setChatSidebarDirectoryOpen"
+        | "togglePinnedDirectory"
+        | "setPinnedDirectories"
         | "setLeftSidebarOpen"
         | "setChatLeftSidebarWidth"
         | "setSettingsSidebarWidth"
         | "setProjectFileTreeOpen"
       > = {
         collapsedChatSidebarDirectories: {},
+        pinnedDirectories: [],
         leftSidebarOpen: true,
         // Settings shows the same directory/thread list, so both start at the same width.
         chatLeftSidebarWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
@@ -175,6 +185,18 @@ export const useUiPreferences = create<UiPreferencesStore>()(
             } else {
               state.collapsedChatSidebarDirectories[directory] = true
             }
+          })
+        },
+        togglePinnedDirectory(directory) {
+          set((state) => {
+            state.pinnedDirectories = state.pinnedDirectories.includes(directory)
+              ? state.pinnedDirectories.filter((entry) => entry !== directory)
+              : [...state.pinnedDirectories, directory]
+          })
+        },
+        setPinnedDirectories(directories) {
+          set((state) => {
+            state.pinnedDirectories = [...new Set(directories)]
           })
         },
         setLeftSidebarOpen(open) {
@@ -247,13 +269,14 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 21,
+      version: 22,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = parsePersistedUiPreferences(persistedState)
         const legacyLeftSidebarWidth = readLegacyLeftSidebarWidth(state)
         return {
           pinnedByDirectory: state?.pinnedByDirectory ?? {},
+          pinnedDirectories: state?.pinnedDirectories ?? [],
           unreadByDirectory: state?.unreadByDirectory ?? {},
           collapsedChatSidebarDirectories: state?.collapsedChatSidebarDirectories ?? {},
           leftSidebarOpen: state?.leftSidebarOpen ?? true,
@@ -269,6 +292,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       partialize(state) {
         return {
           pinnedByDirectory: state.pinnedByDirectory,
+          pinnedDirectories: state.pinnedDirectories,
           unreadByDirectory: state.unreadByDirectory,
           collapsedChatSidebarDirectories: state.collapsedChatSidebarDirectories,
           leftSidebarOpen: state.leftSidebarOpen,

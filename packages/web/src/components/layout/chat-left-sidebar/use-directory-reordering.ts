@@ -7,6 +7,24 @@ type UseDirectoryReorderingProps = {
   onReorderDirectories: (newOrder: string[]) => void
 }
 
+/**
+ * `fullOrder` with the directories in `reordered` rearranged into that order, each taking a slot
+ * one of them held before. A list that shows only some notebooks — pinned ones live in their own
+ * section — reorders just those and leaves every other directory where it was.
+ */
+export function mergeDirectoryOrder(
+  fullOrder: readonly string[],
+  reordered: readonly string[],
+): string[] {
+  const known = new Set(fullOrder)
+  const moved = reordered.filter((directory) => known.has(directory))
+  const movedSet = new Set(moved)
+  const nextMoved = moved.values()
+  return fullOrder.map((directory) =>
+    movedSet.has(directory) ? (nextMoved.next().value ?? directory) : directory,
+  )
+}
+
 export function useDirectoryReordering({
   directoryGroups,
   onReorderDirectories,

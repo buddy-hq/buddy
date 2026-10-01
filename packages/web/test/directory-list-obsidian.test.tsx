@@ -55,6 +55,7 @@ describe("Chat sidebar directory list", () => {
               onToggleExpandedDirectory={() => {}}
               onSelectSession={() => {}}
               onTogglePin={() => {}}
+              onTogglePinDirectory={() => {}}
               onToggleUnread={() => {}}
               onRequestArchive={() => {}}
               onRequestDelete={() => {}}
@@ -145,6 +146,7 @@ describe("Chat sidebar directory list", () => {
               onToggleExpandedDirectory={() => {}}
               onSelectSession={() => {}}
               onTogglePin={() => {}}
+              onTogglePinDirectory={() => {}}
               onToggleUnread={() => {}}
               onRequestArchive={() => {}}
               onRequestDelete={() => {}}
@@ -217,6 +219,7 @@ describe("Chat sidebar directory list", () => {
                 onToggleExpandedDirectory={() => {}}
                 onSelectSession={() => {}}
                 onTogglePin={() => {}}
+                onTogglePinDirectory={() => {}}
                 onToggleUnread={() => {}}
                 onRequestArchive={() => {}}
                 onRequestDelete={() => {}}
