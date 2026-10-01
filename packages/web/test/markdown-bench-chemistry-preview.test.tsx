@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act, type ReactElement } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import {
   BuddyChemistryPreview,
   MarkdownBenchChemistryViewProvider,
@@ -28,7 +29,7 @@ describe("Markdown Bench chemistry previews", () => {
     }))
     container = document.createElement("div")
     document.body.appendChild(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
   })
 
   afterEach(async () => {

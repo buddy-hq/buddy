@@ -1,7 +1,8 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, mock, setSystemTime, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import { ExternalFileOpenDialog } from "../src/components/files/external-file-open-dialog"
 import { MarkdownHtmlSegment } from "../src/components/markdown/markdown-html-segment"
 import { resetMarkdownWorkerForTests } from "../src/components/markdown/markdown-worker"
@@ -31,7 +32,7 @@ describe("markdown link decoration", () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.append(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
   })
 
   afterEach(async () => {

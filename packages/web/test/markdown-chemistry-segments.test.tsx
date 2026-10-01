@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import { ChatScrollProvider } from "../src/components/chat/chat-scroll-context"
 import { canContainChemistryBlock, Markdown } from "../src/components/markdown/Markdown"
 import { parseMarkdownSegments } from "../src/components/markdown/markdown-segments"
@@ -48,7 +49,7 @@ describe("Markdown chemistry segments", () => {
     Reflect.deleteProperty(globalThis, "IntersectionObserver")
     container = document.createElement("div")
     document.body.appendChild(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
   })
 
   afterEach(async () => {

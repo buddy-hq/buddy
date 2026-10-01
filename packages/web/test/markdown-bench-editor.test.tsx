@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act, createRef } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import { Z_INDEX } from "@buddy/ui"
 import { readCitationPromptPart, type Citation } from "@buddy/citation-contract"
 import { BenchSurfaceActivityProvider } from "../src/components/bench/bench-surface-activity"
@@ -126,7 +127,7 @@ describe("MarkdownBenchEditor", () => {
     })
     container = document.createElement("div")
     document.body.appendChild(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
     localStorage.clear()
     Object.defineProperty(window, "matchMedia", {
       value: () => createMediaQueryList(false),

@@ -1,7 +1,8 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import { TooltipProvider } from "@buddy/ui"
 
 import { ActivityRow, MID_TURN_DEAD_ZONE_MS } from "../src/components/chat/tools/activity-row"
@@ -136,7 +137,7 @@ describe("ActivityRow", () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.append(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
   })
 
   afterEach(async () => {

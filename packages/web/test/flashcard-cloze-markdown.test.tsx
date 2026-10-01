@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import { ClozeMarkdown } from "../src/components/flashcard/flashcard-cloze-markdown"
 import { FlashcardDeckView } from "../src/components/flashcard/flashcard-deck-view"
 import { resetMarkdownWorkerForTests } from "../src/components/markdown/markdown-worker"
@@ -115,7 +116,7 @@ describe("flashcard cloze Markdown", () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
   })
 
   afterEach(async () => {

@@ -1,7 +1,8 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import { useChatSettings } from "../src/state/chat-settings"
@@ -44,7 +45,7 @@ describe("chat transcript expansion cache", () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
     transcriptViewport = createChatTranscriptTestViewport()
 
     originalResizeObserver = globalThis.ResizeObserver
@@ -154,7 +155,7 @@ describe("chat transcript expansion cache", () => {
       root.unmount()
       await flushEffects()
     })
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
 
     await act(async () => {
       root.render(

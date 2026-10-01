@@ -1,7 +1,8 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import { useChatStore } from "../src/state/chat-store"
@@ -76,7 +77,7 @@ describe("chat forking", () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
     transcriptViewport = createChatTranscriptTestViewport()
 
     originalResizeObserver = globalThis.ResizeObserver

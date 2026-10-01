@@ -1,7 +1,8 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import type { BenchOpenRequest } from "../src/lib/bench-navigation"
 
 const EXTERNAL_PATH = "/outside/notes.md"
@@ -68,7 +69,7 @@ describe("useMarkdownFileOpen", () => {
     useUiPreferences.getState().setOpenExternalFilesWithoutAsking(false)
     container = document.createElement("div")
     document.body.appendChild(container)
-    root = createRoot(container)
+    root = createQueryTestRoot(container)
     await act(async () => {
       root.render(<Probe />)
       await flushEffects()

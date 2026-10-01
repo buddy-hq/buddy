@@ -1,7 +1,8 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
+import type { Root } from "react-dom/client"
+import { createQueryTestRoot } from "./query-test-root"
 import type { MarkdownBenchFileController } from "../src/components/bench/markdown/use-file"
 
 const openBench = mock(async () => ({ outcome: "committed" }))
@@ -53,7 +54,7 @@ beforeEach(() => {
   openBench.mockClear()
   container = document.createElement("div")
   document.body.append(container)
-  root = createRoot(container)
+  root = createQueryTestRoot(container)
 })
 
 afterEach(() => {
