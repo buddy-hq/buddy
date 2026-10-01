@@ -30,6 +30,9 @@ type ModelVisibleBenchTarget =
       itemID?: string
       viewID: string
     }
+  | {
+      type: "new-tab"
+    }
 
 type NumberedBenchTab = BenchTabSummary & {
   tabNumber: number
@@ -73,6 +76,7 @@ type ModelVisibleBrowserTabs = {
 
 function searchableTabValues(tab: NumberedBenchTab): string[] {
   const target = tab.target
+  if (target.type === "new-tab") return [tab.title, tab.tabKey, `tab ${tab.tabNumber}`, target.type]
   if (target.type === "workspace-file") {
     return [
       tab.title,
@@ -114,7 +118,7 @@ function tabMatchesSearch(tab: NumberedBenchTab, normalizedSearch: string): bool
 function benchTargetAbsolutePath(input: {
   directory: string
   notesDirectory?: string
-  target: Exclude<BenchTabSummary["target"], { type: "browser" }>
+  target: Exclude<BenchTabSummary["target"], { type: "browser" | "new-tab" }>
 }): string {
   if (input.target.type === "workspace-file") {
     const root = input.target.root
@@ -150,6 +154,7 @@ function modelVisibleTarget(input: {
   selectedBrowser?: ModelVisibleSelectedBrowser
 }): ModelVisibleBenchTarget {
   const { target } = input
+  if (target.type === "new-tab") return { type: target.type }
   if (target.type === "browser") {
     return {
       type: target.type,

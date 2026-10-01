@@ -121,11 +121,25 @@ const BenchDrawerContextSchema = z
   })
   .strict()
 
+/** An empty Bench tab: the search page, with no item loaded. */
+const NewTabBenchTabTargetSchema = z
+  .object({
+    type: z.literal("new-tab"),
+  })
+  .strict()
+
+const BenchTabTargetSchema = z.discriminatedUnion("type", [
+  WorkspaceFileBenchTargetSchema,
+  BrowserBenchTargetSchema,
+  ObjectBenchTargetSchema,
+  NewTabBenchTabTargetSchema,
+])
+
 const BenchTabSummarySchema = z
   .object({
     tabKey: nonEmptyString,
     title: nonEmptyString,
-    target: BenchTargetSchema,
+    target: BenchTabTargetSchema,
   })
   .strict()
 
@@ -172,10 +186,23 @@ const BenchReadContextParkedOutputSchema = z
   })
   .strict()
 
+/** Bench shows the selected New tab, so there is no item to read. */
+const BenchReadContextNewTabOutputSchema = z
+  .object({
+    status: z.literal("open"),
+    visibility: z.literal("new-tab"),
+    mode: z.enum(["docked", "floating"]),
+    selectedTabKey: nonEmptyString,
+    tabs: z.array(BenchTabSummarySchema),
+    drawer: z.null(),
+  })
+  .strict()
+
 const BenchReadContextOutputSchema = z.union([
   BenchReadContextClosedOutputSchema,
   BenchReadContextVisibleOutputSchema,
   BenchReadContextParkedOutputSchema,
+  BenchReadContextNewTabOutputSchema,
 ])
 
 const PublishBenchContextResponseSchema = z
@@ -213,8 +240,10 @@ type BenchClientLeaseIdentity = z.infer<typeof BenchClientLeaseIdentitySchema>
 type BenchContextTarget = z.infer<typeof BenchContextTargetSchema>
 type BenchDrawerContext = z.infer<typeof BenchDrawerContextSchema>
 type BenchTabSummary = z.infer<typeof BenchTabSummarySchema>
+type BenchTabTarget = z.infer<typeof BenchTabTargetSchema>
 type BenchReadContextOpenOutput = z.infer<typeof BenchReadContextVisibleOutputSchema>
 type BenchReadContextParkedOutput = z.infer<typeof BenchReadContextParkedOutputSchema>
+type BenchReadContextNewTabOutput = z.infer<typeof BenchReadContextNewTabOutputSchema>
 type BenchReadContextOutput = z.infer<typeof BenchReadContextOutputSchema>
 type PublishBenchContextInput = z.infer<typeof PublishBenchContextInputSchema>
 type PublishBenchContextResponse = z.infer<typeof PublishBenchContextResponseSchema>
@@ -473,10 +502,12 @@ export {
   PublishBenchContextInputSchema,
   BenchReadContextClosedOutputSchema,
   BenchReadContextInputSchema,
+  BenchReadContextNewTabOutputSchema,
   BenchReadContextParkedOutputSchema,
   BenchReadContextVisibleOutputSchema,
   BenchReadContextOutputSchema,
   BenchTabSummarySchema,
+  BenchTabTargetSchema,
   BenchTargetSchema,
   BrowserBenchTargetSchema,
   ObjectBenchTargetSchema,
@@ -498,10 +529,12 @@ export type {
   BenchClientLeaseIdentity,
   BenchContextTarget,
   BenchDrawerContext,
+  BenchReadContextNewTabOutput,
   BenchReadContextOpenOutput,
   BenchReadContextParkedOutput,
   BenchReadContextOutput,
   BenchTabSummary,
+  BenchTabTarget,
   PublishBenchContextInput,
   BenchTarget,
   BrowserBenchTarget,

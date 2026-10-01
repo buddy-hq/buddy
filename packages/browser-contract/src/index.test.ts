@@ -44,7 +44,10 @@ describe("application shortcut contract", () => {
     expect(
       resolveAppShortcutID(shortcutInput({ key: "}", code: "BracketRight", shift: true }), "macos"),
     ).toBe("chat.next")
-    expect(APP_SHORTCUTS["chat.jump.9"].code).toBe("Digit9")
+    expect(APP_SHORTCUTS["bench.tab.last"].code).toBe("Digit9")
+    expect(resolveAppShortcutID(shortcutInput({ key: "p", code: "KeyP" }), "macos")).toBe(
+      "file.quickOpen",
+    )
   })
 
   test("leaves repeats, composition, keyup, and extra modifiers with the guest page", () => {

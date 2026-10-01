@@ -160,6 +160,58 @@ describe("parked Bench turn context", () => {
   })
 })
 
+describe("New tab Bench turn context", () => {
+  test("names the selected New tab and lists every open tab to switch to", async () => {
+    await using project = await tmpdir({ git: true })
+    const config = await readProjectConfig(project.path)
+    publishSequencedBenchContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      body: {
+        lease: { instanceID: "turn-context-client", generation: 1, leaseEpoch: 1 },
+        publicationSequence: 1,
+        idempotencyKey: "new-tab-turn-context",
+        value: {
+          status: "open",
+          visibility: "new-tab",
+          mode: "docked",
+          selectedTabKey: "new-tab:new-b",
+          tabs: [
+            {
+              tabKey: "file:notebook:markdown:notes%2Fphotosynthesis.md",
+              title: "Photosynthesis",
+              target: {
+                type: "workspace-file",
+                root: "notebook",
+                path: "notes/photosynthesis.md",
+                viewer: "markdown",
+              },
+            },
+            { tabKey: "new-tab:new-a", title: "New tab", target: { type: "new-tab" } },
+            { tabKey: "new-tab:new-b", title: "New tab", target: { type: "new-tab" } },
+          ],
+          drawer: null,
+        },
+      },
+    })
+
+    const result = await runMessagePromptPipeline({
+      context: { directory: project.path, sessionID: SESSION_ID },
+      body: { content: "Switch to my photosynthesis notes", persona: "buddy" },
+      projectConfig: config,
+    })
+    const text = syntheticPromptText(result)
+    expect(text).toContain(
+      'Bench shows a New tab, its search page with no item loaded: {"tabNumber":3,"tabKey":"new-tab:new-b"}. There are 3 open tabs.',
+    )
+    expect(text).toContain(
+      '- {"tabNumber":1,"title":"Photosynthesis","tabKey":"file:notebook:markdown:notes%2Fphotosynthesis.md"}',
+    )
+    expect(text).toContain('- {"tabNumber":2,"title":"New tab","tabKey":"new-tab:new-a"}')
+    expect(text).toContain("bench_present with focus_tab")
+  })
+})
+
 describe("Browser Bench turn context", () => {
   test("keeps other Browser tabs visible while the selected resource uses reading context", async () => {
     await using project = await tmpdir({ git: true })

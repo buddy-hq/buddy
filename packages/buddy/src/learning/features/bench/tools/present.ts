@@ -97,7 +97,7 @@ const BenchPresentReasonSchema = z.enum([
 const BenchPresentInputSchema = z
   .object({
     action: BenchPresentActionSchema.describe(
-      "What to show on Bench. Use present_file for an existing local file, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id, focus_tab to switch to an already-open tab, including an open Browser tab, by an exact tabKey returned by bench_read_context, and close only when the user asks to close Bench.",
+      "What to show on Bench. Use present_file for an existing local file, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id, focus_tab to switch to an already-open tab, including an open Browser tab or a New tab, by an exact tabKey returned by bench_read_context, and close only when the user asks to close Bench.",
     ),
     path: z
       .string()
@@ -1094,6 +1094,15 @@ function committedBenchActionResult(input: {
     }
   }
 
+  if (input.command.type === "focus_new_tab") {
+    const context = input.completion.context
+    return context.status === "open" &&
+      context.visibility === "new-tab" &&
+      context.selectedTabKey === input.command.tabKey
+      ? input.requested
+      : supersededActionResult()
+  }
+
   if (!benchContextMatchesTarget(input.completion.context, input.command.target)) {
     return supersededActionResult()
   }
@@ -1296,7 +1305,7 @@ async function presentOnBench(input: {
       status: "presented",
       reason: "focused_tab",
       target: null,
-      benchTarget: tab.target,
+      benchTarget: tab.target.type === "new-tab" ? null : tab.target,
       mode: context.mode,
       message: `Focused Bench tab ${tab.title}.`,
       objectResult: null,
@@ -1307,7 +1316,10 @@ async function presentOnBench(input: {
       messageID: input.messageID,
       callID: input.callID,
       abort: input.abort,
-      command: { type: "focus_tab", tabKey: tab.tabKey, target: tab.target },
+      command:
+        tab.target.type === "new-tab"
+          ? { type: "focus_new_tab", tabKey: tab.tabKey }
+          : { type: "focus_tab", tabKey: tab.tabKey, target: tab.target },
       requested,
       presentationSettleTimeoutMs:
         input.presentationSettleTimeoutMs ?? BENCH_PRESENTATION_SETTLE_TIMEOUT_MS,
@@ -1432,7 +1444,7 @@ const benchPresentTool = createBuddyTool({
   description: [
     "Present an existing stable target, focus an exact open tab, or close Bench.",
     "",
-    "Use present_file, present_resource, or present_object to open and focus a stable target. Use focus_tab to switch to an already-open tab, including an open Browser tab, only with an exact current tabKey copied from bench_read_context; a missing key means the tab set is stale and must be read again. Focusing a Browser tab only brings it to the front; it does not let you read, click, type into, or capture the page. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
+    "Use present_file, present_resource, or present_object to open and focus a stable target. Use focus_tab to switch to an already-open tab, including an open Browser tab or a New tab (new-tab:...), only with an exact current tabKey copied from bench_read_context; a missing key means the tab set is stale and must be read again. Focusing a Browser tab only brings it to the front; it does not let you read, click, type into, or capture the page. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
     "",
     "For Buddy objects, pass only objectID copied from a prior tool result. Do not pass object kind, revision id, item id, view id, routes, layout pixels, or user preferences.",
     "",

@@ -1,3 +1,4 @@
+import { readEmptyBenchTabID } from "@/lib/bench-tabs"
 import {
   parseTJsonObject,
   parseTNumber,
@@ -109,6 +110,7 @@ type BenchClientActionV2 = {
         autoOpen: BenchAutoOpenIdentity | null
       }
     | { type: "focus_tab"; tabKey: string; target: BenchTarget }
+    | { type: "focus_new_tab"; tabKey: string }
     | { type: "close" }
     | {
         type: "capture_bench_screenshot"
@@ -239,6 +241,22 @@ function readBenchClientAction<TValue>(value: TValue): BenchClientActionV2 | und
       acknowledgement,
       expiresAt,
       command: { type: "close" },
+    }
+  }
+  if (command.type === "focus_new_tab") {
+    const tabKey = readString(command.tabKey)
+    if (!tabKey || !readEmptyBenchTabID(tabKey)) return undefined
+    return {
+      version: BENCH_CLIENT_ACTION_VERSION,
+      actionID,
+      directory,
+      sessionID,
+      messageID,
+      callID,
+      origin,
+      acknowledgement,
+      expiresAt,
+      command: { type: "focus_new_tab", tabKey },
     }
   }
   const target = readBenchTarget(command.target)
@@ -816,6 +834,15 @@ export class DirectoryWorkspaceClientActionLedger {
     if (action.command.type === "focus_tab") {
       const result = await this.#controller.execute(
         { type: "focus-tab", tabKey: action.command.tabKey },
+        { origin: "agent" },
+      )
+      return completionFromResult(result)
+    }
+    if (action.command.type === "focus_new_tab") {
+      const emptyTabID = readEmptyBenchTabID(action.command.tabKey)
+      if (!emptyTabID) return { outcome: "failed", reason: "navigation_failed" }
+      const result = await this.#controller.execute(
+        { type: "open-empty", emptyTabID },
         { origin: "agent" },
       )
       return completionFromResult(result)
