@@ -35,8 +35,8 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | Install, update, channels, download, won’t start, restart, logs, first launch, onboarding | `references/setup.md` |
 | Learn vs Teach, Buddy vs Teaching Buddy | `references/setup.md` |
 | No account, privacy, local data, site claims, permission prompts, Allow once/always | `references/trust.md` |
-| What Buddy can do, layout, sidebar, library rail, Bench docked/floating | `references/workspace.md` |
-| Bench tabs, notebook Search, finding chats/files/sources/notes | `references/workspace.md` |
+| What Buddy can do, layout, sidebar, library rail, Bench docked/floating/immersive | `references/workspace.md` |
+| Bench tabs, tab shortcuts, New tab page / empty Bench, notebook Search, Quick open (Cmd/Ctrl+P), finding chats/files/sources/notes | `references/workspace.md` |
 | Notebooks, Home, Inbox, Quick Chat, chats, pin/archive, branch, compact | `references/notebooks.md` |
 | Obsidian vaults, connecting/disconnecting, wiki links and embeds | `references/obsidian.md` |
 | Notes, note taking, chat notes, quoted messages, Notes library, Markdown notes | `references/notes.md` |
@@ -72,7 +72,8 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | chat | session in the sidebar |
 | question UI / dock | structured agent question (not chat composer) |
 | permission dock | allow once / always until restart / reject |
-| Bench | main work area beside or under chat |
+| Bench | main work area beside or under chat; tabs like a web browser |
+| New tab / empty Bench / Search | Bench New tab page; `references/workspace.md` |
 | Notes | central Markdown library; `references/notes.md` |
 | Browser | in-app web tabs on Bench; `references/browser.md` |
 | Sources | reading catalog (PDF/EPUB) |

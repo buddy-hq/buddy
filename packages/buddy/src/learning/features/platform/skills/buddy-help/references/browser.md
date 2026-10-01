@@ -9,10 +9,10 @@ Use when the user asks about Buddy's in-app Browser, web tabs, profiles, Incogni
 
 ## Open and use
 
-- **New tab** in the sidebar or **Cmd/Ctrl+T** opens a blank Browser tab on the Bench using the default profile.
-- Bench **+** → **Open in a new tab** offers Browser profiles, recent items, files, and a URL/search field. Choose **Incognito** here when needed.
+- Sidebar **Browser** opens a blank Browser tab on the Bench using the default profile.
+- On a Bench **New tab** page (**+** or **Cmd/Ctrl+T**): the **Browser** tile opens a blank Browser tab in the default profile, and its ▾ menu opens one in any profile, **Incognito** included. Typing a profile name or **incognito** offers the same choice. Typing a URL or search terms offers to open it in Browser with the default profile, next to matching Recently visited pages (`workspace.md`).
 - Ask Buddy to open an HTTP or HTTPS page and it can present a new Browser tab. Buddy can also switch the Bench back to a Browser tab that is already open. The page is controlled by the user: Buddy cannot inspect, click, type, scroll, or screenshot the live Browser tab.
-- The tab has Back, Forward, Reload, an address/search field, and **More**. A blank **New tab** page shows search and **Recently visited** pages from this notebook.
+- The tab has Back, Forward, Reload, an address/search field, and **More**. A blank Browser tab shows search and **Recently visited** pages from this notebook (not the same as the Bench **New tab** page).
 - **More** offers hard reload, zoom, page Appearance, clear cookies, and clear cache. The ↗ button at the end of the address bar opens the page in your default browser.
 - Select page text → **Cite selected text**, or use **Cite in Chat** from the page menu, to put a web quote in the chat composer. Clicking a saved quote tries to reopen and highlight the passage.
 
@@ -31,7 +31,7 @@ The Browser is available on the desktop app. A web build says **Browser requires
 ## Profiles and defaults
 
 - **Settings → Browser → Profiles** separates cookies and logins. **Default** is built in. Add a blank profile or import cookies from Chrome, Edge, or Safari; the source browser may need to be closed for import.
-- **Incognito** is chosen from the Bench tab picker, not the Settings profile list. Its data is cleared when Buddy closes, and its visits do not appear in Recently visited.
+- **Incognito** is opened from the New tab page (**Browser** ▾ menu, or type **incognito**), not the Settings profile list. Its data is cleared when Buddy closes, and its visits do not appear in Recently visited.
 - A profile menu can **Set as default**, **Clear cookies and cache**, or remove a custom profile and its data. Already open tabs in a removed profile stay open until closed.
 - **Settings → Browser → Defaults** controls search engine, zoom for new tabs, and page Appearance. Browser Appearance tells web pages which color scheme to prefer; the app theme is under Settings → Appearance.
 
