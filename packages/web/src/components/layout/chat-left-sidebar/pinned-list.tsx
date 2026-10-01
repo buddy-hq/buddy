@@ -1,11 +1,17 @@
+import type { ReactNode } from "react"
 import { language } from "@/context/language"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { DirectoryThreadRow, SIDEBAR_COLLAPSED_CHAT_COUNT } from "./directory-list"
-import { SIDEBAR_ROW_LABEL_INSET_PX, SIDEBAR_ROW_PADDING_LEFT_PX } from "./row-geometry"
+import { SIDEBAR_ROW_LABEL_INSET_PX, SIDEBAR_SECTION_LABEL_INSET_PX } from "./row-geometry"
 import { buildSessionChildrenByParent } from "./thread-helpers"
 
 type ChatLeftSidebarPinnedListProps = {
   directories: string[]
+  /**
+   * Pinned notebooks, listed under the pinned chats: a chat row below a notebook would read as
+   * one of that notebook's chats.
+   */
+  notebooks?: ReactNode
   expanded: boolean
   onToggleExpanded: () => void
   sessionsByDirectory: Record<string, SessionInfo[]>
@@ -101,70 +107,74 @@ function collectPinnedEntries(props: ChatLeftSidebarPinnedListProps): PinnedEntr
 export function ChatLeftSidebarPinnedList(props: ChatLeftSidebarPinnedListProps) {
   const entries = collectPinnedEntries(props)
 
-  if (entries.length === 0) return null
+  if (entries.length === 0 && !props.notebooks) return null
 
   const hasMore = entries.length > SIDEBAR_COLLAPSED_CHAT_COUNT
   const visibleEntries = props.expanded ? entries : entries.slice(0, SIDEBAR_COLLAPSED_CHAT_COUNT)
 
+  // Unpadded, unlike Recents, so pinned notebook groups line up with the Notebooks list below.
   return (
-    <section data-component="left-sidebar-pinned-list" className="mb-2 space-y-0.5 px-1.5">
+    <section data-component="left-sidebar-pinned-list" className="mb-2 space-y-0.5">
       <p
         className="pt-1 pb-1 text-[13px] font-normal tracking-wide text-icon-base"
-        style={{ paddingLeft: `${SIDEBAR_ROW_PADDING_LEFT_PX}px` }}
+        style={{ paddingLeft: `${SIDEBAR_SECTION_LABEL_INSET_PX}px` }}
       >
         {language.t("sidebar.pinned")}
       </p>
-      <div className="flex flex-col space-y-0.5">
-        {visibleEntries.map((entry) => {
-          return (
-            <DirectoryThreadRow
-              key={`pinned:${entry.directory}:${entry.session.id}`}
-              directory={entry.directory}
-              currentDirectory={props.currentDirectory}
-              session={entry.session}
-              activeSessionID={props.activeSessionID}
-              childrenByParent={entry.context.childrenByParent}
-              sessionsByID={entry.context.sessionsByID}
-              sessionStatusByID={entry.context.sessionStatusByID}
-              pinnedSet={entry.context.pinnedSet}
-              unreadMap={entry.context.unreadMap}
-              hidePinBadge
-              onSelectSession={(sessionID) => props.onSelectSession(entry.directory, sessionID)}
-              onPrefetchSession={
-                props.onPrefetchSession
-                  ? (sessionID) => props.onPrefetchSession?.(entry.directory, sessionID)
-                  : undefined
-              }
-              onTogglePin={(sessionID) => props.onTogglePin(entry.directory, sessionID)}
-              onToggleUnread={(sessionID, unread) =>
-                props.onToggleUnread(entry.directory, sessionID, unread)
-              }
-              onRequestRename={(sessionID, title) =>
-                props.onRequestRename(entry.directory, sessionID, title)
-              }
-              onRequestArchive={(sessionID, title) =>
-                props.onRequestArchive(entry.directory, sessionID, title)
-              }
-              onRequestDelete={(sessionID, title) =>
-                props.onRequestDelete(entry.directory, sessionID, title)
-              }
-            />
-          )
-        })}
-        {hasMore ? (
-          <div className="group/sibling relative last:mb-1">
-            <button
-              type="button"
-              data-action="left-sidebar-pinned-toggle-more"
-              className="relative w-full py-1 pr-2.5 text-left text-[10px] text-text-weaker hover:text-text-base"
-              style={{ paddingLeft: `${SIDEBAR_ROW_LABEL_INSET_PX}px` }}
-              onClick={props.onToggleExpanded}
-            >
-              {props.expanded ? language.t("sidebar.showLess") : language.t("sidebar.showMore")}
-            </button>
-          </div>
-        ) : null}
-      </div>
+      {entries.length > 0 ? (
+        <div className="flex flex-col space-y-0.5 px-1.5">
+          {visibleEntries.map((entry) => {
+            return (
+              <DirectoryThreadRow
+                key={`pinned:${entry.directory}:${entry.session.id}`}
+                directory={entry.directory}
+                currentDirectory={props.currentDirectory}
+                session={entry.session}
+                activeSessionID={props.activeSessionID}
+                childrenByParent={entry.context.childrenByParent}
+                sessionsByID={entry.context.sessionsByID}
+                sessionStatusByID={entry.context.sessionStatusByID}
+                pinnedSet={entry.context.pinnedSet}
+                unreadMap={entry.context.unreadMap}
+                hidePinBadge
+                onSelectSession={(sessionID) => props.onSelectSession(entry.directory, sessionID)}
+                onPrefetchSession={
+                  props.onPrefetchSession
+                    ? (sessionID) => props.onPrefetchSession?.(entry.directory, sessionID)
+                    : undefined
+                }
+                onTogglePin={(sessionID) => props.onTogglePin(entry.directory, sessionID)}
+                onToggleUnread={(sessionID, unread) =>
+                  props.onToggleUnread(entry.directory, sessionID, unread)
+                }
+                onRequestRename={(sessionID, title) =>
+                  props.onRequestRename(entry.directory, sessionID, title)
+                }
+                onRequestArchive={(sessionID, title) =>
+                  props.onRequestArchive(entry.directory, sessionID, title)
+                }
+                onRequestDelete={(sessionID, title) =>
+                  props.onRequestDelete(entry.directory, sessionID, title)
+                }
+              />
+            )
+          })}
+          {hasMore ? (
+            <div className="group/sibling relative last:mb-1">
+              <button
+                type="button"
+                data-action="left-sidebar-pinned-toggle-more"
+                className="relative w-full py-1 pr-2.5 text-left text-[10px] text-text-weaker hover:text-text-base"
+                style={{ paddingLeft: `${SIDEBAR_ROW_LABEL_INSET_PX}px` }}
+                onClick={props.onToggleExpanded}
+              >
+                {props.expanded ? language.t("sidebar.showLess") : language.t("sidebar.showMore")}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {props.notebooks}
     </section>
   )
 }

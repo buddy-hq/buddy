@@ -50,7 +50,10 @@ import { findRootSessionID } from "./chat-left-sidebar/thread-helpers"
 import { GetStartedChats } from "./chat-left-sidebar/get-started-chats"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
-import { useDirectoryReordering } from "./chat-left-sidebar/use-directory-reordering"
+import {
+  mergeDirectoryOrder,
+  useDirectoryReordering,
+} from "./chat-left-sidebar/use-directory-reordering"
 import type {
   ArchiveState,
   DeleteState,
@@ -207,6 +210,9 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   )
   const collapsedDirectories = useUiPreferences((state) => state.collapsedChatSidebarDirectories)
   const setChatSidebarDirectoryOpen = useUiPreferences((state) => state.setChatSidebarDirectoryOpen)
+  const pinnedDirectories = useUiPreferences((state) => state.pinnedDirectories)
+  const togglePinnedDirectory = useUiPreferences((state) => state.togglePinnedDirectory)
+  const setPinnedDirectories = useUiPreferences((state) => state.setPinnedDirectories)
   const uiPreferencesHydrated = useUiPreferencesHydrated()
   const onStageGetStartedChat = props.onStageGetStartedChat
 
@@ -307,18 +313,34 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     sortMode,
   })
 
+  // Pinned notebooks leave the Notebooks list for the Pinned section, in their pinned order. A
+  // pinned notebook stays listed even when "Show relevant" leaves none of its chats.
+  const { pinnedDirectoryGroups, unpinnedDirectoryGroups } = useMemo(() => {
+    const openDirectories = new Set(props.directories)
+    const groupsByDirectory = new Map(directoryGroups.map((group) => [group.directory, group]))
+    const pinnedGroups = pinnedDirectories
+      .filter((directory) => openDirectories.has(directory))
+      .map((directory) => groupsByDirectory.get(directory) ?? { directory, sessions: [] })
+    const pinnedSet = new Set(pinnedGroups.map((group) => group.directory))
+    return {
+      pinnedDirectoryGroups: pinnedGroups,
+      unpinnedDirectoryGroups: directoryGroups.filter((group) => !pinnedSet.has(group.directory)),
+    }
+  }, [directoryGroups, pinnedDirectories, props.directories])
+
   const orderedDirectoryGroups = useMemo(() => {
-    const inboxGroup = directoryGroups.find(
+    const inboxGroup = unpinnedDirectoryGroups.find(
       (group) => getFilename(group.directory).toLowerCase() === "inbox",
     )
-    const notebookGroups = directoryGroups.filter(
+    const notebookGroups = unpinnedDirectoryGroups.filter(
       (group) => getFilename(group.directory).toLowerCase() !== "inbox",
     )
     return inboxGroup ? [inboxGroup, ...notebookGroups] : notebookGroups
-  }, [directoryGroups])
+  }, [unpinnedDirectoryGroups])
 
-  // Chat shortcuts follow the lists top to bottom: pinned chats, then each notebook's rows. Rows in a
-  // collapsed notebook or behind "show more" keep their place but are stepped over.
+  // Chat shortcuts follow the lists top to bottom: pinned chats, pinned notebooks, then each other
+  // notebook's rows. Rows in a collapsed notebook or behind "show more" keep their place but are
+  // stepped over.
   const sidebarChats = useMemo((): SidebarChat[] => {
     if (props.children) return []
     const chats: SidebarChat[] = collectPinnedSessions({
@@ -330,7 +352,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       sessionID: entry.session.id,
       visible: pinnedExpanded || index < SIDEBAR_COLLAPSED_CHAT_COUNT,
     }))
-    for (const group of orderedDirectoryGroups) {
+    for (const group of [...pinnedDirectoryGroups, ...orderedDirectoryGroups]) {
       const shownSessions = collapsedDirectories[group.directory]
         ? []
         : visibleDirectorySessions(group, !!expandedDirectories[group.directory])
@@ -348,6 +370,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     collapsedDirectories,
     expandedDirectories,
     orderedDirectoryGroups,
+    pinnedDirectoryGroups,
     pinnedExpanded,
     props.children,
     props.directories,
@@ -405,8 +428,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     handleLabelPointerDown,
     sectionRefCallback,
   } = useDirectoryReordering({
-    directoryGroups,
-    onReorderDirectories: props.onReorderDirectories,
+    directoryGroups: unpinnedDirectoryGroups,
+    onReorderDirectories: (nextOrder) =>
+      props.onReorderDirectories(mergeDirectoryOrder(props.directories, nextOrder)),
+  })
+  const pinnedReordering = useDirectoryReordering({
+    directoryGroups: pinnedDirectoryGroups,
+    onReorderDirectories: (nextOrder) =>
+      setPinnedDirectories(mergeDirectoryOrder(pinnedDirectories, nextOrder)),
   })
 
   async function submitRename() {
@@ -499,6 +528,43 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     setRenameState({ directory, sessionID, title })
   }
 
+  // What the pinned and unpinned notebook lists share; each adds its own groups and drag state.
+  const directoryListProps = {
+    currentDirectory: props.currentDirectory,
+    activeSessionID: props.activeSessionID,
+    sessionsByDirectory: props.sessionsByDirectory,
+    sessionStatusByDirectory: props.sessionStatusByDirectory,
+    pinnedByDirectory: props.pinnedByDirectory,
+    unreadByDirectory: props.unreadByDirectory,
+    expandedDirectories,
+    collapsedDirectories,
+    onToggleCollapsedDirectory: setChatSidebarDirectoryOpen,
+    onToggleExpandedDirectory: (directory: string) => {
+      setExpandedDirectories((current) => toggleDirectoryPresence(current, directory))
+    },
+    onSelectSession: (directory: string, sessionID?: string) => {
+      void props.onSelectSession(directory, sessionID)
+    },
+    onPrefetchSession: props.onPrefetchSession,
+    onTogglePin: props.onTogglePin,
+    onTogglePinDirectory: togglePinnedDirectory,
+    onToggleUnread: props.onToggleUnread,
+    onRequestArchive: handleRequestArchive,
+    onRequestDelete: handleRequestDelete,
+    onRequestRename: handleRequestRename,
+    onNewSession: (directory?: string) => {
+      props.onNewSession(directory)
+    },
+    onOpenNotebookSettings: setNotebookSettingsDirectory,
+    onDisconnectObsidianVault: (directory: string) => {
+      disconnectObsidianMutation.mutate(directory)
+    },
+    disconnectingObsidianDirectory: disconnectObsidianMutation.isPending
+      ? disconnectObsidianMutation.variables
+      : undefined,
+    onCloseDirectory: props.onCloseDirectory,
+  } satisfies Partial<ComponentProps<typeof ChatLeftSidebarDirectoryList>>
+
   return (
     <aside
       data-component="chat-left-sidebar"
@@ -587,6 +653,23 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
             <ChatLeftSidebarPinnedList
               directories={props.directories}
+              notebooks={
+                pinnedDirectoryGroups.length > 0 ? (
+                  // Pinned notebooks keep the order they were pinned or dragged into, whatever the
+                  // Notebooks list is organized by.
+                  <ChatLeftSidebarDirectoryList
+                    {...directoryListProps}
+                    pinned
+                    directoryGroups={pinnedDirectoryGroups}
+                    organizeMode="project"
+                    draggedDirectory={pinnedReordering.draggedDirectory}
+                    dragOverDirectory={pinnedReordering.dragOverDirectory}
+                    dragOverPosition={pinnedReordering.dragOverPosition}
+                    onLabelPointerDown={pinnedReordering.handleLabelPointerDown}
+                    onSectionRef={pinnedReordering.sectionRefCallback}
+                  />
+                ) : undefined
+              }
               expanded={pinnedExpanded}
               onToggleExpanded={() => setPinnedExpanded((current) => !current)}
               sessionsByDirectory={props.sessionsByDirectory}
@@ -634,47 +717,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             />
 
             <ChatLeftSidebarDirectoryList
+              {...directoryListProps}
               directoryGroups={orderedDirectoryGroups}
-              currentDirectory={props.currentDirectory}
-              activeSessionID={props.activeSessionID}
-              sessionsByDirectory={props.sessionsByDirectory}
-              sessionStatusByDirectory={props.sessionStatusByDirectory}
-              pinnedByDirectory={props.pinnedByDirectory}
-              unreadByDirectory={props.unreadByDirectory}
               organizeMode={organizeMode}
-              expandedDirectories={expandedDirectories}
-              collapsedDirectories={collapsedDirectories}
               draggedDirectory={draggedDirectory}
               dragOverDirectory={dragOverDirectory}
               dragOverPosition={dragOverPosition}
-              onToggleCollapsedDirectory={setChatSidebarDirectoryOpen}
-              onToggleExpandedDirectory={(directory) => {
-                setExpandedDirectories((current) => toggleDirectoryPresence(current, directory))
-              }}
-              onSelectSession={(directory, sessionID) => {
-                void props.onSelectSession(directory, sessionID)
-              }}
-              onPrefetchSession={props.onPrefetchSession}
-              onTogglePin={props.onTogglePin}
-              onToggleUnread={props.onToggleUnread}
-              onRequestArchive={handleRequestArchive}
-              onRequestDelete={handleRequestDelete}
-              onRequestRename={handleRequestRename}
               onLabelPointerDown={handleLabelPointerDown}
               onSectionRef={sectionRefCallback}
-              onNewSession={(directory) => {
-                props.onNewSession(directory)
-              }}
-              onOpenNotebookSettings={setNotebookSettingsDirectory}
-              onDisconnectObsidianVault={(directory) => {
-                disconnectObsidianMutation.mutate(directory)
-              }}
-              disconnectingObsidianDirectory={
-                disconnectObsidianMutation.isPending
-                  ? disconnectObsidianMutation.variables
-                  : undefined
-              }
-              onCloseDirectory={props.onCloseDirectory}
             />
           </SidebarScrollArea>
         </>

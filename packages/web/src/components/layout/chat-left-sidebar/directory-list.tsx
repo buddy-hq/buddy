@@ -63,6 +63,8 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 
 type ChatLeftSidebarDirectoryListProps = {
   directoryGroups: DirectoryGroup[]
+  /** The list holds pinned notebooks, so their menus offer Unpin instead of Pin. */
+  pinned?: boolean
   currentDirectory: string
   activeSessionID?: string
   sessionsByDirectory: Record<string, SessionInfo[]>
@@ -80,6 +82,7 @@ type ChatLeftSidebarDirectoryListProps = {
   onSelectSession: (directory: string, sessionID?: string) => void
   onPrefetchSession?: (directory: string, sessionID: string) => void
   onTogglePin: (directory: string, sessionID: string) => void
+  onTogglePinDirectory: (directory: string) => void
   onToggleUnread: (directory: string, sessionID: string, unread: boolean) => void
   onRequestArchive: (directory: string, sessionID: string, title: string) => void
   onRequestDelete: (directory: string, sessionID: string, title: string) => void
@@ -103,11 +106,13 @@ type DirectoryGroupSectionProps = {
   unreadMap: Record<string, true>
   expanded: boolean
   collapsed: boolean
+  pinned: boolean
   draggedDirectory?: string
   dragOverDirectory?: string
   dragOverPosition: DropPosition
   organizeMode: OrganizeMode
   onToggleCollapsed: (isOpen: boolean) => void
+  onTogglePinned: () => void
   onToggleExpanded: () => void
   onSelectSession: (sessionID?: string) => void
   onPrefetchSession?: (sessionID: string) => void
@@ -216,7 +221,11 @@ function collectFamilyActivity(
 
 export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryListProps) {
   return (
-    <div data-component="left-sidebar-directory-list" className="space-y-0.5 mt-0">
+    <div
+      data-component="left-sidebar-directory-list"
+      data-pinned={props.pinned ? "true" : undefined}
+      className="space-y-0.5 mt-0"
+    >
       {props.directoryGroups.map((group) => {
         const allSessions = props.sessionsByDirectory[group.directory] ?? []
         const sessionStatusByID = props.sessionStatusByDirectory[group.directory] ?? {}
@@ -237,6 +246,7 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
               unreadMap={unreadMap}
               expanded={expanded}
               collapsed={collapsed}
+              pinned={!!props.pinned}
               draggedDirectory={props.draggedDirectory}
               dragOverDirectory={props.dragOverDirectory}
               dragOverPosition={props.dragOverPosition}
@@ -244,6 +254,7 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
               onToggleCollapsed={(isOpen) =>
                 props.onToggleCollapsedDirectory(group.directory, isOpen)
               }
+              onTogglePinned={() => props.onTogglePinDirectory(group.directory)}
               onToggleExpanded={() => props.onToggleExpandedDirectory(group.directory)}
               onSelectSession={(sessionID) => props.onSelectSession(group.directory, sessionID)}
               onPrefetchSession={(sessionID) =>
@@ -461,6 +472,16 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 </PopoverTrigger>
               </ContextMenuTrigger>
               <ContextMenuContent className="w-44">
+                <ContextMenuItem
+                  data-action="left-sidebar-directory-pin"
+                  data-directory={props.group.directory}
+                  onSelect={props.onTogglePinned}
+                >
+                  <PinIcon className="mr-2 size-3.5" />
+                  {props.pinned
+                    ? language.t("sidebar.unpinNotebook")
+                    : language.t("sidebar.pinNotebook")}
+                </ContextMenuItem>
                 <ContextMenuItem
                   data-action="left-sidebar-directory-settings"
                   onSelect={props.onOpenNotebookSettings}
