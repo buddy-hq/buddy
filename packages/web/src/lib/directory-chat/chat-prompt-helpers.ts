@@ -11,6 +11,8 @@ import {
   TEXT_FILE_ATTACHMENT_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   readPromptReaderTextAnchor,
+  readPromptNotebookReferenceMetadata,
+  readPromptNotebookReferencePart,
   readPromptSelectionContextMetadata,
   readPromptNativeResourceAttachmentMetadata,
   readPromptNativeResourceAttachmentPart,
@@ -574,6 +576,11 @@ export function buildPromptDraftFromUserMessage(
         promptParts.push(selectionContextPart)
         continue
       }
+      const notebookReference = readPromptNotebookReferenceMetadata(part.metadata)
+      if (notebookReference) {
+        promptParts.push(notebookReference)
+        continue
+      }
       promptParts.push({
         type: PROMPT_PART_TYPE_TEXT,
         text: part.text,
@@ -594,6 +601,13 @@ export function buildPromptDraftFromUserMessage(
       attachments.push(
         nativeResourceDraftAttachment({ id: part.id, directory, part: nativeResourcePart }),
       )
+      continue
+    }
+
+    // An optimistic message still holds the composer's own part.
+    const notebookReference = readPromptNotebookReferencePart(part)
+    if (notebookReference) {
+      promptParts.push(notebookReference)
       continue
     }
 

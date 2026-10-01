@@ -2,8 +2,10 @@ import type { MessageInfo, MessagePart, MessageWithParts, TRecord } from "./chat
 import { isRecord, parseString, parseStringArray } from "./chat-types"
 import { readerTextAnchorEquals } from "@buddy/reader-contract"
 import {
+  NOTEBOOK_REFERENCE_PART_TYPE,
   OPENCODE_REFERENCE_PART_TYPE,
   NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+  readPromptNotebookReferenceMetadata,
   readPromptReaderTextAnchor,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
@@ -160,6 +162,10 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
       if (existing.type === NATIVE_RESOURCE_ATTACHMENT_PART_TYPE) {
         const metadata = readBuddyPromptPartMetadata(incoming)
         return metadata ? promptNativeResourceMetadataMatches(existing, metadata) : false
+      }
+      if (existing.type === NOTEBOOK_REFERENCE_PART_TYPE) {
+        const reference = readPromptNotebookReferenceMetadata(incoming.metadata)
+        return reference !== undefined && reference.text === parseString(existing.text)?.trim()
       }
       if (
         (existing.type === "reading-selection" || existing.type === SELECTION_CONTEXT_PART_TYPE) &&

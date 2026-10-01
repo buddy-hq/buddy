@@ -48,6 +48,8 @@ export const WORKSPACE_FILE_REFERENCE_PART_TYPE = "workspace-file-reference" as 
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const RESOURCE_REFERENCE_PART_TYPE = "resource-reference" as const
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
+export const NOTEBOOK_REFERENCE_PART_TYPE = "notebook-reference" as const
+// Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const READING_SELECTION_PART_TYPE = "reading-selection" as const
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const SELECTION_CONTEXT_PART_TYPE = "selection-context" as const
@@ -81,6 +83,18 @@ export type OpenCodeReferencePart = {
 export type ResourceReferencePart = {
   type: typeof RESOURCE_REFERENCE_PART_TYPE
   key: string
+}
+
+/**
+ * A notebook item mentioned in the composer: a chat, note, Browser tab, or Bench object. The
+ * model reads `text`, the item's locator; the transcript draws a chip from `title` and `kind`.
+ */
+export type NotebookReferencePart = {
+  type: typeof NOTEBOOK_REFERENCE_PART_TYPE
+  text: string
+  title: string
+  kind: string
+  url?: string
 }
 
 export type ReadingSelectionPart = {
@@ -184,6 +198,12 @@ export async function normalizePromptParts(input: {
           part: resourceReference,
         })),
       )
+      continue
+    }
+
+    const notebookReference = parseNotebookReferencePart(part)
+    if (notebookReference) {
+      normalizedParts.push({ ...notebookReference })
       continue
     }
 
@@ -560,6 +580,20 @@ function parseResourceReferencePart<T>(part: T): ResourceReferencePart | undefin
   }
 }
 
+function parseNotebookReferencePart<T>(part: T): NotebookReferencePart | undefined {
+  const object = parseJsonObject(part)
+  if (object === undefined || object.type !== NOTEBOOK_REFERENCE_PART_TYPE) return undefined
+  const text = parseNonEmptyPromptString(object.text)
+  const title = parseNonEmptyPromptString(object.title)
+  const kind = parseNonEmptyPromptString(object.kind)
+  if (text === undefined || title === undefined || kind === undefined) return undefined
+  const url = parseNonEmptyPromptString(object.url)
+  return Object.assign(
+    { type: NOTEBOOK_REFERENCE_PART_TYPE, text, title, kind },
+    url !== undefined ? { url } : undefined,
+  )
+}
+
 function parseReadingSelectionPart<T>(part: T): TJsonObject | undefined {
   const object = parseJsonObject(part)
   if (object === undefined || object.type !== READING_SELECTION_PART_TYPE) return undefined
@@ -807,6 +841,17 @@ export function flattenPromptPartsForRuntime<T>(
           metadata: {
             [BUDDY_PROMPT_PART_METADATA_KEY]: citationPromptPart(citation),
           },
+        },
+      ]
+    }
+
+    const notebookReference = parseNotebookReferencePart(part)
+    if (notebookReference) {
+      return [
+        {
+          type: PROMPT_PART_TYPE_TEXT,
+          text: notebookReference.text,
+          metadata: { [BUDDY_PROMPT_PART_METADATA_KEY]: { ...notebookReference } },
         },
       ]
     }

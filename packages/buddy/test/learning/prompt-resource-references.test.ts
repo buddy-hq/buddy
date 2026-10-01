@@ -19,6 +19,7 @@ import {
 import {
   BUDDY_PROMPT_PART_METADATA_KEY,
   flattenPromptPartsForRuntime,
+  NOTEBOOK_REFERENCE_PART_TYPE,
   OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
@@ -341,6 +342,22 @@ describe("message prompt resource references", () => {
             headingPath: ["Worksheet", "Prompt"],
           },
         },
+      },
+    ])
+  })
+
+  test("gives the model a notebook reference's locator and keeps the reference for the transcript", () => {
+    const reference = {
+      type: NOTEBOOK_REFERENCE_PART_TYPE,
+      text: "_chat.tsx (media-presentation: 01KZGMGX84CM3G9Q35SQ46GN24)",
+      title: "_chat.tsx",
+      kind: "media-presentation",
+    }
+    expect(flattenPromptPartsForRuntime([reference])).toEqual([
+      {
+        type: "text",
+        text: reference.text,
+        metadata: { [BUDDY_PROMPT_PART_METADATA_KEY]: reference },
       },
     ])
   })

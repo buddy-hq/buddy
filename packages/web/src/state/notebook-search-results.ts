@@ -85,7 +85,7 @@ function notebookSearchResultFromWorkspaceObject(
   if (!kind) return undefined
 
   const updatedAt = parseNotebookSearchTimestamp(object.updatedAt)
-  return {
+  const result: NotebookSearchResult = {
     id: kind === "source" ? `source:${object.objectID}` : `${kind}:${object.objectID}`,
     kind,
     title: object.title,
@@ -98,6 +98,9 @@ function notebookSearchResultFromWorkspaceObject(
       objectID: object.objectID,
     },
   }
+  const presentsFile = object.filePath ? normalizeRelativePath(object.filePath) : ""
+  if (presentsFile) result.presentsFile = presentsFile
+  return result
 }
 
 /**

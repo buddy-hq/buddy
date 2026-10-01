@@ -21,6 +21,10 @@ import {
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
 import type { MessagePart } from "@/state/chat-types"
+import {
+  readPromptNotebookReferenceMetadata,
+  readPromptNotebookReferencePart,
+} from "@/components/prompt/prompt-types"
 
 import type { UserSectionProps } from "../types"
 import { parseTString } from "../tools/types"
@@ -64,6 +68,10 @@ function isStandaloneReferencePart(part: MessagePart): part is StandaloneReferen
     isChatWorkspaceFileReferencePart(part) ||
     isChatOpenCodeReferencePart(part)
   )
+}
+
+function collapseDisplayWhitespace(text: string) {
+  return text.replace(/[ \t]{2,}/g, " ").trim()
 }
 
 function hasTextSource(part: ChatAgentPart | ChatFilePart) {
@@ -134,18 +142,28 @@ export const UserSection = memo(function UserSection({
       ]),
     [userAgentParts, userInlineFileParts, userOpenCodeReferenceParts, userWorkspaceReferenceParts],
   )
+  // Sent, a reference is a text part tagged with metadata; still optimistic, it is the composer's part.
+  const notebookReferences = useMemo(
+    () =>
+      userParts.flatMap((part) => {
+        const reference =
+          readPromptNotebookReferenceMetadata(part.metadata) ??
+          readPromptNotebookReferencePart(part)
+        return reference ? [{ ...reference, text: collapseDisplayWhitespace(reference.text) }] : []
+      }),
+    [userParts],
+  )
   const combinedTextPart = useMemo(() => {
     const displayParts = userParts.flatMap((part) => {
       if (isVisibleUserTextPart(part)) return [part.text]
+      const optimisticReference = readPromptNotebookReferencePart(part)
+      if (optimisticReference) return [optimisticReference.text]
       if (isStandaloneReferencePart(part) && standaloneReferenceParts.has(part)) {
         return [` ${getReferenceText(part)} `]
       }
       return []
     })
-    const text = displayParts
-      .join("")
-      .replace(/[ \t]{2,}/g, " ")
-      .trim()
+    const text = collapseDisplayWhitespace(displayParts.join(""))
     if (!text && userSelectionContextParts.length === 0) return undefined
     const firstPart = userTextParts[0] ?? userParts.find(isChatTextPart)
     if (!firstPart) {
@@ -223,6 +241,7 @@ export const UserSection = memo(function UserSection({
             references={userInlineFileParts}
             agents={userAgentParts}
             inlineReferences={inlineReferences}
+            notebookReferences={notebookReferences}
             providers={providers}
             onQuoteMessage={
               onQuoteMessage && quoteText

@@ -1,6 +1,7 @@
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_SKILL,
+  NOTEBOOK_REFERENCE_PART_TYPE,
   OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
@@ -22,6 +23,7 @@ function isStructuredPromptNode(node: Node): boolean {
     node.dataset.type === PROMPT_PART_TYPE_AGENT ||
     node.dataset.type === PROMPT_PART_TYPE_SKILL ||
     node.dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
+    node.dataset.type === NOTEBOOK_REFERENCE_PART_TYPE ||
     node.dataset.type === SELECTION_CONTEXT_PART_TYPE ||
     node.dataset.type === READING_SELECTION_PART_TYPE
   )

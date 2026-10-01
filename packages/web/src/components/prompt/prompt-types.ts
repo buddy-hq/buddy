@@ -99,6 +99,8 @@ export const OPENCODE_REFERENCE_PART_TYPE = "opencode-reference" as const
 export const WORKSPACE_FILE_REFERENCE_PART_TYPE = "workspace-file-reference" as const
 export const RESOURCE_REFERENCE_PART_TYPE = "resource-reference" as const
 // Sync with packages/buddy/src/learning/prompt/workspace-file-references.ts.
+export const NOTEBOOK_REFERENCE_PART_TYPE = "notebook-reference" as const
+// Sync with packages/buddy/src/learning/prompt/workspace-file-references.ts.
 export const READING_SELECTION_PART_TYPE = "reading-selection" as const
 // Sync with packages/buddy/src/learning/prompt/workspace-file-references.ts.
 export const SELECTION_CONTEXT_PART_TYPE = "selection-context" as const
@@ -168,6 +170,19 @@ export type PromptWorkspaceFileReferencePart = {
 export type PromptResourceReferencePart = {
   type: typeof RESOURCE_REFERENCE_PART_TYPE
   key: string
+}
+
+/**
+ * A notebook item mentioned with @ that has no file or source of its own: a chat, note, Browser
+ * tab, or Bench object. The model reads `text`, the item's locator; the composer and transcript
+ * draw a chip from `title` and `kind` (`chat`, `note`, `browser`, or an object kind).
+ */
+export type PromptNotebookReferencePart = {
+  type: typeof NOTEBOOK_REFERENCE_PART_TYPE
+  text: string
+  title: string
+  kind: string
+  url?: string
 }
 
 export type PromptReadingSelectionPart = {
@@ -493,6 +508,32 @@ export function readPromptTextFileAttachmentMetadata<TMetadata>(
   }
 }
 
+/** Reads a notebook reference off a part, or off the metadata the backend sends it back with. */
+export function readPromptNotebookReferencePart<TValue>(
+  value: TValue,
+): PromptNotebookReferencePart | undefined {
+  const candidate = parseTJsonObject(value)
+  if (!candidate || candidate.type !== NOTEBOOK_REFERENCE_PART_TYPE) return undefined
+  const text = parseTNonEmptyString(candidate.text)
+  const title = parseTNonEmptyString(candidate.title)
+  const kind = parseTNonEmptyString(candidate.kind)
+  if (!text || !title || !kind) return undefined
+  const url = parseTNonEmptyString(candidate.url)
+  return Object.assign(
+    { type: NOTEBOOK_REFERENCE_PART_TYPE, text, title, kind },
+    url ? { url } : undefined,
+  )
+}
+
+export function readPromptNotebookReferenceMetadata<TMetadata>(
+  metadata: TMetadata,
+): PromptNotebookReferencePart | undefined {
+  const record = parseTJsonObject(metadata)
+  return record
+    ? readPromptNotebookReferencePart(record[BUDDY_PROMPT_PART_METADATA_KEY])
+    : undefined
+}
+
 export type PromptAttachmentPart = PromptTextPart | PromptFilePart
 
 export type PromptComposerPart =
@@ -502,6 +543,7 @@ export type PromptComposerPart =
   | PromptOpenCodeReferencePart
   | PromptWorkspaceFileReferencePart
   | PromptResourceReferencePart
+  | PromptNotebookReferencePart
   | PromptReadingSelectionPart
   | PromptSelectionContextPart
 
@@ -511,6 +553,7 @@ export type PromptSubmissionPart =
   | PromptOpenCodeReferencePart
   | PromptWorkspaceFileReferencePart
   | PromptResourceReferencePart
+  | PromptNotebookReferencePart
   | PromptReadingSelectionPart
   | PromptSelectionContextPart
   | PromptNativeResourceAttachmentPart

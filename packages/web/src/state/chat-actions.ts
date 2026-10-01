@@ -2897,6 +2897,13 @@ export class ProjectExplorerFileVersionConflictError extends Error {
   }
 }
 
+export class ProjectExplorerUnsupportedFileError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "ProjectExplorerUnsupportedFileError"
+  }
+}
+
 export async function listProjectExplorerDirectory(input: {
   directory: string
   path: string
@@ -2924,6 +2931,9 @@ export async function readProjectExplorerEditableFile(input: {
   const response = await getBuddyClient(input.directory).explorer.file.edit.read({
     path: input.path,
   })
+  if (response.response?.status === 415) {
+    throw new ProjectExplorerUnsupportedFileError(buddyResultMessage(response))
+  }
   return requireBuddyData(response)
 }
 

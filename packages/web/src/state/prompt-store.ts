@@ -27,6 +27,7 @@ import {
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
+  readPromptNotebookReferencePart,
   readPromptReaderTextAnchor,
   type PromptComposerAttachment,
   type PromptComposerPart,
@@ -246,6 +247,8 @@ function parsePromptComposerPart<TValue>(value: TValue): PromptComposerPart | un
     const key = parseStringValue(record.key)
     return key !== undefined ? { type: RESOURCE_REFERENCE_PART_TYPE, key } : undefined
   }
+  const notebookReference = readPromptNotebookReferencePart(record)
+  if (notebookReference) return notebookReference
   if (type === READING_SELECTION_PART_TYPE) {
     const text = parseStringValue(record.text)
     if (text === undefined) return undefined

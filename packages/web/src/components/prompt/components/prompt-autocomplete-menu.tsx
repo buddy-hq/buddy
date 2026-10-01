@@ -21,11 +21,13 @@ import {
   type AppIcon,
 } from "@/icons/app-icons"
 import { FileTypeIcon } from "../../files/file-type-icon"
+import { BenchItemIcon, searchResultIconSubject } from "@/components/bench/bench-item-icon"
 import { SkillIconMark } from "../../skills/skill-icon-mark"
 import type { SkillPresentationLookup } from "../../skills/skill-presentation"
 import { language } from "@/context/language"
 import { basename, dirname } from "../../chat/utils/path"
 import type { MentionOption } from "../mention-autocomplete"
+import { notebookMentionAttachesContent } from "../prompt-parts"
 import {
   COMPACT_SLASH_COMMAND_NAME,
   FORK_SLASH_COMMAND_NAME,
@@ -106,12 +108,14 @@ function slashGroupHeader(command: SlashCommandOption): string | null {
 }
 
 function mentionGroupKey(option: MentionOption): string {
+  if (option.type === "notebook") return "notebook"
   if (option.type === "reference") return "reference"
   if (option.type === "agent") return "agent"
   return option.recent ? "recent" : "file"
 }
 
 function mentionGroupHeader(option: MentionOption): string {
+  if (option.type === "notebook") return "Notebook"
   if (option.type === "reference") return language.t("prompt.autocomplete.group.references")
   if (option.type === "agent") return language.t("prompt.autocomplete.group.agents")
   return option.recent
@@ -120,6 +124,7 @@ function mentionGroupHeader(option: MentionOption): string {
 }
 
 function getMentionOptionKey(option: MentionOption): string {
+  if (option.type === "notebook") return option.result.id
   if (option.type === "agent") return `agent:${option.name}`
   if (option.type === "reference") return `reference:${option.name}`
   return `file:${option.path}`
@@ -293,9 +298,17 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                           (option.recent
                             ? language.t("prompt.autocomplete.recentFile")
                             : undefined))
-                        : option.description
+                        : option.type === "notebook"
+                          ? notebookMentionAttachesContent(option)
+                            ? option.result.metadata
+                            : `${option.result.metadata} · reference only`
+                          : option.description
                     const primary =
-                      option.type === "file" ? (fileName ?? option.path) : `@${option.name}`
+                      option.type === "file"
+                        ? (fileName ?? option.path)
+                        : option.type === "notebook"
+                          ? option.result.title
+                          : `@${option.name}`
                     return (
                       <CommandItem
                         key={row.key}
@@ -309,7 +322,12 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                         onMouseDown={(event) => event.preventDefault()}
                         onSelect={() => props.onApplyMention(option)}
                       >
-                        {option.type === "agent" ? (
+                        {option.type === "notebook" ? (
+                          <BenchItemIcon
+                            subject={searchResultIconSubject(option.result)}
+                            className="size-4 shrink-0 object-contain"
+                          />
+                        ) : option.type === "agent" ? (
                           <Bot className={cn(ICON_CLASS, active && ICON_ACTIVE_CLASS)} />
                         ) : option.type === "reference" || isDirectory ? (
                           <FolderOpen className={cn(ICON_CLASS, active && ICON_ACTIVE_CLASS)} />

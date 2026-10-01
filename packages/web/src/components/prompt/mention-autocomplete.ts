@@ -1,4 +1,5 @@
 import { PROMPT_STRUCTURED_MASK_CHAR } from "./prompt-types"
+import type { NotebookSearchResult } from "@/state/notebook-search"
 
 export type MentionableAgent = {
   name: string
@@ -18,6 +19,7 @@ export type MentionableReference = {
 }
 
 export type MentionOption =
+  | { type: "notebook"; result: NotebookSearchResult }
   | {
       type: "agent"
       name: string
@@ -35,6 +37,20 @@ export type MentionOption =
       path: string
       description?: string
     }
+
+/** Identifies a row across renders, so late results never move the highlight to another row. */
+export function mentionOptionIdentity(option: MentionOption): string {
+  switch (option.type) {
+    case "notebook":
+      return `notebook:${option.result.id}`
+    case "agent":
+      return `agent:${option.name}`
+    case "file":
+      return `file:${option.path}`
+    case "reference":
+      return `reference:${option.name}:${option.path}`
+  }
+}
 
 export type MentionMatch = {
   start: number
@@ -91,8 +107,13 @@ export function filterMentionableAgents(agents: MentionableAgent[], query: strin
     })
 }
 
+// Folder and recent paths can be stored decomposed (macOS), while typed queries arrive composed.
+function normalizeFileMentionText(text: string) {
+  return text.normalize("NFC").toLowerCase()
+}
+
 function fileMentionScore(file: MentionableFile, query: string) {
-  const path = file.path.toLowerCase()
+  const path = normalizeFileMentionText(file.path)
   if (!query) return file.recent ? 0 : 1
   if (path.startsWith(query)) return file.recent ? 0 : 1
   if (path.includes(`/${query}`)) return file.recent ? 1 : 2
@@ -100,13 +121,23 @@ function fileMentionScore(file: MentionableFile, query: string) {
   return 4
 }
 
+export function isFolderPrefixMention(option: MentionOption, query: string) {
+  const normalized = normalizeFileMentionText(query.trim())
+  return (
+    option.type === "file" &&
+    option.path.endsWith("/") &&
+    normalized.length > 0 &&
+    normalizeFileMentionText(option.path).startsWith(normalized)
+  )
+}
+
 export function filterMentionableFiles(files: MentionableFile[], query: string) {
-  const normalized = query.trim().toLowerCase()
+  const normalized = normalizeFileMentionText(query.trim())
 
   return files
     .filter((file) => {
       if (!normalized) return true
-      return file.path.toLowerCase().includes(normalized)
+      return normalizeFileMentionText(file.path).includes(normalized)
     })
     .toSorted((left, right) => {
       const scoreDiff = fileMentionScore(left, normalized) - fileMentionScore(right, normalized)

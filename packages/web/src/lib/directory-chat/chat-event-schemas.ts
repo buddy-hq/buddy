@@ -98,6 +98,17 @@ export const MessageInfoEventSchema = z.union([
   AssistantMessageInfoSchema,
 ]) satisfies z.ZodType<MessageInfo>
 
+/** A finished tool call that can create, move, or delete notebook files. */
+export const FileChangingToolCompletionSchema = z.looseObject({
+  type: z.literal("tool"),
+  tool: z.enum(["write", "edit", "apply_patch", "bash"]),
+  state: z.looseObject({
+    status: z.literal("completed"),
+    // Compaction re-saves old finished calls with this stamp; they change no files.
+    time: z.looseObject({ compacted: z.never().optional() }).optional(),
+  }),
+})
+
 export const MessagePartEventSchema = z.looseObject({
   id: z.string(),
   sessionID: z.string(),
