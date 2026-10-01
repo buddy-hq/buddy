@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { EventEmitter } from "node:events"
 import {
   concealPendingQuitWindow,
   createQuitShortcutHandler,
@@ -353,5 +354,53 @@ describe("concealPendingQuitWindow", () => {
     const { window, calls } = fakeWindow({ destroyed: true })
     concealPendingQuitWindow(window)
     expect(calls).toEqual([])
+  })
+
+  test("reveals the target when a different window prevents unload and removes every listener", () => {
+    const { window, calls } = fakeWindow({})
+    const [targetContents, blockerContents, siblingContents] = [
+      new EventEmitter(),
+      new EventEmitter(),
+      new EventEmitter(),
+    ]
+
+    concealPendingQuitWindow(window, [targetContents, blockerContents, siblingContents])
+    expect(calls).toEqual(["opacity:0"])
+
+    blockerContents.emit("will-prevent-unload")
+
+    expect(calls).toEqual(["opacity:0", "opacity:1"])
+    expect(targetContents.listenerCount("will-prevent-unload")).toBe(0)
+    expect(blockerContents.listenerCount("will-prevent-unload")).toBe(0)
+    expect(siblingContents.listenerCount("will-prevent-unload")).toBe(0)
+  })
+
+  test("does not retain listeners across cancelled quit attempts", () => {
+    const { window, calls } = fakeWindow({})
+    const sources = [new EventEmitter(), new EventEmitter()]
+
+    concealPendingQuitWindow(window, sources)
+    sources[1].emit("will-prevent-unload")
+    expect(sources.map((source) => source.listenerCount("will-prevent-unload"))).toEqual([0, 0])
+
+    concealPendingQuitWindow(window, sources)
+    expect(sources.map((source) => source.listenerCount("will-prevent-unload"))).toEqual([1, 1])
+    sources[1].emit("will-prevent-unload")
+
+    expect(calls).toEqual(["opacity:0", "opacity:1", "opacity:0", "opacity:1"])
+    expect(sources.map((source) => source.listenerCount("will-prevent-unload"))).toEqual([0, 0])
+  })
+
+  test("cleans listeners without revealing a destroyed target", () => {
+    const state = { destroyed: false }
+    const { window, calls } = fakeWindow(state)
+    const sources = [new EventEmitter(), new EventEmitter()]
+
+    concealPendingQuitWindow(window, sources)
+    state.destroyed = true
+    sources[1].emit("will-prevent-unload")
+
+    expect(calls).toEqual(["opacity:0"])
+    expect(sources.map((source) => source.listenerCount("will-prevent-unload"))).toEqual([0, 0])
   })
 })

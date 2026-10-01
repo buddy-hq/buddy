@@ -45,12 +45,32 @@ type TConcealableWindow = {
   setOpacity: (opacity: number) => void
 }
 
+type TWillPreventUnloadEventSource = {
+  once(event: "will-prevent-unload", listener: () => void): void
+  removeListener(event: "will-prevent-unload", listener: () => void): void
+}
+
 /**
  * Makes a window that is about to quit disappear while it keeps keyboard focus, so the rest of
  * the physical Cmd+Q hold cannot reach whichever app would be focused next.
  */
-export function concealPendingQuitWindow(window: TConcealableWindow): void {
+export function concealPendingQuitWindow(
+  window: TConcealableWindow,
+  unloadEventSources: readonly TWillPreventUnloadEventSource[] = [],
+): void {
   if (window.isDestroyed()) return
+
+  const revealAfterPreventedUnload = () => {
+    for (const source of unloadEventSources) {
+      source.removeListener("will-prevent-unload", revealAfterPreventedUnload)
+    }
+    if (!window.isDestroyed()) window.setOpacity(1)
+  }
+
+  for (const source of unloadEventSources) {
+    source.once("will-prevent-unload", revealAfterPreventedUnload)
+  }
+
   if (window.isFullScreen()) window.setFullScreen(false)
   window.setOpacity(0)
 }
