@@ -280,8 +280,17 @@ export function createDesktopPlatform(): Platform {
         .map((path) => normalizeDirectory(path))
         .filter((path) => path.length > 0)
     },
+    listFileApplications(path) {
+      return (
+        window.api.listFileApplications?.(path) ??
+        Promise.resolve({ applications: [], defaultApplication: null })
+      )
+    },
     async openPath(path, app) {
       await window.api.openPath(path, app)
+    },
+    closeWindow() {
+      window.api.closeWindow?.()
     },
     async revealPath(path) {
       await window.api.revealPath(path)

@@ -5,11 +5,16 @@
     "composite": false,
     "declaration": false,
     "declarationMap": false,
+    "jsx": "react-jsx",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "moduleResolution": "bundler",
     "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*", "../web/src/*"],
+      "@buddy/web/*": ["../web/src/*"]
+    },
     "resolveJsonModule": true,
     "types": ["bun", "node", "electron"]
   },
-  "include": ["test/**/*.ts"]
+  "include": ["test/**/*.ts", "src/renderer/env.d.ts"]
 }

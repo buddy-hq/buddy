@@ -2,6 +2,9 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuItem,
   DropdownMenuTrigger,
   toast,
@@ -9,12 +12,14 @@ import {
 import {
   AlertTriangleIcon,
   ClipboardCopyIcon,
-  EllipsisIcon,
+  CheckIcon,
+  ChevronDownIcon,
   ExternalLinkIcon,
   FolderOpenIcon,
 } from "@/icons/app-icons"
+import { useEffect, useMemo, useState } from "react"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
-import { usePlatform } from "@/context/platform"
+import { usePlatform, type FileApplication } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"
 import { absoluteWorkspaceFilePath, fileNameFromPath } from "@/lib/workspace-file-paths"
 
@@ -33,64 +38,164 @@ function runWorkspaceFileAction(action: () => Promise<void>, successMessage?: st
   )
 }
 
+const DEFAULT_APPLICATION_ID = "default"
+const PREFERRED_APPLICATION_KEY = "preferred-application"
+
+function ApplicationIcon(props: { icon: string | null }) {
+  return props.icon ? (
+    <img src={props.icon} alt="" className="size-4 shrink-0 object-contain" aria-hidden />
+  ) : (
+    <ExternalLinkIcon aria-hidden data-icon="inline-start" />
+  )
+}
+
+/** Opens a workspace file with the last chosen installed app and exposes native file actions. */
 export function WorkspaceFileActionsMenu(props: { directory: string; path: string }) {
   const platform = usePlatform()
-  const absolutePath = absoluteWorkspaceFilePath({
-    directory: props.directory,
-    path: props.path,
-  })
+  const storage = useMemo(() => platform.storage?.("workspace-file-actions"), [platform])
+  const [applications, setApplications] = useState<readonly FileApplication[]>([])
+  const [defaultApplication, setDefaultApplication] = useState<FileApplication | null>(null)
+  const [preferredId, setPreferredId] = useState<string | null>(null)
+  const [hydrated, setHydrated] = useState(false)
+  const [opening, setOpening] = useState(false)
+  const absolutePath = absoluteWorkspaceFilePath({ directory: props.directory, path: props.path })
+  const selectedApplication =
+    preferredId && preferredId !== DEFAULT_APPLICATION_ID
+      ? applications.find((application) => application.id === preferredId)
+      : undefined
+  const selectedName = selectedApplication?.name ?? defaultApplication?.name ?? "default app"
   const revealLabel = platform.os === "macos" ? "Reveal in Finder" : "Reveal in File Explorer"
 
+  useEffect(() => {
+    let active = true
+    setHydrated(false)
+    void Promise.allSettled([
+      platform.listFileApplications?.(absolutePath) ??
+        Promise.resolve({ applications: [], defaultApplication: null }),
+      Promise.resolve(storage?.getItem(PREFERRED_APPLICATION_KEY)),
+    ]).then(([installed, stored]) => {
+      if (!active) return
+      if (installed.status === "fulfilled") {
+        setApplications(installed.value.applications)
+        setDefaultApplication(installed.value.defaultApplication)
+      } else toast.error(stringifyError(installed.reason))
+      if (stored.status === "fulfilled") setPreferredId(stored.value ?? null)
+      else toast.error(stringifyError(stored.reason))
+      setHydrated(true)
+    })
+    return () => {
+      active = false
+    }
+  }, [absolutePath, platform, storage])
+
+  const openInApplication = (application?: FileApplication) => {
+    const openPath = platform.openPath
+    if (!openPath || !hydrated || opening) return
+    setOpening(true)
+    void openPath(absolutePath, application?.path)
+      .then(async () => {
+        const id = application?.id ?? DEFAULT_APPLICATION_ID
+        setPreferredId(id)
+        try {
+          await storage?.setItem(PREFERRED_APPLICATION_KEY, id)
+        } catch (error) {
+          toast.error(`File opened, but the preferred app was not saved: ${stringifyError(error)}`)
+        }
+      })
+      .catch((error) => toast.error(stringifyError(error)))
+      .finally(() => setOpening(false))
+  }
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <div role="group" aria-label="Open file" className="flex shrink-0 items-center">
+      {platform.openPath ? (
         <Button
           type="button"
-          size="icon-sm"
-          variant="ghost"
-          aria-label="File actions"
-          title="File actions"
-          className="size-8 rounded-lg text-text-weak hover:bg-surface-base-hover hover:text-text-base"
+          size="sm"
+          variant="outline"
+          className="rounded-r-none"
+          aria-label={`Open in ${selectedName}`}
+          title={`Open in ${selectedName}`}
+          disabled={!hydrated || opening}
+          onClick={() => openInApplication(selectedApplication)}
         >
-          <EllipsisIcon className="size-4" aria-hidden />
+          <ApplicationIcon icon={selectedApplication?.icon ?? defaultApplication?.icon ?? null} />
+          Open
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {platform.openPath ? (
-          <DropdownMenuItem
-            onSelect={() =>
-              runWorkspaceFileAction(() => platform.openPath?.(absolutePath) ?? Promise.resolve())
-            }
+      ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="outline"
+            aria-label="Choose app and file actions"
+            title="Choose app and file actions"
+            className={platform.openPath ? "rounded-l-none border-l-0" : undefined}
           >
-            <ExternalLinkIcon className="size-4" aria-hidden />
-            Open in default app
-          </DropdownMenuItem>
-        ) : null}
-        {platform.revealPath ? (
-          <DropdownMenuItem
-            onSelect={() =>
-              runWorkspaceFileAction(() => platform.revealPath?.(absolutePath) ?? Promise.resolve())
-            }
-          >
-            <FolderOpenIcon className="size-4" aria-hidden />
-            {revealLabel}
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem
-          onSelect={() =>
-            runWorkspaceFileAction(() => navigator.clipboard.writeText(absolutePath), "Path copied")
-          }
-        >
-          <ClipboardCopyIcon className="size-4" aria-hidden />
-          Copy path
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <ChevronDownIcon aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-56">
+          {platform.openPath ? (
+            <>
+              <DropdownMenuLabel>Open in</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  disabled={!hydrated || opening}
+                  onSelect={() => openInApplication()}
+                >
+                  <ApplicationIcon icon={defaultApplication?.icon ?? null} />
+                  <span className="flex-1">Default app</span>
+                  {!selectedApplication ? <CheckIcon aria-hidden /> : null}
+                </DropdownMenuItem>
+                {applications.map((application) => (
+                  <DropdownMenuItem
+                    key={application.id}
+                    disabled={!hydrated || opening}
+                    onSelect={() => openInApplication(application)}
+                  >
+                    <ApplicationIcon icon={application.icon} />
+                    <span className="flex-1">{application.name}</span>
+                    {selectedApplication?.id === application.id ? <CheckIcon aria-hidden /> : null}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
+          <DropdownMenuGroup>
+            {platform.revealPath ? (
+              <DropdownMenuItem
+                onSelect={() =>
+                  runWorkspaceFileAction(
+                    () => platform.revealPath?.(absolutePath) ?? Promise.resolve(),
+                  )
+                }
+              >
+                <FolderOpenIcon aria-hidden />
+                {revealLabel}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem
+              onSelect={() =>
+                runWorkspaceFileAction(
+                  () => navigator.clipboard.writeText(absolutePath),
+                  "Path copied",
+                )
+              }
+            >
+              <ClipboardCopyIcon aria-hidden />
+              Copy path
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }
 
 export function WorkspaceFileLargeWarning(props: {
-  directory: string
   path: string
   sizeBytes: number
   onOpenAnyway: () => void
@@ -98,12 +203,7 @@ export function WorkspaceFileLargeWarning(props: {
   const title = fileNameFromPath(props.path) || props.path
 
   return (
-    <BenchViewerShell
-      title={title}
-      subtitle={props.path}
-      toolbar={<WorkspaceFileActionsMenu directory={props.directory} path={props.path} />}
-      contentClassName="overflow-hidden"
-    >
+    <BenchViewerShell title={title} contentClassName="overflow-hidden">
       <LargeFileWarningContent sizeBytes={props.sizeBytes} onOpenAnyway={props.onOpenAnyway} />
     </BenchViewerShell>
   )

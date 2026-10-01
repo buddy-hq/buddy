@@ -55,6 +55,19 @@ export type PlatformStateStorage = StateStorage & {
   flush?(): void | Promise<void>
 }
 
+/** A native application discovered on the desktop host. */
+export type FileApplication = {
+  readonly id: string
+  readonly name: string
+  readonly path: string
+  readonly icon: string | null
+}
+
+export type FileApplications = {
+  readonly applications: readonly FileApplication[]
+  readonly defaultApplication: FileApplication | null
+}
+
 export type Platform = {
   platform: "web" | "desktop"
   os?: "macos" | "windows" | "linux"
@@ -68,6 +81,10 @@ export type Platform = {
   resolveDroppedFilePath?(file: File): Promise<string | null> | string | null
   consumeDroppedFilePaths?(): Promise<string[]> | string[]
   openPath?(path: string, app?: string): Promise<void>
+  /** Lists installed applications that can open workspace files. */
+  listFileApplications?(path: string): Promise<FileApplications>
+  /** Closes the app window this page is in. */
+  closeWindow?(): void
   revealPath?(path: string): Promise<void>
   revealContainingFolder?(directory: string, path: string): Promise<void>
   trashNoteFile?(path: string): Promise<void>

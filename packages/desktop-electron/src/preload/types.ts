@@ -22,6 +22,19 @@ import type {
   BrowserImportSource,
 } from "@buddy/browser-contract/browser-import"
 
+/** An installed native application offered in the workspace file toolbar. */
+export type FileApplication = {
+  readonly id: string
+  readonly name: string
+  readonly path: string
+  readonly icon: string | null
+}
+
+export type FileApplications = {
+  readonly applications: readonly FileApplication[]
+  readonly defaultApplication: FileApplication | null
+}
+
 export type InitStep = { phase: "server_waiting" } | { phase: "sqlite_waiting" } | { phase: "done" }
 
 export type ServerReadyData = {
@@ -124,6 +137,9 @@ export type ElectronAPI = {
   exportMarkdownPdf: (input: MarkdownPdfExportInput) => Promise<string | null>
   openLink: (url: string) => void
   openPath: (path: string, app?: string) => Promise<void>
+  /** Lists installed native applications that accept file paths. */
+  /** Optional while an already-running renderer still uses an older preload. */
+  listFileApplications?: (path: string) => Promise<FileApplications>
   revealPath: (path: string) => Promise<void>
   revealContainingFolder: (directory: string, path: string) => Promise<void>
   trashNoteFile: (path: string) => Promise<void>
@@ -134,6 +150,8 @@ export type ElectronAPI = {
   getWindowFocused: () => Promise<boolean>
   setWindowFocus: () => Promise<void>
   showWindow: () => Promise<void>
+  /** Closes this window. Optional while an already-running renderer still uses an older preload. */
+  closeWindow?: () => void
   relaunch: () => void
   getZoomFactor: () => Promise<number>
   setZoomFactor: (factor: number) => Promise<void>
