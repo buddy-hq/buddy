@@ -151,8 +151,8 @@ Workspace for content that needs more room than chat: files, Markdown notes, rea
 Bench has a tab strip, like a web browser:
 
 - **+** (desktop: **Cmd/Ctrl+T**) opens a **New tab** page (New tab below). Open as many as needed.
-- **Cmd/Ctrl+1** … **Cmd/Ctrl+8** switch to that tab, counting from the left; **Cmd/Ctrl+9** switches to the last tab. A collapsed Bench opens on that tab.
-- Desktop **Cmd/Ctrl+W** closes the tab on screen. On Mac, with no tab on screen, **Cmd+W** closes the window (**Cmd+Shift+W** always does). Right-click a tab for **Close**, **Close others**, **Close to the right**, and **Close all**; these also close New tabs, which sit to the right.
+- **Cmd/Ctrl+1** … **Cmd/Ctrl+8** switch to that tab, counting from the left; **Cmd/Ctrl+9** switches to the last tab. A collapsed Bench opens on that tab. Holding **Cmd** (Mac) or **Ctrl** (Windows) shows each tab's key on the tab.
+- Desktop **Cmd/Ctrl+W** closes the tab on screen. On Mac, with no tab on screen, **Cmd+W** closes the window (**Cmd+Shift+W** always does). Right-click a tab for **Close**, **Close others**, **Close to the right**, and **Close all**; these also close New tabs, which sit to the right. The same menu copies what the tab holds: **Copy path** and **Copy contents** (text files and notes) with **Reveal in Finder / File Explorer** on desktop, **Copy address** on a web page, **Copy chat ID** on a chat, **Copy path** on a source or presentation, and **Copy source** on a diagram.
 - **Immersive mode** (button at the start of the docked strip) expands Bench to the full window, with chat floating over it. In immersive mode the tabs sit in the window titlebar.
 
 ### Layout
