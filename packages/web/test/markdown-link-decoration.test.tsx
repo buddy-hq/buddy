@@ -135,6 +135,48 @@ describe("markdown link decoration", () => {
     expect(container.querySelectorAll("a.presented-media-link")).toHaveLength(1)
   })
 
+  test("keeps units written with a slash as plain text", async () => {
+    const message = [
+      "Exactly — 99% at or under 28. You got it.",
+      "",
+      "Tiny polish: it's 99 orders at or under 28 *including* the p99 guy himself, plus 1 unlucky order above him at 58. But your logic is spot on.",
+      "",
+      "Going harder — flipping the metric on you:",
+      "",
+      "**Level 3 - new metric, full context:**",
+      "",
+      "We measured 200 LLM calls, sorted by *generation speed* slowest → fastest, in tokens/s (higher = faster).",
+      "",
+      "p50 = 17.88 tokens/s, p99 = 30.01 tokens/s, max = 32.98 tokens/s.",
+      "",
+      "What does that p99 = 30.01 tell you about the 200 calls? And why is *higher* better here, when *lower* was better for Swiggy?",
+    ].join("\n")
+
+    await renderMarkdown(message)
+
+    expect(
+      Array.from(container.querySelectorAll("a.presented-media-link"), (link) =>
+        link.getAttribute("data-presented-media-path"),
+      ),
+    ).toEqual([])
+    expect(container.textContent).toContain(
+      "p50 = 17.88 tokens/s, p99 = 30.01 tokens/s, max = 32.98 tokens/s.",
+    )
+  })
+
+  test("chips a real path that follows a unit written with a slash", async () => {
+    await renderMarkdown(
+      "p50 = 17.88 tokens/s, max = 32.98 tokens/s.\n\nSaved to /Users/example/Desktop/report.pdf",
+    )
+
+    const links = container.querySelectorAll("a.presented-media-link")
+    expect(links).toHaveLength(1)
+    expect(links[0]?.getAttribute("data-presented-media-path")).toBe(
+      "/Users/example/Desktop/report.pdf",
+    )
+    expect(container.textContent).toContain("p50 = 17.88 tokens/s, max = 32.98 tokens/s.")
+  })
+
   test("uses the theme-colored Markdown icon on file chips", async () => {
     await renderMarkdown("[Frames](~/Desktop/frames.md)")
 

@@ -151,6 +151,140 @@ describe("presented media path helpers", () => {
     ])
   })
 
+  test("keeps units, rates and ratios written with a slash as plain text", () => {
+    const proseWithSlash = [
+      "p50 = 17.88 tokens/s, p99 = 30.01 tokens/s, max = 32.98 tokens/s.",
+      "tokens/s, max = 32.98",
+      "Speed is 5 km/h and it costs 9.99",
+      "items/sec, max = 3.5 items/sec.",
+      "ratio 1/2 = 0.5",
+      "open 24/7 for 9.99",
+      "3/4=0.75",
+      "see api/v1.2",
+      "tokens/s",
+      "km/h",
+      "items/sec",
+      "and/or",
+      "24/7",
+      "1/2",
+    ]
+
+    expect(proseWithSlash.map((text) => [text, collectPresentedMediaCandidatePaths(text)])).toEqual(
+      proseWithSlash.map((text) => [text, []]),
+    )
+  })
+
+  test("stops a relative path before a decimal number that follows it", () => {
+    expect(collectPresentedMediaCandidatePaths("Saved generated/a.pdf. Next 3.5 tokens/s")).toEqual(
+      ["generated/a.pdf"],
+    )
+    expect(
+      collectPresentedMediaCandidatePaths("See ./artifacts/report 1.5.pdf and 3.5 tokens/s"),
+    ).toEqual(["./artifacts/report 1.5.pdf"])
+  })
+
+  test("keeps real path shapes with numbers, equals signs and spaced folders", () => {
+    expect(collectPresentedMediaCandidatePaths("/var/log/syslog.1")).toEqual(["/var/log/syslog.1"])
+    expect(collectPresentedMediaCandidatePaths("~/logs/app.2")).toEqual(["~/logs/app.2"])
+    expect(collectPresentedMediaCandidatePaths("C:\\logs\\app.3")).toEqual(["C:\\logs\\app.3"])
+    expect(
+      collectPresentedMediaCandidatePaths("p50 = 17.88 tokens/s, see /tmp/report.pdf"),
+    ).toEqual(["/tmp/report.pdf"])
+    expect(collectPresentedMediaCandidatePaths("docs/v1.2/guide.pdf")).toEqual([
+      "docs/v1.2/guide.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("generated/report v1.2.pdf")).toEqual([
+      "generated/report v1.2.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("2024/Q3 report.pdf")).toEqual([
+      "2024/Q3 report.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("reports/a=b.pdf")).toEqual(["reports/a=b.pdf"])
+    expect(collectPresentedMediaCandidatePaths("year=2024/month=01/part.parquet")).toEqual([
+      "year=2024/month=01/part.parquet",
+    ])
+    expect(collectPresentedMediaCandidatePaths("generated/My Folder/file.pdf")).toEqual([
+      "generated/My Folder/file.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("notes/Week 1/worksheet.pdf")).toEqual([
+      "notes/Week 1/worksheet.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("Week 2/data.csv")).toEqual(["Week 2/data.csv"])
+  })
+
+  test("stops a relative path at a sentence break", () => {
+    const cases: [string, string[]][] = [
+      ["Speed is 5 km/h. See README.md", []],
+      ["(Speed is 5 km/h. See README.md)", []],
+      ["Speed is 5 km/h. See notes/README.md", ["notes/README.md"]],
+      ["Speed is 5 km/h. See README.md and notes/a.md", ["notes/a.md"]],
+      ["Done. See generated/a.pdf", ["generated/a.pdf"]],
+      ["Saved generated/a.pdf. Next generated/b.pdf.", ["generated/a.pdf", "generated/b.pdf"]],
+      ["Plan: ok. Open Week 1/worksheet.pdf", ["Week 1/worksheet.pdf"]],
+      ["README.md", []],
+      ["See README.md", []],
+    ]
+
+    expect(cases.map(([text]) => [text, collectPresentedMediaCandidatePaths(text)])).toEqual(cases)
+  })
+
+  test("keeps periods inside spaced names from ending a relative path", () => {
+    const names = [
+      "generated/Dr. Smith.pdf",
+      "generated/John F. Kennedy - Profiles.pdf",
+      "generated/Tolkien, J.R.R. Collection/report.pdf",
+      "generated/report (v1. Final).pdf",
+      "generated/v1.2 final/report.pdf",
+      "generated/Vol. 2 notes.pdf",
+    ]
+
+    expect(names.map((text) => [text, collectPresentedMediaCandidatePaths(text)])).toEqual(
+      names.map((text) => [text, [text]]),
+    )
+  })
+
+  test("keeps two relative paths in one sentence as two paths", () => {
+    const cases: [string, string[]][] = [
+      ["Compare generated/a.pdf and generated/b.pdf", ["generated/a.pdf", "generated/b.pdf"]],
+      ["See notes/a.md, notes/b.md", ["notes/a.md", "notes/b.md"]],
+      ["See notes/a.md and notes/b.md.", ["notes/a.md", "notes/b.md"]],
+      ["See generated/a.pdf; generated/b.pdf", ["generated/a.pdf", "generated/b.pdf"]],
+      [
+        "Compare generated/a.pdf, generated/b.pdf and generated/c.pdf.",
+        ["generated/a.pdf", "generated/b.pdf", "generated/c.pdf"],
+      ],
+      ["Compare (generated/a.pdf) and (generated/b.pdf)", ["generated/a.pdf", "generated/b.pdf"]],
+      ["Open Week 1/a.pdf and Week 2/b.pdf", ["Week 1/a.pdf", "Week 2/b.pdf"]],
+      [
+        "generated/Smith, John/a.pdf and generated/Jones, Jane/b.pdf",
+        ["generated/Smith, John/a.pdf", "generated/Jones, Jane/b.pdf"],
+      ],
+    ]
+
+    expect(cases.map(([text]) => [text, collectPresentedMediaCandidatePaths(text)])).toEqual(cases)
+  })
+
+  test("keeps spaced relative names whole", () => {
+    const names = [
+      "Week 1/worksheet.pdf",
+      "generated/Command R+ Blog Header.png",
+      "generated/Mark Richards; Neal Ford - Fundamentals of Software Architecture.pdf",
+      "generated/Рильке, Райнер Мария - Letters to a Young Poet.epub",
+      "generated/report (1).pdf",
+      "notes/Week 1/worksheet.pdf",
+    ]
+
+    expect(names.map((text) => [text, collectPresentedMediaCandidatePaths(text)])).toEqual(
+      names.map((text) => [text, [text]]),
+    )
+    expect(collectPresentedMediaCandidatePaths("Open Week 1/worksheet.pdf")).toEqual([
+      "Week 1/worksheet.pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("Open generated/report (1).pdf please")).toEqual([
+      "generated/report (1).pdf",
+    ])
+  })
+
   test("bounds path scanning on oversized assistant text", () => {
     expect(collectPresentedMediaCandidatePaths(`${"a/b ".repeat(2000)}x.pdf`)).toEqual([])
   })
