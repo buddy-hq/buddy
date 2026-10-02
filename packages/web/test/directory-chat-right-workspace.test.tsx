@@ -37,10 +37,19 @@ import {
 } from "../src/state/directory-workspace-store"
 import { useStore } from "zustand"
 import { notesQueryKeys } from "../src/features/notes/queries"
+import type { NotesLibrary } from "../src/features/notes/api"
+import {
+  PlatformProvider,
+  createBrowserPlatform,
+  setRuntimePlatform,
+  type Platform,
+} from "../src/context/platform"
 import { useUiPreferences } from "../src/state/ui-preferences"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_RESOURCE_ID = "resource-1"
+const TEST_NOTE_ID = "01M0TK829PD2067YDMZ1Y8RCBF"
+const TEST_NOTE_STORAGE_DIRECTORY = "/home/Notes"
 const FLUSH_DELAY_MS = 0
 const CHAT_A_KEY = workspaceChatKeyForSession(undefined)
 const CHAT_B_KEY = workspaceChatKeyForSession("session-b")
@@ -248,6 +257,7 @@ describe("DirectoryChatRightWorkspace", () => {
     localStorage.clear()
     useUiPreferences.setState({ collapsedWorkspaceLists: {} })
     useHostedBrowserStore.getState().reset()
+    setRuntimePlatform(createBrowserPlatform())
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
@@ -716,5 +726,127 @@ describe("DirectoryChatRightWorkspace", () => {
     expect(
       container.querySelector('[data-component="right-workspace-bench-target"]'),
     ).not.toBeNull()
+  })
+
+  describe("note header path", () => {
+    const OPENED_NOTE_PATH = "Chat notes/QA checkpoint test.md"
+
+    function createNoteHeaderHarness() {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const actionPaths: string[] = []
+      const platform = {
+        ...createBrowserPlatform(),
+        listFileApplications: async (path: string) => {
+          actionPaths.push(path)
+          return { applications: [], defaultApplication: null }
+        },
+      } satisfies Platform
+
+      return {
+        actionPaths,
+        async publishLibrary(notes: { id: string; relativePath: string }[]) {
+          await act(async () => {
+            queryClient.setQueryData<NotesLibrary>(notesQueryKeys.library(TEST_DIRECTORY), {
+              directory: TEST_NOTE_STORAGE_DIRECTORY,
+              activeNotebookID: "notebook-1",
+              notes: notes.map((note) => ({
+                kind: "buddy",
+                id: note.id,
+                type: "buddy-note",
+                title: "Note",
+                relativePath: note.relativePath,
+                notebook: "Notebook",
+                notebookID: "notebook-1",
+                notebookAvailable: true,
+                updatedAt: 1,
+              })),
+            })
+            await flushEffects()
+          })
+        },
+        async render(noteID: string | undefined) {
+          await act(async () => {
+            root?.render(
+              <PlatformProvider value={platform}>
+                <QueryClientProvider client={queryClient}>
+                  <DirectoryChatRightWorkspaceContent
+                    hasBenchTarget
+                    bench={<div data-testid="bench-target">Note</div>}
+                    selectorContent={null}
+                    selectorDrawerWidth={0}
+                    fileView={{
+                      directory: TEST_DIRECTORY,
+                      kind: "note",
+                      path: OPENED_NOTE_PATH,
+                      noteID,
+                      active: true,
+                      showEmpty: false,
+                      drawer: null,
+                      treeOpen: false,
+                      onTreeOpenChange: () => undefined,
+                    }}
+                  />
+                </QueryClientProvider>
+              </PlatformProvider>,
+            )
+            await flushEffects()
+          })
+        },
+      }
+    }
+
+    function currentFileName() {
+      return container
+        ?.querySelector('nav[aria-label="Note path"] [aria-current="page"]')
+        ?.textContent?.trim()
+    }
+
+    test("follows a note's renamed file by id while its target keeps the opened path", async () => {
+      Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+      container = document.createElement("div")
+      document.body.appendChild(container)
+      root = createRoot(container)
+      const harness = createNoteHeaderHarness()
+      await harness.publishLibrary([{ id: TEST_NOTE_ID, relativePath: OPENED_NOTE_PATH }])
+
+      await harness.render(TEST_NOTE_ID)
+      expect(currentFileName()).toBe("QA checkpoint test.md")
+      expect(harness.actionPaths.at(-1)).toBe(`${TEST_NOTE_STORAGE_DIRECTORY}/${OPENED_NOTE_PATH}`)
+
+      await harness.publishLibrary([
+        { id: TEST_NOTE_ID, relativePath: "Chat notes/QA renamed chat alpha.md" },
+      ])
+      expect(currentFileName()).toBe("QA renamed chat alpha.md")
+      expect(harness.actionPaths.at(-1)).toBe(
+        `${TEST_NOTE_STORAGE_DIRECTORY}/Chat notes/QA renamed chat alpha.md`,
+      )
+
+      await harness.publishLibrary([
+        { id: TEST_NOTE_ID, relativePath: "Chat notes/QA manual note two.md" },
+      ])
+      expect(currentFileName()).toBe("QA manual note two.md")
+      expect(container.querySelector('nav[aria-label="Note path"]')?.textContent).not.toContain(
+        "QA checkpoint test",
+      )
+      expect(harness.actionPaths.at(-1)).toBe(
+        `${TEST_NOTE_STORAGE_DIRECTORY}/Chat notes/QA manual note two.md`,
+      )
+    })
+
+    test("keeps the target path for a note without an id or missing from the library", async () => {
+      Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+      container = document.createElement("div")
+      document.body.appendChild(container)
+      root = createRoot(container)
+      const harness = createNoteHeaderHarness()
+      await harness.publishLibrary([{ id: "other-note", relativePath: "Chat notes/Other note.md" }])
+
+      await harness.render(undefined)
+      expect(currentFileName()).toBe("QA checkpoint test.md")
+
+      await harness.render(TEST_NOTE_ID)
+      expect(currentFileName()).toBe("QA checkpoint test.md")
+      expect(harness.actionPaths.at(-1)).toBe(`${TEST_NOTE_STORAGE_DIRECTORY}/${OPENED_NOTE_PATH}`)
+    })
   })
 })
