@@ -27,7 +27,7 @@ import {
   processedResourcesQueryOptions,
 } from "@/state/resources-query"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
-import { parseSubagentSession } from "@/lib/session-family"
+import { parseSubagentSession, sessionTitlesByID } from "@/lib/session-family"
 import { normalizeRelativePath } from "@/lib/workspace-file-paths"
 import { notesLibraryQueryOptions } from "@/features/notes/queries"
 import { useNotebookFileSearch } from "@/state/notebook-file-search"
@@ -318,7 +318,7 @@ export function useNotebookSearch(input: NotebookSearchInput): NotebookSearch {
     const objectTitles = new Map(
       (objectsQuery.data?.objects ?? []).map((object) => [object.objectID, object.title]),
     )
-    const sessionTitles = new Map((sessions ?? []).map((session) => [session.id, session.title]))
+    const sessionTitles = sessionTitlesByID(sessions ?? [])
     const browserTitles = new Map<string, string>()
     for (const tab of openTabs) {
       if (tab.target.type !== "browser") continue

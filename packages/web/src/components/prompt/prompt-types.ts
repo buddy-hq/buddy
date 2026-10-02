@@ -183,6 +183,7 @@ export type PromptNotebookReferencePart = {
   title: string
   kind: string
   url?: string
+  objectID?: string
 }
 
 export type PromptReadingSelectionPart = {
@@ -519,9 +520,11 @@ export function readPromptNotebookReferencePart<TValue>(
   const kind = parseTNonEmptyString(candidate.kind)
   if (!text || !title || !kind) return undefined
   const url = parseTNonEmptyString(candidate.url)
+  const objectID = parseTNonEmptyString(candidate.objectID)
   return Object.assign(
     { type: NOTEBOOK_REFERENCE_PART_TYPE, text, title, kind },
     url ? { url } : undefined,
+    objectID ? { objectID } : undefined,
   )
 }
 

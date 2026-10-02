@@ -17,6 +17,7 @@ import {
   notebookReferenceIconSubject,
   searchResultIconSubject,
 } from "../bench/bench-item-icon"
+import type { BenchTabTarget } from "@/lib/bench-navigation"
 import type { MentionOption } from "./mention-autocomplete"
 import {
   readReaderTextAnchor,
@@ -108,10 +109,12 @@ function createNotebookReferencePart(input: {
   title: string
   kind: string
   url?: string
+  objectID?: string
 }): PromptNotebookReferencePart {
   return Object.assign(
     { type: NOTEBOOK_REFERENCE_PART_TYPE, text: input.text, title: input.title, kind: input.kind },
     input.url ? { url: input.url } : undefined,
+    input.objectID ? { objectID: input.objectID } : undefined,
   )
 }
 
@@ -287,7 +290,8 @@ export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptCom
         leftPart.text !== rightPart.text ||
         leftPart.title !== rightPart.title ||
         leftPart.kind !== rightPart.kind ||
-        leftPart.url !== rightPart.url
+        leftPart.url !== rightPart.url ||
+        leftPart.objectID !== rightPart.objectID
       ) {
         return false
       }
@@ -551,11 +555,15 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
 
     if (element.dataset.type === NOTEBOOK_REFERENCE_PART_TYPE) {
       flush()
-      const { text, title, kind, url } = element.dataset
+      const { text, title, kind, url, objectId } = element.dataset
       if (text && title && kind) {
         parts.push(
           createNotebookReferencePart(
-            Object.assign({ text, title, kind }, url ? { url } : undefined),
+            Object.assign(
+              { text, title, kind },
+              url ? { url } : undefined,
+              objectId ? { objectID: objectId } : undefined,
+            ),
           ),
         )
       }
@@ -849,6 +857,7 @@ export function createPromptPill(
     pill.dataset.title = part.title
     pill.dataset.kind = part.kind
     if (part.url) pill.dataset.url = part.url
+    if (part.objectID) pill.dataset.objectId = part.objectID
     pill.appendChild(
       createBenchItemIconElement(notebookReferenceIconSubject(part), PROMPT_PILL_ICON_CLASS),
     )
@@ -887,10 +896,12 @@ export function promptPartFromMentionOption(option: MentionOption): StructuredPi
         return createResourceReferencePart(tab.ref.objectID)
     }
     // Everything else (a chat, note, Browser tab, or Bench object) is a chip whose text is its locator.
+    const objectID = notebookMentionObjectID(option)
     return createNotebookReferencePart({
       text: notebookMentionLocator(option),
       title: option.result.title,
       ...notebookReferenceIcon(searchResultIconSubject(option.result)),
+      ...(objectID ? { objectID } : undefined),
     })
   }
   if (option.type === "agent") return createAgentPart(option.name)
@@ -911,15 +922,34 @@ export function notebookMentionAttachesContent(option: MentionOption): boolean {
   )
 }
 
+function notebookMentionObjectID(
+  option: Extract<MentionOption, { type: "notebook" }>,
+): string | undefined {
+  const target = option.result.target
+  if (target.type === "object") return target.objectID
+  if (target.type === "open-tab" && target.target.type === "object") {
+    return target.target.ref.objectID
+  }
+  return undefined
+}
+
+function openTabLocatorDetail(
+  tab: BenchTabTarget,
+  result: Extract<MentionOption, { type: "notebook" }>["result"],
+): string {
+  if (tab.type === "browser") return `; URL: ${result.metadata || tab.url}`
+  if (tab.type === "session") return `; chat: ${tab.sessionID}`
+  if (tab.type === "object") return `; ${tab.ref.kind}: ${tab.ref.objectID}`
+  return tab.root === "notes" ? `; note: ${tab.path}` : `; file: ${tab.path}`
+}
+
 export function notebookMentionLocator(
   option: Extract<MentionOption, { type: "notebook" }>,
 ): string {
   const { result } = option
   const target = result.target
   if (target.type === "open-tab") {
-    const page =
-      target.target.type === "browser" ? `; URL: ${result.metadata || target.target.url}` : ""
-    return `${result.title} (open Bench tab ${target.tabKey}${page})`
+    return `${result.title} (open Bench tab ${target.tabKey}${openTabLocatorDetail(target.target, result)})`
   }
   if (target.type === "note") return `${result.title} (note: ${target.relativePath})`
   if (target.type === "thread") return `${result.title} (chat: ${target.sessionID})`
