@@ -28,7 +28,15 @@ import {
   markdownBenchHistoryControlsPlugin,
   type MarkdownBenchHistoryControls,
 } from "@/components/bench/markdown/plugins/editor-runtime"
+import { buddyHardBreakPlugin } from "@/components/bench/markdown/plugins/hard-breaks"
+import { buddyFrontmatterPlugin } from "@/components/bench/markdown/plugins/frontmatter"
+import { buddyFormattingRunsPlugin } from "@/components/bench/markdown/plugins/formatting-runs"
+import { buddyListFidelityPlugin } from "@/components/bench/markdown/plugins/list-fidelity"
 import { buddyMathPlugin } from "@/components/bench/markdown/plugins/math"
+import { buddyMdxEsmPlugin } from "@/components/bench/markdown/plugins/mdx-esm"
+import { buddyObsidianPlainSyntaxPlugin } from "@/components/bench/markdown/plugins/obsidian-plain-syntax"
+import { buddyProseDirectivePlugin } from "@/components/bench/markdown/plugins/prose-directives"
+import { buddyRawHtmlPlugin } from "@/components/bench/markdown/plugins/raw-html"
 import { buddyMermaidPlugin } from "@/components/bench/markdown/plugins/mermaid"
 import {
   buddyObsidianWikiLinkPlugin,
@@ -78,13 +86,17 @@ export function useMarkdownBenchEditorPlugins(input: {
       }),
       headingsPlugin(),
       listsPlugin(),
+      buddyListFidelityPlugin(),
       quotePlugin(),
       thematicBreakPlugin(),
+      buddyHardBreakPlugin(),
+      buddyFormattingRunsPlugin(),
       buddyMathPlugin(),
-      ...(documentFormat === "markdown" ? [buddyMarkdownSvgPlugin()] : []),
+      ...(documentFormat === "markdown" ? [buddyMarkdownSvgPlugin(), buddyRawHtmlPlugin()] : []),
       buddyMermaidPlugin(),
       buddyChemistryPlugin(),
       buddyObsidianWikiLinkPlugin({ context: obsidianWikiLinkContext }),
+      buddyObsidianPlainSyntaxPlugin(),
       linkPlugin(),
       linkDialogPlugin({
         showLinkTitleField: true,
@@ -96,6 +108,7 @@ export function useMarkdownBenchEditorPlugins(input: {
         codeMirrorExtensions: BUDDY_CODE_MIRROR_EXTENSIONS,
       }),
       frontmatterPlugin(),
+      buddyFrontmatterPlugin(),
       imagePlugin({
         imagePreviewHandler: (src) =>
           Promise.resolve(
@@ -110,12 +123,14 @@ export function useMarkdownBenchEditorPlugins(input: {
       directivesPlugin({
         directiveDescriptors: MARKDOWN_BENCH_DIRECTIVE_DESCRIPTORS,
       }),
+      buddyProseDirectivePlugin(),
       ...(documentFormat === "mdx"
         ? [
             jsxPlugin({
               allowFragment: false,
               jsxComponentDescriptors: [GENERIC_MDX_COMPONENT_DESCRIPTOR],
             }),
+            buddyMdxEsmPlugin(),
           ]
         : []),
       markdownBenchErrorRecoveryPlugin({
