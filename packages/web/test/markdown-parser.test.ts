@@ -172,6 +172,35 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
     expect(html).toContain("$2.50 and then $3.00")
   })
 
+  test.each([false, true])(
+    "keeps currency before inline math when streaming is %j",
+    async (streaming) => {
+      const html = await parseMarkdownToHtml(
+        "Costs $5, equation $x$, key:value, http://example.com/a_b, नमस्ते 😀",
+        streaming,
+      )
+
+      expect(html).toContain("Costs $5, equation ")
+      expect(html).toContain('<annotation encoding="application/x-tex">x</annotation>')
+      expect(html.match(/class="katex(?:\s|")/gu)).toHaveLength(1)
+      expect(html).toContain("key:value")
+      expect(html).toContain("नमस्ते 😀")
+    },
+  )
+
+  test.each(["5", "2.50", "5 + 1", "5 x", "5, x", " 5 + 1 "])(
+    "keeps numeric inline math %j after currency",
+    async (expression) => {
+      const html = await parseMarkdownToHtml(`Costs $5, equation $${expression}$.`)
+
+      expect(html).toContain("Costs $5, equation ")
+      expect(html).toContain(
+        `<annotation encoding="application/x-tex">${expression.trim()}</annotation>`,
+      )
+      expect(html.match(/class="katex(?:\s|")/gu)).toHaveLength(1)
+    },
+  )
+
   test("does not render escaped dollar delimiters", async () => {
     const html = await parseMarkdownToHtml(String.raw`This is literal \$x$ but this is math $y$.`)
 
