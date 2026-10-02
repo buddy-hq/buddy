@@ -18,6 +18,7 @@ import type {
   InAppBrowserNewTabMessage,
   InAppBrowserProfileData,
   InAppBrowserShortcutMessage,
+  InAppBrowserShortcutModifierMessage,
 } from "@buddy/browser-contract"
 import type {
   BrowserImportRequest,
@@ -115,6 +116,8 @@ export type InAppBrowserPlatform = {
   onFavicon(cb: (message: InAppBrowserFaviconMessage) => void): () => void
   onAudio(cb: (message: InAppBrowserAudioMessage) => void): () => void
   onShortcut(cb: (message: InAppBrowserShortcutMessage) => void): () => void
+  /** Cmd/Ctrl held, interrupted, or let go while a Browser page has keyboard focus. */
+  onShortcutModifier(cb: (message: InAppBrowserShortcutModifierMessage) => void): () => void
   onNewTab(cb: (message: InAppBrowserNewTabMessage) => void): () => void
   onCitation(cb: (message: InAppBrowserCitationMessage) => void): () => void
   captureCitation(

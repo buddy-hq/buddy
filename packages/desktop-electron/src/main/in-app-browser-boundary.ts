@@ -5,10 +5,12 @@ import {
   isInAppBrowserTargetUrl,
   resolveAppShortcutID,
   resolveInAppBrowserShortcutID,
+  resolveShortcutModifierState,
   type AppShortcutID,
   type AppShortcutInput,
   type AppShortcutPlatform,
   type InAppBrowserShortcutID,
+  type InAppBrowserShortcutModifierState,
 } from "@buddy/browser-contract"
 import {
   parseInAppBrowserPartition,
@@ -64,12 +66,15 @@ export type InAppBrowserGuestBoundary = {
   openInNewTab(url: string): void
   sendMessage(message: string): void
   sendShortcut(shortcut: InAppBrowserShortcutID): void
+  /** Tells the host where the shortcut modifier stands, so its tab-key hints work over a page. */
+  sendShortcutModifier(state: InAppBrowserShortcutModifierState): void
   setWindowOpenHandler(
     handler: (details: InAppBrowserWindowOpenDetails) => InAppBrowserWindowOpenResponse,
   ): void
   onWillFrameNavigate(handler: (event: PreventableEvent, url: string) => void): Dispose
   onWillRedirect(handler: (event: PreventableEvent, url: string) => void): Dispose
   onBeforeInputEvent(handler: (event: PreventableEvent, input: AppShortcutInput) => void): Dispose
+  onBlur(handler: () => void): Dispose
   onDestroyed(handler: () => void): Dispose
 }
 
@@ -188,6 +193,8 @@ export function attachInAppBrowserGuestBoundary(
   const disposeNavigate = guest.onWillFrameNavigate(guardNavigation)
   const disposeRedirect = guest.onWillRedirect(guardNavigation)
   const disposeInput = guest.onBeforeInputEvent((event, input) => {
+    const modifierState = resolveShortcutModifierState(input, policy.platform)
+    if (modifierState) guest.sendShortcutModifier(modifierState)
     const browserShortcut = resolveInAppBrowserShortcutID(input, policy.platform)
     if (browserShortcut) {
       event.preventDefault()
@@ -199,10 +206,13 @@ export function attachInAppBrowserGuestBoundary(
     event.preventDefault()
     policy.onShortcut(shortcutID)
   })
+  // A page that loses focus never sees the modifier's key-up, as when Cmd+Tab leaves the app.
+  const disposeBlur = guest.onBlur(() => guest.sendShortcutModifier("released"))
   return () => {
     disposeNavigate()
     disposeRedirect()
     disposeInput()
+    disposeBlur()
   }
 }
 

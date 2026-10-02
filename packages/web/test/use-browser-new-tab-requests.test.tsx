@@ -26,6 +26,7 @@ const browser: InAppBrowserPlatform = {
   onFavicon: () => () => undefined,
   onAudio: () => () => undefined,
   onShortcut: () => () => undefined,
+  onShortcutModifier: () => () => undefined,
   onNewTab: (callback) => {
     deliverNewTab = callback
     return () => {
