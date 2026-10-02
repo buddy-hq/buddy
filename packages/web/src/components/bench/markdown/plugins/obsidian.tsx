@@ -476,7 +476,7 @@ function ObsidianEmbeddedNote(props: {
   )
 }
 
-function ObsidianWikiLinkView(props: { target: string; alias?: string; embed: boolean }) {
+export function ObsidianWikiLinkView(props: { target: string; alias?: string; embed: boolean }) {
   const context = useCellValue(obsidianWikiLinkContext$)
   const resolution = context.resolutions.get(props.target)
   const resolvedResolution =

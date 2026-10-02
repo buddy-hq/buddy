@@ -1,6 +1,6 @@
-import { Fragment, createContext, createElement, useContext, type ReactNode } from "react"
+import { Fragment, createContext, createElement, useContext, useMemo, type ReactNode } from "react"
 import type { JsxEditorProps } from "@mdxeditor/editor"
-import type { RootContent } from "mdast"
+import type { PhrasingContent, RootContent } from "mdast"
 import { resolveMarkdownBenchImageSrc } from "@/lib/markdown-bench-image-src"
 import { MARKDOWN_BENCH_IMAGE_SCREEN_CLASS_NAME } from "@/components/bench/markdown/image"
 
@@ -11,13 +11,9 @@ type MarkdownBenchIntrinsicContextValue = {
 }
 
 type SafeMarkdownRenderContext = {
+  htmlElementNames: ReadonlySet<string>
   imageContext: MarkdownBenchIntrinsicContextValue | null
   svg: boolean
-}
-
-const HTML_MARKDOWN_RENDER_CONTEXT: SafeMarkdownRenderContext = {
-  imageContext: null,
-  svg: false,
 }
 
 const MarkdownBenchIntrinsicContext = createContext<MarkdownBenchIntrinsicContextValue | null>(null)
@@ -107,6 +103,88 @@ const SAFE_SVG_ELEMENT_NAMES = new Set([
   "use",
 ])
 
+const RAW_HTML_ELEMENT_NAMES: ReadonlySet<string> = new Set([
+  ...SAFE_HTML_ELEMENT_NAMES,
+  "abbr",
+  "address",
+  "big",
+  "blockquote",
+  "caption",
+  "center",
+  "cite",
+  "code",
+  "col",
+  "colgroup",
+  "dd",
+  "del",
+  "dfn",
+  "dl",
+  "dt",
+  "font",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "hgroup",
+  "ins",
+  "kbd",
+  "mark",
+  "nav",
+  "pre",
+  "q",
+  "s",
+  "samp",
+  "strike",
+  "sub",
+  "sup",
+  "tfoot",
+  "time",
+  "tt",
+  "var",
+  "wbr",
+])
+
+const RAW_HTML_DROPPED_ELEMENT_NAMES = new Set([
+  "applet",
+  "audio",
+  "base",
+  "button",
+  "canvas",
+  "dialog",
+  "embed",
+  "form",
+  "frame",
+  "frameset",
+  "iframe",
+  "input",
+  "link",
+  "math",
+  "meta",
+  "noscript",
+  "object",
+  "portal",
+  "script",
+  "select",
+  "slot",
+  "style",
+  "template",
+  "textarea",
+  "video",
+])
+
+const RAW_HTML_TABLE_STRUCTURE_ELEMENT_NAMES = new Set([
+  "colgroup",
+  "table",
+  "tbody",
+  "tfoot",
+  "thead",
+  "tr",
+])
+
+const RAW_HTML_VISIBLE_ELEMENT_NAMES = new Set(["br", "hr", "img", "svg"])
+
 const BLOCK_HTML_ELEMENT_NAMES = new Set([
   "article",
   "aside",
@@ -123,7 +201,13 @@ const BLOCK_HTML_ELEMENT_NAMES = new Set([
   "ul",
 ])
 
-const VOID_HTML_ELEMENT_NAMES = new Set(["br", "hr", "img"])
+const VOID_HTML_ELEMENT_NAMES = new Set(["br", "hr", "img", "wbr"])
+
+const HTML_MARKDOWN_RENDER_CONTEXT: SafeMarkdownRenderContext = {
+  htmlElementNames: SAFE_HTML_ELEMENT_NAMES,
+  imageContext: null,
+  svg: false,
+}
 
 const STYLE_PROPERTY_NAMES = new Map(
   Object.entries({
@@ -280,7 +364,7 @@ function isSafeIntrinsicElementForContext(
   if (name === null) return false
   return context.svg
     ? SAFE_SVG_ELEMENT_NAMES.has(name)
-    : SAFE_HTML_ELEMENT_NAMES.has(name) || SAFE_SVG_ELEMENT_NAMES.has(name)
+    : context.htmlElementNames.has(name) || SAFE_SVG_ELEMENT_NAMES.has(name)
 }
 
 function containsBlockIntrinsic(children: RootContent[]): boolean {
@@ -449,6 +533,7 @@ function renderSafeIntrinsicNode(
   if (!isSafeIntrinsicElementForContext(name, context)) return null
 
   const childContext = {
+    htmlElementNames: context.htmlElementNames,
     imageContext: context.imageContext,
     svg: context.svg || name === "svg",
   }
@@ -476,6 +561,7 @@ export function canRenderMdxIntrinsic(name: string | null): boolean {
 export function MarkdownBenchMdxIntrinsicPreview({ mdastNode }: Pick<JsxEditorProps, "mdastNode">) {
   const imageContext = useIntrinsicImageContext()
   const renderContext = {
+    htmlElementNames: SAFE_HTML_ELEMENT_NAMES,
     imageContext,
     svg: false,
   }
@@ -484,5 +570,94 @@ export function MarkdownBenchMdxIntrinsicPreview({ mdastNode }: Pick<JsxEditorPr
     <div data-component="markdown-bench-mdx-intrinsic" className="my-2 max-w-full overflow-auto">
       {renderSafeIntrinsicNode(mdastNode, mdastNode.name ?? "intrinsic", renderContext)}
     </div>
+  )
+}
+
+const RAW_HTML_SOURCE_CLASS_NAME =
+  "whitespace-pre-wrap rounded bg-surface-inset-base px-1.5 py-0.5 font-mono text-xs text-text-weak"
+
+function isRawHtmlTableRow(node: PhrasingContent): boolean {
+  return node.type === "mdxJsxTextElement" && node.name === "tr"
+}
+
+function withTableBody(children: PhrasingContent[]): PhrasingContent[] {
+  if (!children.some(isRawHtmlTableRow)) return children
+  const rows = children.filter(isRawHtmlTableRow)
+  const others = children.filter((child) => !isRawHtmlTableRow(child))
+  return [...others, { type: "mdxJsxTextElement", name: "tbody", attributes: [], children: rows }]
+}
+
+function rawHtmlNodes(parent: ParentNode, parentName: string | undefined): PhrasingContent[] {
+  return Array.from(parent.childNodes).flatMap((child) => rawHtmlNode(child, parentName))
+}
+
+function rawHtmlNode(node: ChildNode, parentName: string | undefined): PhrasingContent[] {
+  if (node instanceof Text) {
+    const insideTableStructure =
+      parentName !== undefined && RAW_HTML_TABLE_STRUCTURE_ELEMENT_NAMES.has(parentName)
+    return insideTableStructure && node.data.trim() === ""
+      ? []
+      : [{ type: "text", value: node.data }]
+  }
+  if (!(node instanceof Element)) return []
+  const name = node.localName
+  if (RAW_HTML_DROPPED_ELEMENT_NAMES.has(name)) return []
+  const children =
+    name === "table" ? withTableBody(rawHtmlNodes(node, name)) : rawHtmlNodes(node, name)
+  if (name === "a") return [{ type: "link", url: node.getAttribute("href") ?? "", children }]
+  if (!RAW_HTML_ELEMENT_NAMES.has(name) && !SAFE_SVG_ELEMENT_NAMES.has(name)) return children
+  return [
+    {
+      type: "mdxJsxTextElement",
+      name,
+      attributes: Array.from(node.attributes, (attribute) => ({
+        type: "mdxJsxAttribute" as const,
+        name: attribute.name,
+        value: attribute.value,
+      })),
+      children,
+    },
+  ]
+}
+
+function parseRawHtml(source: string): PhrasingContent[] {
+  const template = document.createElement("template")
+  template.innerHTML = source
+  return rawHtmlNodes(template.content, undefined)
+}
+
+function hasVisibleRawHtml(nodes: readonly PhrasingContent[]): boolean {
+  return nodes.some((node) => {
+    if (node.type === "text") return node.value.trim() !== ""
+    if (node.type === "mdxJsxTextElement" && node.name !== null) {
+      if (RAW_HTML_VISIBLE_ELEMENT_NAMES.has(node.name)) return true
+    }
+    return "children" in node && hasVisibleRawHtml(node.children)
+  })
+}
+
+export function MarkdownBenchRawHtmlPreview(props: { source: string; inline: boolean }) {
+  const imageContext = useIntrinsicImageContext()
+  const nodes = useMemo(() => parseRawHtml(props.source), [props.source])
+  const renderContext = {
+    htmlElementNames: RAW_HTML_ELEMENT_NAMES,
+    imageContext,
+    svg: false,
+  }
+  const content = hasVisibleRawHtml(nodes)
+    ? nodes.map((node, index) => renderSafeMarkdownNode(node, `raw-html-${index}`, renderContext))
+    : createElement(
+        "code",
+        { className: RAW_HTML_SOURCE_CLASS_NAME, "data-markdown-export-ignore": true },
+        props.source,
+      )
+
+  return createElement(
+    props.inline ? "span" : "div",
+    {
+      "data-component": "markdown-bench-raw-html",
+      className: props.inline ? undefined : "my-2 max-w-full overflow-auto",
+    },
+    content,
   )
 }
