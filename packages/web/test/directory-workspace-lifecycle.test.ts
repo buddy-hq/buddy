@@ -8,6 +8,7 @@ import {
   BENCH_CHAT_LAYOUT_DOCKED,
   benchTargetKey,
   isBenchContentTarget,
+  type BenchTabTarget,
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import {
@@ -240,6 +241,44 @@ function openObjectSurfaceContext(input: {
     content: input.content,
     refs: [],
     hints: [],
+  }
+}
+
+function capturePublishedContexts(sessionID: string) {
+  const bodies: unknown[] = []
+  setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+  const previousFetch = globalThis.fetch
+  globalThis.fetch = Object.assign(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : null
+      const url = request?.url ?? String(input)
+      const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+      const body = init?.body ?? (request ? await request.clone().text() : undefined)
+      if (url.includes(`/bench/session/${sessionID}/context`) && method === "PUT") {
+        bodies.push(JSON.parse(String(body)))
+        return new Response(JSON.stringify({ revision: bodies.length }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      }
+      if (method === "DELETE") {
+        return new Response(JSON.stringify({ released: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      }
+      return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
+    },
+    { preconnect: () => undefined },
+  )
+  return {
+    bodies,
+    restore: () => {
+      globalThis.fetch = previousFetch
+    },
   }
 }
 
@@ -623,6 +662,275 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     }
   })
 
+  test("tells the agent when an open list hides the selected item", async () => {
+    const published = capturePublishedContexts("session-list-position")
+    try {
+      let projection: EffectiveWorkspaceProjection = projectionFor(TARGET, "sources")
+      let filesListOpen = true
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projection,
+        getTabs: () => tabsForProjection(projection),
+        isOwnListOpen: (collection) => collection === "files" && filesListOpen,
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      service.registerSurface({
+        target: TARGET,
+        getSnapshot: () => ({
+          target: TARGET,
+          targetKey: benchTargetKey(TARGET),
+          semanticRevision: 1,
+          context: openSurfaceContext(),
+        }),
+        subscribe: () => () => undefined,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-list-position")
+      expect(published.bodies.at(-1)).toMatchObject({
+        value: {
+          visibility: "visible",
+          content: TARGET.path,
+          drawer: { kind: "sources", presentation: "covering" },
+        },
+      })
+
+      // The file's own list sits beside it and hides nothing.
+      projection = projectionFor(TARGET)
+      await service.publishCurrent()
+      expect(published.bodies.at(-1)).toMatchObject({
+        value: { visibility: "visible", drawer: { kind: "files", presentation: "beside" } },
+      })
+
+      filesListOpen = false
+      await service.publishCurrent()
+      expect(published.bodies.at(-1)).toMatchObject({
+        value: { visibility: "visible", drawer: null },
+      })
+
+      filesListOpen = true
+      projection = projectionFor(TARGET, "files")
+      await service.publishCurrent()
+      expect(published.bodies.at(-1)).toMatchObject({
+        value: { visibility: "visible", drawer: { kind: "files", presentation: "beside" } },
+      })
+
+      projection = projectionFor(TARGET, "skills")
+      await service.publishCurrent()
+      expect(published.bodies.at(-1)).toMatchObject({
+        value: { drawer: { kind: "skills", presentation: "drawer" } },
+      })
+      await service.dispose()
+    } finally {
+      published.restore()
+    }
+  })
+
+  test("publishes the New tab and the open tabs behind a list and on a collapsed Bench", async () => {
+    const published = capturePublishedContexts("session-new-tab-states")
+    try {
+      let projection: EffectiveWorkspaceProjection = {
+        route: { status: BENCH_ROUTE_STATUS_CLOSED },
+        dockedState: createExpandedWorkspaceState("sources"),
+        bench: { visibility: "closed", target: null, targetKey: null, mode: null },
+        drawer: "sources",
+        renderedSurface: "drawer",
+        pending: { status: "none" },
+      }
+      let tabs = tabsForTarget(TARGET)
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projection,
+        getTabs: () => tabs,
+        getEmptyTabs: () => ({ emptyTabIDs: ["new-a"], activeEmptyTabID: "new-a" }),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-new-tab-states")
+      expect(published.bodies.at(-1)).toMatchObject({
+        value: {
+          status: "open",
+          visibility: "new-tab",
+          selectedTabKey: "new-tab:new-a",
+          drawer: { kind: "sources", presentation: "covering" },
+          tabs: [
+            { target: { type: "workspace-file", path: TARGET.path } },
+            { tabKey: "new-tab:new-a", target: { type: "new-tab" } },
+          ],
+        },
+      })
+
+      projection = {
+        route: { status: BENCH_ROUTE_STATUS_CLOSED },
+        dockedState: createCollapsedWorkspaceState(),
+        bench: { visibility: "closed", target: null, targetKey: null, mode: null },
+        drawer: null,
+        renderedSurface: "empty",
+        pending: { status: "none" },
+      }
+      await service.publishCurrent()
+      expect(published.bodies.at(-1)).toMatchObject({
+        value: {
+          status: "open",
+          visibility: "parked",
+          selectedTabKey: "new-tab:new-a",
+          selectedBrowser: null,
+          drawer: null,
+          tabs: [
+            { target: { type: "workspace-file", path: TARGET.path } },
+            { tabKey: "new-tab:new-a", target: { type: "new-tab" } },
+          ],
+        },
+      })
+
+      tabs = []
+      await service.publishCurrent()
+      expect(published.bodies.at(-1)).toMatchObject({
+        value: {
+          status: "open",
+          visibility: "parked",
+          selectedTabKey: "new-tab:new-a",
+          tabs: [{ tabKey: "new-tab:new-a", target: { type: "new-tab" } }],
+        },
+      })
+      await service.dispose()
+    } finally {
+      published.restore()
+    }
+  })
+
+  test("publishes a selected chat tab as open and lists chat tabs in strip order", async () => {
+    const publishBodies: unknown[] = []
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-chat-tab/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: publishBodies.length }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const chatTarget = { type: "session", sessionID: "session-child" } satisfies BenchTabTarget
+      const tabs: BenchTab[] = [
+        { key: benchTabKey(chatTarget), target: chatTarget },
+        ...tabsForTarget(TARGET),
+      ]
+      let visibility: "visible" | "parked" = "visible"
+      let drawer: DrawerKind | null = null
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () =>
+          ({
+            route: {
+              status: BENCH_ROUTE_STATUS_OPEN,
+              target: chatTarget,
+              mode: BENCH_CHAT_LAYOUT_DOCKED,
+            },
+            dockedState:
+              visibility === "visible"
+                ? createExpandedWorkspaceState(drawer)
+                : createCollapsedWorkspaceState(),
+            bench: {
+              visibility,
+              target: chatTarget,
+              targetKey: benchTargetKey(chatTarget),
+              mode: BENCH_CHAT_LAYOUT_DOCKED,
+            },
+            drawer,
+            renderedSurface: visibility === "visible" ? "docked-bench" : "parked-bench",
+            pending: { status: "none" },
+          }) satisfies EffectiveWorkspaceProjection,
+        getTabs: () => tabs,
+        getTabTitle: (tab) => (tab.target.type === "session" ? "Verify claims" : undefined),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-chat-tab")
+
+      const publishedTabs = [
+        {
+          tabKey: "session:session-child",
+          title: "Verify claims",
+          target: { type: "session", sessionID: "session-child" },
+        },
+        { target: { type: "workspace-file", path: TARGET.path } },
+      ]
+      expect(publishBodies.at(-1)).toMatchObject({
+        value: {
+          status: "open",
+          visibility: "chat",
+          mode: "docked",
+          selectedTabKey: "session:session-child",
+          drawer: null,
+          tabs: publishedTabs,
+        },
+      })
+
+      drawer = "sources"
+      await service.publishCurrent()
+      expect(publishBodies.at(-1)).toMatchObject({
+        value: { visibility: "chat", drawer: { kind: "sources", presentation: "covering" } },
+      })
+
+      drawer = null
+      visibility = "parked"
+      await service.publishCurrent()
+      expect(publishBodies.at(-1)).toMatchObject({
+        value: {
+          status: "open",
+          visibility: "parked",
+          selectedTabKey: "session:session-child",
+          selectedBrowser: null,
+          tabs: publishedTabs,
+        },
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
   test("publishes closed context during a visible Browser tab insertion race", async () => {
     const publishBodies: unknown[] = []
     setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
@@ -954,6 +1262,103 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       expect(syncReasons).toEqual(["turn-complete"])
       expect(publishBodies).toHaveLength(1)
       expect(readPublishContextProbe(publishBodies[0]).value?.content).toBe("after-turn-complete")
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("completes a client action on a chat tab with the chat tab, not a closed Bench", async () => {
+    const completionBodies: unknown[] = []
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (
+          url.includes("/bench/client-actions/action-on-chat-tab/complete") &&
+          method === "POST"
+        ) {
+          completionBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ status: "completed" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "PUT" || method === "DELETE") {
+          return new Response(JSON.stringify({ revision: 1, released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const chatTarget = { type: "session", sessionID: "session-child" } satisfies BenchTabTarget
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () =>
+          ({
+            route: {
+              status: BENCH_ROUTE_STATUS_OPEN,
+              target: chatTarget,
+              mode: BENCH_CHAT_LAYOUT_DOCKED,
+            },
+            dockedState: createExpandedWorkspaceState(null),
+            bench: {
+              visibility: "visible",
+              target: chatTarget,
+              targetKey: benchTargetKey(chatTarget),
+              mode: BENCH_CHAT_LAYOUT_DOCKED,
+            },
+            drawer: null,
+            renderedSurface: "docked-bench",
+            pending: { status: "none" },
+          }) satisfies EffectiveWorkspaceProjection,
+        getTabs: () => [{ key: benchTabKey(chatTarget), target: chatTarget }],
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+
+      // The completion protocol has no chat routes, so the client reports the chat tab as closed.
+      await expect(
+        service.completeClientAction({
+          actionID: "action-on-chat-tab",
+          sessionID: "session-1",
+          getActiveSessionID: () => "session-1",
+          completion: {
+            outcome: "committed",
+            observedRoute: { status: "closed" },
+            observedVisibility: "closed",
+            drawer: null,
+            changed: false,
+          },
+        }),
+      ).resolves.toBeTrue()
+
+      expect(completionBodies[0]).toMatchObject({
+        context: {
+          status: "open",
+          visibility: "chat",
+          selectedTabKey: "session:session-child",
+        },
+      })
       await service.dispose()
     } finally {
       globalThis.fetch = previousFetch

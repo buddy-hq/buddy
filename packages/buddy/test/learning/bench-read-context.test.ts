@@ -212,6 +212,75 @@ describe("bench_read_context", () => {
     ])
   })
 
+  test("reports a selected chat tab as open and points at the session database", async () => {
+    await using project = await tmpdir({ git: true })
+    publishSequencedBenchContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      body: {
+        lease: { instanceID: "chat-tab-client", generation: 1, leaseEpoch: 1 },
+        publicationSequence: 1,
+        idempotencyKey: "chat-tab-context",
+        value: {
+          status: "open",
+          visibility: "chat",
+          mode: "docked",
+          selectedTabKey: "session:ses_child",
+          tabs: [
+            { tabKey: TAB_KEY, title: "notes.md", target: TARGET },
+            {
+              tabKey: "session:ses_other",
+              title: "Earlier check",
+              target: { type: "session", sessionID: "ses_other" },
+            },
+            {
+              tabKey: "session:ses_child",
+              title: "Verify claims",
+              target: { type: "session", sessionID: "ses_child" },
+            },
+          ],
+          drawer: null,
+        },
+      },
+    })
+    const toolContext = createBuddyToolContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "msg_chat_tab_context",
+      agent: "buddy",
+    })
+
+    const result = await benchReadContextTool.run({ responseFormat: "context_only" }, toolContext)
+    const output = parseJsonObjectText(result.output)
+
+    expect(output.status).toBe("open")
+    expect(output.visibility).toBe("chat")
+    expect(output.openTabCount).toBe(3)
+    expect(output.tabs).toEqual([
+      {
+        tabNumber: 3,
+        tabKey: "session:ses_child",
+        title: "Verify claims",
+        selected: true,
+        target: { type: "session", sessionID: "ses_child" },
+      },
+      {
+        tabNumber: 2,
+        tabKey: "session:ses_other",
+        title: "Earlier check",
+        target: { type: "session", sessionID: "ses_other" },
+      },
+      { tabNumber: 1, tabKey: TAB_KEY, title: "notes.md" },
+    ])
+    const chatTabs = requireJsonObject(output.chatTabs)
+    expect(path.isAbsolute(requireString(chatTabs.databasePath))).toBe(true)
+    expect(requireString(chatTabs.howToRead)).toContain("message(session_id, data JSON)")
+
+    await expect(
+      benchReadContextTool.run({ responseFormat: "bench_screenshot_only" }, toolContext),
+    ).rejects.toThrow("Bench shows a chat tab")
+  })
+
   test("points a selected note at its current file after a background rename", async () => {
     await using project = await tmpdir({ git: true })
     await using home = await tmpdir()

@@ -30,7 +30,7 @@ import {
 import { BENCH_WORKSPACE_ROOT_NOTES, createNotesBenchTarget } from "@/lib/bench-targets"
 import { notesLibraryQueryOptions } from "@/features/notes/queries"
 import { useNoteCaptureSignal } from "@/features/notes/capture-activity"
-import { parseSubagentSession } from "@/lib/session-family"
+import { sessionTitlesByID } from "@/lib/session-family"
 import { useChatStore } from "@/state/chat-store"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import { useInAppBrowserTabsStore } from "@/state/in-app-browser-tabs-store"
@@ -337,14 +337,7 @@ export function BenchTabs(props: BenchTabsProps) {
   useEffect(() => {
     if (untitledObjectIDs) void refetchObjects()
   }, [refetchObjects, untitledObjectIDs])
-  const sessionTitles = useMemo(() => {
-    const titles = new Map<string, string>()
-    for (const session of sessions ?? []) {
-      const title = parseSubagentSession(session).title
-      if (title) titles.set(session.id, title)
-    }
-    return titles
-  }, [sessions])
+  const sessionTitles = useMemo(() => sessionTitlesByID(sessions ?? []), [sessions])
   const browserRuntimes = useInAppBrowserTabsStore(
     useShallow((state) => {
       const runtimes = new Map<string, InAppBrowserTabRuntime>()

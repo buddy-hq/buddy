@@ -8,6 +8,8 @@ import {
   isBenchContentTarget,
   readBenchTarget,
   type BenchMode,
+  type BenchSessionTarget,
+  type BenchTabTarget,
   type BenchTarget,
 } from "@/lib/bench-navigation"
 import {
@@ -17,6 +19,11 @@ import {
   emptyBenchTabKey,
   type BenchTab,
 } from "@/lib/bench-tabs"
+import {
+  workspaceCollectionForDrawer,
+  workspaceCollectionForTarget,
+  type WorkspaceCollection,
+} from "@/lib/directory-chat/workspace-presentation"
 import {
   isImmersiveEmptyWorkspaceState,
   type DirectoryWorkspaceHydrationState,
@@ -39,6 +46,7 @@ type BenchReadContextParkedOutput = Extract<
   { status: "open"; visibility: "parked" }
 >
 type BenchContextTabSummary = BenchReadContextOpenOutput["tabs"][number]
+type BenchDrawerContext = BenchReadContextOpenOutput["drawer"]
 type BenchReadSurfaceContextOpenOutput = Pick<
   BenchReadContextOpenOutput,
   "status" | "targetKey" | "target" | "metadata" | "content" | "refs" | "hints"
@@ -53,7 +61,10 @@ type BenchEventStreamLeaseQuery = Pick<
   "workspaceInstanceID" | "connectionGeneration"
 >
 type BenchClientActionCompletion = BenchClientActionsCompleteData["body"]
-type BenchProtocolTarget = Exclude<BenchContextTabSummary["target"], { type: "new-tab" }>
+type BenchProtocolTarget = Exclude<
+  BenchContextTabSummary["target"],
+  { type: "new-tab" | "session" }
+>
 type BenchProtocolRoute = NonNullable<BenchClientActionCompletion["observedRoute"]>
 type BenchCommittedClientActionCompletion = Extract<
   BenchClientActionCompletion,
@@ -169,8 +180,8 @@ function nextWorkspaceInstanceID(): string {
   return `${DIRECTORY_WORKSPACE_INSTANCE_ID_PREFIX}-${workspaceInstanceIDSequence}`
 }
 
-function drawerPublicationValue(drawer: DrawerKind | null): string {
-  return drawer ?? "none"
+function drawerPublicationValue(drawer: BenchDrawerContext): string {
+  return drawer ? `${drawer.kind}:${drawer.presentation}` : "none"
 }
 
 function closedPublicationKey(input: {
@@ -186,7 +197,7 @@ function openPublicationKey(input: {
   sessionID: string
   targetKey: string
   visibility: EffectiveWorkspaceProjection["bench"]["visibility"]
-  drawer: DrawerKind | null
+  drawer: BenchDrawerContext
   registrationOrder: number
   semanticRevision: number
   tabs: readonly BenchContextTabSummary[]
@@ -223,19 +234,37 @@ function closedBenchContext(): BenchReadContextOutput {
   return { status: "closed" }
 }
 
-function drawerContext(drawer: DrawerKind | null): BenchReadContextOpenOutput["drawer"] {
-  return drawer
-    ? {
-        kind: drawer,
-        presentation: "drawer",
-      }
-    : null
+/**
+ * Where an open drawer sits relative to the selected tab; `target` is null for a New tab. A
+ * section's own list sits beside its item and hides nothing, whether or not a drawer is stored.
+ */
+function drawerContext(
+  drawer: DrawerKind | null,
+  target: BenchTabTarget | null,
+  isOwnListOpen: (collection: WorkspaceCollection) => boolean,
+): BenchDrawerContext {
+  if (!target) return drawer ? { kind: drawer, presentation: "covering" } : null
+  const targetCollection = workspaceCollectionForTarget(target)
+  if (!drawer) {
+    return targetCollection && isOwnListOpen(targetCollection)
+      ? { kind: targetCollection, presentation: "beside" }
+      : null
+  }
+  const collection = workspaceCollectionForDrawer(drawer)
+  if (!collection) return { kind: drawer, presentation: "drawer" }
+  if (collection !== targetCollection) return { kind: drawer, presentation: "covering" }
+  return isOwnListOpen(collection) ? { kind: drawer, presentation: "beside" } : null
 }
 
-function normalizedBenchContextTarget(target: BenchContextTabSummary["target"]): BenchTarget {
+function normalizedBenchContextTarget(target: BenchProtocolTarget): BenchTarget {
   const parsed = readBenchTarget(target)
   if (!parsed) throw new Error("Invalid Bench context tab target")
   return parsed
+}
+
+function tabSummaryShowsTarget(tab: BenchContextTabSummary, targetKey: string): boolean {
+  if (tab.target.type === "new-tab" || tab.target.type === "session") return false
+  return benchTargetKey(normalizedBenchContextTarget(tab.target)) === targetKey
 }
 
 function normalizedBenchClientObservedRoute(
@@ -305,13 +334,13 @@ function toBenchProtocolCompletion(
 
 function visibleBenchContext(input: {
   context: BenchReadSurfaceContextOpenOutput
-  drawer: DrawerKind | null
+  drawer: BenchDrawerContext
   mode: "docked" | "floating"
   tabs: readonly BenchContextTabSummary[]
 }): BenchReadContextOpenOutput | null {
   const { drawer: _drawer, ...context } = input.context
-  const selectedTabKey = input.tabs.find(
-    (tab) => benchTargetKey(normalizedBenchContextTarget(tab.target)) === input.context.targetKey,
+  const selectedTabKey = input.tabs.find((tab) =>
+    tabSummaryShowsTarget(tab, input.context.targetKey),
   )?.tabKey
   if (!selectedTabKey) return null
   return {
@@ -320,7 +349,7 @@ function visibleBenchContext(input: {
     mode: input.mode,
     selectedTabKey,
     tabs: [...input.tabs],
-    drawer: drawerContext(input.drawer),
+    drawer: input.drawer,
   }
 }
 
@@ -333,11 +362,8 @@ function parkedBenchContext(input: {
     tabID: string,
   ) => { url: string; title: string; loading: boolean } | undefined
 }): BenchReadContextOutput {
-  const selectedTab = input.tabs.find(
-    (tab) =>
-      benchTargetKey(normalizedBenchContextTarget(tab.target)) ===
-      benchTargetKey(input.route.target),
-  )
+  const routeTargetKey = benchTargetKey(input.route.target)
+  const selectedTab = input.tabs.find((tab) => tabSummaryShowsTarget(tab, routeTargetKey))
   if (!selectedTab) return closedBenchContext()
   const selectedBrowser =
     input.route.target.type === "browser"
@@ -433,7 +459,7 @@ function contextTargetDiagnostic(value: BenchReadContextOutput) {
       selectedBrowser: value.selectedBrowser,
     }
   }
-  if (value.visibility === "new-tab") {
+  if (value.visibility === "new-tab" || value.visibility === "chat") {
     return {
       status: value.status,
       visibility: value.visibility,
@@ -470,6 +496,7 @@ export class DirectoryWorkspaceLifecycleService {
   readonly #getProjection: () => EffectiveWorkspaceProjection
   readonly #getTabs: () => readonly BenchTab[]
   readonly #getEmptyTabs: () => DirectoryWorkspaceEmptyTabs
+  readonly #isOwnListOpen: (collection: WorkspaceCollection) => boolean
   readonly #getTabTitle: (tab: BenchTab) => string | undefined
   readonly #getBrowserTabRuntime: (
     tabID: string,
@@ -499,6 +526,7 @@ export class DirectoryWorkspaceLifecycleService {
     getProjection: () => EffectiveWorkspaceProjection
     getTabs: () => readonly BenchTab[]
     getEmptyTabs?: () => DirectoryWorkspaceEmptyTabs
+    isOwnListOpen?: (collection: WorkspaceCollection) => boolean
     getTabTitle?: (tab: BenchTab) => string | undefined
     getBrowserTabRuntime?: (
       tabID: string,
@@ -512,6 +540,7 @@ export class DirectoryWorkspaceLifecycleService {
     this.#getProjection = input.getProjection
     this.#getTabs = input.getTabs
     this.#getEmptyTabs = input.getEmptyTabs ?? (() => NO_EMPTY_TABS)
+    this.#isOwnListOpen = input.isOwnListOpen ?? (() => false)
     this.#getTabTitle = input.getTabTitle ?? (() => undefined)
     this.#getBrowserTabRuntime = input.getBrowserTabRuntime ?? (() => undefined)
     this.#getHydrationStatus = input.getHydrationStatus
@@ -722,12 +751,27 @@ export class DirectoryWorkspaceLifecycleService {
         await synchronize
       }
       if (this.#disposed) return false
-      completedSnapshot = this.#readPublishSnapshotForObservation({
-        sessionID: input.sessionID,
-        route: normalizedBenchClientObservedRoute(input.completion.observedRoute),
-        visibility: input.completion.observedVisibility,
-        drawer: input.completion.drawer,
-      })
+      // The completion protocol carries only item routes, so a chat tab arrives as a closed route.
+      const projection = this.#getProjection()
+      const chatTabShowing =
+        input.completion.observedRoute.status === "closed" &&
+        projection.route.status !== "closed" &&
+        !isBenchContentTarget(projection.route.target)
+      completedSnapshot = this.#readPublishSnapshotForObservation(
+        chatTabShowing
+          ? {
+              sessionID: input.sessionID,
+              route: projection.route,
+              visibility: projection.bench.visibility,
+              drawer: projection.drawer,
+            }
+          : {
+              sessionID: input.sessionID,
+              route: normalizedBenchClientObservedRoute(input.completion.observedRoute),
+              visibility: input.completion.observedVisibility,
+              drawer: input.completion.drawer,
+            },
+      )
     } else if (input.completion.outcome === "captured") {
       const projection = this.#getProjection()
       if (this.#captureProjectionMatches(input.expectedCapture, projection)) {
@@ -1109,18 +1153,42 @@ export class DirectoryWorkspaceLifecycleService {
   /** The New tab the empty page shows, which the agent sees as the selected tab. */
   #readNewTabPublishSnapshot(sessionID: string): BenchContextPublishSnapshot | null {
     const projection = this.#getProjection()
-    const activeEmptyTabID = this.#getEmptyTabs().activeEmptyTabID
+    const emptyTabs = this.#getEmptyTabs()
+    const activeEmptyTabID = emptyTabs.activeEmptyTabID
     if (
       !activeEmptyTabID ||
-      projection.route.status !== "closed" ||
-      projection.dockedState.visibility !== "expanded" ||
-      projection.drawer !== null
+      !emptyTabs.emptyTabIDs.includes(activeEmptyTabID) ||
+      projection.route.status !== "closed"
     ) {
       return null
     }
     const tabs = this.#readTabSummaries()
     const selectedTabKey = emptyBenchTabKey(activeEmptyTabID)
     const mode = isImmersiveEmptyWorkspaceState(projection.dockedState) ? "floating" : "docked"
+    if (projection.dockedState.visibility !== "expanded") {
+      return {
+        status: "open",
+        publicationKey: [
+          this.#directory,
+          sessionID,
+          "new-tab",
+          "parked",
+          selectedTabKey,
+          mode,
+          JSON.stringify(tabs),
+        ].join("\u0000"),
+        value: {
+          status: "open",
+          visibility: "parked",
+          mode,
+          selectedTabKey,
+          tabs,
+          selectedBrowser: null,
+          drawer: null,
+        },
+      }
+    }
+    const drawer = drawerContext(projection.drawer, null, this.#isOwnListOpen)
     return {
       status: "open",
       publicationKey: [
@@ -1129,33 +1197,84 @@ export class DirectoryWorkspaceLifecycleService {
         "new-tab",
         selectedTabKey,
         mode,
+        drawerPublicationValue(drawer),
         JSON.stringify(tabs),
       ].join("\u0000"),
-      value: { status: "open", visibility: "new-tab", mode, selectedTabKey, tabs, drawer: null },
+      value: { status: "open", visibility: "new-tab", mode, selectedTabKey, tabs, drawer },
     }
   }
 
   #readItemTabSummaries(): BenchContextTabSummary[] {
-    return this.#getTabs().flatMap((tab) =>
-      isBenchContentTarget(tab.target)
-        ? (() => {
-            const browserRuntime =
-              tab.target.type === "browser"
-                ? this.#getBrowserTabRuntime(tab.target.tabID)
-                : undefined
-            return [
-              {
-                tabKey: tab.key,
-                title:
-                  browserRuntime?.title ??
-                  this.#getTabTitle(tab) ??
-                  benchTabFallbackTitle(tab.target),
-                target: withBrowserRuntimeUrl(toBenchProtocolTarget(tab.target), browserRuntime),
-              },
-            ]
-          })()
-        : [],
-    )
+    return this.#getTabs().map((tab) => {
+      const target = tab.target
+      if (!isBenchContentTarget(target)) {
+        return {
+          tabKey: tab.key,
+          title: this.#getTabTitle(tab) ?? benchTabFallbackTitle(target),
+          target: { type: target.type, sessionID: target.sessionID },
+        }
+      }
+      const browserRuntime =
+        target.type === "browser" ? this.#getBrowserTabRuntime(target.tabID) : undefined
+      return {
+        tabKey: tab.key,
+        title: browserRuntime?.title ?? this.#getTabTitle(tab) ?? benchTabFallbackTitle(target),
+        target: withBrowserRuntimeUrl(toBenchProtocolTarget(target), browserRuntime),
+      }
+    })
+  }
+
+  #readChatTabPublishSnapshot(input: {
+    sessionID: string
+    target: BenchSessionTarget
+    mode: BenchMode
+    visibility: EffectiveWorkspaceProjection["bench"]["visibility"]
+    drawer: DrawerKind | null
+  }): BenchContextPublishSnapshot {
+    const tabs = this.#readTabSummaries()
+    const selectedTabKey = benchTabKey(input.target)
+    if (!tabs.some((tab) => tab.tabKey === selectedTabKey)) {
+      return {
+        status: "closed",
+        publicationKey: closedPublicationKey({
+          directory: this.#directory,
+          sessionID: input.sessionID,
+          visibility: input.visibility,
+        }),
+        value: closedBenchContext(),
+      }
+    }
+    const shared = { status: "open" as const, mode: input.mode, selectedTabKey, tabs }
+    if (input.visibility === "parked") {
+      return {
+        status: "open",
+        publicationKey: [
+          this.#directory,
+          input.sessionID,
+          "chat",
+          input.visibility,
+          selectedTabKey,
+          input.mode,
+          JSON.stringify(tabs),
+        ].join("\u0000"),
+        value: { ...shared, visibility: "parked", selectedBrowser: null, drawer: null },
+      }
+    }
+    const drawer = drawerContext(input.drawer, input.target, this.#isOwnListOpen)
+    return {
+      status: "open",
+      publicationKey: [
+        this.#directory,
+        input.sessionID,
+        "chat",
+        input.visibility,
+        selectedTabKey,
+        input.mode,
+        drawerPublicationValue(drawer),
+        JSON.stringify(tabs),
+      ].join("\u0000"),
+      value: { ...shared, visibility: "chat", drawer },
+    }
   }
 
   #readPublishSnapshotForObservation(input: {
@@ -1181,15 +1300,13 @@ export class DirectoryWorkspaceLifecycleService {
 
     const observedTarget = input.route.target
     if (!isBenchContentTarget(observedTarget)) {
-      return {
-        status: "closed",
-        publicationKey: closedPublicationKey({
-          directory: this.#directory,
-          sessionID: input.sessionID,
-          visibility: input.visibility,
-        }),
-        value: closedBenchContext(),
-      }
+      return this.#readChatTabPublishSnapshot({
+        sessionID: input.sessionID,
+        target: observedTarget,
+        mode: input.route.mode,
+        visibility: input.visibility,
+        drawer: input.drawer,
+      })
     }
 
     const tabs = this.#readTabSummaries()
@@ -1245,9 +1362,10 @@ export class DirectoryWorkspaceLifecycleService {
       return output
     }
 
+    const drawer = drawerContext(input.drawer, observedTarget, this.#isOwnListOpen)
     const value = visibleBenchContext({
       context: fallbackContext,
-      drawer: input.drawer,
+      drawer,
       mode: input.route.mode,
       tabs,
     })
@@ -1269,7 +1387,7 @@ export class DirectoryWorkspaceLifecycleService {
         sessionID: input.sessionID,
         targetKey,
         visibility: input.visibility,
-        drawer: input.drawer,
+        drawer,
         registrationOrder: DIRECTORY_WORKSPACE_FALLBACK_REGISTRATION_ORDER,
         semanticRevision: DIRECTORY_WORKSPACE_FALLBACK_REVISION,
         tabs,
@@ -1304,13 +1422,14 @@ export class DirectoryWorkspaceLifecycleService {
     const observedTarget = input.route.target
     const targetKey = benchTargetKey(observedTarget)
     const tabs = this.#readTabSummaries()
+    const drawer = drawerContext(input.drawer, observedTarget, this.#isOwnListOpen)
     const registrations = this.#selectedRegistrations(targetKey)
     for (const registration of registrations) {
       const snapshot = registration.getSnapshot()
       if (snapshotMatchesBenchTarget({ snapshot, target: observedTarget })) {
         const value = visibleBenchContext({
           context: snapshot.context,
-          drawer: input.drawer,
+          drawer,
           mode: input.route.mode,
           tabs,
         })
@@ -1322,7 +1441,7 @@ export class DirectoryWorkspaceLifecycleService {
             sessionID: input.sessionID,
             targetKey,
             visibility: input.visibility,
-            drawer: input.drawer,
+            drawer,
             registrationOrder: registration.order,
             semanticRevision: snapshot.semanticRevision,
             tabs,

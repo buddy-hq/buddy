@@ -368,8 +368,10 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const effectiveWorkspaceLayoutMode = transientBenchLayoutMode ?? workspaceLayoutMode
   const workspaceOpen = presentation.workspaceOpen
   // The empty page is on screen only when no tab and no collection drawer is shown.
-  const emptyBenchPageVisible = workspaceOpen && activeTabKey === null && workspaceDrawer === null
+  const emptyTabSelected = workspaceOpen && activeTabKey === null
+  const emptyBenchPageVisible = emptyTabSelected && workspaceDrawer === null
   const shownEmptyTabID = emptyBenchPageVisible ? activeEmptyTabID : null
+  const selectedEmptyTabID = emptyTabSelected ? activeEmptyTabID : null
   const effectiveWorkspaceOpen = transientBenchActive || workspaceOpen
   const workspaceHostOpen = presentation.workspaceOpen
   const effectiveWorkspaceHostOpen = transientBenchActive || workspaceHostOpen
@@ -1067,6 +1069,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
             workspaceCollectionForDrawer(workspaceDrawer) !==
               workspaceCollectionForTarget(activeBenchTarget))
         }
+        coveredContextSuspended={transientBenchActive}
         retainedTargetKeys={retainedBenchTargetKeys}
         benchVisible={persistentBenchVisible}
         activeRuntimeState={benchRuntimeState}
@@ -1116,7 +1119,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       onCloseAll={closeAllBenchTabs}
       onNewTab={() => void handleNewTab()}
       emptyTabIDs={emptyTabIDs}
-      activeEmptyTabID={shownEmptyTabID}
+      activeEmptyTabID={selectedEmptyTabID}
       onActivateEmptyTab={(emptyTabID) => void openEmptyBenchTab(emptyTabID)}
       onCloseEmptyTab={closeEmptyBenchTab}
       onEnterImmersive={enterImmersiveFromTabs}
@@ -1213,6 +1216,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                   onNewTab={() => void handleNewTab()}
                   emptyTabIDs={emptyTabIDs}
                   activeEmptyTabID={shownEmptyTabID}
+                  selectedEmptyTabID={selectedEmptyTabID}
                   onActivateEmptyTab={(emptyTabID) => void openEmptyBenchTab(emptyTabID)}
                   onCloseEmptyTab={closeEmptyBenchTab}
                   showTabsInWorkspace={

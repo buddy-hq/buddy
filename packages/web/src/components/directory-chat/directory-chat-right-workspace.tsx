@@ -65,6 +65,7 @@ import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import {
   workspaceCollectionForDrawer,
   workspaceCollectionForTarget,
+  type WorkspaceCollection,
   type WorkspacePresentation,
 } from "@/lib/directory-chat/workspace-presentation"
 import { showWorkspaceDrawer } from "./show-workspace-drawer"
@@ -115,6 +116,7 @@ type DirectoryChatRightWorkspaceProps = {
   emptyTabIDs?: readonly string[]
   /** The New tab the empty page shows. */
   activeEmptyTabID?: string | null
+  selectedEmptyTabID?: string | null
   onActivateEmptyTab?: (emptyTabID: string) => void
   onCloseEmptyTab?: (emptyTabID: string) => void
   showTabsInWorkspace?: boolean
@@ -482,6 +484,10 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       workspaceOpen: props.presentation.workspaceOpen,
     })
     const collection = workspaceCollectionForDrawer(selector)
+    if (collection && collection === activeCollection && fileViewHasTarget) {
+      setWorkspaceListOpen(collection, !treeOpen)
+      return
+    }
     if (collection) {
       if (resolvedSelector === selector) {
         if (collapsedLists[collection] === true) {
@@ -673,40 +679,43 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     )
 
   const noteCaptureSignal = useNoteCaptureSignal(props.directory)
+  const sectionPanelShowing = treeOpen || !fileViewHasTarget
+  const isRailCollectionActive = (collection: WorkspaceCollection) =>
+    activeCollection === collection && sectionPanelShowing
   const railItems: RightWorkspaceRailItem[] = [
     {
       id: "sources",
       label: "Sources",
       icon: <Books02Icon />,
-      active: activeCollection === "sources",
+      active: isRailCollectionActive("sources"),
       onClick: () => openSelector("sources"),
     },
     {
       id: "practice",
       label: "Practice",
       icon: <StudyLampIcon />,
-      active: activeCollection === "practice",
+      active: isRailCollectionActive("practice"),
       onClick: () => openSelector("practice"),
     },
     {
       id: "creations",
       label: "Creations",
       icon: <FigureGlyph />,
-      active: activeCollection === "creations",
+      active: isRailCollectionActive("creations"),
       onClick: () => openSelector("creations"),
     },
     {
       id: "boards",
       label: "Boards",
       icon: <PresentationIcon />,
-      active: activeCollection === "boards",
+      active: isRailCollectionActive("boards"),
       onClick: () => openSelector("boards"),
     },
     {
       id: "files",
       label: "Files",
       icon: obsidianConnected ? <ObsidianRailIcon /> : <FolderIcon />,
-      active: activeCollection === "files",
+      active: isRailCollectionActive("files"),
       onClick: () => openSelector("files"),
     },
     Object.assign(
@@ -714,7 +723,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
         id: WORKSPACE_DRAWER_NOTES,
         label: language.t("notes.library.title"),
         icon: <NotesIcon />,
-        active: activeCollection === "notes",
+        active: isRailCollectionActive("notes"),
         onClick: () => openSelector(WORKSPACE_DRAWER_NOTES),
       },
       // The drawer already shows the note landing, and the icon reads as selected
@@ -771,7 +780,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
             onCloseAll={props.onCloseAllTabs}
             onNewTab={props.onNewTab}
             emptyTabIDs={props.emptyTabIDs}
-            activeEmptyTabID={props.activeEmptyTabID}
+            activeEmptyTabID={props.selectedEmptyTabID ?? props.activeEmptyTabID}
             onActivateEmptyTab={props.onActivateEmptyTab}
             onCloseEmptyTab={props.onCloseEmptyTab}
           />

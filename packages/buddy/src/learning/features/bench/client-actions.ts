@@ -9,6 +9,7 @@ import {
   BenchReadContextOutputSchema,
   BenchReadContextVisibleOutputSchema,
   BenchTargetSchema,
+  benchStoredDrawerKind,
   benchTargetKey,
   publishSequencedBenchContext,
   type BenchClientLeaseIdentity,
@@ -396,7 +397,7 @@ function commandMatchesCapturedCompletion(
   const expectedTargetKey = benchTargetKey(action.command.target)
   return (
     completion.drawer === action.command.drawer &&
-    completion.drawer === (completion.context.drawer?.kind ?? null) &&
+    completion.drawer === benchStoredDrawerKind(completion.context.drawer) &&
     isSameTargetKey(completion.observedRoute.target, action.command.target) &&
     completion.context.targetKey === expectedTargetKey &&
     completion.context.selectedTabKey === action.command.tabKey

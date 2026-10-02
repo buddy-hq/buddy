@@ -251,7 +251,7 @@ describe("DirectoryChatRightWorkspace", () => {
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
-  test("opens Resources as a pushed list beside the retained reader", async () => {
+  test("toggles the Resources list beside the retained reader from its rail chip", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -266,47 +266,47 @@ describe("DirectoryChatRightWorkspace", () => {
     expect(sourcesButton).not.toBeNull()
     expect(sourcesButton?.getAttribute("aria-pressed")).toBe("true")
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
+    expect(container.querySelector('aside[aria-label="Resources"]')).not.toBeNull()
+    expect(
+      container.querySelector('[aria-label="Hide resources"]')?.getAttribute("aria-expanded"),
+    ).toBe("true")
 
     await act(async () => {
       sourcesButton?.click()
       await flushEffects()
     })
 
+    expect(
+      container.querySelector('[aria-label="Show resources"]')?.getAttribute("aria-expanded"),
+    ).toBe("false")
+    expect(sourcesButton?.getAttribute("aria-pressed")).toBe("false")
+    expect(useUiPreferences.getState().collapsedWorkspaceLists).toEqual({ sources: true })
     expect(container.querySelector('[data-testid="chat-route"]')).toBeNull()
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="pathname"]')?.textContent).toBe(
       `/${encodeDirectory(TEST_DIRECTORY)}/objects/resource/${TEST_RESOURCE_ID}`,
     )
     expect(container.querySelector('[data-testid="bench-visibility"]')?.textContent).toBe("visible")
-    expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("sources")
+    expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("none")
     expect(container.querySelector('[data-component="right-workspace-selector-drawer"]')).toBeNull()
-    expect(container.querySelector('aside[aria-label="Resources"]')).not.toBeNull()
+
+    await act(async () => {
+      sourcesButton?.click()
+      await flushEffects()
+    })
+
+    expect(
+      container.querySelector('[aria-label="Hide resources"]')?.getAttribute("aria-expanded"),
+    ).toBe("true")
+    expect(sourcesButton?.getAttribute("aria-pressed")).toBe("true")
+    expect(useUiPreferences.getState().collapsedWorkspaceLists).toEqual({})
+
     const hideList = container.querySelector<HTMLButtonElement>('[aria-label="Hide resources"]')
-    expect(hideList?.getAttribute("aria-expanded")).toBe("true")
     await act(async () => {
       hideList?.click()
       await flushEffects()
     })
-    expect(
-      container.querySelector('[aria-label="Show resources"]')?.getAttribute("aria-expanded"),
-    ).toBe("false")
-    expect(container.querySelector('[data-component="right-workspace-selector-drawer"]')).toBeNull()
-    expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
-
-    await act(async () => {
-      sourcesButton?.click()
-      await flushEffects()
-    })
-    expect(
-      container.querySelector('[aria-label="Hide resources"]')?.getAttribute("aria-expanded"),
-    ).toBe("true")
-    expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("sources")
-
-    await act(async () => {
-      sourcesButton?.click()
-      await flushEffects()
-    })
-    expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("none")
+    expect(sourcesButton?.getAttribute("aria-pressed")).toBe("false")
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
   })
 
