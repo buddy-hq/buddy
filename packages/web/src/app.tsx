@@ -67,7 +67,7 @@ export function AppBaseProviders(props: {
   return (
     <LanguageProvider>
       <QueryClientProvider client={appQueryClient}>
-        <ThemeProvider defaultTheme="dracula" onThemeApplied={props.onThemeApplied}>
+        <ThemeProvider onThemeApplied={props.onThemeApplied}>
           <TooltipProvider>
             {props.children}
             <Toaster position="bottom-right" />

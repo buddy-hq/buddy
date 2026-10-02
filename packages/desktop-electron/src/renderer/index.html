@@ -10,33 +10,32 @@
     <script>
       ;(function () {
         try {
-          var themeIdKey = "opencode-theme-id"
+          var lightThemeIdKey = "opencode-theme-id-light"
+          var darkThemeIdKey = "opencode-theme-id-dark"
           var colorSchemeKey = "opencode-color-scheme"
           var cacheVersionKey = "opencode-theme-cache-version"
           var themeCssLightKey = "opencode-theme-css-light"
           var themeCssDarkKey = "opencode-theme-css-dark"
-          var cacheVersion = "4"
-          var defaultThemeId = "dracula"
-          var storedThemeId = localStorage.getItem(themeIdKey)
-          var themeId = storedThemeId === "oc-1" || !storedThemeId ? defaultThemeId : storedThemeId
-          if (localStorage.getItem(cacheVersionKey) !== cacheVersion || storedThemeId !== themeId) {
+          var cacheVersion = "6"
+          var defaultColorScheme = "dark"
+          if (localStorage.getItem(cacheVersionKey) !== cacheVersion) {
             localStorage.removeItem(themeCssLightKey)
             localStorage.removeItem(themeCssDarkKey)
             localStorage.setItem(cacheVersionKey, cacheVersion)
           }
-          if (storedThemeId !== themeId) {
-            localStorage.setItem(themeIdKey, themeId)
-          }
-          var scheme = localStorage.getItem(colorSchemeKey) || "system"
+          var scheme = localStorage.getItem(colorSchemeKey) || defaultColorScheme
           var isDark =
             scheme === "dark" ||
             (scheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
           var mode = isDark ? "dark" : "light"
-          document.documentElement.dataset.theme = themeId
+          var themeId = localStorage.getItem(isDark ? darkThemeIdKey : lightThemeIdKey)
+          if (themeId) document.documentElement.dataset.theme = themeId
           document.documentElement.dataset.colorScheme = mode
           document.documentElement.classList.toggle("dark", isDark)
           document.documentElement.style.colorScheme = mode
-          var css = localStorage.getItem(isDark ? themeCssDarkKey : themeCssLightKey)
+          var css = themeId
+            ? localStorage.getItem(isDark ? themeCssDarkKey : themeCssLightKey)
+            : null
           var style = document.createElement("style")
           style.id = "oc-theme-preload"
           if (css) {
@@ -49,8 +48,9 @@
               css +
               "}body{background-color:var(--background-base);}"
           } else {
-            // No cache yet (first launch). Use a neutral dark/light fallback so
-            // the window is never blinding white before React mounts.
+            // No cache yet (first launch, or the theme has not been chosen for this
+            // mode). Use a neutral dark/light fallback so the window is never
+            // blinding white before React mounts.
             style.textContent = isDark
               ? "body{background-color:#1d1e28;}"
               : "body{background-color:#f4f3f0;}"
