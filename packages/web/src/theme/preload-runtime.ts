@@ -1,12 +1,13 @@
-import { defaultThemes } from "./default-themes"
-import { resolveThemeVariant, themeToCss } from "./resolve"
+import { SYSTEM_DARK_MEDIA_QUERY, colorSchemeMode, readColorScheme } from "./color-scheme"
+import { PRELOAD_STYLE_ID } from "./storage"
 import {
-  DEFAULT_THEME_ID,
-  PRELOAD_STYLE_ID,
-  STORAGE_KEYS,
-  THEME_CACHE_VERSION,
-  normalizeThemeID,
-} from "./storage"
+  applyDocumentThemeState,
+  cacheThemeSlotsCss,
+  dropOutdatedThemeCssCache,
+  readCachedThemeCss,
+  rootThemeCss,
+} from "./theme-css"
+import { migrateThemeSlots } from "./theme-slots"
 
 type ThemePreloadEnvironment = {
   document: Document
@@ -14,59 +15,24 @@ type ThemePreloadEnvironment = {
   matchMedia: (query: string) => MediaQueryList
 }
 
-function clearThemeCache(storage: Storage) {
-  storage.removeItem(STORAGE_KEYS.THEME_CSS_LIGHT)
-  storage.removeItem(STORAGE_KEYS.THEME_CSS_DARK)
-}
-
-function cacheThemeCss(storage: Storage, themeId: string) {
-  const theme = defaultThemes[themeId]
-  if (!theme) return
-
-  const lightCss = themeToCss(resolveThemeVariant(theme.light, false))
-  const darkCss = themeToCss(resolveThemeVariant(theme.dark, true))
-  storage.setItem(STORAGE_KEYS.THEME_CSS_LIGHT, lightCss)
-  storage.setItem(STORAGE_KEYS.THEME_CSS_DARK, darkCss)
-}
-
 export function applyThemePreload(environment: ThemePreloadEnvironment) {
-  const storedThemeID = environment.storage.getItem(STORAGE_KEYS.THEME_ID)
-  const themeID = normalizeThemeID(storedThemeID) ?? DEFAULT_THEME_ID
-  const cachedVersion = environment.storage.getItem(STORAGE_KEYS.CACHE_VERSION)
+  const { document, storage } = environment
 
-  if (cachedVersion !== THEME_CACHE_VERSION || storedThemeID !== themeID) {
-    clearThemeCache(environment.storage)
-    environment.storage.setItem(STORAGE_KEYS.CACHE_VERSION, THEME_CACHE_VERSION)
-  }
-
-  if (storedThemeID !== themeID) {
-    environment.storage.setItem(STORAGE_KEYS.THEME_ID, themeID)
-  }
-
-  const scheme = environment.storage.getItem(STORAGE_KEYS.COLOR_SCHEME) ?? "dark"
-  const isDark =
-    scheme === "dark" ||
-    (scheme === "system" && environment.matchMedia("(prefers-color-scheme: dark)").matches)
-  const mode = isDark ? "dark" : "light"
-
-  environment.document.documentElement.dataset.theme = themeID
-  environment.document.documentElement.dataset.colorScheme = mode
-  environment.document.documentElement.classList.toggle("dark", isDark)
-  environment.document.documentElement.style.colorScheme = mode
-
-  let css = environment.storage.getItem(
-    isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT,
+  dropOutdatedThemeCssCache(storage)
+  const slots = migrateThemeSlots(storage)
+  const mode = colorSchemeMode(
+    readColorScheme(storage),
+    environment.matchMedia(SYSTEM_DARK_MEDIA_QUERY).matches,
   )
-  if (!css) {
-    cacheThemeCss(environment.storage, themeID)
-    css = environment.storage.getItem(
-      isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT,
-    )
-  }
+
+  applyDocumentThemeState(document, slots[mode], mode)
+
+  if (!readCachedThemeCss(storage, mode)) cacheThemeSlotsCss(storage, slots)
+  const css = readCachedThemeCss(storage, mode)
   if (!css) return
 
-  const style = environment.document.createElement("style")
+  const style = document.createElement("style")
   style.id = PRELOAD_STYLE_ID
-  style.textContent = `:root{color-scheme:${mode};--text-mix-blend-mode:${isDark ? "plus-lighter" : "multiply"};${css}}`
-  environment.document.head.appendChild(style)
+  style.textContent = rootThemeCss(mode, css)
+  document.head.appendChild(style)
 }

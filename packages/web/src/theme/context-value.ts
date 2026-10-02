@@ -1,17 +1,15 @@
 import { createContext } from "react"
-import type { ColorScheme, DesktopTheme } from "./types"
+import type { ColorScheme, DesktopTheme, ThemeMode } from "./types"
 
 export type ThemeContextValue = {
   themeId: string
+  lightThemeId: string
+  darkThemeId: string
   colorScheme: ColorScheme
-  mode: "light" | "dark"
+  mode: ThemeMode
   themes: Record<string, DesktopTheme>
-  setTheme: (id: string) => void
+  setThemeForMode: (mode: ThemeMode, id: string) => void
   setColorScheme: (scheme: ColorScheme) => void
-  previewTheme: (id: string) => void
-  previewColorScheme: (scheme: ColorScheme) => void
-  commitPreview: () => void
-  cancelPreview: () => void
 }
 
 /** Keep the context identity stable when the provider implementation is hot reloaded. */

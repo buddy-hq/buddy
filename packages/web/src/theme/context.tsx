@@ -1,32 +1,26 @@
 import { useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from "react"
-import type { DesktopTheme, ColorScheme } from "./types"
+import type { ColorScheme, DesktopTheme, ThemeMode, ThemeSlots } from "./types"
 import { ThemeContext, type ThemeContextValue } from "./context-value"
-import { resolveThemeVariant, themeToCss } from "./resolve"
+import { SYSTEM_DARK_MEDIA_QUERY, colorSchemeMode, readColorScheme } from "./color-scheme"
 import { defaultThemes } from "./default-themes"
+import { themeToCss } from "./resolve"
+import { PRELOAD_STYLE_ID, STORAGE_KEYS, THEME_STYLE_ID } from "./storage"
+import { isSelectableTheme, themeTokens } from "./theme-catalog"
 import {
-  DEFAULT_THEME_ID,
-  PRELOAD_STYLE_ID,
-  STORAGE_KEYS,
-  THEME_CACHE_VERSION,
-  THEME_STYLE_ID,
-  normalizeThemeID,
-} from "./storage"
+  applyDocumentThemeState,
+  cacheThemeCss,
+  cacheThemeSlotsCss,
+  dropOutdatedThemeCssCache,
+  rootThemeCss,
+  writeCachedThemeCss,
+} from "./theme-css"
+import { THEME_SLOT_STORAGE_KEYS, migrateThemeSlots, readThemeSlots } from "./theme-slots"
 
-function isColorScheme(value: string | null): value is ColorScheme {
-  return value === "system" || value === "light" || value === "dark"
-}
-
-function clearCache() {
-  localStorage.removeItem(STORAGE_KEYS.THEME_CSS_LIGHT)
-  localStorage.removeItem(STORAGE_KEYS.THEME_CSS_DARK)
-}
-
-function applyDocumentState(themeId: string, mode: "light" | "dark") {
-  document.documentElement.dataset.theme = themeId
-  document.documentElement.dataset.colorScheme = mode
-  document.documentElement.classList.toggle("dark", mode === "dark")
-  document.documentElement.style.colorScheme = mode
-}
+const THEME_ID_STORAGE_KEYS: ReadonlySet<string> = new Set([
+  STORAGE_KEYS.LEGACY_THEME_ID,
+  STORAGE_KEYS.LIGHT_THEME_ID,
+  STORAGE_KEYS.DARK_THEME_ID,
+])
 
 function ensureThemeStyleElement(): HTMLStyleElement {
   const existing = document.getElementById(THEME_STYLE_ID)
@@ -37,269 +31,102 @@ function ensureThemeStyleElement(): HTMLStyleElement {
   return element
 }
 
-function getSystemMode(): "light" | "dark" {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+function systemPrefersDark(): boolean {
+  return window.matchMedia(SYSTEM_DARK_MEDIA_QUERY).matches
 }
 
-function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "dark"): string {
-  const isDark = mode === "dark"
-  const variant = isDark ? theme.dark : theme.light
-  const tokens = resolveThemeVariant(variant, isDark)
+function applyThemeCss(themeId: string, mode: ThemeMode): string | undefined {
+  const tokens = themeTokens(themeId, mode)
+  if (!tokens) return undefined
+
   const css = themeToCss(tokens)
-
-  try {
-    localStorage.setItem(STORAGE_KEYS.CACHE_VERSION, THEME_CACHE_VERSION)
-    localStorage.setItem(isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT, css)
-  } catch {}
-
-  const fullCss = `:root {
-  color-scheme: ${mode};
-  --text-mix-blend-mode: ${isDark ? "plus-lighter" : "multiply"};
-  ${css}
-}`
-
+  writeCachedThemeCss(localStorage, mode, css)
   document.getElementById(PRELOAD_STYLE_ID)?.remove()
-  ensureThemeStyleElement().textContent = fullCss
-  applyDocumentState(themeId, mode)
+  ensureThemeStyleElement().textContent = rootThemeCss(mode, css)
+  applyDocumentThemeState(document, themeId, mode)
   return tokens["background-base"]
-}
-
-function cacheThemeVariants(theme: DesktopTheme) {
-  for (const mode of ["light", "dark"] as const) {
-    const isDark = mode === "dark"
-    const variant = isDark ? theme.dark : theme.light
-    const tokens = resolveThemeVariant(variant, isDark)
-    const css = themeToCss(tokens)
-    try {
-      localStorage.setItem(STORAGE_KEYS.CACHE_VERSION, THEME_CACHE_VERSION)
-      localStorage.setItem(isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT, css)
-    } catch {}
-  }
 }
 
 export type ThemeAppliedDetails = {
   theme: DesktopTheme
-  mode: "light" | "dark"
+  mode: ThemeMode
   backgroundColor: string
 }
 
 export type ThemeProviderProps = {
   children: ReactNode
-  defaultTheme?: string
   onThemeApplied?: (details: ThemeAppliedDetails) => void
 }
 
-export function ThemeProvider({
-  children,
-  defaultTheme = "dracula",
-  onThemeApplied,
-}: ThemeProviderProps) {
-  const [themeId, setThemeIdState] = useState<string>(() => {
-    const saved = normalizeThemeID(localStorage.getItem(STORAGE_KEYS.THEME_ID))
-    return saved && defaultThemes[saved]
-      ? saved
-      : (normalizeThemeID(defaultTheme) ?? DEFAULT_THEME_ID)
-  })
-
-  const [colorScheme, setColorSchemeState] = useState<ColorScheme>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.COLOR_SCHEME)
-    return isColorScheme(saved) ? saved : "dark"
-  })
-
-  const [mode, setMode] = useState<"light" | "dark">(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.COLOR_SCHEME)
-    if (saved === "light" || saved === "dark") return saved
-    return "dark"
-  })
-
-  const [previewState, setPreviewState] = useState<{
-    themeId: string | null
-    colorScheme: ColorScheme | null
-  }>({ themeId: null, colorScheme: null })
-
-  const currentThemeId = previewState.themeId ?? themeId
-  const currentMode = useMemo(() => {
-    if (previewState.colorScheme) {
-      return previewState.colorScheme === "system" ? getSystemMode() : previewState.colorScheme
-    }
-    return mode
-  }, [previewState.colorScheme, mode])
-
-  const applyTheme = useCallback(
-    (theme: DesktopTheme, id: string, m: "light" | "dark") => {
-      const backgroundColor = applyThemeCss(theme, id, m)
-      onThemeApplied?.({
-        theme,
-        mode: m,
-        backgroundColor,
-      })
-    },
-    [onThemeApplied],
+export function ThemeProvider({ children, onThemeApplied }: ThemeProviderProps) {
+  const [slots, setSlots] = useState<ThemeSlots>(() => readThemeSlots(localStorage))
+  const [colorScheme, setColorSchemeState] = useState<ColorScheme>(() =>
+    readColorScheme(localStorage),
   )
+  const [systemDark, setSystemDark] = useState(systemPrefersDark)
 
-  // Apply theme when themeId or mode changes
-  useEffect(() => {
-    const theme = defaultThemes[currentThemeId]
-    if (theme) {
-      applyTheme(theme, currentThemeId, currentMode)
-    }
-  }, [currentThemeId, currentMode, applyTheme])
+  const mode = colorSchemeMode(colorScheme, systemDark)
+  const themeId = slots[mode]
 
-  // Listen for system color scheme changes
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-    const handler = () => {
-      if (colorScheme === "system") {
-        setMode(getSystemMode())
-      }
-    }
+    dropOutdatedThemeCssCache(localStorage)
+    cacheThemeSlotsCss(localStorage, migrateThemeSlots(localStorage))
+  }, [])
+
+  useEffect(() => {
+    const theme = defaultThemes[themeId]
+    if (!theme) return
+    const backgroundColor = applyThemeCss(themeId, mode)
+    if (backgroundColor) onThemeApplied?.({ theme, mode, backgroundColor })
+  }, [themeId, mode, onThemeApplied])
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(SYSTEM_DARK_MEDIA_QUERY)
+    const handler = () => setSystemDark(mediaQuery.matches)
     mediaQuery.addEventListener("change", handler)
     return () => mediaQuery.removeEventListener("change", handler)
-  }, [colorScheme])
+  }, [])
 
-  // Sync persisted changes across tabs.
   useEffect(() => {
-    const handler = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEYS.THEME_ID && e.newValue) {
-        const normalized = normalizeThemeID(e.newValue)
-        if (normalized) setThemeIdState(normalized)
+    const handler = (event: StorageEvent) => {
+      if (event.key === null || THEME_ID_STORAGE_KEYS.has(event.key)) {
+        setSlots(readThemeSlots(localStorage))
       }
-      if (e.key === STORAGE_KEYS.COLOR_SCHEME && isColorScheme(e.newValue)) {
-        setColorSchemeState(e.newValue)
-        setMode(e.newValue === "system" ? getSystemMode() : e.newValue)
+      if (event.key === null || event.key === STORAGE_KEYS.COLOR_SCHEME) {
+        setColorSchemeState(readColorScheme(localStorage))
       }
     }
     window.addEventListener("storage", handler)
     return () => window.removeEventListener("storage", handler)
   }, [])
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME_ID)
-    const normalizedThemeId = normalizeThemeID(savedTheme)
-    const nextThemeId =
-      normalizedThemeId && defaultThemes[normalizedThemeId] ? normalizedThemeId : DEFAULT_THEME_ID
-    const savedScheme = localStorage.getItem(STORAGE_KEYS.COLOR_SCHEME)
-    const cachedVersion = localStorage.getItem(STORAGE_KEYS.CACHE_VERSION)
-
-    if (cachedVersion !== THEME_CACHE_VERSION) {
-      clearCache()
-      localStorage.setItem(STORAGE_KEYS.CACHE_VERSION, THEME_CACHE_VERSION)
-    }
-
-    if (savedTheme && normalizedThemeId && savedTheme !== normalizedThemeId) {
-      localStorage.setItem(STORAGE_KEYS.THEME_ID, normalizedThemeId)
-      clearCache()
-    }
-
-    if (normalizedThemeId && defaultThemes[normalizedThemeId]) {
-      setThemeIdState(normalizedThemeId)
-    }
-
-    if (isColorScheme(savedScheme)) {
-      setColorSchemeState(savedScheme)
-      setMode(savedScheme === "system" ? getSystemMode() : savedScheme)
-    }
-
-    const currentTheme = defaultThemes[nextThemeId]
-    if (currentTheme) {
-      cacheThemeVariants(currentTheme)
-    }
-  }, [])
-
-  const setTheme = useCallback((id: string) => {
-    const next = normalizeThemeID(id)
-    if (!next) {
-      console.warn(`Theme "${id}" not found`)
+  const setThemeForMode = useCallback((slotMode: ThemeMode, id: string) => {
+    if (!isSelectableTheme(id, slotMode)) {
+      console.warn(`Theme "${id}" is not available for ${slotMode}`)
       return
     }
-    const theme = defaultThemes[next]
-    if (!theme) {
-      console.warn(`Theme "${id}" not found`)
-      return
-    }
-    setThemeIdState(next)
-    localStorage.setItem(STORAGE_KEYS.THEME_ID, next)
-    cacheThemeVariants(theme)
+    setSlots((current) => ({ ...current, [slotMode]: id }))
+    localStorage.setItem(THEME_SLOT_STORAGE_KEYS[slotMode], id)
+    cacheThemeCss(localStorage, id, slotMode)
   }, [])
 
   const setColorScheme = useCallback((scheme: ColorScheme) => {
     setColorSchemeState(scheme)
     localStorage.setItem(STORAGE_KEYS.COLOR_SCHEME, scheme)
-    setMode(scheme === "system" ? getSystemMode() : scheme)
   }, [])
-
-  const previewTheme = useCallback(
-    (id: string) => {
-      const next = normalizeThemeID(id)
-      if (!next) return
-      const theme = defaultThemes[next]
-      if (!theme) return
-      setPreviewState((prev) => ({ ...prev, themeId: next }))
-      const previewMode = previewState.colorScheme
-        ? previewState.colorScheme === "system"
-          ? getSystemMode()
-          : previewState.colorScheme
-        : mode
-      applyTheme(theme, next, previewMode)
-    },
-    [mode, previewState.colorScheme, applyTheme],
-  )
-
-  const previewColorScheme = useCallback(
-    (scheme: ColorScheme) => {
-      setPreviewState((prev) => ({ ...prev, colorScheme: scheme }))
-      const previewMode = scheme === "system" ? getSystemMode() : scheme
-      const id = previewState.themeId ?? themeId
-      const theme = defaultThemes[id]
-      if (theme) {
-        applyTheme(theme, id, previewMode)
-      }
-    },
-    [themeId, previewState.themeId, applyTheme],
-  )
-
-  const commitPreview = useCallback(() => {
-    if (previewState.themeId) {
-      setTheme(previewState.themeId)
-    }
-    if (previewState.colorScheme) {
-      setColorScheme(previewState.colorScheme)
-    }
-    setPreviewState({ themeId: null, colorScheme: null })
-  }, [previewState, setTheme, setColorScheme])
-
-  const cancelPreview = useCallback(() => {
-    setPreviewState({ themeId: null, colorScheme: null })
-    const theme = defaultThemes[themeId]
-    if (theme) {
-      applyTheme(theme, themeId, mode)
-    }
-  }, [themeId, mode, applyTheme])
 
   const contextValue = useMemo<ThemeContextValue>(
     () => ({
       themeId,
+      lightThemeId: slots.light,
+      darkThemeId: slots.dark,
       colorScheme,
       mode,
       themes: defaultThemes,
-      setTheme,
+      setThemeForMode,
       setColorScheme,
-      previewTheme,
-      previewColorScheme,
-      commitPreview,
-      cancelPreview,
     }),
-    [
-      cancelPreview,
-      colorScheme,
-      commitPreview,
-      mode,
-      previewColorScheme,
-      previewTheme,
-      setColorScheme,
-      setTheme,
-      themeId,
-    ],
+    [colorScheme, mode, setColorScheme, setThemeForMode, slots, themeId],
   )
 
   return <ThemeContext.Provider value={contextValue}>{children}</ThemeContext.Provider>

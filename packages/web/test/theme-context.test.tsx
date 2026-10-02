@@ -57,13 +57,17 @@ describe("ThemeProvider", () => {
   async function renderThemeProvider(): Promise<ThemeApi> {
     await act(async () => {
       root.render(
-        <ThemeProvider defaultTheme="dracula">
+        <ThemeProvider>
           <ThemeCapture />
         </ThemeProvider>,
       )
       await flushEffects()
     })
 
+    return currentThemeApi()
+  }
+
+  function currentThemeApi(): ThemeApi {
     if (!themeApi) {
       throw new Error("Theme context was not captured")
     }
@@ -71,26 +75,28 @@ describe("ThemeProvider", () => {
     return themeApi
   }
 
-  test("migrates legacy oc-1 state and refreshes cached css", async () => {
-    localStorage.setItem("opencode-theme-id", "oc-1")
+  test("migrates a legacy theme into both slots and refreshes cached css", async () => {
+    localStorage.setItem("opencode-theme-id", "nord")
     localStorage.setItem("opencode-color-scheme", "dark")
     localStorage.setItem("opencode-theme-css-light", "stale-light")
     localStorage.setItem("opencode-theme-css-dark", "stale-dark")
 
-    await renderThemeProvider()
+    const api = await renderThemeProvider()
 
-    expect(localStorage.getItem("opencode-theme-id")).toBe("dracula")
-    expect(document.documentElement.dataset.theme).toBe("dracula")
+    expect(api.lightThemeId).toBe("nord")
+    expect(api.darkThemeId).toBe("nord")
+    expect(localStorage.getItem("opencode-theme-id")).toBeNull()
+    expect(localStorage.getItem("opencode-theme-id-light")).toBe("nord")
+    expect(localStorage.getItem("opencode-theme-id-dark")).toBe("nord")
+    expect(document.documentElement.dataset.theme).toBe("nord")
     expect(document.documentElement.dataset.colorScheme).toBe("dark")
     expect(document.documentElement.classList.contains("dark")).toBe(true)
-    expect(localStorage.getItem("opencode-theme-css-light")).not.toBe("stale-light")
-    expect(localStorage.getItem("opencode-theme-css-dark")).not.toBe("stale-dark")
     expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background-base:")
     expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background-base:")
   })
 
-  test("migrates brand-hidden theme ids to the default", async () => {
-    for (const retiredId of ["oc-2", "opencode"] as const) {
+  test("replaces retired theme ids with the defaults", async () => {
+    for (const retiredId of ["oc-1", "oc-2", "opencode"] as const) {
       localStorage.clear()
       localStorage.setItem("opencode-theme-id", retiredId)
 
@@ -103,11 +109,62 @@ describe("ThemeProvider", () => {
 
       const api = await renderThemeProvider()
 
-      expect(localStorage.getItem("opencode-theme-id")).toBe("dracula")
+      expect(localStorage.getItem("opencode-theme-id")).toBeNull()
+      expect(localStorage.getItem("opencode-theme-id-dark")).toBe("dracula")
+      expect(localStorage.getItem("opencode-theme-id-light")).toBe("github")
       expect(document.documentElement.dataset.theme).toBe("dracula")
       expect(api.themes[retiredId]).toBeUndefined()
       expect(api.themeId).toBe("dracula")
     }
+  })
+
+  test("uses the light slot's theme in light and the dark slot's theme in dark", async () => {
+    localStorage.setItem("opencode-theme-id", "catppuccin-macchiato")
+
+    const api = await renderThemeProvider()
+
+    expect(api.darkThemeId).toBe("catppuccin-macchiato")
+    expect(api.lightThemeId).toBe("catppuccin")
+    expect(api.themeId).toBe("catppuccin-macchiato")
+
+    await act(async () => {
+      api.setColorScheme("light")
+      await flushEffects()
+    })
+
+    expect(currentThemeApi().mode).toBe("light")
+    expect(currentThemeApi().themeId).toBe("catppuccin")
+    expect(document.documentElement.dataset.theme).toBe("catppuccin")
+  })
+
+  test("sets each slot on its own and refuses a dark-only theme for light", async () => {
+    const api = await renderThemeProvider()
+
+    await act(async () => {
+      api.setThemeForMode("light", "solarized")
+      api.setThemeForMode("dark", "catppuccin-macchiato")
+      await flushEffects()
+    })
+
+    expect(currentThemeApi().lightThemeId).toBe("solarized")
+    expect(currentThemeApi().darkThemeId).toBe("catppuccin-macchiato")
+    expect(localStorage.getItem("opencode-theme-id-light")).toBe("solarized")
+    expect(localStorage.getItem("opencode-theme-id-dark")).toBe("catppuccin-macchiato")
+    expect(document.documentElement.dataset.theme).toBe("catppuccin-macchiato")
+
+    const warn = console.warn
+    console.warn = () => {}
+    try {
+      await act(async () => {
+        api.setThemeForMode("light", "catppuccin-macchiato")
+        await flushEffects()
+      })
+    } finally {
+      console.warn = warn
+    }
+
+    expect(currentThemeApi().lightThemeId).toBe("solarized")
+    expect(localStorage.getItem("opencode-theme-id-light")).toBe("solarized")
   })
 
   test("caches the default theme and keeps the dark class in sync with scheme changes", async () => {

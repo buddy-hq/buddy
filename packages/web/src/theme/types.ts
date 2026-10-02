@@ -12,5 +12,8 @@ export type {
   ThemeToken,
 } from "@buddy/opencode-adapter/theme"
 
-// Color scheme for React context
 export type ColorScheme = "system" | "light" | "dark"
+
+export type ThemeMode = "light" | "dark"
+
+export type ThemeSlots = Record<ThemeMode, string>

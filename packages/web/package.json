@@ -8,6 +8,7 @@
     "./app": "./src/app.tsx",
     "./context/platform": "./src/context/platform.tsx",
     "./context/server": "./src/context/server.tsx",
+    "./theme/storage": "./src/theme/storage.ts",
     "./vite": "./vite.ts"
   },
   "scripts": {
