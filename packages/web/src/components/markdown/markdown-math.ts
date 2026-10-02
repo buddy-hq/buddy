@@ -221,18 +221,6 @@ function mathTextForDelimiter(src: string, delimiter: MathDelimiter, endIndex: n
   return src.slice(delimiter.left.length, endIndex).trim()
 }
 
-function isProbablyCurrencyText(value: string): boolean {
-  const trimmed = value.trim()
-  if (!/^\d+(?:[.,]\d{2})?(?:\s+[A-Za-z]+)+$/u.test(trimmed)) return false
-  return !/[\\_^{}=<>+\-*/]/u.test(trimmed)
-}
-
-function isValidSingleDollarMath(value: string): boolean {
-  const trimmed = value.trim()
-  if (!trimmed) return false
-  return !isProbablyCurrencyText(trimmed)
-}
-
 function hasLikelyPaddedSingleDollarMath(value: string): boolean {
   const trimmed = value.trim()
   if (!trimmed) return false
@@ -266,6 +254,7 @@ function escapeUnescapedPercent(value: string): string {
   return result
 }
 
+/** Matches inline math at the start of Markdown, preserving single-dollar whitespace boundaries. */
 export function matchBuddyInlineMath(src: string): BuddyMathMatch | undefined {
   for (const delimiter of inlineDelimiters) {
     if (!src.startsWith(delimiter.left)) continue
@@ -273,9 +262,15 @@ export function matchBuddyInlineMath(src: string): BuddyMathMatch | undefined {
     const endIndex = findEndOfMath(delimiter.right, src, delimiter.left.length)
     if (endIndex < 0) return undefined
 
+    // Unpadded math closes against content. Otherwise currency can consume a
+    // later formula's opening dollar. Deliberately padded math stays supported.
+    if (delimiter.left === "$" && !startsWithPadding && /\s/u.test(src[endIndex - 1] ?? "")) {
+      return undefined
+    }
+
     const raw = src.slice(0, endIndex + delimiter.right.length)
     const text = mathTextForDelimiter(src, delimiter, endIndex)
-    if (delimiter.left === "$" && !isValidSingleDollarMath(text)) {
+    if (delimiter.left === "$" && !text) {
       return undefined
     }
     if (startsWithPadding && !hasLikelyPaddedSingleDollarMath(text)) {

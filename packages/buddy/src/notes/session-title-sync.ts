@@ -13,7 +13,7 @@ import {
   isWindowsReservedNoteTitle,
   normalizeNoteTitle,
   readNoteFile,
-  renderNoteSource,
+  replaceNoteMetadata,
 } from "./note-file"
 import { sessionNoteTitle } from "./presentation"
 import { withNotesMutationLock } from "./mutation-lock"
@@ -82,7 +82,7 @@ export async function synchronizeSessionNoteTitle(input: {
             if (!moved.metadata) return "renamed"
             await writeTextFileAtomic(
               destination,
-              renderNoteSource(moved.content, {
+              replaceNoteMetadata(moved, {
                 ...moved.metadata,
                 "buddy-generated-title": stem,
               }),

@@ -1329,7 +1329,8 @@ describe("MarkdownBenchEditor", () => {
     expect(serialized).toContain("| State | Motion")
     expect(serialized).toContain("![Particle diagram](https://example.com/particle.png)")
     expect(serialized).toContain("```mermaid")
-    expect(serialized).toContain("{/* teacher annotation */}")
+    expect(serialized).toContain("<!-- teacher annotation -->")
+    expect(serialized).not.toContain("\u2060")
     expect(serialized).toContain("<svg")
   })
 
@@ -1443,6 +1444,108 @@ describe("MarkdownBenchEditor", () => {
     expect(serialized).toContain("![[references/source.pdf]]")
     expect(serialized).toContain("> [!tip]+ Evidence")
     expect(serialized).toContain("> Connect the observation.")
+  })
+
+  test("renders and serializes a callout whose title contains quotes", async () => {
+    const editorRef = createRef<MarkdownBenchEditorHandle>()
+    const titleLine = '> [!quote]- Replace "deliveries" with "speeds" & move on…'
+    const markdown = [
+      titleLine,
+      '> In *this* context, replace "deliveries" with "speeds".',
+      ">",
+      "> > **P50 = 17.88** means the middle response.",
+      ">",
+      "> [Open message](buddy://chat/ses_example?message=msg_example)",
+    ].join("\n")
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            ref={editorRef}
+            markdown={markdown}
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-notes"
+            documentFormat="markdown"
+            path="Quoted.md"
+            onChange={() => {}}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects()
+    })
+
+    const callout = container.querySelector('[data-component="markdown-bench-obsidian-callout"]')
+    expect(callout?.querySelector("summary")?.textContent).toBe(
+      'Replace "deliveries" with "speeds" & move on…',
+    )
+    expect(container.textContent).not.toContain(":::obsidian-callout")
+
+    const serialized = editorRef.current?.getMarkdown() ?? ""
+    expect(serialized).toContain(titleLine)
+    expect(serialized).not.toContain(":::")
+  })
+
+  test("keeps prose that looks like a directive inside a callout and at the top level", async () => {
+    const editorRef = createRef<MarkdownBenchEditorHandle>()
+    const processingErrors: unknown[] = []
+    const markdown = [
+      "The ratio is key:value and config:servers[0] worked :D",
+      "",
+      "::youtube[Video]{#abc}",
+      "",
+      "> [!quote]- Title",
+      "> Use nginx:latest with build:prod and it worked :D",
+      "> second line",
+    ].join("\n")
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            ref={editorRef}
+            markdown={markdown}
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-notes"
+            documentFormat="markdown"
+            path="Directives.md"
+            onChange={() => {}}
+            onProcessingResult={(result) => {
+              if (result.error) processingErrors.push(result.error)
+            }}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(processingErrors).toEqual([])
+    expect(container.querySelector(".mdxeditor-source-editor")).toBeNull()
+    const callout = container.querySelector('[data-component="markdown-bench-obsidian-callout"]')
+    expect(callout?.textContent).toContain("Use nginx:latest with build:prod and it worked :D")
+    expect(container.textContent).toContain(
+      "The ratio is key:value and config:servers[0] worked :D",
+    )
+    expect(container.textContent).toContain("::youtube[Video]{#abc}")
+
+    const serialized = editorRef.current?.getMarkdown() ?? ""
+    expect(serialized).toBe(
+      [
+        "The ratio is key:value and config:servers\\[0] worked :D",
+        "",
+        "\\::youtube\\[Video]{#abc}",
+        "",
+        "> [!quote]- Title",
+        "> Use nginx:latest with build:prod and it worked :D",
+        "> second line",
+      ].join("\n"),
+    )
   })
 
   test("routes rendered Markdown links through the Bench link handler", async () => {

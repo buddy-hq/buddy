@@ -371,6 +371,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             directory={location.directory}
             documentFormat={documentFormat}
             path={location.path}
+            preserveUntouchedBlocks
             resolveImageSrc={benchDocument.resolveImageSrc}
             selectTitleOnOpen={benchDocument.selectTitleOnOpen}
             title={benchDocument.title}

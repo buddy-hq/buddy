@@ -22,6 +22,7 @@ import {
   prepareMarkdownForMdxEditor,
   prepareMdxForMdxEditor,
   restoreMarkdownFromMdxEditor,
+  restoreMdxFromMdxEditor,
 } from "@/components/bench/markdown/compatibility"
 import { MarkdownBenchIntrinsicScope } from "@/components/bench/markdown/mdx-intrinsic"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
@@ -46,7 +47,14 @@ import {
   type ObsidianWikiLinkContext,
 } from "@/components/bench/markdown/plugins/obsidian"
 import { findMarkdownBenchFragmentTarget } from "@/components/bench/markdown/editor-fragments"
+import { readEditorLinkUrl } from "@/components/bench/markdown/editor-link-url"
 import { resolveSelectionHeadingPath } from "@/components/bench/markdown/editor-selection"
+import {
+  applyMarkdownFileTextFormat,
+  readMarkdownFileTextFormat,
+  type MarkdownFileTextFormat,
+} from "@/components/bench/markdown/file-text-format"
+import { keepUntouchedMarkdownBlocks } from "@/components/bench/markdown/untouched-blocks"
 import {
   MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS,
   MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME,
@@ -72,6 +80,7 @@ import {
 } from "@/components/bench/markdown/plugins/editor-runtime"
 import { MarkdownBenchToolbarContainerContext } from "@/components/bench/markdown/editor-toolbar-portal"
 import { useMarkdownBenchEditorPlugins } from "@/components/bench/markdown/use-editor-plugins"
+import { MarkdownBenchSourcePreservationContext } from "@/components/bench/markdown/plugins/directives"
 import {
   MarkdownBenchPropertiesToggle,
   MarkdownBenchPropertiesView,
@@ -150,6 +159,7 @@ type MarkdownBenchEditorProps = Pick<
   directory: string
   documentFormat: MarkdownBenchDocumentFormat
   path: string
+  preserveUntouchedBlocks?: boolean
   title?: string
   placeholder?: ReactNode
   /** Frontmatter revealed by the info control on the title. */
@@ -173,8 +183,37 @@ type MarkdownBenchEditorProps = Pick<
 const MARKDOWN_BENCH_CONTENT_ROOT_SELECTOR = ".mdxeditor-root-contenteditable [contenteditable]"
 
 const MARKDOWN_SERIALIZATION_OPTIONS = {
+  bullet: "-",
   listItemIndent: "one",
   resourceLink: false,
+  rule: "-",
+} as const
+
+type LoadedMarkdown = {
+  source: string
+  baseline?: string
+}
+
+const BYTE_ORDER_MARK = "\uFEFF"
+const CARRIAGE_RETURN_LINE_FEED = "\r\n"
+
+function lineFeedMarkdownSource(markdown: string): string {
+  const withoutByteOrderMark = markdown.startsWith(BYTE_ORDER_MARK) ? markdown.slice(1) : markdown
+  return withoutByteOrderMark.replaceAll(CARRIAGE_RETURN_LINE_FEED, "\n")
+}
+
+// CodeMirror publishes its line-feed document on every view update, so a CRLF
+// code value would read as an edit. The file text format is restored on save.
+function prepareEditorMarkdown(markdown: string, documentFormat: MarkdownBenchDocumentFormat) {
+  const source = lineFeedMarkdownSource(markdown)
+  return documentFormat === "mdx"
+    ? prepareMdxForMdxEditor(source)
+    : prepareMarkdownForMdxEditor(source)
+}
+
+const MDX_SERIALIZATION_OPTIONS = {
+  ...MARKDOWN_SERIALIZATION_OPTIONS,
+  resourceLink: true,
 } as const
 
 function revealDocumentCitation(
@@ -236,15 +275,26 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       position: { x: number; y: number }
     }>()
     const citationActionRef = useRef<HTMLDivElement>(null)
-    const applyingExternalMarkdownRef = useRef(false)
+    const applyingExternalMarkdownRef = useRef(true)
     const historyControlsRef = useRef<MarkdownBenchHistoryControls>(
       EMPTY_MARKDOWN_BENCH_HISTORY_CONTROLS,
     )
     const onHistoryControlsChangeRef = useRef(props.onHistoryControlsChange)
     const onProcessingResultRef = useRef(props.onProcessingResult)
     const processingMarkdownRef = useRef(props.markdown)
+    const loadedMarkdownRef = useRef<LoadedMarkdown>({ source: props.markdown })
+    const fileTextFormatRef = useRef<{ path: string; format: MarkdownFileTextFormat }>({
+      path: props.path,
+      format: readMarkdownFileTextFormat(props.markdown),
+    })
     onProcessingResultRef.current = props.onProcessingResult
     processingMarkdownRef.current = props.markdown
+    if (props.markdown !== "" || fileTextFormatRef.current.path !== props.path) {
+      fileTextFormatRef.current = {
+        path: props.path,
+        format: readMarkdownFileTextFormat(props.markdown),
+      }
+    }
 
     useLayoutEffect(() => {
       const editorRoot = editorRootRef.current
@@ -360,21 +410,43 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     )
     const obsidianWikiLinkContext = props.obsidianWikiLinkContext ?? fallbackObsidianWikiLinkContext
     const editorMarkdown = useMemo(
-      () =>
-        props.documentFormat === "mdx"
-          ? prepareMdxForMdxEditor(props.markdown)
-          : prepareMarkdownForMdxEditor(props.markdown),
+      () => prepareEditorMarkdown(props.markdown, props.documentFormat),
       [props.documentFormat, props.markdown],
     )
-    const restoreEditorMarkdown = useCallback(
+    const restoreEditorBody = useCallback(
       (markdown: string) => {
         const restoredCallouts = restoreObsidianCalloutsFromMdxEditor(markdown)
         return props.documentFormat === "mdx"
-          ? restoredCallouts
+          ? restoreMdxFromMdxEditor(restoredCallouts)
           : restoreMarkdownFromMdxEditor(restoredCallouts)
       },
       [props.documentFormat],
     )
+    const preservesUntouchedBlocks =
+      props.preserveUntouchedBlocks === true && props.documentFormat === "markdown"
+    const restoreEditorMarkdown = useCallback(
+      (markdown: string) => {
+        const restoredMarkdown = restoreEditorBody(markdown)
+        const loaded = loadedMarkdownRef.current
+        const keptMarkdown =
+          props.preserveUntouchedBlocks === true && restoredMarkdown === loaded.baseline
+            ? lineFeedMarkdownSource(loaded.source)
+            : preservesUntouchedBlocks && loaded.baseline !== undefined
+              ? keepUntouchedMarkdownBlocks({
+                  source: lineFeedMarkdownSource(loaded.source),
+                  baseline: loaded.baseline,
+                  next: restoredMarkdown,
+                })
+              : restoredMarkdown
+        return applyMarkdownFileTextFormat(keptMarkdown, fileTextFormatRef.current.format)
+      },
+      [preservesUntouchedBlocks, props.preserveUntouchedBlocks, restoreEditorBody],
+    )
+    const captureLoadedBaseline = useCallback(() => {
+      const editor = editorRef.current
+      if (!editor || loadedMarkdownRef.current.baseline !== undefined) return
+      loadedMarkdownRef.current.baseline = restoreEditorBody(editor.getMarkdown())
+    }, [restoreEditorBody])
     const handleHistoryControlsChange = useCallback((controls: MarkdownBenchHistoryControls) => {
       historyControlsRef.current = controls
       onHistoryControlsChangeRef.current?.({
@@ -484,7 +556,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         if (!onOpenLink || !(event.target instanceof Element)) return
         const anchor = event.target.closest("a")
         if (!(anchor instanceof HTMLAnchorElement)) return
-        const href = anchor.getAttribute("href")
+        const href = readEditorLinkUrl(anchor)
         if (!href) return
         onOpenLink(href, { modified: event.metaKey || event.ctrlKey })
         event.preventDefault()
@@ -519,13 +591,11 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         setMarkdown(markdown: string) {
           applyingExternalMarkdownRef.current = true
           processingMarkdownRef.current = markdown
-          editorRef.current?.setMarkdown(
-            props.documentFormat === "mdx"
-              ? prepareMdxForMdxEditor(markdown)
-              : prepareMarkdownForMdxEditor(markdown),
-          )
+          loadedMarkdownRef.current = { source: markdown }
+          editorRef.current?.setMarkdown(prepareEditorMarkdown(markdown, props.documentFormat))
           window.queueMicrotask(() => {
             applyingExternalMarkdownRef.current = false
+            captureLoadedBaseline()
           })
         },
         focus() {
@@ -546,23 +616,30 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           historyControlsRef.current.undo()
         },
       }),
-      [props.documentFormat, restoreEditorMarkdown],
+      [captureLoadedBaseline, props.documentFormat, restoreEditorMarkdown],
     )
 
     useEffect(() => {
       const editor = editorRef.current
       if (!editor) return
+      captureLoadedBaseline()
       const currentMarkdown = restoreEditorMarkdown(editor.getMarkdown())
       if (currentMarkdown === props.markdown) {
+        window.queueMicrotask(() => {
+          applyingExternalMarkdownRef.current = false
+          captureLoadedBaseline()
+        })
         return
       }
 
       applyingExternalMarkdownRef.current = true
+      loadedMarkdownRef.current = { source: props.markdown }
       editor.setMarkdown(editorMarkdown)
       window.queueMicrotask(() => {
         applyingExternalMarkdownRef.current = false
+        captureLoadedBaseline()
       })
-    }, [editorMarkdown, props.markdown, restoreEditorMarkdown])
+    }, [captureLoadedBaseline, editorMarkdown, props.markdown, restoreEditorMarkdown])
 
     const mdxEditorElement = (
       <div
@@ -631,33 +708,42 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           <MarkdownBenchToolbarContainerContext.Provider
             value={props.advancedToolbarContainer ?? null}
           >
-            <MDXEditor
-              ref={editorRef}
-              className={cn(
-                "min-h-full bg-background-base text-text-base",
-                MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME,
-                MDX_EDITOR_THEME_CLASS_NAME,
-              )}
-              markdown={editorMarkdown}
-              plugins={plugins}
-              overlayContainer={popupHost}
-              readOnly={props.readOnly || isPrintView || props.renamingTitle}
-              placeholder={props.placeholder}
-              suppressHtmlProcessing={props.documentFormat === "mdx"}
-              toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}
-              onChange={(nextMarkdown, initialMarkdownNormalize) => {
-                if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
-                  return
+            <MarkdownBenchSourcePreservationContext.Provider
+              value={props.preserveUntouchedBlocks === true}
+            >
+              <MDXEditor
+                ref={editorRef}
+                className={cn(
+                  "min-h-full bg-background-base text-text-base",
+                  MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME,
+                  MDX_EDITOR_THEME_CLASS_NAME,
+                )}
+                markdown={editorMarkdown}
+                plugins={plugins}
+                overlayContainer={popupHost}
+                readOnly={props.readOnly || isPrintView || props.renamingTitle}
+                placeholder={props.placeholder}
+                suppressHtmlProcessing={props.documentFormat === "mdx"}
+                toMarkdownOptions={
+                  props.documentFormat === "mdx"
+                    ? MDX_SERIALIZATION_OPTIONS
+                    : MARKDOWN_SERIALIZATION_OPTIONS
                 }
-                props.onChange(restoreEditorMarkdown(nextMarkdown))
-              }}
-              contentEditableClassName={cn(
-                MARKDOWN_CONTENT_BASE_CLASS_NAME,
-                isPlainAppearance
-                  ? MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME
-                  : MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME,
-              )}
-            />
+                onChange={(nextMarkdown, initialMarkdownNormalize) => {
+                  if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
+                    loadedMarkdownRef.current.baseline = restoreEditorBody(nextMarkdown)
+                    return
+                  }
+                  props.onChange(restoreEditorMarkdown(nextMarkdown))
+                }}
+                contentEditableClassName={cn(
+                  MARKDOWN_CONTENT_BASE_CLASS_NAME,
+                  isPlainAppearance
+                    ? MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME
+                    : MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME,
+                )}
+              />
+            </MarkdownBenchSourcePreservationContext.Provider>
           </MarkdownBenchToolbarContainerContext.Provider>
         </div>
       </div>

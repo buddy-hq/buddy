@@ -92,6 +92,22 @@ afterEach(async () => {
   await OpenCodeInstance.disposeAll()
 })
 
+function handEditedNoteSource(generatedTitle: string[]) {
+  return [
+    "---",
+    "# kept by another tool",
+    "type: buddy-note",
+    "buddy-id: 01K00000000000000000000001",
+    "buddy-notebook-id: notebook-test",
+    "notebook: 'Research'",
+    ...generatedTitle,
+    "tags: [alpha, beta]",
+    "---",
+    "Body",
+    "",
+  ].join("\n")
+}
+
 describe("Notes library and chat capture", () => {
   test("returns the exact submitted body after saving a stamped note", async () => {
     await using home = await tmpdir()
@@ -109,6 +125,67 @@ describe("Notes library and chat capture", () => {
       expect(saved.content).toBe(content)
       expect((await readNote(note.relativePath)).content).toBe(content)
       expect(saved.note.id).toBe(note.id)
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("keeps hand-edited frontmatter byte for byte when only the body is saved", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+    try {
+      const note = await createStandaloneNote({ directory: notebook.path, title: "Hand edited" })
+      const filepath = path.join(home.path, "Notes", note.relativePath)
+      const written = await fsp.readFile(filepath, "utf8")
+      const stamp = written.slice("---\n".length, written.indexOf("\n---\n") + 1)
+      const frontmatter = [
+        "---",
+        "# kept by another tool",
+        'title: "Hand edited"',
+        "tags: [alpha, beta]",
+        "aliases:",
+        "  - 'Second name'",
+        ...stamp.trimEnd().split("\n"),
+        "---",
+        "",
+      ].join("\r\n")
+      await fsp.writeFile(filepath, `${frontmatter}Original body\r\n`)
+      const initial = await readNote(note.relativePath)
+
+      await updateNote({
+        path: note.relativePath,
+        content: "Edited body\r\n",
+        expectedVersion: initial.version,
+      })
+
+      expect(await fsp.readFile(filepath, "utf8")).toBe(`${frontmatter}Edited body\r\n`)
+      expect((await readNote(note.relativePath)).properties).toEqual(initial.properties)
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("keeps the stamp when an empty note without a final newline gets a body", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+    try {
+      const note = await createStandaloneNote({ directory: notebook.path, title: "Trimmed" })
+      const filepath = path.join(home.path, "Notes", note.relativePath)
+      const written = await fsp.readFile(filepath, "utf8")
+      const trimmed = written.slice(0, written.indexOf("\n---\n") + "\n---".length)
+      await fsp.writeFile(filepath, trimmed)
+      const initial = await readNote(note.relativePath)
+
+      await updateNote({
+        path: note.relativePath,
+        content: "Hello",
+        expectedVersion: initial.version,
+      })
+
+      expect(await fsp.readFile(filepath, "utf8")).toBe(`${trimmed}\nHello`)
+      expect((await readNote(note.relativePath)).note).toMatchObject({ kind: "buddy", id: note.id })
     } finally {
       await Config.replaceGlobal(previous)
     }
@@ -262,6 +339,26 @@ describe("Notes library and chat capture", () => {
         "Legacy.md",
       )
       expect((await readNote("Legacy.md")).content).toBe("# Kept heading\n")
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("drops only the generated title from hand-edited frontmatter on rename", async () => {
+    await using home = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+    try {
+      await fsp.mkdir(path.join(home.path, "Notes"), { recursive: true })
+      await fsp.writeFile(
+        path.join(home.path, "Notes", "Auto.md"),
+        handEditedNoteSource(["buddy-generated-title: Auto"]),
+      )
+
+      await renameNote({ path: "Auto.md", title: "Chosen" })
+
+      expect(await fsp.readFile(path.join(home.path, "Notes", "Chosen.md"), "utf8")).toBe(
+        handEditedNoteSource([]),
+      )
     } finally {
       await Config.replaceGlobal(previous)
     }
@@ -512,6 +609,64 @@ describe("Notes library and chat capture", () => {
     }
   })
 
+  test.each([
+    ["CRLF note behind a byte-order mark", "\r\n", "\uFEFF"],
+    ["LF note", "\n", ""],
+  ] as const)(
+    "appends a quoted message to an existing %s in its own line endings",
+    async (_, lineEnding, byteOrderMark) => {
+      await using home = await tmpdir()
+      await using notebook = await tmpdir()
+      const previous = await configureNotesHome(home.path)
+
+      try {
+        const chat = await seedReadableChat(notebook.path)
+        const first = await captureComposerNote({
+          directory: notebook.path,
+          sessionID: chat.sessionID,
+          text: "First capture",
+        })
+        const filepath = path.join(home.path, "Notes", first.note.relativePath)
+        const created = await fsp.readFile(filepath, "utf8")
+        const before = `${byteOrderMark}${created
+          .replace("---\n", "---\n# kept by another tool\n")
+          .replaceAll("\n", lineEnding)}Edited by hand${lineEnding}`
+        await fsp.writeFile(filepath, before, "utf8")
+
+        const quoted = await annotateChatMessage({
+          directory: notebook.path,
+          sessionID: chat.sessionID,
+          messageID: chat.userMessageID,
+          text: "Why\nthis matters",
+        })
+
+        const after = await fsp.readFile(filepath, "utf8")
+        expect(quoted).toMatchObject({
+          created: false,
+          note: { id: first.note.id, relativePath: first.note.relativePath },
+        })
+        expect(after.startsWith(before)).toBe(true)
+        expect(after.slice(before.length).replace(/\*\d{2}:\d{2}\*/u, "*<time>*")).toBe(
+          [
+            "",
+            "*<time>*",
+            "",
+            "> [!quote]- Visible question",
+            "> Visible question",
+            ">",
+            `> [Open message](buddy://chat/${chat.sessionID}?message=${chat.userMessageID})`,
+            "",
+            "Why",
+            "this matters",
+            "",
+          ].join(lineEnding),
+        )
+      } finally {
+        await Config.replaceGlobal(previous)
+      }
+    },
+  )
+
   test("saves a quoted message without any learner text", async () => {
     await using home = await tmpdir()
     await using notebook = await tmpdir()
@@ -725,6 +880,39 @@ describe("Notes library and chat capture", () => {
       const preview = plainTextPreview({ text: crowded, match })
       expect(loneSurrogate.test(preview)).toBe(false)
       expect(preview.length).toBeLessThanOrEqual(180 + 2)
+    }
+  })
+
+  test("reads and saves a stamped note that carries a byte-order mark", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+    try {
+      const created = await createStandaloneNote({ directory: notebook.path, title: "Imported" })
+      const notePath = path.join(home.path, "Notes", created.relativePath)
+      const stamped = await fsp.readFile(notePath, "utf8")
+      await fsp.writeFile(notePath, `\uFEFF${stamped}Written elsewhere`, "utf8")
+
+      const document = await readNote(created.relativePath)
+      expect(document.note).toMatchObject({ kind: "buddy", id: created.id })
+      expect(document.content).toBe("Written elsewhere")
+      expect(document.properties).toMatchObject({ type: "buddy-note", "buddy-id": created.id })
+
+      const saved = await updateNote({
+        path: created.relativePath,
+        content: "Edited here",
+        expectedVersion: document.version,
+      })
+      const written = await fsp.readFile(notePath, "utf8")
+      expect(saved.content).toBe("Edited here")
+      expect(written.startsWith("\uFEFF---\n")).toBe(true)
+      expect(parseNoteSource(written)?.content).toBe("Edited here")
+      expect((await readNote(created.relativePath)).note).toMatchObject({
+        kind: "buddy",
+        id: created.id,
+      })
+    } finally {
+      await Config.replaceGlobal(previous)
     }
   })
 
