@@ -10,6 +10,21 @@ const CAPTURE_TIME_LINE = /^\*\d{2}:\d{2}\*[ \t]*$/gmu
 const LEGACY_CAPTURE_HEADING = /^#{1,6}[ \t]+(?:Note|Annotation)[ \t]+—[ \t].*$/gmu
 const BUDDY_LINK = /\[[^\]]*\]\(buddy:\/\/[^)]*\)/gu
 const IMAGE_EMBED = /!\[[^\]]*\]\([^)]*\)/gu
+const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
+
+function graphemeBoundaryAtOrBefore(text: string, index: number): number {
+  if (index <= 0) return 0
+  if (index >= text.length) return text.length
+  return graphemeSegmenter.segment(text).containing(index)?.index ?? index
+}
+
+function graphemeBoundaryAtOrAfter(text: string, index: number): number {
+  if (index <= 0) return 0
+  if (index >= text.length) return text.length
+  const containing = graphemeSegmenter.segment(text).containing(index)
+  if (!containing || containing.index === index) return index
+  return containing.index + containing.segment.length
+}
 
 /** Plain prose for note previews and compact message quotes. */
 export function notePlainText(markdown: string): string {
@@ -32,15 +47,17 @@ export function notePlainText(markdown: string): string {
 
 /** A short excerpt around a content match, or the start of an unsearched note. */
 export function plainTextPreview(input: { text: string; match: number }): string {
-  const start = Math.max(0, input.match - 45)
-  const excerpt = input.text.slice(start, start + PREVIEW_LENGTH).trim()
-  return `${start > 0 ? "…" : ""}${excerpt}${start + PREVIEW_LENGTH < input.text.length ? "…" : ""}`
+  const start = graphemeBoundaryAtOrAfter(input.text, Math.max(0, input.match - 45))
+  const end = graphemeBoundaryAtOrBefore(input.text, start + PREVIEW_LENGTH)
+  const excerpt = input.text.slice(start, end).trim()
+  return `${start > 0 ? "…" : ""}${excerpt}${end < input.text.length ? "…" : ""}`
 }
 
 /** A message quote stays subordinate to what the learner wrote. */
 export function noteMessageExcerpt(content: string, length = QUOTE_LENGTH): string {
   const text = notePlainText(content)
-  return text.length > length ? `${text.slice(0, length).trimEnd()}…` : text
+  if (text.length <= length) return text
+  return `${text.slice(0, graphemeBoundaryAtOrBefore(text, length)).trimEnd()}…`
 }
 
 function quotedMessageBody(markdown: string) {
