@@ -1,5 +1,6 @@
-import type { DesktopTheme, ResolvedTheme } from "@/theme/types"
-import { resolveThemeVariant, themeToCss } from "@/theme/resolve"
+import { textMixBlendMode, themeTokens } from "@/theme"
+import type { ResolvedTheme } from "@/theme/types"
+import { themeToCss } from "@/theme/resolve"
 import {
   createMermaidThemeConfig,
   type MermaidThemeConfig,
@@ -72,9 +73,10 @@ function printMermaidThemeConfig(): MermaidThemeConfig {
 }
 
 export function resolveMarkdownBenchContentTheme(input: {
-  theme: DesktopTheme
   mode: MarkdownBenchContentThemeMode
-}): MarkdownBenchContentTheme {
+  lightThemeId: string
+  darkThemeId: string
+}): MarkdownBenchContentTheme | undefined {
   if (input.mode === "print") {
     return {
       mermaidThemeConfig: printMermaidThemeConfig(),
@@ -83,9 +85,9 @@ export function resolveMarkdownBenchContentTheme(input: {
     }
   }
 
-  const isDark = input.mode === "dark"
-  const variant = isDark ? input.theme.dark : input.theme.light
-  const tokens = resolveThemeVariant(variant, isDark)
+  const themeId = input.mode === "dark" ? input.darkThemeId : input.lightThemeId
+  const tokens = themeTokens(themeId, input.mode)
+  if (!tokens) return undefined
   return {
     mermaidThemeConfig: mermaidThemeConfigFromResolvedTheme(tokens),
     mode: input.mode,
@@ -111,7 +113,7 @@ export function buildMarkdownBenchContentThemeCss(input: {
   return `[data-markdown-bench-theme-scope="${safeScopeID}"] {
   color-scheme: ${colorScheme};
   --markdown-bench-document-font-scale: ${contentFontScale};
-  --text-mix-blend-mode: ${colorScheme === "dark" ? "plus-lighter" : "multiply"};
+  --text-mix-blend-mode: ${textMixBlendMode(colorScheme)};
   ${themeVariables}
   --color-background-base: var(--background-base);
   --color-background-strong: var(--background-strong);

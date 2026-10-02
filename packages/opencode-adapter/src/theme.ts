@@ -59,6 +59,7 @@ import {
   constrainTextContrast,
   ensureLayerContrast,
   ensureTextContrast,
+  layeredContrastRatio,
   shiftLightness,
 } from "./theme-contrast"
 
@@ -424,4 +425,36 @@ export function resolveTheme(theme: DesktopTheme) {
     light: resolveThemeVariant(theme.light, false),
     dark: resolveThemeVariant(theme.dark, true),
   }
+}
+
+const DOCUMENT_PAGE_KEY = "background-base"
+const DOCUMENT_COLOR_KEY_PATTERN = /^(?:markdown|syntax)-/u
+const DOCUMENT_BODY_TEXT_KEYS: ReadonlySet<string> = new Set([
+  "markdown-text",
+  "markdown-code-block",
+])
+const DOCUMENT_RULE_KEYS: ReadonlySet<string> = new Set(["markdown-horizontal-rule"])
+
+export function resolveThemeDocumentColors(variant: ThemeVariant, isDark: boolean): ResolvedTheme {
+  const tokens = resolveVendorThemeVariant(variant, isDark)
+  return Object.fromEntries(
+    Object.entries(tokens).filter(
+      ([key]) => key === DOCUMENT_PAGE_KEY || DOCUMENT_COLOR_KEY_PATTERN.test(key),
+    ),
+  )
+}
+
+export function unreadableDocumentColorKeys(documentColors: ResolvedTheme): string[] {
+  const page = hexToken(documentColors, DOCUMENT_PAGE_KEY)
+  if (!page) return []
+
+  return Object.keys(documentColors).filter((key) => {
+    if (!DOCUMENT_COLOR_KEY_PATTERN.test(key) || DOCUMENT_RULE_KEYS.has(key)) return false
+    const color = hexToken(documentColors, key)
+    if (!color) return false
+    const minimum = DOCUMENT_BODY_TEXT_KEYS.has(key)
+      ? CONTRAST_TARGET.normalText
+      : CONTRAST_TARGET.largeText
+    return layeredContrastRatio(color, [page]) < minimum
+  })
 }
