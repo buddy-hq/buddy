@@ -23,6 +23,8 @@ import {
   normalizeNoteTitle,
   readNoteFile,
   renderNoteSource,
+  replaceNoteBody,
+  replaceNoteMetadata,
   type BuddyNoteMetadata,
   type ParsedNoteFile,
 } from "./note-file"
@@ -333,8 +335,7 @@ export async function updateNote(input: {
       if (input.expectedVersion !== undefined && input.expectedVersion !== currentVersion) {
         throw new NotesError(409, "Note changed on disk. Reload or overwrite to continue")
       }
-      const source = note.metadata ? renderNoteSource(input.content, note.metadata) : input.content
-      await writeTextFileAtomic(filepath, source)
+      await writeTextFileAtomic(filepath, replaceNoteBody(note, input.content))
       invalidateIndexedPath(root, filepath)
       return noteDocument(await readNoteFile(root, filepath))
     })
@@ -376,7 +377,7 @@ export async function renameNote(input: {
           if (current.metadata?.["buddy-generated-title"] !== undefined) {
             const metadata = { ...current.metadata }
             delete metadata["buddy-generated-title"]
-            await writeTextFileAtomic(nextPath, renderNoteSource(current.content, metadata))
+            await writeTextFileAtomic(nextPath, replaceNoteMetadata(current, metadata))
           }
           invalidateIndexedPath(root, sourcePath)
           invalidateIndexedPath(root, nextPath)

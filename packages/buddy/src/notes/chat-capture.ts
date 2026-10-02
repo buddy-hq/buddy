@@ -17,9 +17,10 @@ import {
 } from "./library-index"
 import { createNoteFile, createNoteID } from "./library"
 import {
+  appendNoteBodyEntry,
   normalizeNoteTitle,
   readNoteFile,
-  renderNoteSource,
+  replaceNoteMetadata,
   toPosixRelativePath,
   type BuddyNoteMetadata,
 } from "./note-file"
@@ -253,8 +254,11 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
           "buddy-notebook-id": notebook.id,
           "buddy-last-capture-day": entry.day,
         }
-        const nextContent = `${current.content.trimEnd()}\n\n${entry.content}\n`
-        await writeTextFileAtomic(current.filepath, renderNoteSource(nextContent, metadata))
+        const nextContent = appendNoteBodyEntry(current, entry.content)
+        await writeTextFileAtomic(
+          current.filepath,
+          replaceNoteMetadata(current, metadata, nextContent),
+        )
         noteCommitted = true
         invalidateIndexedPath(root, current.filepath)
         return readNoteFile(root, current.filepath)
