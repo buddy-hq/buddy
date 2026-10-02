@@ -697,6 +697,37 @@ describe("Notes library and chat capture", () => {
     expect(excerpt.endsWith("…")).toBe(true)
   })
 
+  test("never cuts a character in half when truncating excerpts and previews", () => {
+    const emoji = "\u{1F600}"
+    const family = "\u{1F468}\u200D\u{1F469}\u200D\u{1F467}"
+    const loneSurrogate = /[\uD800-\uDFFF]/u
+
+    expect(noteMessageExcerpt(`${"a".repeat(119)}${emoji}`, 120)).toBe(`${"a".repeat(119)}…`)
+    expect(noteMessageExcerpt(`${"a".repeat(118)}${emoji}b`, 120)).toBe(
+      `${"a".repeat(118)}${emoji}…`,
+    )
+    expect(noteMessageExcerpt(`${"a".repeat(118)}${family}`, 120)).toBe(`${"a".repeat(118)}…`)
+    expect(noteMessageExcerpt(`${"a".repeat(119)}e\u0301`, 120)).toBe(`${"a".repeat(119)}…`)
+    for (let length = 1; length <= 40; length += 1) {
+      const excerpt = noteMessageExcerpt(`${emoji}${family}`.repeat(10), length)
+      expect(loneSurrogate.test(excerpt)).toBe(false)
+      expect(excerpt.length).toBeLessThanOrEqual(length + 1)
+    }
+
+    expect(plainTextPreview({ text: `${"a".repeat(179)}${emoji}tail`, match: 0 })).toBe(
+      `${"a".repeat(179)}…`,
+    )
+    expect(
+      plainTextPreview({ text: `${"x".repeat(44)}${emoji}${"y".repeat(100)}`, match: 90 }),
+    ).toBe(`…${"y".repeat(100)}`)
+    const crowded = emoji.repeat(200)
+    for (let match = 0; match <= crowded.length; match += 1) {
+      const preview = plainTextPreview({ text: crowded, match })
+      expect(loneSurrogate.test(preview)).toBe(false)
+      expect(preview.length).toBeLessThanOrEqual(180 + 2)
+    }
+  })
+
   test("prints the date once per capture day and keeps timestamps quiet", () => {
     const first = renderSessionNoteEntry({
       text: "First",
