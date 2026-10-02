@@ -1103,7 +1103,8 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   // Only the docked Bench can expand — in floating mode this same strip is the
   // immersive chrome, so the control would offer the state it is already in.
   const enterImmersiveFromTabs =
-    presentation.controls.showFloatChat && effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED
+    (presentation.controls.showFloatChat || emptyBenchPageVisible) &&
+    effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED
       ? handleFloatChat
       : undefined
   const titlebarBenchTabs = !transientBenchActive ? (
@@ -1223,6 +1224,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                     effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING &&
                     titlebarContentTarget === null
                   }
+                  tabShortcutHints={!transientBenchActive}
                   bench={benchOutlet}
                   presentation={presentation}
                 />

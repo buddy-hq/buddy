@@ -120,6 +120,8 @@ type DirectoryChatRightWorkspaceProps = {
   onActivateEmptyTab?: (emptyTabID: string) => void
   onCloseEmptyTab?: (emptyTabID: string) => void
   showTabsInWorkspace?: boolean
+  /** Whether the tab strip shows each tab's key while Cmd/Ctrl is held; off while the keys are. */
+  tabShortcutHints?: boolean
   bench?: ReactNode
   presentation: Pick<
     WorkspacePresentation,
@@ -783,6 +785,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
             activeEmptyTabID={props.selectedEmptyTabID ?? props.activeEmptyTabID}
             onActivateEmptyTab={props.onActivateEmptyTab}
             onCloseEmptyTab={props.onCloseEmptyTab}
+            shortcutHints={props.tabShortcutHints}
           />
         ) : null}
         <DirectoryChatRightWorkspaceContent

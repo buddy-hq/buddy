@@ -3,13 +3,20 @@ import { matchesKeyboardEvent, normalizeRegisterableHotkey } from "@tanstack/rea
 import {
   BENCH_EDITOR_SELECTOR,
   BENCH_TAB_SHORTCUTS,
+  benchTabShortcutAtPosition,
   benchTabShortcutPosition,
+  formatShortcutLabel,
   SHORTCUTS,
   shouldRunShortcut,
   type ShortcutCommand,
 } from "../src/lib/shortcuts"
 
 type Platform = "mac" | "windows"
+
+function labelAt(position: number, count: number, platform: Platform) {
+  const hotkey = benchTabShortcutAtPosition(position, count)
+  return hotkey ? formatShortcutLabel(hotkey, platform) : null
+}
 
 function matches(command: ShortcutCommand, init: KeyboardEventInit, platform: Platform = "mac") {
   const hotkey = normalizeRegisterableHotkey(SHORTCUTS[command], platform)
@@ -99,6 +106,16 @@ describe("app shortcuts", () => {
     expect(benchTabShortcutPosition("bench.tab.last", 8, 0)).toBeNull()
     expect(benchTabShortcutPosition("bench.tab.3", 2, 3)).toBe(2)
     expect(benchTabShortcutPosition("bench.tab.4", 3, 3)).toBeNull()
+  })
+
+  test("each Bench tab is labelled with the key that opens it, per platform", () => {
+    expect(labelAt(0, 3, "mac")).toBe("⌘1")
+    expect(labelAt(2, 3, "windows")).toBe("Ctrl+3")
+    expect(labelAt(7, 12, "mac")).toBe("⌘8")
+    expect(labelAt(8, 12, "mac")).toBeNull()
+    expect(labelAt(11, 12, "mac")).toBe("⌘9")
+    expect(labelAt(8, 9, "windows")).toBe("Ctrl+9")
+    expect(labelAt(3, 3, "mac")).toBeNull()
   })
 })
 

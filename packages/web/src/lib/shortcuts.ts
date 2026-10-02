@@ -1,5 +1,5 @@
 import { APP_SHORTCUTS, type AppShortcutID } from "@buddy/browser-contract"
-import type { RegisterableHotkey } from "@tanstack/react-hotkeys"
+import { detectPlatform, formatForDisplay, type RegisterableHotkey } from "@tanstack/react-hotkeys"
 
 /**
  * App-level keyboard shortcuts, one key per command. The macOS menu sends the same command ids
@@ -46,6 +46,9 @@ export const BENCH_TAB_SHORTCUTS = [
   hotkey: RegisterableHotkey
 }[]
 
+/** How long Cmd/Ctrl is held alone before the tab strip shows each tab's key. */
+export const BENCH_TAB_SHORTCUT_HINT_DELAY_MS = 500
+
 /** Zero-based strip position a Bench tab key opens, or null when no tab sits there. */
 export function benchTabShortcutPosition(
   command: (typeof BENCH_TAB_SHORTCUTS)[number]["command"],
@@ -78,4 +81,51 @@ export function shouldRunShortcut(
   if (!(event.target instanceof Element)) return true
   if (event.target.closest(DIALOG_SELECTOR)) return false
   return !ignoreWithin || event.target.closest(ignoreWithin) === null
+}
+
+export type ShortcutDisplayPlatform = "mac" | "windows" | "linux"
+
+export function shortcutDisplayPlatform(
+  os: "macos" | "windows" | "linux" | undefined,
+): ShortcutDisplayPlatform {
+  if (os === "macos") return "mac"
+  if (os === "windows") return "windows"
+  if (os === "linux") return "linux"
+  return detectPlatform()
+}
+
+/** The key that opens the tab at a zero-based strip position, or null when none does. */
+export function benchTabShortcutAtPosition(
+  position: number,
+  count: number,
+): RegisterableHotkey | null {
+  return (
+    BENCH_TAB_SHORTCUTS.find(
+      (shortcut, index) => benchTabShortcutPosition(shortcut.command, index, count) === position,
+    )?.hotkey ?? null
+  )
+}
+
+const SHORTCUT_TOKEN_SEPARATOR = "\u0000"
+
+/** A shortcut's display tokens, modifiers first: `["⌘", "1"]` or `["Ctrl", "1"]`. */
+export function formatShortcutTokens(
+  hotkey: RegisterableHotkey,
+  platform: ShortcutDisplayPlatform,
+): string[] {
+  return formatForDisplay(hotkey, { platform, separatorToken: SHORTCUT_TOKEN_SEPARATOR }).split(
+    SHORTCUT_TOKEN_SEPARATOR,
+  )
+}
+
+/** What joins a shortcut's tokens in running text: nothing on macOS, `+` elsewhere. */
+export function shortcutTokenSeparator(platform: ShortcutDisplayPlatform): string {
+  return platform === "mac" ? "" : "+"
+}
+
+export function formatShortcutLabel(
+  hotkey: RegisterableHotkey,
+  platform: ShortcutDisplayPlatform,
+): string {
+  return formatShortcutTokens(hotkey, platform).join(shortcutTokenSeparator(platform))
 }

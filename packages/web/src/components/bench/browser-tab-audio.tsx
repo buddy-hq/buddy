@@ -33,7 +33,11 @@ export function BrowserTabAudioButton(props: { tabID: string }) {
 
 export function BrowserTabMuteMenuItem(props: { tabID: string }) {
   const muted = useInAppBrowserAudioStore((state) => state.byTabID[props.tabID]?.muted ?? false)
+  const Icon = muted ? Volume2Icon : VolumeXIcon
   return (
-    <ContextMenuItem onSelect={() => toggleMuted(props.tabID)}>{muteLabel(muted)}</ContextMenuItem>
+    <ContextMenuItem onSelect={() => toggleMuted(props.tabID)}>
+      <Icon aria-hidden />
+      {muteLabel(muted)}
+    </ContextMenuItem>
   )
 }
