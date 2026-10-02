@@ -108,18 +108,20 @@ const TITLEBAR_SEPARATOR_BASE_CLASS =
 // One layer, offset well clear of the edge and pulled in by a negative spread, so it reads as
 // light falling onto the content below. A tight contact layer at the boundary instead darkens the
 // seam itself, which makes the titlebar and the chat area look like different fills when they are
-// both bg-background-base.
+// the same fill.
 const TITLEBAR_SEPARATOR_SHADOW_CLASS =
   "border-transparent shadow-[0_4px_10px_-4px_color-mix(in_oklab,var(--surface-strong)_18%,transparent)]"
 
 const TITLEBAR_SEPARATOR_BORDER_CLASS =
   "border-border-weaker-base shadow-[0_4px_10px_-4px_transparent]"
 
+const CHAT_TITLEBAR_SEPARATOR_CLASS = "relative border-b border-transparent"
+
 /**
- * Hard rule whenever the titlebar meets a hard layout edge — the bench split, or chat content
- * running to the window's left edge with the sidebar collapsed. Both need a crisp boundary that a
- * soft falloff can't provide. The shadow is for the one case where the titlebar floats over a
- * single uninterrupted surface: sidebar open, bench closed.
+ * Hard rule where the titlebar meets the bench split, which needs a crisp boundary that a soft
+ * falloff can't provide; the shadow is for a titlebar floating over one uninterrupted surface. The
+ * chat header takes neither: it shares the chat area's fill, and the transcript fades out beneath
+ * it instead.
  */
 function titlebarSeparatorClass(hardEdge: boolean) {
   return `${TITLEBAR_SEPARATOR_BASE_CLASS} ${
@@ -380,10 +382,11 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   ) : null
 
   const isShellVariant = props.variant === "shell"
-  // The collapsed-sidebar term only applies in chat placement — root/settings have no left sidebar,
-  // so the persisted preference there would flip the separator for a panel that isn't rendered.
-  const hasHardBottomEdge = rightWorkspaceOpen || (placement === "chat" && !resolvedLeftSidebarOpen)
-  const separatorClass = isShellVariant ? "" : titlebarSeparatorClass(hasHardBottomEdge)
+  const separatorClass = isShellVariant
+    ? ""
+    : placement === "chat"
+      ? CHAT_TITLEBAR_SEPARATOR_CLASS
+      : titlebarSeparatorClass(rightWorkspaceOpen)
   const leftSidebarToggleButton = (
     <Button
       type="button"
@@ -410,7 +413,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     <header
       data-component="desktop-titlebar"
       data-variant={props.variant ?? "chat"}
-      className={`shrink-0 ${separatorClass} bg-background-base text-text-base select-none [-webkit-app-region:drag]`}
+      className={`shrink-0 ${separatorClass} ${placement === "chat" ? "bg-background-stronger" : "bg-background-base"} text-text-base select-none [-webkit-app-region:drag]`}
       style={{ height: DESKTOP_TITLEBAR_HEIGHT_PX }}
       onPointerDownCapture={(event) => {
         if (!isBenchToggleEventTarget(event.target)) return

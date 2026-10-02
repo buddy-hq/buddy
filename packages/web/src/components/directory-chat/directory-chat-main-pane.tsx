@@ -734,7 +734,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               onTouchEnd={onTranscriptTouchEnd}
               onTouchCancel={onTranscriptTouchCancel}
               fillContentWidth
-              className="h-full min-w-0 min-h-0"
+              className="h-full min-w-0 min-h-0 [&>[data-slot=scroll-area-viewport]]:scroll-fade-t [&>[data-slot=scroll-area-viewport]]:scroll-fade-t-8"
             >
               <div
                 onClick={onTranscriptInteraction}
