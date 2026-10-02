@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { useTheme } from "@/theme"
+import { selectableThemeIDs, useTheme } from "@/theme"
 import { useState, useEffect } from "react"
 import { SunIcon, MoonIcon, LaptopIcon, ImageIcon } from "@/icons/app-icons"
 
@@ -445,7 +445,7 @@ const renderContrastAudit = (
 }
 
 function ContrastTestPage() {
-  const { themeId, colorScheme, themes, setTheme, setColorScheme, mode } = useTheme()
+  const { themeId, colorScheme, themes, setThemeForMode, setColorScheme, mode } = useTheme()
   const [colorDetailsMap, setColorDetailsMap] = useState<Record<string, ColorDetails>>({})
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
 
@@ -635,11 +635,11 @@ function ContrastTestPage() {
           <div className="flex flex-wrap gap-2">
             {quickThemes.map((id) => {
               const theme = themes[id]
-              if (!theme) return null
+              if (!theme || !selectableThemeIDs(mode).includes(id)) return null
               return (
                 <button
                   key={id}
-                  onClick={() => setTheme(id)}
+                  onClick={() => setThemeForMode(mode, id)}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-all ${
                     themeId === id
                       ? "border-border-interactive-base bg-surface-interactive-base text-text-interactive-base shadow-xs"
