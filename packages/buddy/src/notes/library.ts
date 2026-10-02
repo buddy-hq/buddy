@@ -198,8 +198,23 @@ function notePlainTextCached(note: ParsedNoteFile) {
   return text
 }
 
-function literalSearchPattern(query: string) {
-  return query ? new RegExp(query.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "iu") : undefined
+const SEARCH_SEPARATORS = /[\s_-]+/u
+const SEPARATORS_WITHIN_WORD = "[_-]*"
+const SEPARATORS_BETWEEN_WORDS = "[\\s_-]*"
+
+function escapeRegExp(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")
+}
+
+function separatorTolerantSearchPattern(query: string) {
+  const words = query.split(SEARCH_SEPARATORS).filter(Boolean)
+  if (words.length === 0) return new RegExp(escapeRegExp(query), "iu")
+  return new RegExp(
+    words
+      .map((word) => Array.from(word, escapeRegExp).join(SEPARATORS_WITHIN_WORD))
+      .join(SEPARATORS_BETWEEN_WORDS),
+    "iu",
+  )
 }
 
 export async function listNotes(directory: string, query = ""): Promise<NotesLibraryView> {
@@ -211,25 +226,24 @@ export async function listNotes(directory: string, query = ""): Promise<NotesLib
   ])
   if (activeNotebook) availableNotebooks.set(activeNotebook.id, activeNotebook.name)
   const bodyQuery = query.trim()
-  const metadataQuery = bodyQuery.replaceAll("\\", "/").toLowerCase()
-  const bodyPattern = literalSearchPattern(bodyQuery)
-  const previewPattern = literalSearchPattern(notePlainText(bodyQuery))
+  const bodyPattern = separatorTolerantSearchPattern(bodyQuery)
+  const metadataPattern = separatorTolerantSearchPattern(bodyQuery.replaceAll("\\", "/"))
+  const previewPattern = separatorTolerantSearchPattern(notePlainText(bodyQuery))
   const matchingNotes: NoteSummary[] = []
   for (const note of notes) {
     const summary = applyNotebookContext(note.summary, availableNotebooks)
     const text = notePlainTextCached(note)
     if (
-      bodyPattern &&
+      bodyQuery &&
       !bodyPattern.test(note.content) &&
       !bodyPattern.test(text) &&
-      ![summary.title, summary.relativePath, summary.notebook ?? ""]
-        .join("\n")
-        .toLowerCase()
-        .includes(metadataQuery)
+      ![summary.title, summary.relativePath, summary.notebook ?? ""].some((field) =>
+        metadataPattern.test(field),
+      )
     ) {
       continue
     }
-    const match = previewPattern ? text.search(previewPattern) : 0
+    const match = text.search(previewPattern)
     matchingNotes.push(
       Object.assign({}, summary, {
         preview: plainTextPreview({ text, match: Math.max(0, match) }),

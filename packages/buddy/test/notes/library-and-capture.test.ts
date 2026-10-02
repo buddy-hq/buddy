@@ -31,6 +31,16 @@ function unsearchedPreview(content: string) {
   return plainTextPreview({ text: notePlainText(content), match: 0 })
 }
 
+function quoteTitle(text: string) {
+  const entry = renderSessionNoteEntry({
+    text: "",
+    imageLinks: [],
+    capturedAt: new Date(2026, 0, 1, 12, 5),
+    source: { sessionID: "ses_1", messageID: "msg_1", text },
+  })
+  return /^> \[!quote\]\+ (.*)$/mu.exec(entry.content)?.[1]
+}
+
 function requestWeekOneImage(src: string) {
   return app.request(
     `/api/notes/image?${new URLSearchParams({ note: "Lectures/Week 1.md", src }).toString()}`,
@@ -748,8 +758,57 @@ describe("Notes library and chat capture", () => {
         ).toEqual(["Syntax.md"])
       }
       expect((await listNotes(notebook.path, "snake_case")).notes[0]?.preview).toContain(
-        "snakecase names",
+        "snake_case names",
       )
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("finds identifiers whatever separator or casing style the query uses", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+    const lead = "A long introduction that pads the note so a match sits deep inside it. ".repeat(6)
+
+    try {
+      const bodies = {
+        Alpha: `${lead}Name variables in snake_case and functions in camelCase. Tail words.`,
+        Beta: `${lead}Slugs use kebab-case in URLs. Tail words.`,
+        Gamma: "Is a snake long? This a question remains. The case is closed.",
+        retro_game_logs: "Nothing relevant inside.",
+      }
+      for (const [title, content] of Object.entries(bodies)) {
+        const created = await createStandaloneNote({ directory: notebook.path, title })
+        await updateNote({ path: created.relativePath, content })
+      }
+      const search = async (query: string) =>
+        (await listNotes(notebook.path, query)).notes.map((note) => note.relativePath)
+
+      const snake = ["snake_case", "snakecase", "snake case", "SnakeCase", "SNAKE-CASE"]
+      const camel = ["camelCase", "camelcase", "camel case", "camel_case"]
+      const kebab = ["kebab-case", "kebabcase", "kebab case"]
+      const filename = ["retro_game_logs", "retrogamelogs", "retro game logs", "RetroGameLogs"]
+      for (const [queries, expected] of [
+        [snake, ["Alpha.md"]],
+        [camel, ["Alpha.md"]],
+        [kebab, ["Beta.md"]],
+        [filename, ["retro_game_logs.md"]],
+      ] as const) {
+        for (const query of queries) expect(await search(query)).toEqual([...expected])
+      }
+      expect(await search("thisaquestion")).toEqual([])
+      expect((await search("_")).toSorted()).toEqual(["Alpha.md", "retro_game_logs.md"])
+
+      for (const [query, literal] of [
+        ["snakecase", "snake_case"],
+        ["camel case", "camelCase"],
+        ["kebabcase", "kebab-case"],
+      ] as const) {
+        const preview = (await listNotes(notebook.path, query)).notes[0]?.preview
+        expect(preview?.startsWith("…")).toBe(true)
+        expect(preview).toContain(literal)
+      }
     } finally {
       await Config.replaceGlobal(previous)
     }
@@ -992,6 +1051,61 @@ describe("Notes library and chat capture", () => {
     expect(quoteOnly.content).toMatch(/^> \[!quote\]\+ /mu)
     expect(unsearchedPreview(annotated.content).startsWith("Entropy Entropy counts")).toBe(true)
     expect(unsearchedPreview(annotated.content)).not.toContain("[!quote]")
+  })
+
+  test.each([
+    [
+      "a word and a URL, with the code fence label left out",
+      "Costs $5, equation $x$, key:value, http://example.com/a_b, नमस्ते 😀\n\n```python\nsnake_case = 1\n```",
+      "Costs $5, equation $x$, key:value, http://example.com/a_b, नमस्ते 😀 snake_case = 1",
+    ],
+    [
+      "an absolute path and a URL that start path segments with an underscore",
+      "Open /private/var/folders/6b/_tpzq/T/a.md or http://example.com/_next/~alice",
+      "Open /private/var/folders/6b/_tpzq/T/a.md or http://example.com/_next/~alice",
+    ],
+    [
+      "relative and home paths",
+      "See src/__tests__/a_b.test.ts and ~/Code/_notes",
+      "See src/__tests__/a_b.test.ts and ~/Code/_notes",
+    ],
+    [
+      "inline code",
+      "Call `__init__` from `_private.py` and `MY_CONST_`",
+      "Call __init__ from _private.py and MY_CONST_",
+    ],
+    [
+      "fenced code",
+      'Run:\n```python\nif __name__ == "__main__":\n    main()\n```',
+      'Run: if __name__ == "__main__": main()',
+    ],
+    [
+      "emphasis around words that contain underscores",
+      "**Bold** and _italic_ and __strong__ with snake_case, `my_var` and _snake_case_",
+      "Bold and italic and strong with snake_case, my_var and snake_case",
+    ],
+    [
+      "a triple-backtick span on one line",
+      "```const total = 1``` is fine",
+      "const total = 1 is fine",
+    ],
+  ])("keeps literal characters in the quote title for %s", (_, message, title) => {
+    expect(quoteTitle(message)).toBe(title)
+  })
+
+  test("previews saved quotes with literal underscores and without code fence labels", () => {
+    const annotated = renderSessionNoteEntry({
+      text: "Mine",
+      imageLinks: [],
+      capturedAt: new Date(2026, 0, 1, 12, 5),
+      source: {
+        sessionID: "ses_1",
+        messageID: "msg_1",
+        text: "Use snake_case:\n```python\nsnake_case = 1\n```",
+      },
+    })
+
+    expect(unsearchedPreview(annotated.content)).toBe("Use snake_case: snake_case = 1 Mine")
   })
 
   test("closes an unfinished source fence before the message link", () => {

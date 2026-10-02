@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server"
 import { app } from "./app"
+import { startLegacyQuoteTitleRepair } from "./notes/quote-title-repair"
 import { startSessionNoteTitleSync } from "./notes/session-title-sync"
 
 type NodeServerConfig = {
@@ -25,6 +26,7 @@ export function listenNodeServer(config: NodeServerConfig): NodeServerListener {
   console.log(`Buddy server listening on http://${config.hostname}:${config.port}`)
 
   const stopTitleSync = startSessionNoteTitleSync()
+  startLegacyQuoteTitleRepair()
   return {
     stop: (close = false) =>
       new Promise<void>((resolve, reject) => {
