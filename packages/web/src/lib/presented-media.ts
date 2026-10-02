@@ -8,18 +8,28 @@ export const MAX_INLINE_PRESENTED_MEDIA_BYTES = 512 * 1024 * 1024
 
 const MAX_PRESENTED_MEDIA_TEXT_LENGTH = 2048
 const LOCAL_MEDIA_EXTENSION_PATTERN = String.raw`(?:[a-z0-9][a-z0-9_+-]{0,15})`
+const LOCAL_MEDIA_NAME_TERMINATOR_PATTERN = String.raw`(?=$|[\s)\]}>'",;:!?]|\.(?=\s|$))`
 const PRESENTED_MEDIA_EXTENSION_REGEX = new RegExp(
-  String.raw`\.${LOCAL_MEDIA_EXTENSION_PATTERN}(?=$|[\s)\]}>'",;:!?]|\.(?=\s|$))`,
+  String.raw`\.${LOCAL_MEDIA_EXTENSION_PATTERN}${LOCAL_MEDIA_NAME_TERMINATOR_PATTERN}`,
   "iu",
 )
 const MEDIA_PARENTHESIZED_PATTERN = String.raw`\([^()\r\n]*\)`
 const LOCAL_MEDIA_FILENAME_PATTERN = String.raw`(?:[^\r\n/\\>'"()]|${MEDIA_PARENTHESIZED_PATTERN})+\.${LOCAL_MEDIA_EXTENSION_PATTERN}`
-const LOCAL_MEDIA_DIRECTORY_PATTERN = String.raw`(?:[^\r\n/\\>'"]*[\\/])*`
+const LOCAL_MEDIA_COMPLETE_NAME_END_PATTERN = String.raw`\.(?=[a-z0-9_+-]*[a-z])[a-z0-9][a-z0-9_+-]{1,15}${LOCAL_MEDIA_NAME_TERMINATOR_PATTERN}`
+const LOCAL_MEDIA_DIRECTORY_CHARACTER_PATTERN = String.raw`(?:(?!${LOCAL_MEDIA_COMPLETE_NAME_END_PATTERN})[^\r\n/\\>'"])`
+const LOCAL_MEDIA_DIRECTORY_PATTERN = String.raw`(?:${LOCAL_MEDIA_DIRECTORY_CHARACTER_PATTERN}*[\\/])*`
 const LOCAL_MEDIA_CANDIDATE_PATTERN = String.raw`(?:file:\/\/|~[\\/]|[A-Za-z]:[\\/]|\/|\.\.?[\\/]|[^\s\r\n/\\>'"()\[\]]+[\\/])${LOCAL_MEDIA_DIRECTORY_PATTERN}${LOCAL_MEDIA_FILENAME_PATTERN}`
-const LOCAL_MEDIA_CANDIDATE_REGEX = new RegExp(LOCAL_MEDIA_CANDIDATE_PATTERN, "giu")
+const NOT_ENDING_IN_DECIMAL_PATTERN = String.raw`(?<!\.[0-9]+)`
+const LOCAL_MEDIA_CANDIDATE_REGEX = new RegExp(
+  `${LOCAL_MEDIA_CANDIDATE_PATTERN}${NOT_ENDING_IN_DECIMAL_PATTERN}`,
+  "giu",
+)
 const LOCAL_MEDIA_CANDIDATE_EXACT_REGEX = new RegExp(`^(?:${LOCAL_MEDIA_CANDIDATE_PATTERN})$`, "iu")
 const NAMED_DIRECTORY_CANDIDATE_PATTERN = String.raw`[^\s\r\n/\\>'"()\[\]]+[ \t](?:[0-9]+|\([^()\r\n]+\)|\[[^\[\]\r\n]+\])[\\/]${LOCAL_MEDIA_DIRECTORY_PATTERN}${LOCAL_MEDIA_FILENAME_PATTERN}`
-const NAMED_DIRECTORY_CANDIDATE_REGEX = new RegExp(NAMED_DIRECTORY_CANDIDATE_PATTERN, "giu")
+const NAMED_DIRECTORY_CANDIDATE_REGEX = new RegExp(
+  `${NAMED_DIRECTORY_CANDIDATE_PATTERN}${NOT_ENDING_IN_DECIMAL_PATTERN}`,
+  "giu",
+)
 const NAMED_DIRECTORY_CANDIDATE_EXACT_REGEX = new RegExp(
   `^(?:${NAMED_DIRECTORY_CANDIDATE_PATTERN})$`,
   "iu",
@@ -34,6 +44,10 @@ const EXTERNAL_MEDIA_CANDIDATE_REGEX = new RegExp(EXTERNAL_MEDIA_CANDIDATE_PATTE
 const EXTERNAL_MEDIA_CANDIDATE_EXACT_REGEX = new RegExp(
   `^(?:${EXTERNAL_MEDIA_CANDIDATE_PATTERN})$`,
   "iu",
+)
+const SENTENCE_BREAK_REGEX = new RegExp(
+  String.raw`${MEDIA_PARENTHESIZED_PATTERN}(?=\.[A-Za-z0-9]|[\\/])|(?<!Dr|Mr|Ms|Mrs|(?<![\p{L}\p{N}])\p{Lu})(\.)[ \t]+(?=\p{Lu})`,
+  "gu",
 )
 const LOCAL_MEDIA_CANDIDATE_PREFIX_BOUNDARY_REGEX = /[\s([{"'`:,;=-]/u
 const LOCAL_MEDIA_CANDIDATE_SUFFIX_BOUNDARY_REGEX = /[\s)\]}>'"`.,;:!?]/u
@@ -256,6 +270,25 @@ export function isLikelyExternalMediaPathCandidate(path: string): boolean {
   return isExternalPath(normalized)
 }
 
+function matchWithinSentences(text: string, pattern: RegExp) {
+  const segments: { start: number; end: number }[] = []
+  let segmentStart = 0
+  for (const breakMatch of text.matchAll(SENTENCE_BREAK_REGEX)) {
+    if (breakMatch[1] === undefined) continue
+    const breakStart = breakMatch.index ?? 0
+    segments.push({ start: segmentStart, end: breakStart })
+    segmentStart = breakStart + breakMatch[0].length
+  }
+  segments.push({ start: segmentStart, end: text.length })
+
+  return segments.flatMap(({ start, end }) =>
+    Array.from(text.slice(start, end).matchAll(pattern), (match) => ({
+      text: match[0],
+      index: start + (match.index ?? 0),
+    })),
+  )
+}
+
 export function collectPresentedMediaCandidatePaths(text: string) {
   return findPresentedMediaCandidateMatches(text).map((match) => match.path)
 }
@@ -269,12 +302,11 @@ export function findPresentedMediaCandidateMatches(text: string) {
     return []
   }
 
-  const namedDirectoryMatches = Array.from(
-    text.matchAll(NAMED_DIRECTORY_CANDIDATE_REGEX),
-    (match) => {
-      const candidate = normalizePresentedMediaCandidatePath(match[0])
-      const startIndex = match.index ?? 0
-      const endIndex = startIndex + match[0].length
+  const namedDirectoryMatches = matchWithinSentences(text, NAMED_DIRECTORY_CANDIDATE_REGEX)
+    .map((match) => {
+      const candidate = normalizePresentedMediaCandidatePath(match.text)
+      const startIndex = match.index
+      const endIndex = startIndex + match.text.length
       const before = startIndex > 0 ? text[startIndex - 1] : ""
       const after = endIndex < text.length ? text[endIndex] : ""
       if (before && !LOCAL_MEDIA_CANDIDATE_PREFIX_BOUNDARY_REGEX.test(before)) return null
@@ -283,8 +315,8 @@ export function findPresentedMediaCandidateMatches(text: string) {
         return null
       }
       return { path: candidate, start: startIndex, end: endIndex }
-    },
-  ).filter((match): match is { path: string; start: number; end: number } => Boolean(match))
+    })
+    .filter((match): match is { path: string; start: number; end: number } => Boolean(match))
 
   const externalMatches = Array.from(text.matchAll(EXTERNAL_MEDIA_CANDIDATE_REGEX), (match) => {
     const candidate = normalizePresentedMediaCandidatePath(match[0])
@@ -314,30 +346,33 @@ export function findPresentedMediaCandidateMatches(text: string) {
       !externalMatches.some((external) => named.start < external.end && named.end > external.start),
   )
 
-  const localMatches = Array.from(text.matchAll(LOCAL_MEDIA_CANDIDATE_REGEX), (match) => {
-    const candidate = normalizePresentedMediaCandidatePath(match[0])
-    const startIndex = match.index ?? 0
-    const endIndex = startIndex + match[0].length
-    const before = startIndex > 0 ? text[startIndex - 1] : ""
-    const after = endIndex < text.length ? text[endIndex] : ""
+  const localMatches = matchWithinSentences(text, LOCAL_MEDIA_CANDIDATE_REGEX)
+    .map((match) => {
+      const candidate = normalizePresentedMediaCandidatePath(match.text)
+      const startIndex = match.index
+      const endIndex = startIndex + match.text.length
+      const before = startIndex > 0 ? text[startIndex - 1] : ""
+      const after = endIndex < text.length ? text[endIndex] : ""
 
-    if (before && !LOCAL_MEDIA_CANDIDATE_PREFIX_BOUNDARY_REGEX.test(before)) return null
-    if (after && !LOCAL_MEDIA_CANDIDATE_SUFFIX_BOUNDARY_REGEX.test(after)) return null
-    if (isExternalPath(match[0]) || EMBEDDED_EXTERNAL_PATH_PREFIX_REGEX.test(match[0])) return null
-    if (
-      externalMatches.some((external) => startIndex < external.end && endIndex > external.start)
-    ) {
-      return null
-    }
-    if (relativeNamedMatches.some((named) => startIndex < named.end && endIndex > named.start)) {
-      return null
-    }
-    if (!candidate || !isLikelyPresentedMediaPathCandidate(candidate)) {
-      return null
-    }
+      if (before && !LOCAL_MEDIA_CANDIDATE_PREFIX_BOUNDARY_REGEX.test(before)) return null
+      if (after && !LOCAL_MEDIA_CANDIDATE_SUFFIX_BOUNDARY_REGEX.test(after)) return null
+      if (isExternalPath(match.text) || EMBEDDED_EXTERNAL_PATH_PREFIX_REGEX.test(match.text))
+        return null
+      if (
+        externalMatches.some((external) => startIndex < external.end && endIndex > external.start)
+      ) {
+        return null
+      }
+      if (relativeNamedMatches.some((named) => startIndex < named.end && endIndex > named.start)) {
+        return null
+      }
+      if (!candidate || !isLikelyPresentedMediaPathCandidate(candidate)) {
+        return null
+      }
 
-    return { path: candidate, start: startIndex, end: endIndex }
-  }).filter((match): match is { path: string; start: number; end: number } => Boolean(match))
+      return { path: candidate, start: startIndex, end: endIndex }
+    })
+    .filter((match): match is { path: string; start: number; end: number } => Boolean(match))
 
   return [...relativeNamedMatches, ...externalMatches, ...localMatches].toSorted(
     (left, right) => left.start - right.start,
