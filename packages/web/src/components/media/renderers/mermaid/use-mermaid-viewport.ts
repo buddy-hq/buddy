@@ -317,6 +317,8 @@ export function useMermaidViewport({
   const resolvedZoomState = isControlled ? zoomState : internalZoomState
   const zoom = resolvedZoomState.zoom
   const isAutoZoom = resolvedZoomState.isAutoZoom
+  const responsiveMinimumRenderedHeight = responsiveAutoZoomStrategy?.minimumRenderedHeight
+  const responsiveMaxViewportWidths = responsiveAutoZoomStrategy?.maxViewportWidths
   const [isInitialized, setIsInitialized] = useState(false)
   const [svgBounds, setSvgBounds] = useState<MermaidSvgBounds>({
     width: mermaidConstants.svg.DEFAULT_WIDTH,
@@ -327,6 +329,7 @@ export function useMermaidViewport({
     height: 0,
   })
   const [isDragging, setIsDragging] = useState(false)
+  const [completedFitFrameCount, setCompletedFitFrameCount] = useState(0)
 
   const viewportRef = useRef<HTMLDivElement>(null)
   const svgHostRef = useRef<HTMLDivElement>(null)
@@ -338,10 +341,17 @@ export function useMermaidViewport({
   const pendingSvgBoundsRef = useRef(false)
   const dragAbortControllerRef = useRef<AbortController | undefined>(undefined)
   const activePointerIDRef = useRef<number | undefined>(undefined)
+  const committedZoomStateRef = useRef(resolvedZoomState)
+  committedZoomStateRef.current = resolvedZoomState
 
   const commitZoomState = useCallback(
     (next: MermaidViewportZoomState) => {
       autoFitRef.current = next.isAutoZoom
+      const committed = committedZoomStateRef.current
+      if (committed.zoom === next.zoom && committed.isAutoZoom === next.isAutoZoom) {
+        return
+      }
+      committedZoomStateRef.current = next
       if (isControlled) {
         onZoomStateChange(next)
         return
@@ -370,7 +380,13 @@ export function useMermaidViewport({
         viewportSize,
         canvasPadding,
         fitPadding,
-        responsiveAutoZoomStrategy,
+        responsiveAutoZoomStrategy:
+          responsiveMinimumRenderedHeight === undefined || responsiveMaxViewportWidths === undefined
+            ? undefined
+            : {
+                minimumRenderedHeight: responsiveMinimumRenderedHeight,
+                maxViewportWidths: responsiveMaxViewportWidths,
+              },
       }),
       isAutoZoom: true,
     })
@@ -384,7 +400,8 @@ export function useMermaidViewport({
     commitZoomState,
     defaultZoomMode,
     getFitPadding,
-    responsiveAutoZoomStrategy,
+    responsiveMaxViewportWidths,
+    responsiveMinimumRenderedHeight,
     svgBounds,
   ])
 
@@ -416,6 +433,9 @@ export function useMermaidViewport({
       fitFrameRef.current = undefined
       if (autoFitRef.current) {
         applyAutoZoom()
+      }
+      if (resetScrollPositionRef.current) {
+        setCompletedFitFrameCount((count) => count + 1)
       }
     })
   }, [applyAutoZoom, enabled, value])
@@ -570,7 +590,17 @@ export function useMermaidViewport({
     viewportRef.current.scrollLeft = scroll.left
     viewportRef.current.scrollTop = scroll.top
     resetScrollPositionRef.current = false
-  }, [canvasPadding, enabled, panOverscan, svgBounds, value, viewportSize, zoom])
+  }, [
+    canvasPadding,
+    completedFitFrameCount,
+    enabled,
+    isInitialized,
+    panOverscan,
+    svgBounds,
+    value,
+    viewportSize,
+    zoom,
+  ])
 
   useEffect(() => {
     return () => {
