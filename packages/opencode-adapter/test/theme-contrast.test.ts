@@ -10,7 +10,9 @@ import {
   ensureTextContrast,
   hexToOklch,
   layeredContrastRatio,
+  resolveThemeDocumentColors,
   resolveThemeVariant,
+  unreadableDocumentColorKeys,
   type HexColor,
 } from "../src/theme"
 
@@ -125,5 +127,52 @@ describe("theme contrast", () => {
         }
       }
     }
+  })
+
+  test("document colours match the normalized theme for every bundled theme", () => {
+    for (const theme of Object.values(defaultThemes)) {
+      for (const mode of ["light", "dark"] as const) {
+        const isDark = mode === "dark"
+        const normalized = resolveThemeVariant(theme[mode], isDark)
+        const documentColors = resolveThemeDocumentColors(theme[mode], isDark)
+
+        expect(Object.keys(documentColors)).toContain("background-base")
+        for (const [key, value] of Object.entries(documentColors)) {
+          expect(normalized[key], `${theme.id}/${mode} ${key}`).toBe(value)
+        }
+      }
+    }
+  })
+
+  test("document colours only reference text tokens that normalization keeps readable", () => {
+    const guardedReferences = new Set([
+      "var(--text-base)",
+      "var(--text-strong)",
+      "var(--text-weak)",
+    ])
+
+    for (const theme of Object.values(defaultThemes)) {
+      if (theme.id === "oc-2") continue
+      for (const mode of ["light", "dark"] as const) {
+        const documentColors = resolveThemeDocumentColors(theme[mode], mode === "dark")
+        for (const [key, value] of Object.entries(documentColors)) {
+          if (isHexColor(value)) continue
+          expect(guardedReferences.has(value), `${theme.id}/${mode} ${key} = ${value}`).toBe(true)
+        }
+      }
+    }
+  })
+
+  test("flags a light variant that reuses its dark document colours", () => {
+    const macchiato = defaultThemes["catppuccin-macchiato"]
+    const github = defaultThemes["github"]
+
+    expect(
+      unreadableDocumentColorKeys(resolveThemeDocumentColors(macchiato.light, false)),
+    ).toContain("markdown-text")
+    expect(unreadableDocumentColorKeys(resolveThemeDocumentColors(macchiato.dark, true))).toEqual(
+      [],
+    )
+    expect(unreadableDocumentColorKeys(resolveThemeDocumentColors(github.light, false))).toEqual([])
   })
 })

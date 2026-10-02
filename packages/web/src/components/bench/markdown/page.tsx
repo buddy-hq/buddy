@@ -7,10 +7,8 @@ import {
 import { BenchViewerShell, type BenchViewerAction } from "@/components/bench/bench-viewer-shell"
 import { useOnBenchSurfaceActivated } from "@/components/bench/bench-surface-activity"
 import { MarkdownBenchAgentEditWatcher } from "@/components/bench/markdown/agent-edit-watcher"
-import {
-  isMarkdownBenchContentThemeMode,
-  resolveMarkdownBenchContentTheme,
-} from "@/components/bench/markdown/document-theme"
+import { isMarkdownBenchContentThemeMode } from "@/components/bench/markdown/document-theme"
+import { useMarkdownBenchContentTheme } from "@/components/bench/markdown/use-content-theme"
 import {
   MarkdownBenchEditor,
   type MarkdownBenchHistoryControlsState,
@@ -43,7 +41,6 @@ import { useMarkdownBenchWikiLinkContext } from "@/components/bench/markdown/use
 import type { ObsidianWikiLinkContext } from "@/components/bench/markdown/plugins/obsidian"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { useOpenLink, type OpenLinkOptions } from "@/components/directory-chat/use-open-link"
-import { useTheme } from "@/theme"
 import { workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
 import {
   BENCH_MODE_REQUEST_POLICY,
@@ -115,7 +112,6 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const { controller } = useDirectoryNotebookRouteContext()
   const openBenchRoute = useOpenBench()
   const openLink = useOpenLink(props.directory)
-  const { themeId, themes } = useTheme()
   const editorRef = useRef<MarkdownBenchEditorHandle>(null)
   const [renamingTitle, setRenamingTitle] = useState(false)
   const [openDockPanel, setOpenDockPanel] = useState<MarkdownBenchDockPanel>()
@@ -249,11 +245,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     }
   }, [props.fragment, location.path])
 
-  const contentTheme = useMemo(() => {
-    const theme = themes[themeId]
-    if (!theme) return undefined
-    return resolveMarkdownBenchContentTheme({ mode: contentThemeMode, theme })
-  }, [contentThemeMode, themeId, themes])
+  const contentTheme = useMarkdownBenchContentTheme()
 
   const openMarkdownLink = useCallback(
     (href: string, options: OpenLinkOptions) => {

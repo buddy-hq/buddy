@@ -5,7 +5,7 @@ import { useBenchRouteContextOptional } from "@/components/bench/bench-route-con
 import { BenchSurfacePending } from "@/components/bench/bench-surface-pending"
 import type { BenchViewerAction } from "@/components/bench/bench-viewer-shell"
 import { BenchSurfaceViewer } from "@/components/bench/bench-viewer-shell"
-import { resolveMarkdownBenchContentTheme } from "@/components/bench/markdown/document-theme"
+import { useMarkdownBenchContentTheme } from "@/components/bench/markdown/use-content-theme"
 import { MarkdownBenchEditor } from "@/components/bench/markdown/editor"
 import type {
   ObsidianEmbeddedMarkdownLoader,
@@ -20,7 +20,6 @@ import {
   resolvePresentedMediaMarkdownLink,
 } from "@/lib/presented-media-markdown"
 import { useMarkdownBenchPreferences } from "@/state/markdown-bench-preferences"
-import { useTheme } from "@/theme"
 
 /** Props for the read-only Markdown Bench surface used for external presented files. */
 export type TReadOnlyMarkdownBenchViewProps = {
@@ -65,7 +64,6 @@ const EXTERNAL_MARKDOWN_EMBED_LOADER: ObsidianEmbeddedMarkdownLoader = {
  * This is the same editor used by notes, without save/rename. Edits are discarded.
  */
 export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps) {
-  const { themeId, themes } = useTheme()
   const citeSelection = useMarkdownBenchSelectionSync({
     path: props.path,
     promptKey: props.promptKey,
@@ -77,12 +75,7 @@ export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps
     [benchTarget, props.path],
   )
   const contentFontScale = useMarkdownBenchPreferences((state) => state.contentFontScale)
-  const contentThemeMode = useMarkdownBenchPreferences((state) => state.contentThemeMode)
-  const contentTheme = useMemo(() => {
-    const theme = themes[themeId]
-    if (!theme) return undefined
-    return resolveMarkdownBenchContentTheme({ mode: contentThemeMode, theme })
-  }, [contentThemeMode, themeId, themes])
+  const contentTheme = useMarkdownBenchContentTheme()
   const markdown = props.markdown
   const showPending = props.loading || (markdown === undefined && props.error === undefined)
   const resolveImageSrc = useCallback(
