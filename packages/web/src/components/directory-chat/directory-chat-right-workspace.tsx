@@ -252,7 +252,7 @@ export function DirectoryChatRightWorkspaceContent(props: {
   emptyContent?: ReactNode
   selectorDrawerWidth: number
   suppressDrawerMotion?: boolean
-  fileView?: Omit<BenchFileViewProps, "children" | "toolbar">
+  fileView?: Omit<BenchFileViewProps, "children" | "toolbar"> & { noteID?: string }
 }) {
   // The Bench container is always rendered in the same position and hidden when there is no target.
   // Moving it into a conditional branch unmounts BenchSurfaceHost — and every surface it is keeping
@@ -265,6 +265,15 @@ export function DirectoryChatRightWorkspaceContent(props: {
   })
   const noteStorageDirectory =
     props.fileView?.kind === "note" ? noteLibrary.data?.directory : undefined
+  const targetPath = props.fileView?.path
+  const targetNoteID = props.fileView?.kind === "note" ? props.fileView.noteID : undefined
+  const notes = noteLibrary.data?.notes
+  const filePath = useMemo(
+    () =>
+      (targetNoteID ? notes?.find((note) => note.id === targetNoteID)?.relativePath : undefined) ??
+      targetPath,
+    [notes, targetNoteID, targetPath],
+  )
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -283,7 +292,7 @@ export function DirectoryChatRightWorkspaceContent(props: {
           drawer={props.fileView?.drawer ?? null}
           active={fileViewVisible}
           showEmpty={props.fileView?.showEmpty ?? false}
-          path={props.fileView?.path}
+          path={filePath}
           kind={props.fileView?.kind}
           title={props.fileView?.title}
           onOpenFile={props.fileView?.onOpenFile}
@@ -291,16 +300,10 @@ export function DirectoryChatRightWorkspaceContent(props: {
           onTreeOpenChange={props.fileView?.onTreeOpenChange ?? (() => undefined)}
           suppressLayoutMotion={props.suppressDrawerMotion}
           toolbar={
-            props.fileView?.kind === "file" && props.fileView?.path ? (
-              <WorkspaceFileActionsMenu
-                directory={props.fileView.directory}
-                path={props.fileView.path}
-              />
-            ) : noteStorageDirectory && props.fileView?.path ? (
-              <WorkspaceFileActionsMenu
-                directory={noteStorageDirectory}
-                path={props.fileView.path}
-              />
+            props.fileView?.kind === "file" && filePath ? (
+              <WorkspaceFileActionsMenu directory={props.fileView.directory} path={filePath} />
+            ) : noteStorageDirectory && filePath ? (
+              <WorkspaceFileActionsMenu directory={noteStorageDirectory} path={filePath} />
             ) : null
           }
         >
@@ -816,6 +819,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
             kind: fileViewKind,
             onOpenFile: openBreadcrumbFile,
             path: fileViewHasTarget ? fileTarget?.path : undefined,
+            noteID: fileViewHasTarget ? fileTarget?.id : undefined,
             title: fileViewHasTarget ? selectedTitle : undefined,
             active: fileViewActive,
             showEmpty: !fileViewHasTarget,
