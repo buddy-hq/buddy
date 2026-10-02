@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
 import {
   InputGroup,
@@ -7,7 +7,6 @@ import {
   InputGroupText,
 } from "@buddy/ui/components/ui/input-group"
 import { language } from "@/context/language"
-import { useTheme, type ColorScheme } from "@/theme"
 import {
   CODE_FONT_PLACEHOLDER,
   MAX_APPEARANCE_FONT_SIZE,
@@ -24,14 +23,11 @@ import {
 } from "@/state/appearance-preferences"
 import { FontFamilyPicker, useInstalledFontFamilies } from "./settings-font-family-picker"
 import { SettingsContent, SettingsSection, SettingsRow } from "./settings-primitives"
+import { ThemeColorsSection } from "./settings-theme-colors"
 
 const APPEARANCE_CONTROL_CLASS = "w-56"
 const FONT_SIZE_OPTIONS = [12, 13, 14, 15, 16, 17, 18, 19, 20]
 const CUSTOM_FONT_SIZE = "custom"
-
-function isColorScheme(value: string): value is ColorScheme {
-  return value === "system" || value === "light" || value === "dark"
-}
 
 function FontFamilyField(props: {
   value: string
@@ -183,7 +179,6 @@ function FontSizeRows(props: {
 }
 
 export function AppearanceSettings() {
-  const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
   const uiFont = useAppearancePreferences((state) => state.uiFont)
   const codeFont = useAppearancePreferences((state) => state.codeFont)
   const chatFont = useAppearancePreferences((state) => state.chatFont)
@@ -207,12 +202,6 @@ export function AppearanceSettings() {
     (state) => state.setChatLineHeightPercent,
   )
 
-  const colorSchemeOptions: ReadonlyArray<{ value: ColorScheme; label: string }> = [
-    { value: "system", label: language.t("settings.appearance.colorSchemes.system") },
-    { value: "light", label: language.t("settings.appearance.colorSchemes.light") },
-    { value: "dark", label: language.t("settings.appearance.colorSchemes.dark") },
-  ]
-
   const chatLineSpacingOptions: ReadonlyArray<{ value: ChatLineSpacing; label: string }> = [
     { value: "compact", label: language.t("settings.appearance.chatLineSpacingCompactOption") },
     { value: "normal", label: language.t("settings.appearance.chatLineSpacingNormalOption") },
@@ -220,65 +209,9 @@ export function AppearanceSettings() {
     { value: "custom", label: language.t("settings.appearance.chatLineSpacingCustomOption") },
   ]
 
-  const themeOptions = useMemo(
-    () =>
-      Object.entries(themes).map(([id, theme]) => ({
-        id,
-        name: theme.name,
-      })),
-    [themes],
-  )
-
   return (
     <SettingsContent>
-      <SettingsSection title={language.t("settings.appearance.colorsSection")}>
-        <SettingsRow
-          title={language.t("settings.appearance.colorSchemeTitle")}
-          control={
-            <Select
-              value={colorScheme}
-              onValueChange={(value) => {
-                if (isColorScheme(value)) {
-                  setColorScheme(value)
-                }
-              }}
-            >
-              <SelectTrigger
-                data-action="settings-color-scheme"
-                className={APPEARANCE_CONTROL_CLASS}
-              >
-                <SelectValue
-                  placeholder={language.t("settings.appearance.colorSchemePlaceholder")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {colorSchemeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.appearance.themeTitle")}
-          control={
-            <Select value={themeId} onValueChange={setTheme}>
-              <SelectTrigger data-action="settings-theme" className={APPEARANCE_CONTROL_CLASS}>
-                <SelectValue placeholder={language.t("settings.appearance.themePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {themeOptions.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          }
-        />
-      </SettingsSection>
+      <ThemeColorsSection controlClassName={APPEARANCE_CONTROL_CLASS} />
       <SettingsSection title={language.t("settings.appearance.interfaceSection")}>
         <SettingsRow
           title={language.t("settings.appearance.fontTitle")}

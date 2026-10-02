@@ -8,7 +8,7 @@ import {
   Z_INDEX,
   cn,
 } from "@buddy/ui"
-import { useTheme, type ColorScheme } from "@/theme"
+import { isColorScheme, selectableThemeIDs, useTheme, type ColorScheme } from "@/theme"
 
 type ThemeSelectorsProps = {
   className?: string
@@ -21,19 +21,11 @@ const COLOR_SCHEME_OPTIONS = [
   { value: "dark", label: "Dark" },
 ] satisfies { value: ColorScheme; label: string }[]
 
-function isColorScheme(value: string): value is ColorScheme {
-  return COLOR_SCHEME_OPTIONS.some((option) => option.value === value)
-}
-
 export function ThemeSelectors({ className, compact = false }: ThemeSelectorsProps) {
-  const { colorScheme, themeId, themes, setColorScheme, setTheme } = useTheme()
+  const { colorScheme, mode, themeId, themes, setColorScheme, setThemeForMode } = useTheme()
   const themeOptions = useMemo(
-    () =>
-      Object.entries(themes).map(([id, theme]) => ({
-        id,
-        name: theme.name,
-      })),
-    [themes],
+    () => selectableThemeIDs(mode).map((id) => ({ id, name: themes[id]?.name ?? id })),
+    [mode, themes],
   )
 
   return (
@@ -60,7 +52,7 @@ export function ThemeSelectors({ className, compact = false }: ThemeSelectorsPro
         </SelectContent>
       </Select>
 
-      <Select value={themeId} onValueChange={setTheme}>
+      <Select value={themeId} onValueChange={(id) => setThemeForMode(mode, id)}>
         <SelectTrigger
           size={compact ? "sm" : "default"}
           aria-label="Theme"

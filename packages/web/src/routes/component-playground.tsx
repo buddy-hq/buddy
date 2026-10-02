@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { useTheme } from "@/theme"
+import { selectableThemeIDs, useTheme } from "@/theme"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   Accordion,
@@ -344,18 +344,18 @@ function VariantGrid({ label, children }: TVariantGridProps) {
 }
 
 function ThemeSidebar() {
-  const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
+  const { themeId, colorScheme, mode, themes, setThemeForMode, setColorScheme } = useTheme()
   const [themeFilter, setThemeFilter] = useState("")
 
   const filteredThemeIds = useMemo(() => {
     const query = themeFilter.trim().toLowerCase()
-    const ids = Object.keys(themes).toSorted((a, b) => themes[a].name.localeCompare(themes[b].name))
+    const ids = selectableThemeIDs(mode)
     if (!query) return ids
     return ids.filter((id) => {
       const theme = themes[id]
       return id.toLowerCase().includes(query) || theme.name.toLowerCase().includes(query)
     })
-  }, [themeFilter, themes])
+  }, [mode, themeFilter, themes])
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col overflow-hidden border-r border-border-base bg-surface-raised-base">
@@ -423,7 +423,7 @@ function ThemeSidebar() {
               <button
                 key={id}
                 type="button"
-                onClick={() => setTheme(id)}
+                onClick={() => setThemeForMode(mode, id)}
                 className={cn(
                   "rounded-md px-2.5 py-2 text-left text-xs font-medium transition-colors",
                   isActive
