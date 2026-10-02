@@ -74,7 +74,7 @@ Other `/names` may appear from skills, MCP, or catalog — do not invent names n
 
 ## Mentions and attachments
 
-- **`@` + path** — file/folder search in the notebook; inserts a file reference.
+- **`@`** — searches the notebook: files and folders, open Bench tabs, notes, chats, Sources, boards, practice sets, and creations. A file or Source is attached; anything else is inserted as a chip that names it for Buddy, with a chat's ID and session database or an object's folder so Buddy can read it with its own tools.
 - Drag/drop files into the composer to attach.
 - **Do not claim @-agent mentions work** in current directory chat (file @ does).
 
