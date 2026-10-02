@@ -40,7 +40,7 @@ Core tabs (Browser appears on desktop):
 | Tab | What lives there |
 | --- | --- |
 | **General** | **Show Try these** starter prompts; Follow-up **Steer** vs **Queue for later**; game-break frequency; concise responses; default way Buddy works; Read entire book; Auto-compaction; **Buddy Home**; **Notes library**; external-file opening; log level |
-| **Appearance** | System/Light/Dark, theme, chat and document typography |
+| **Appearance** | System/Light/Dark, a light theme and a dark theme (light pages in the reader use the light theme), chat and document typography |
 | **Notifications** | Agent, permissions, errors |
 | **Personalization** | Profile + global **AGENTS.md** |
 | **Browser** (desktop) | Search engine, zoom, appearance, link opening, profiles (`browser.md`) |
