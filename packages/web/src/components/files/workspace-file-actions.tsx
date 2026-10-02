@@ -7,6 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  cn,
   toast,
 } from "@buddy/ui"
 import {
@@ -45,7 +46,7 @@ function ApplicationIcon(props: { icon: string | null }) {
   return props.icon ? (
     <img src={props.icon} alt="" className="size-4 shrink-0 object-contain" aria-hidden />
   ) : (
-    <ExternalLinkIcon aria-hidden data-icon="inline-start" />
+    <ExternalLinkIcon aria-hidden data-icon="inline-start" className="size-3.5" />
   )
 }
 
@@ -113,7 +114,7 @@ export function WorkspaceFileActionsMenu(props: { directory: string; path: strin
           type="button"
           size="sm"
           variant="outline"
-          className="rounded-r-none"
+          className="h-7 rounded-r-none px-2.5 text-xs has-[>svg]:px-2"
           aria-label={`Open in ${selectedName}`}
           title={`Open in ${selectedName}`}
           disabled={!hydrated || opening}
@@ -131,9 +132,9 @@ export function WorkspaceFileActionsMenu(props: { directory: string; path: strin
             variant="outline"
             aria-label="Choose app and file actions"
             title="Choose app and file actions"
-            className={platform.openPath ? "rounded-l-none border-l-0" : undefined}
+            className={cn("size-7", platform.openPath && "rounded-l-none border-l-0")}
           >
-            <ChevronDownIcon aria-hidden />
+            <ChevronDownIcon aria-hidden className="size-3.5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-56">

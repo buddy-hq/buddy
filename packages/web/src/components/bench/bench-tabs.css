@@ -27,6 +27,33 @@
   initial-value: 1;
 }
 
+:root {
+  --bench-rail-bg:
+    linear-gradient(var(--surface-raised-base), var(--surface-raised-base)),
+    linear-gradient(var(--surface-raised-base), var(--surface-raised-base)), var(--background-base);
+  --bench-body-bg: var(--background-stronger);
+  --bench-active-bg: var(--surface-raised-strong);
+}
+
+[data-component="desktop-titlebar"]:has(.bench-tab-bar),
+[data-component="directory-chat-right-workspace-titlebar"]:has(.bench-tab-bar),
+.bench-tab-bar[data-placement="workspace"] {
+  background: var(--bench-rail-bg);
+}
+
+.bench-tab-bar[data-placement="titlebar"] {
+  background-color: transparent;
+}
+
+[data-component="directory-chat-right-workspace-titlebar"]:has(.bench-tab-bar) {
+  border-bottom-width: 0;
+}
+
+[data-component="right-workspace-body"] {
+  --background-base: var(--bench-body-bg);
+  --color-background-base: var(--bench-body-bg);
+}
+
 .bench-tab-bar {
   --bench-tab-gap: 0.25rem;
   --bench-tab-width-max: 11rem;
@@ -175,6 +202,7 @@
 }
 
 .bench-tab[data-active="true"] {
+  --composer-surface-bg: var(--bench-active-bg);
   min-width: var(--bench-tab-width-min-active);
 }
 

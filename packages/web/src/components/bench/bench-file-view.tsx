@@ -212,7 +212,7 @@ export function BenchFileView(props: BenchFileViewProps) {
       <div
         hidden={!active}
         className={cn(
-          "h-10 shrink-0 items-center gap-2 border-b border-border-weaker-base px-3",
+          "h-10 shrink-0 items-center gap-2 border-b border-border-weaker-base pr-1.5 pl-3",
           active && "flex",
         )}
       >
@@ -256,7 +256,7 @@ export function BenchFileView(props: BenchFileViewProps) {
           variant="ghost"
           size="icon-sm"
           className={cn(
-            "composer-grain relative border border-border-weak-base bg-surface-raised-base-hover text-icon-base shadow-sm hover:border-border-base hover:text-text-strong",
+            "composer-grain relative size-7 border border-border-weak-base bg-surface-raised-base-hover text-icon-base shadow-sm hover:border-border-base hover:text-text-strong",
             treeOpen && "border-border-base text-text-strong",
           )}
           aria-label={toggleLabel}
@@ -268,7 +268,7 @@ export function BenchFileView(props: BenchFileViewProps) {
             changeTreeOpen(!treeOpen)
           }}
         >
-          <ToggleIcon aria-hidden />
+          <ToggleIcon aria-hidden className="size-3.5" />
         </Button>
         {props.toolbar}
       </div>

@@ -164,6 +164,9 @@ export function resolveRightWorkspaceFilesPresentation(input: {
 
 const RIGHT_RAIL_ICON_SIZE_CLASS = "size-3.5 shrink-0"
 const RAIL_ATTENTION_DURATION_MS = 700
+const BENCH_BODY_CORNER_RADIUS_MACOS_PX = 12
+const BENCH_BODY_CORNER_RADIUS_WINDOWS_PX = 6
+const BENCH_BODY_CORNER_RADIUS_DEFAULT_PX = 8
 
 function railIcon(icon: ReactElement<{ className?: string }>) {
   return cloneElement(icon, {
@@ -209,7 +212,7 @@ function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
       className={cn(
         "right-workspace-rail-button relative text-icon-base hover:text-text-strong",
         props.active &&
-          "composer-surface-tab composer-grain [--composer-surface-bg:var(--surface-raised-base-hover)] text-text-strong",
+          "composer-surface-tab composer-grain [--composer-surface-bg:var(--bench-active-bg)] text-text-strong",
       )}
       onClick={props.onClick}
     >
@@ -223,7 +226,7 @@ function RightWorkspaceRail(props: { items: RightWorkspaceRailItem[] }) {
   return (
     <div
       data-component="right-workspace-rail"
-      className="flex h-full shrink-0 flex-col items-center gap-1 border-l border-border-weaker-base bg-background-base px-1 py-2"
+      className="flex h-full shrink-0 flex-col items-center gap-1 px-1 py-2"
       style={{ width: RIGHT_WORKSPACE_RAIL_WIDTH_PX }}
     >
       {props.items.map((item) => (
@@ -347,6 +350,12 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
   )
   const workspace = useDirectoryWorkspace()
   const selectorAccessEnabled = props.presentation.mode !== BENCH_CHAT_LAYOUT_FLOATING
+  const bodyCornerRadiusPx =
+    platform.os === "macos"
+      ? BENCH_BODY_CORNER_RADIUS_MACOS_PX
+      : platform.os === "windows"
+        ? BENCH_BODY_CORNER_RADIUS_WINDOWS_PX
+        : BENCH_BODY_CORNER_RADIUS_DEFAULT_PX
   const obsidianProfileQuery = useQuery(obsidianVaultProfileQueryOptions(props.directory))
   const obsidianConnected = obsidianProfileQuery.data?.connected === true
   const filesPresentation = resolveRightWorkspaceFilesPresentation({
@@ -737,9 +746,19 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       data-component="directory-chat-right-workspace"
       data-selector={resolvedSelector ?? WORKSPACE_DRAWER_NONE}
       data-bench-visible={hasVisibleBench ? "true" : "false"}
-      className="flex h-full min-h-0 w-full overflow-hidden bg-background-base"
+      className={cn(
+        "flex h-full min-h-0 w-full overflow-hidden",
+        selectorAccessEnabled ? "[background:var(--bench-rail-bg)]" : "bg-background-base",
+      )}
     >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        data-component="right-workspace-body"
+        className={cn(
+          "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background-base",
+          selectorAccessEnabled && "border-t border-border-weaker-base",
+        )}
+        style={selectorAccessEnabled ? { borderTopRightRadius: bodyCornerRadiusPx } : undefined}
+      >
         {(props.showTabsInWorkspace ?? true) ? (
           <BenchTabs
             directory={props.directory}
