@@ -167,3 +167,15 @@ export function parseSubagentSession(session: Pick<SessionInfo, "title">): Parse
     agent: agent || undefined,
   }
 }
+
+/** Each titled session's display title, without a subagent's agent suffix. */
+export function sessionTitlesByID(
+  sessions: readonly Pick<SessionInfo, "id" | "title">[],
+): Map<string, string> {
+  const titles = new Map<string, string>()
+  for (const session of sessions) {
+    const title = parseSubagentSession(session).title
+    if (title) titles.set(session.id, title)
+  }
+  return titles
+}

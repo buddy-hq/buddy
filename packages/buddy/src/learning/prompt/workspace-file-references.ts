@@ -15,6 +15,14 @@ import {
   type CitationProviderLocation,
 } from "@buddy/citation-contract"
 import { Agent } from "@buddy/opencode-adapter/agent"
+import {
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectIDSchema,
+  BuddyObjectKindSchema,
+  BuddyObjectPath,
+  type BuddyObjectKind,
+} from "../../objects"
+import { chatMentionPointer } from "../features/bench/chat-transcripts"
 import { SessionTransformValidationError } from "../../session"
 import { resolveResourceReference } from "../../resources/resource-registry-service"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
@@ -58,6 +66,11 @@ export { BUDDY_PROMPT_PART_METADATA_KEY } from "./native-resource-metadata"
 export const TEXT_FILE_ATTACHMENT_PART_TYPE = "text-file-attachment" as const
 export const PROMPT_WORKSPACE_FILE_REFERENCE_REGEX =
   /(?<![\w`])@(?:"([^"\n]+)"|`([^`\n]+)`|(\.?[^\s`,.]+(?:\.[^\s`,.]+)*))/g
+const NOTEBOOK_REFERENCE_KIND_CHAT = "chat" as const
+const OBJECT_KINDS_READ_WITH_THEIR_OWN_TOOL: ReadonlySet<BuddyObjectKind> = new Set([
+  BUDDY_OBJECT_KINDS.resource,
+  BUDDY_OBJECT_KINDS.whiteboard,
+])
 const PROMPT_PART_TYPE_TEXT = "text" as const
 const PROMPT_PART_TYPE_FILE = "file" as const
 const PROMPT_PART_TYPE_AGENT = "agent" as const
@@ -95,7 +108,11 @@ export type NotebookReferencePart = {
   title: string
   kind: string
   url?: string
+  objectID?: string
 }
+
+/** A notebook reference after normalization; `pointer` is the model-only note on where to read it. */
+type NormalizedNotebookReferencePart = NotebookReferencePart & { pointer?: string }
 
 export type ReadingSelectionPart = {
   type: typeof READING_SELECTION_PART_TYPE
@@ -203,7 +220,12 @@ export async function normalizePromptParts(input: {
 
     const notebookReference = parseNotebookReferencePart(part)
     if (notebookReference) {
-      normalizedParts.push({ ...notebookReference })
+      const pointer = notebookReferencePointer(input.directory, notebookReference)
+      const normalized: NormalizedNotebookReferencePart = Object.assign(
+        { ...notebookReference },
+        pointer ? { pointer } : undefined,
+      )
+      normalizedParts.push(normalized)
       continue
     }
 
@@ -588,10 +610,28 @@ function parseNotebookReferencePart<T>(part: T): NotebookReferencePart | undefin
   const kind = parseNonEmptyPromptString(object.kind)
   if (text === undefined || title === undefined || kind === undefined) return undefined
   const url = parseNonEmptyPromptString(object.url)
+  const objectID = parseNonEmptyPromptString(object.objectID)
   return Object.assign(
     { type: NOTEBOOK_REFERENCE_PART_TYPE, text, title, kind },
     url !== undefined ? { url } : undefined,
+    objectID !== undefined ? { objectID } : undefined,
   )
+}
+
+function notebookReferencePointer(
+  directory: string,
+  reference: NotebookReferencePart,
+): string | undefined {
+  if (reference.kind === NOTEBOOK_REFERENCE_KIND_CHAT) return chatMentionPointer()
+  const kind = BuddyObjectKindSchema.safeParse(reference.kind)
+  const objectID = BuddyObjectIDSchema.safeParse(reference.objectID)
+  if (!kind.success || !objectID.success) return undefined
+  if (OBJECT_KINDS_READ_WITH_THEIR_OWN_TOOL.has(kind.data)) return undefined
+  return `The ${kind.data} mentioned just before is stored in folder ${BuddyObjectPath.objectDirectory(directory, kind.data, objectID.data)}. Read it with your file tools.`
+}
+
+function readNotebookReferencePointer<T>(part: T): string | undefined {
+  return parseNonEmptyPromptString(parseJsonObject(part)?.pointer)
 }
 
 function parseReadingSelectionPart<T>(part: T): TJsonObject | undefined {
@@ -847,13 +887,16 @@ export function flattenPromptPartsForRuntime<T>(
 
     const notebookReference = parseNotebookReferencePart(part)
     if (notebookReference) {
-      return [
-        {
-          type: PROMPT_PART_TYPE_TEXT,
-          text: notebookReference.text,
-          metadata: { [BUDDY_PROMPT_PART_METADATA_KEY]: { ...notebookReference } },
-        },
-      ]
+      // The pointer is for the model only: a synthetic part stays out of the user's message.
+      const pointer = readNotebookReferencePointer(part)
+      const referencePart: TPromptPart = {
+        type: PROMPT_PART_TYPE_TEXT,
+        text: notebookReference.text,
+        metadata: { [BUDDY_PROMPT_PART_METADATA_KEY]: { ...notebookReference } },
+      }
+      return pointer
+        ? [referencePart, { type: PROMPT_PART_TYPE_TEXT, text: pointer, synthetic: true }]
+        : [referencePart]
     }
 
     const selectionContext = parseSelectionContextPart(part)

@@ -105,6 +105,82 @@ describe("prompt parts", () => {
       url: "https://example.com/old",
     })
 
+    const chatTab = {
+      type: "notebook" as const,
+      result: {
+        id: "open-tab:session:ses_child",
+        kind: "thread" as const,
+        title: "Verify claims",
+        metadata: "",
+        updatedAtMs: 0,
+        target: {
+          type: "open-tab" as const,
+          tabKey: "session:ses_child",
+          target: { type: "session" as const, sessionID: "ses_child" },
+        },
+      },
+    }
+    expect(notebookMentionAttachesContent(chatTab)).toBe(false)
+    expect(notebookMentionLocator(chatTab)).toBe(
+      "Verify claims (open Bench tab session:ses_child; chat: ses_child)",
+    )
+
+    const noteTab = {
+      type: "notebook" as const,
+      result: {
+        id: "open-tab:note",
+        kind: "note" as const,
+        title: "Lesson plan",
+        metadata: "Open tab",
+        updatedAtMs: 0,
+        target: {
+          type: "open-tab" as const,
+          tabKey: "workspace-file:notes:lesson",
+          target: {
+            type: "workspace-file" as const,
+            root: "notes" as const,
+            path: "Inbox/Lesson plan.md",
+            viewer: "markdown" as const,
+          },
+        },
+      },
+    }
+    expect(notebookMentionLocator(noteTab)).toBe(
+      "Lesson plan (open Bench tab workspace-file:notes:lesson; note: Inbox/Lesson plan.md)",
+    )
+
+    const diagramTab = {
+      type: "notebook" as const,
+      result: {
+        id: "open-tab:diagram",
+        kind: "creation" as const,
+        title: "Water cycle",
+        metadata: "Open tab",
+        updatedAtMs: 0,
+        target: {
+          type: "open-tab" as const,
+          tabKey: "object:mermaid:diagram",
+          target: {
+            type: "object" as const,
+            ref: {
+              kind: "mermaid" as const,
+              objectID: "01KZGMGX84CM3G9Q35SQ46GN25",
+              revisionID: null,
+              itemID: null,
+            },
+            viewID: "diagram",
+          },
+        },
+      },
+    }
+    expect(promptPartFromMentionOption(diagramTab)).toEqual({
+      type: "notebook-reference",
+      text: "Water cycle (open Bench tab object:mermaid:diagram; mermaid: 01KZGMGX84CM3G9Q35SQ46GN25)",
+      title: "Water cycle",
+      kind: "mermaid",
+      objectID: "01KZGMGX84CM3G9Q35SQ46GN25",
+    })
+
     const media = {
       type: "notebook" as const,
       result: {
@@ -126,6 +202,7 @@ describe("prompt parts", () => {
       text: "_chat.tsx (media-presentation: 01KZGMGX84CM3G9Q35SQ46GN24)",
       title: "_chat.tsx",
       kind: "media-presentation",
+      objectID: "01KZGMGX84CM3G9Q35SQ46GN24",
     })
     // The chip shows the title with the file's own mark; the model still reads the locator.
     const pill = createPromptPill(mediaPart)

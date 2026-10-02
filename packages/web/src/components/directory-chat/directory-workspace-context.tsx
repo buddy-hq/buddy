@@ -27,11 +27,13 @@ import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { resolveBenchTabTitle, upsertBenchTab, type BenchTab } from "@/lib/bench-tabs"
 import { DirectoryWorkspaceLifecycleService } from "@/lib/directory-workspace-lifecycle"
 import { registerLiveDirectoryWorkspace } from "@/lib/directory-workspace-registry"
+import { sessionTitlesByID } from "@/lib/session-family"
 import { subagentBenchSelection } from "@/lib/subagent-bench-target"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 import { workspaceChatKeyForSession, type WorkspaceChatKey } from "@/lib/workspace-chat-key"
 import { useChatStore } from "@/state/chat-store"
 import { useHostedBrowserStore } from "@/state/hosted-browser-store"
+import { useUiPreferences } from "@/state/ui-preferences"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import {
   inAppBrowserTabContextRuntime,
@@ -106,6 +108,14 @@ function unresolvedSessionBenchTargetIDs(input: {
   return new Set(
     [...sessionIDs].filter((sessionID) => !subagentBenchSelection(input.sessions, sessionID)),
   )
+}
+
+const NO_SESSION_TAB_TITLES: ReadonlyMap<string, string> = new Map()
+
+/** Chat titles for a session tab's label; other tabs need none. */
+function benchSessionTabTitles(directory: string, tab: BenchTab): ReadonlyMap<string, string> {
+  if (tab.target.type !== "session") return NO_SESSION_TAB_TITLES
+  return sessionTitlesByID(useChatStore.getState().directories[directory]?.sessions ?? [])
 }
 
 function BenchObjectTitleSynchronizer(props: {
@@ -227,7 +237,14 @@ export function DirectoryWorkspaceProvider(props: {
           )
           return { emptyTabIDs: slot.emptyTabIDs ?? [], activeEmptyTabID: slot.activeEmptyTabID }
         },
-        getTabTitle: (tab) => resolveBenchTabTitle(tab, objectTitlesRef.current),
+        isOwnListOpen: (collection) =>
+          useUiPreferences.getState().collapsedWorkspaceLists[collection] !== true,
+        getTabTitle: (tab) =>
+          resolveBenchTabTitle(
+            tab,
+            objectTitlesRef.current,
+            benchSessionTabTitles(props.directory, tab),
+          ),
         getBrowserTabRuntime: inAppBrowserTabContextRuntime,
         getHydrationStatus: () => store.getState().hydration.status,
         getRouteFallbackContext: (route) => {
@@ -245,6 +262,14 @@ export function DirectoryWorkspaceProvider(props: {
           })
         },
       }),
+  )
+  useEffect(
+    () =>
+      useUiPreferences.subscribe((state, previousState) => {
+        if (state.collapsedWorkspaceLists === previousState.collapsedWorkspaceLists) return
+        void lifecycle.publishCurrent()
+      }),
+    [lifecycle],
   )
   useEffect(
     () =>

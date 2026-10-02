@@ -220,6 +220,48 @@
   }
 }
 
+.bench-tab-label {
+  container: bench-tab-label / inline-size;
+}
+
+/* Too narrow for a label: hide it from sight, but keep the title as the tab's accessible name. */
+@container bench-tab-label (max-width: 0.95rem) {
+  .bench-tab-label > :not(.bench-tab-title) {
+    display: none;
+  }
+
+  .bench-tab-label > .bench-tab-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@container bench-tab (max-width: 7rem) {
+  .bench-tab:has(.bench-tab-shortcut) .bench-tab-close {
+    display: none;
+  }
+}
+
+@container bench-tab (max-width: 4rem) {
+  .bench-tab:has(.bench-tab-shortcut) .bench-tab-label {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+  }
+
+  .bench-tab-shortcut {
+    margin-inline: auto;
+  }
+
+  .bench-tab-shortcut-modifier {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bench-tab {
     transition: none;

@@ -114,6 +114,7 @@ export function BenchSurfaceHost(props: {
   retainedTargetKeys: readonly string[]
   /** Parks the selected instance without discarding its selection or retention identity. */
   covered?: boolean
+  coveredContextSuspended?: boolean
   /**
    * Whether the Bench is actually on screen. Separate from the active target on purpose: a docked
    * Bench that the user collapsed keeps its target — and its agent-facing registration — but is not
@@ -135,6 +136,7 @@ export function BenchSurfaceHost(props: {
 }) {
   const selectedKey = props.activeTarget ? benchTargetKey(props.activeTarget) : null
   const activeKey = props.covered ? null : selectedKey
+  const contextKey = props.covered && props.coveredContextSuspended ? null : selectedKey
   // Retention is derived during render rather than in an effect: computing it after commit would
   // render one frame in which the newly active target has no instance yet — an empty flash on the
   // exact switch this host exists to make seamless. It is held in state, not a ref, so a render
@@ -192,6 +194,7 @@ export function BenchSurfaceHost(props: {
         const instance = instancesByKey.get(key)
         if (!instance) return null
         const active = instance.key === activeKey
+        const providesContext = instance.key === contextKey
         const presentation = benchSurfaceInstancePresentation({
           state: active ? "active" : "parked",
           target: instance.target.type === "browser" ? "browser" : "other",
@@ -217,9 +220,9 @@ export function BenchSurfaceHost(props: {
             style={benchSurfaceInstanceDomStyle(presentation)}
           >
             {props.renderContext({
-              active,
+              active: providesContext,
               state:
-                active && props.activeRuntimeState
+                providesContext && props.activeRuntimeState
                   ? props.activeRuntimeState
                   : parkedRuntimeState({
                       directory: props.directory,

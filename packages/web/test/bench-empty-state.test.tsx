@@ -906,6 +906,7 @@ function inAppBrowserPlatform(): InAppBrowserPlatform {
     onFavicon: () => () => undefined,
     onAudio: () => () => undefined,
     onShortcut: () => () => undefined,
+    onShortcutModifier: () => () => undefined,
     onNewTab: () => () => undefined,
     onCitation: () => () => undefined,
     captureCitation: async () => ({ _tag: "failed" as const, reason: "no-selection" as const }),

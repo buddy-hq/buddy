@@ -4,6 +4,7 @@ import {
   IN_APP_BROWSER_MESSAGE_CHANNEL,
   IN_APP_BROWSER_NEW_TAB_CHANNEL,
   IN_APP_BROWSER_SHORTCUT_CHANNEL,
+  IN_APP_BROWSER_SHORTCUT_MODIFIER_CHANNEL,
   type InAppBrowserAudioMessage,
   type InAppBrowserFavicon,
   type InAppBrowserFaviconMessage,
@@ -11,6 +12,8 @@ import {
   type InAppBrowserNewTabMessage,
   type InAppBrowserShortcutID,
   type InAppBrowserShortcutMessage,
+  type InAppBrowserShortcutModifierMessage,
+  type InAppBrowserShortcutModifierState,
 } from "@buddy/browser-contract"
 import type { WebContents } from "electron"
 
@@ -53,6 +56,16 @@ export function sendInAppBrowserShortcut(
     webContentsID: guest.id,
     shortcut,
   } satisfies InAppBrowserShortcutMessage)
+}
+
+export function sendInAppBrowserShortcutModifier(
+  guest: WebContents,
+  state: InAppBrowserShortcutModifierState,
+): void {
+  sendToHost(guest, IN_APP_BROWSER_SHORTCUT_MODIFIER_CHANNEL, {
+    webContentsID: guest.id,
+    state,
+  } satisfies InAppBrowserShortcutModifierMessage)
 }
 
 export function sendInAppBrowserNewTab(guest: WebContents, url: string): void {

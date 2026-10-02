@@ -20,6 +20,7 @@ import {
   BUDDY_PROMPT_PART_METADATA_KEY,
   flattenPromptPartsForRuntime,
   NOTEBOOK_REFERENCE_PART_TYPE,
+  normalizePromptParts,
   OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
@@ -360,6 +361,53 @@ describe("message prompt resource references", () => {
         metadata: { [BUDDY_PROMPT_PART_METADATA_KEY]: reference },
       },
     ])
+  })
+
+  test("points the model at a mentioned chat's database and a mentioned object's folder", async () => {
+    const directory = path.resolve("/workspace/notebook")
+    const diagramID = "01KZGMGX84CM3G9Q35SQ46GN25"
+    const chat = {
+      type: NOTEBOOK_REFERENCE_PART_TYPE,
+      text: "Fractions recap (chat: ses_old)",
+      title: "Fractions recap",
+      kind: "chat",
+    }
+    const diagram = {
+      type: NOTEBOOK_REFERENCE_PART_TYPE,
+      text: `Water cycle (mermaid: ${diagramID})`,
+      title: "Water cycle",
+      kind: "mermaid",
+      objectID: diagramID,
+    }
+    const board = {
+      type: NOTEBOOK_REFERENCE_PART_TYPE,
+      text: "Sketch (whiteboard: 01KZGMGX84CM3G9Q35SQ46GN26)",
+      title: "Sketch",
+      kind: "whiteboard",
+      objectID: "01KZGMGX84CM3G9Q35SQ46GN26",
+    }
+
+    const flattened = flattenPromptPartsForRuntime(
+      await normalizePromptParts({
+        directory,
+        content: "",
+        parts: [{ ...chat, pointer: "client supplied" }, diagram, board],
+      }),
+    )
+
+    // Each pointer is its own synthetic part, so the user's message shows only the reference.
+    expect(flattened.map((part) => [part.text, part.synthetic, part.metadata])).toEqual([
+      [chat.text, undefined, { [BUDDY_PROMPT_PART_METADATA_KEY]: chat }],
+      [expect.stringContaining("The chat mentioned just before"), true, undefined],
+      [diagram.text, undefined, { [BUDDY_PROMPT_PART_METADATA_KEY]: diagram }],
+      [
+        `The mermaid mentioned just before is stored in folder ${path.join(directory, ".buddy", "objects", "v1", "mermaid", diagramID)}. Read it with your file tools.`,
+        true,
+        undefined,
+      ],
+      [board.text, undefined, { [BUDDY_PROMPT_PART_METADATA_KEY]: board }],
+    ])
+    expect(flattened.map((part) => part.text).join("\n")).not.toContain("client supplied")
   })
 
   test("preserves and expands multiple canonical citations independently", () => {

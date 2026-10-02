@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react"
 import "@/components/prompt/composer-surfaces.css"
 import "@/components/bench/bench-tabs.css"
 import { useQuery } from "@tanstack/react-query"
@@ -17,8 +24,14 @@ import {
   TooltipTrigger,
   cn,
 } from "@buddy/ui"
+import { Kbd } from "@buddy/ui/components/ui/kbd"
 import { ArrowExpand02Icon, PlusIcon, XIcon, SearchIcon } from "@/icons/app-icons"
 import { BrowserTabAudioButton, BrowserTabMuteMenuItem } from "@/components/bench/browser-tab-audio"
+import {
+  BenchTabActionGroups,
+  benchTabMenuHasActions,
+  useBenchTabActions,
+} from "@/components/bench/bench-tab-actions"
 import { BenchItemIcon, benchTargetIconSubject } from "@/components/bench/bench-item-icon"
 import {
   EMPTY_BENCH_TAB_TITLE,
@@ -30,7 +43,16 @@ import {
 import { BENCH_WORKSPACE_ROOT_NOTES, createNotesBenchTarget } from "@/lib/bench-targets"
 import { notesLibraryQueryOptions } from "@/features/notes/queries"
 import { useNoteCaptureSignal } from "@/features/notes/capture-activity"
-import { parseSubagentSession } from "@/lib/session-family"
+import { usePlatform, type InAppBrowserPlatform } from "@/context/platform"
+import { sessionTitlesByID } from "@/lib/session-family"
+import {
+  BENCH_TAB_SHORTCUT_HINT_DELAY_MS,
+  benchTabShortcutAtPosition,
+  formatShortcutTokens,
+  shortcutDisplayPlatform,
+  shortcutTokenSeparator,
+  type ShortcutDisplayPlatform,
+} from "@/lib/shortcuts"
 import { useChatStore } from "@/state/chat-store"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import { useInAppBrowserTabsStore } from "@/state/in-app-browser-tabs-store"
@@ -58,7 +80,12 @@ type BenchTabsProps = {
   onCloseEmptyTab?: (emptyTabID: string) => void
   /** Takes the Bench full-window. Absent while the Bench is already immersive. */
   onEnterImmersive?: () => void
+  /** Whether holding Cmd/Ctrl shows each tab's key; off while the tab keys are. */
+  shortcutHints?: boolean
 }
+
+/** A tab's key, split so the modifier can drop out when the tab is narrow. */
+type BenchTabShortcutLabel = { modifier: string; key: string }
 
 type BenchTabItemProps = {
   tab: BenchTab
@@ -68,6 +95,8 @@ type BenchTabItemProps = {
   stale: boolean
   last: boolean
   only: boolean
+  directory: string
+  shortcutLabel: BenchTabShortcutLabel | null
   onActivate: () => void
   onClose: () => void
   onCloseOthers: () => void
@@ -82,14 +111,31 @@ const IMMERSIVE_ICON_CLASS = "size-3 shrink-0"
 const IMMERSIVE_LABEL = "Immersive mode"
 /** Strip-wide knob read by `.bench-tab` to size each tab; see bench-tabs.css. */
 const TAB_COUNT_PROPERTY = "--bench-tab-count"
+const BENCH_TAB_TITLE_TOOLTIP_DELAY_MS = 1500
 const TAB_KEY_ARROW_LEFT = "ArrowLeft"
 const TAB_KEY_ARROW_RIGHT = "ArrowRight"
 const TAB_KEY_HOME = "Home"
 const TAB_KEY_END = "End"
 
+function BenchTabShortcutHint(props: { label: BenchTabShortcutLabel | null }) {
+  if (!props.label) return null
+  const { key, modifier } = props.label
+  return (
+    <Kbd
+      data-component="bench-tab-shortcut"
+      className="bench-tab-shortcut h-4 shrink-0 gap-0"
+      aria-hidden
+    >
+      <span className="bench-tab-shortcut-modifier">{modifier}</span>
+      {key}
+    </Kbd>
+  )
+}
+
 function EmptyBenchTabItem(props: {
   emptyTabID: string
   active: boolean
+  shortcutLabel: BenchTabShortcutLabel | null
   onActivate: () => void
   onClose: (() => void) | undefined
 }) {
@@ -125,6 +171,7 @@ function EmptyBenchTabItem(props: {
         <SearchIcon className={TAB_ICON_CLASS} aria-hidden />
         <span className="bench-tab-title min-w-0 flex-1">{EMPTY_BENCH_TAB_TITLE}</span>
       </button>
+      <BenchTabShortcutHint label={props.shortcutLabel} />
       {props.onClose ? (
         <button
           type="button"
@@ -141,6 +188,8 @@ function EmptyBenchTabItem(props: {
 
 function BenchTabItem(props: BenchTabItemProps) {
   const tabRef = useRef<HTMLDivElement>(null)
+  const tabActions = useBenchTabActions(props.directory, props.tab.target)
+  const hasLeadingActions = benchTabMenuHasActions(tabActions)
 
   useEffect(() => {
     if (!props.active) return
@@ -177,7 +226,7 @@ function BenchTabItem(props: BenchTabItemProps) {
             props.onClose()
           }}
         >
-          <Tooltip>
+          <Tooltip delayDuration={BENCH_TAB_TITLE_TOOLTIP_DELAY_MS}>
             <TooltipTrigger asChild>
               {/* Activation lives here so Enter and Space are the button's own
                   default, not a handler that has to guess where they came from.
@@ -204,9 +253,10 @@ function BenchTabItem(props: BenchTabItemProps) {
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
-              {props.title}
+              <span className="min-w-0 [overflow-wrap:anywhere]">{props.title}</span>
             </TooltipContent>
           </Tooltip>
+          <BenchTabShortcutHint label={props.shortcutLabel} />
           {props.tab.target.type === "browser" ? (
             <BrowserTabAudioButton tabID={props.tab.target.tabID} />
           ) : null}
@@ -223,25 +273,38 @@ function BenchTabItem(props: BenchTabItemProps) {
           </button>
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="w-44">
-        <ContextMenuGroup>
-          <ContextMenuItem onSelect={props.onClose}>Close</ContextMenuItem>
-          <ContextMenuItem disabled={props.only} onSelect={props.onCloseOthers}>
-            Close others
-          </ContextMenuItem>
-          <ContextMenuItem disabled={props.last} onSelect={props.onCloseToRight}>
-            Close to the right
-          </ContextMenuItem>
-          <ContextMenuItem onSelect={props.onCloseAll}>Close all</ContextMenuItem>
-        </ContextMenuGroup>
+      <ContextMenuContent className="min-w-48">
+        {hasLeadingActions ? <BenchTabActionGroups actions={tabActions} /> : null}
         {props.tab.target.type === "browser" ? (
           <>
-            <ContextMenuSeparator />
             <ContextMenuGroup>
               <BrowserTabMuteMenuItem tabID={props.tab.target.tabID} />
             </ContextMenuGroup>
+            <ContextMenuSeparator />
           </>
         ) : null}
+        <ContextMenuGroup>
+          <ContextMenuItem inset={hasLeadingActions} onSelect={props.onClose}>
+            Close
+          </ContextMenuItem>
+          <ContextMenuItem
+            inset={hasLeadingActions}
+            disabled={props.only}
+            onSelect={props.onCloseOthers}
+          >
+            Close others
+          </ContextMenuItem>
+          <ContextMenuItem
+            inset={hasLeadingActions}
+            disabled={props.last}
+            onSelect={props.onCloseToRight}
+          >
+            Close to the right
+          </ContextMenuItem>
+          <ContextMenuItem inset={hasLeadingActions} onSelect={props.onCloseAll}>
+            Close all
+          </ContextMenuItem>
+        </ContextMenuGroup>
       </ContextMenuContent>
     </ContextMenu>
   )
@@ -304,8 +367,96 @@ function useStaleNoteTabKeys(input: {
   return staleTabKeys
 }
 
+function shortcutModifierDown(event: KeyboardEvent, platform: ShortcutDisplayPlatform): boolean {
+  return platform === "mac" ? event.metaKey : event.ctrlKey
+}
+
+function isShortcutModifierPressedAlone(event: KeyboardEvent, platform: ShortcutDisplayPlatform) {
+  const modifierKey = platform === "mac" ? "Meta" : "Control"
+  const otherPrimary = platform === "mac" ? event.ctrlKey : event.metaKey
+  return (
+    event.key === modifierKey &&
+    shortcutModifierDown(event, platform) &&
+    !otherPrimary &&
+    !event.altKey &&
+    !event.shiftKey
+  )
+}
+
+/**
+ * True once Cmd (macOS) or Ctrl has been held on its own for a moment. Any other key cancels it
+ * until the modifier is let go, so Cmd+C or Ctrl+Z never flashes the tab keys. A focused Browser
+ * page keeps its keys from this window, so the desktop app reports the modifier from there too.
+ */
+function useShortcutModifierHeld(input: {
+  platform: ShortcutDisplayPlatform
+  enabled: boolean
+  inAppBrowser: InAppBrowserPlatform | undefined
+}): boolean {
+  const { enabled, inAppBrowser, platform } = input
+  const [held, setHeld] = useState(false)
+
+  useEffect(() => {
+    if (!enabled) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let interrupted = false
+    const hide = () => {
+      clearTimeout(timer)
+      timer = undefined
+      setHeld(false)
+    }
+    const press = () => {
+      if (timer !== undefined || interrupted) return
+      timer = setTimeout(() => setHeld(true), BENCH_TAB_SHORTCUT_HINT_DELAY_MS)
+    }
+    const interrupt = () => {
+      interrupted = true
+      hide()
+    }
+    const release = () => {
+      interrupted = false
+      hide()
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isShortcutModifierPressedAlone(event, platform)) press()
+      else if (shortcutModifierDown(event, platform)) interrupt()
+      else release()
+    }
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (!shortcutModifierDown(event, platform)) release()
+    }
+    const disposeBrowserModifier = inAppBrowser?.onShortcutModifier((message) => {
+      if (message.state === "pressed") press()
+      else if (message.state === "interrupted") interrupt()
+      else release()
+    })
+    window.addEventListener("keydown", onKeyDown, true)
+    window.addEventListener("keyup", onKeyUp, true)
+    window.addEventListener("blur", release)
+    document.addEventListener("visibilitychange", release)
+    return () => {
+      clearTimeout(timer)
+      setHeld(false)
+      disposeBrowserModifier?.()
+      window.removeEventListener("keydown", onKeyDown, true)
+      window.removeEventListener("keyup", onKeyUp, true)
+      window.removeEventListener("blur", release)
+      document.removeEventListener("visibilitychange", release)
+    }
+  }, [enabled, inAppBrowser, platform])
+
+  return enabled && held
+}
+
 export function BenchTabs(props: BenchTabsProps) {
   const placement = props.placement ?? "workspace"
+  const platform = usePlatform()
+  const displayPlatform = shortcutDisplayPlatform(platform.os)
+  const shortcutModifierHeld = useShortcutModifierHeld({
+    platform: displayPlatform,
+    enabled: props.shortcutHints ?? true,
+    inAppBrowser: platform.inAppBrowser,
+  })
   const staleTabKeys = useStaleNoteTabKeys({
     directory: props.directory,
     tabs: props.tabs,
@@ -337,14 +488,7 @@ export function BenchTabs(props: BenchTabsProps) {
   useEffect(() => {
     if (untitledObjectIDs) void refetchObjects()
   }, [refetchObjects, untitledObjectIDs])
-  const sessionTitles = useMemo(() => {
-    const titles = new Map<string, string>()
-    for (const session of sessions ?? []) {
-      const title = parseSubagentSession(session).title
-      if (title) titles.set(session.id, title)
-    }
-    return titles
-  }, [sessions])
+  const sessionTitles = useMemo(() => sessionTitlesByID(sessions ?? []), [sessions])
   const browserRuntimes = useInAppBrowserTabsStore(
     useShallow((state) => {
       const runtimes = new Map<string, InAppBrowserTabRuntime>()
@@ -377,11 +521,26 @@ export function BenchTabs(props: BenchTabsProps) {
     return titles
   }, [notesLibraryQuery.data?.notes])
   const emptyTabIDs = props.emptyTabIDs ?? NO_EMPTY_TAB_IDS
+  const stripTabCount = props.tabs.length + emptyTabIDs.length
   const stripStyle: CSSProperties & Record<typeof TAB_COUNT_PROPERTY, string> = {
-    [TAB_COUNT_PROPERTY]: String(Math.max(1, props.tabs.length + emptyTabIDs.length)),
+    [TAB_COUNT_PROPERTY]: String(Math.max(1, stripTabCount)),
+  }
+  const shortcutLabelAt = (position: number): BenchTabShortcutLabel | null => {
+    if (!shortcutModifierHeld) return null
+    const hotkey = benchTabShortcutAtPosition(position, stripTabCount)
+    if (!hotkey) return null
+    const tokens = formatShortcutTokens(hotkey, displayPlatform)
+    const separator = shortcutTokenSeparator(displayPlatform)
+    return {
+      modifier: tokens
+        .slice(0, -1)
+        .map((token) => `${token}${separator}`)
+        .join(""),
+      key: tokens.at(-1) ?? "",
+    }
   }
 
-  function handleTablistKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+  function handleTablistKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
     if (!(event.target instanceof Element)) return
     const currentTab = event.target.closest<HTMLElement>('[role="tab"]')
     if (!currentTab || !event.currentTarget.contains(currentTab)) return
@@ -489,6 +648,8 @@ export function BenchTabs(props: BenchTabsProps) {
                 stale={staleTabKeys.has(tab.key)}
                 last={index === props.tabs.length - 1 && emptyTabIDs.length === 0}
                 only={props.tabs.length === 1 && emptyTabIDs.length === 0}
+                directory={props.directory}
+                shortcutLabel={shortcutLabelAt(index)}
                 onActivate={() => props.onActivate(tab.key)}
                 onClose={() => props.onClose(tab.key)}
                 onCloseOthers={() => props.onCloseOthers(tab.key)}
@@ -497,11 +658,12 @@ export function BenchTabs(props: BenchTabsProps) {
               />
             )
           })}
-          {emptyTabIDs.map((emptyTabID) => (
+          {emptyTabIDs.map((emptyTabID, emptyIndex) => (
             <EmptyBenchTabItem
               key={emptyTabID}
               emptyTabID={emptyTabID}
               active={props.activeEmptyTabID === emptyTabID}
+              shortcutLabel={shortcutLabelAt(props.tabs.length + emptyIndex)}
               onActivate={() => props.onActivateEmptyTab?.(emptyTabID)}
               onClose={
                 props.onCloseEmptyTab ? () => props.onCloseEmptyTab?.(emptyTabID) : undefined

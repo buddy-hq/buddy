@@ -2,9 +2,19 @@ import { describe, expect, test } from "bun:test"
 import {
   benchContextTargetFromBenchTarget,
   buildBenchSurfaceContextSnapshot,
+  objectContextTargetForRoute,
   workspaceFileTarget,
 } from "../src/components/bench/bench-context-utils"
+import { benchTargetKey, type BenchTarget } from "../src/lib/bench-navigation"
 import { absoluteWorkspaceFilePath } from "../src/lib/workspace-file-paths"
+
+function diagramAt(revisionID: string | null, objectID = "diagram-1") {
+  return {
+    type: "object",
+    ref: { kind: "mermaid", objectID, revisionID, itemID: null },
+    viewID: "diagram",
+  } satisfies BenchTarget
+}
 
 describe("bench context utilities", () => {
   test("preserves object revision identity in published Bench context targets", () => {
@@ -35,6 +45,26 @@ describe("bench context utilities", () => {
       },
       viewID: "reader",
     })
+  })
+
+  test("answers under the tab's own target when the tab leaves a diagram's revision open", () => {
+    const libraryTab = diagramAt(null)
+    const loadedView = diagramAt("rev-7")
+
+    expect(
+      benchTargetKey(
+        objectContextTargetForRoute({ routeTarget: libraryTab, viewTarget: loadedView }),
+      ),
+    ).toBe(benchTargetKey(libraryTab))
+    expect(
+      objectContextTargetForRoute({ routeTarget: diagramAt("rev-3"), viewTarget: loadedView }),
+    ).toBe(loadedView)
+    expect(
+      objectContextTargetForRoute({
+        routeTarget: diagramAt(null, "diagram-2"),
+        viewTarget: loadedView,
+      }),
+    ).toBe(loadedView)
   })
 
   test("joins workspace file paths with the workspace's native separator", () => {

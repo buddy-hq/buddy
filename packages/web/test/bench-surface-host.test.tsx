@@ -117,12 +117,14 @@ async function renderHost(
   retainedTargets: readonly BenchTarget[] = [FIRST_TARGET, SECOND_TARGET],
   platform?: Platform,
   covered = false,
+  coveredContextSuspended = false,
 ) {
   const host = (
     <BenchSurfaceHost
       directory="/workspace"
       activeTarget={target}
       covered={covered}
+      coveredContextSuspended={coveredContextSuspended}
       retainedTargetKeys={retainedTargets.map(benchTargetKey)}
       benchVisible={benchVisible}
       activeRuntimeState={undefined}
@@ -351,6 +353,22 @@ describe("BenchSurfaceHost", () => {
     await renderHost(FIRST_TARGET, true, undefined, [], undefined, false)
     expect(instanceForTarget(FIRST_TARGET)).toBe(originalInstance)
     expect(mountCounts.get(benchTargetKey(FIRST_TARGET))).toBe(1)
+  })
+
+  test("keeps a list-covered selection answering for the Bench until a preview suspends it", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const providesContext = () =>
+      instanceForTarget(FIRST_TARGET)?.querySelector("[data-active]")?.getAttribute("data-active")
+
+    await renderHost(FIRST_TARGET, true, undefined, [], undefined, true)
+    expect(instanceForTarget(FIRST_TARGET)?.getAttribute("data-surface-active")).toBe("false")
+    expect(providesContext()).toBe("true")
+
+    await renderHost(FIRST_TARGET, true, undefined, [], undefined, true, true)
+    expect(providesContext()).toBe("false")
   })
 
   test("notifies a kept-alive surface when it is revealed or rebound while active", async () => {

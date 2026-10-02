@@ -16,6 +16,7 @@ export const IN_APP_BROWSER_MESSAGE_CHANNEL = "inapp-browser-message"
 export const IN_APP_BROWSER_FAVICON_CHANNEL = "inapp-browser-favicon"
 export const IN_APP_BROWSER_AUDIO_CHANNEL = "inapp-browser-audio"
 export const IN_APP_BROWSER_SHORTCUT_CHANNEL = "inapp-browser-shortcut"
+export const IN_APP_BROWSER_SHORTCUT_MODIFIER_CHANNEL = "inapp-browser-shortcut-modifier"
 export const IN_APP_BROWSER_NEW_TAB_CHANNEL = "inapp-browser-new-tab"
 export const IN_APP_BROWSER_CITATION_CHANNEL = "inapp-browser-citation"
 export type InAppBrowserMouseNavigation = {
@@ -95,6 +96,25 @@ function isPrimaryModifierChord(input: AppShortcutInput, platform: AppShortcutPl
   if (input.type !== "keyDown" || input.isAutoRepeat || input.isComposing) return false
   const primaryIsMeta = platform === "macos"
   return input.meta === primaryIsMeta && input.control !== primaryIsMeta
+}
+
+/**
+ * What a guest key event means for the shortcut modifier, or null when it changes nothing. Keys
+ * typed without the modifier resolve to null, so ordinary typing is never reported.
+ */
+export function resolveShortcutModifierState(
+  input: AppShortcutInput,
+  platform: AppShortcutPlatform,
+): InAppBrowserShortcutModifierState | null {
+  const modifierKey = platform === "macos" ? "Meta" : "Control"
+  const modifierDown = platform === "macos" ? input.meta : input.control
+  const otherPrimary = platform === "macos" ? input.control : input.meta
+  if (input.type === "keyUp") return input.key === modifierKey ? "released" : null
+  if (input.type !== "keyDown") return null
+  if (input.key === modifierKey && !otherPrimary && !input.alt && !input.shift) {
+    return input.isAutoRepeat ? null : "pressed"
+  }
+  return modifierDown ? "interrupted" : null
 }
 
 /**
@@ -193,6 +213,17 @@ export type InAppBrowserAudioMessage = {
 export type InAppBrowserShortcutMessage = {
   webContentsID: number
   shortcut: InAppBrowserShortcutID
+}
+
+/**
+ * The shortcut modifier (Cmd on macOS, Ctrl elsewhere) while a Browser page has focus: pressed on
+ * its own, interrupted by another key, or released. The page's keys themselves are never sent.
+ */
+export type InAppBrowserShortcutModifierState = "pressed" | "interrupted" | "released"
+
+export type InAppBrowserShortcutModifierMessage = {
+  webContentsID: number
+  state: InAppBrowserShortcutModifierState
 }
 
 export type InAppBrowserNewTabMessage = {

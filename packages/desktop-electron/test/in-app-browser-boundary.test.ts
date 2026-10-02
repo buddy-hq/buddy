@@ -176,6 +176,7 @@ describe("in-app Browser guest wiring", () => {
     let navigateHandler: Parameters<InAppBrowserGuestBoundary["onWillFrameNavigate"]>[0] | undefined
     let redirectHandler: Parameters<InAppBrowserGuestBoundary["onWillRedirect"]>[0] | undefined
     let inputHandler: Parameters<InAppBrowserGuestBoundary["onBeforeInputEvent"]>[0] | undefined
+    let blurHandler: (() => void) | undefined
     let destroyedHandler: Parameters<InAppBrowserGuestBoundary["onDestroyed"]>[0] | undefined
     const disposals: string[] = []
     const loadedUrls: string[] = []
@@ -183,6 +184,7 @@ describe("in-app Browser guest wiring", () => {
     const messages: string[] = []
     const appShortcuts: string[] = []
     const browserShortcuts: string[] = []
+    const modifierStates: string[] = []
     const attachingProfiles: string[] = []
     const host: InAppBrowserHostBoundary = {
       onWillAttachWebview(handler) {
@@ -201,6 +203,7 @@ describe("in-app Browser guest wiring", () => {
       openInNewTab: (url) => newTabUrls.push(url),
       sendMessage: (message) => messages.push(message),
       sendShortcut: (shortcut) => browserShortcuts.push(shortcut),
+      sendShortcutModifier: (state) => modifierStates.push(state),
       setWindowOpenHandler(handler) {
         popupHandler = handler
       },
@@ -215,6 +218,10 @@ describe("in-app Browser guest wiring", () => {
       onBeforeInputEvent(handler) {
         inputHandler = handler
         return () => disposals.push("before-input")
+      },
+      onBlur(handler) {
+        blurHandler = handler
+        return () => disposals.push("blur")
       },
       onDestroyed(handler) {
         destroyedHandler = handler
@@ -330,14 +337,25 @@ describe("in-app Browser guest wiring", () => {
     expect(pressed(keyDown({ key: "a", code: "KeyA" }))).toBe(false)
     expect(browserShortcuts).toEqual(["focusAddress"])
     expect(appShortcuts).toEqual(["chat.new"])
+    // Cmd+L and Cmd+N interrupt a held Cmd; plain typing reports nothing.
+    expect(modifierStates).toEqual(["interrupted", "interrupted"])
+
+    modifierStates.length = 0
+    pressed(keyDown({ key: "Meta", code: "MetaLeft", meta: true }))
+    pressed({ ...keyDown({ key: "Meta", code: "MetaLeft", meta: true }), isAutoRepeat: true })
+    pressed({ ...keyDown({ key: "Meta", code: "MetaLeft" }), type: "keyUp" })
+    pressed(keyDown({ key: "Meta", code: "MetaLeft", meta: true }))
+    requireInstalledHandler(blurHandler, "Blur")()
+    expect(modifierStates).toEqual(["pressed", "released", "pressed", "released"])
 
     requireInstalledHandler(destroyedHandler, "Destroyed")()
-    expect(disposals).toEqual(["navigate", "redirect", "before-input", "destroyed"])
+    expect(disposals).toEqual(["navigate", "redirect", "before-input", "blur", "destroyed"])
     dispose()
     expect(disposals).toEqual([
       "navigate",
       "redirect",
       "before-input",
+      "blur",
       "destroyed",
       "will-attach",
       "did-attach",

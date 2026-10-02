@@ -114,10 +114,17 @@ const BenchContextRefSchema = z
   })
   .strict()
 
+/**
+ * `drawer` sits over part of the item; `covering` takes its place, so the user cannot see it;
+ * `beside` is the item's own section list next to it, hiding nothing. A `beside` list is a display
+ * preference rather than the workspace's stored drawer, which is what screenshot capture matches.
+ */
+const BENCH_DRAWER_PRESENTATION_VALUES = ["drawer", "covering", "beside"] as const
+
 const BenchDrawerContextSchema = z
   .object({
     kind: BenchDrawerKindSchema,
-    presentation: z.literal("drawer"),
+    presentation: z.enum(BENCH_DRAWER_PRESENTATION_VALUES),
   })
   .strict()
 
@@ -128,11 +135,19 @@ const NewTabBenchTabTargetSchema = z
   })
   .strict()
 
+const SessionBenchTabTargetSchema = z
+  .object({
+    type: z.literal("session"),
+    sessionID: nonEmptyString,
+  })
+  .strict()
+
 const BenchTabTargetSchema = z.discriminatedUnion("type", [
   WorkspaceFileBenchTargetSchema,
   BrowserBenchTargetSchema,
   ObjectBenchTargetSchema,
   NewTabBenchTabTargetSchema,
+  SessionBenchTabTargetSchema,
 ])
 
 const BenchTabSummarySchema = z
@@ -194,7 +209,19 @@ const BenchReadContextNewTabOutputSchema = z
     mode: z.enum(["docked", "floating"]),
     selectedTabKey: nonEmptyString,
     tabs: z.array(BenchTabSummarySchema),
-    drawer: z.null(),
+    drawer: BenchDrawerContextSchema.nullable(),
+  })
+  .strict()
+
+/** Bench shows a chat tab; its transcript is not Bench content. */
+const BenchReadContextChatOutputSchema = z
+  .object({
+    status: z.literal("open"),
+    visibility: z.literal("chat"),
+    mode: z.enum(["docked", "floating"]),
+    selectedTabKey: nonEmptyString,
+    tabs: z.array(BenchTabSummarySchema),
+    drawer: BenchDrawerContextSchema.nullable(),
   })
   .strict()
 
@@ -203,6 +230,7 @@ const BenchReadContextOutputSchema = z.union([
   BenchReadContextVisibleOutputSchema,
   BenchReadContextParkedOutputSchema,
   BenchReadContextNewTabOutputSchema,
+  BenchReadContextChatOutputSchema,
 ])
 
 const PublishBenchContextResponseSchema = z
@@ -239,6 +267,7 @@ type ObjectBenchTarget = z.infer<typeof ObjectBenchTargetSchema>
 type BenchClientLeaseIdentity = z.infer<typeof BenchClientLeaseIdentitySchema>
 type BenchContextTarget = z.infer<typeof BenchContextTargetSchema>
 type BenchDrawerContext = z.infer<typeof BenchDrawerContextSchema>
+type BenchDrawerKind = z.infer<typeof BenchDrawerKindSchema>
 type BenchTabSummary = z.infer<typeof BenchTabSummarySchema>
 type BenchTabTarget = z.infer<typeof BenchTabTargetSchema>
 type BenchReadContextOpenOutput = z.infer<typeof BenchReadContextVisibleOutputSchema>
@@ -486,6 +515,11 @@ const BenchReadContextInputSchema = z
   })
   .strict()
 
+function benchStoredDrawerKind(drawer: BenchDrawerContext | null): BenchDrawerKind | null {
+  if (!drawer || drawer.presentation === "beside") return null
+  return drawer.kind
+}
+
 export {
   BENCH_WORKSPACE_ROOT_NOTEBOOK,
   BENCH_WORKSPACE_ROOT_NOTES,
@@ -516,6 +550,7 @@ export {
   PublishedWorkspaceFileBenchContextTargetSchema,
   PublishBenchContextResponseSchema,
   WorkspaceFileBenchTargetSchema,
+  benchStoredDrawerKind,
   benchTargetKey,
   clearBenchContextRegistry,
   closedBenchContext,

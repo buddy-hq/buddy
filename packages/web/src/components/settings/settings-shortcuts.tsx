@@ -1,9 +1,9 @@
 import { APP_SHORTCUTS } from "@buddy/browser-contract"
 import { Kbd, KbdGroup } from "@buddy/ui/components/ui/kbd"
-import { detectPlatform, formatForDisplay } from "@tanstack/react-hotkeys"
+import { formatForDisplay } from "@tanstack/react-hotkeys"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import { SHORTCUTS } from "@/lib/shortcuts"
+import { SHORTCUTS, formatShortcutTokens, shortcutDisplayPlatform } from "@/lib/shortcuts"
 import { SettingsContent, SettingsRow, SettingsSection } from "./settings-primitives"
 
 const SHORTCUT_GROUPS = [
@@ -212,30 +212,13 @@ function buildShortcutRows(
     .toSorted((left, right) => left.order - right.order)
 }
 
-function shortcutDisplayPlatform(os: "macos" | "windows" | "linux" | undefined) {
-  if (os === "macos") return "mac" as const
-  if (os === "windows") return "windows" as const
-  if (os === "linux") return "linux" as const
-  return detectPlatform()
-}
-
-function shortcutDisplayTokens(
-  command: DisplayedShortcutID,
-  platform: "mac" | "windows" | "linux",
-) {
-  return formatForDisplay(DISPLAYED_SHORTCUTS[command], {
-    platform,
-    separatorToken: "\u0000",
-  }).split("\u0000")
-}
-
 function ShortcutKeyGroup(props: {
   command: DisplayedShortcutID
   platform: "mac" | "windows" | "linux"
 }) {
   return (
     <KbdGroup aria-hidden>
-      {shortcutDisplayTokens(props.command, props.platform).map((token) => (
+      {formatShortcutTokens(DISPLAYED_SHORTCUTS[props.command], props.platform).map((token) => (
         <Kbd key={token}>{token}</Kbd>
       ))}
     </KbdGroup>

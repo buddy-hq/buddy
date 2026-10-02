@@ -1,6 +1,7 @@
 import { Button, toast } from "@buddy/ui"
 import { useQuery } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import { BenchSurfacePending } from "@/components/bench/bench-surface-pending"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import type { BenchViewerAction } from "@/components/bench/bench-viewer-shell"
@@ -51,18 +52,26 @@ function readChatMessageLink(href: string): { sessionID: string; messageID: stri
   }
 }
 
+const NOTE_UNAVAILABLE_METADATA = ["surface_status: unavailable"]
+
 function BuddyNoteUnavailable(props: { retry(): void }) {
   return (
-    <BenchViewerShell title={language.t("notes.unavailable.title")}>
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-        <AlertCircleIcon className="size-5 text-icon-critical-base" aria-hidden />
-        <p className="text-sm text-text-weak">{language.t("notes.unavailable.description")}</p>
-        <Button type="button" variant="outline" size="sm" onClick={props.retry}>
-          <RefreshCwIcon data-icon="inline-start" aria-hidden />
-          {language.t("notes.action.tryAgain")}
-        </Button>
-      </div>
-    </BenchViewerShell>
+    <BenchStaticContextProvider
+      status="unavailable"
+      metadata={NOTE_UNAVAILABLE_METADATA}
+      content="This note is selected on Bench, but it could not be loaded. It may have been moved, renamed, or deleted."
+    >
+      <BenchViewerShell title={language.t("notes.unavailable.title")}>
+        <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+          <AlertCircleIcon className="size-5 text-icon-critical-base" aria-hidden />
+          <p className="text-sm text-text-weak">{language.t("notes.unavailable.description")}</p>
+          <Button type="button" variant="outline" size="sm" onClick={props.retry}>
+            <RefreshCwIcon data-icon="inline-start" aria-hidden />
+            {language.t("notes.action.tryAgain")}
+          </Button>
+        </div>
+      </BenchViewerShell>
+    </BenchStaticContextProvider>
   )
 }
 

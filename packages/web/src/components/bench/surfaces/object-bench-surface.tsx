@@ -10,6 +10,7 @@ import {
 } from "@/icons/app-icons"
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
+  objectContextTargetForRoute,
   objectRef,
   toolRef,
   urlRef,
@@ -25,7 +26,10 @@ import {
   type TBenchSurfacePendingLayout,
 } from "@/components/bench/bench-surface-pending"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
-import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
+import {
+  useBenchRouteContext,
+  useRegisterBenchContextProvider,
+} from "@/components/bench/bench-route-context"
 import type {
   BenchLeaveGuardInput,
   BenchLeaveGuardResult,
@@ -88,6 +92,7 @@ import type {
 import { markdownBenchDocumentFormatFromPath } from "@buddy/workspace-file-policy"
 
 type ObjectBenchContextStatus = BenchReadContextOpenOutput["target"]["status"]
+type ObjectBenchTarget = Extract<BenchTarget, { type: "object" }>
 type ObjectBenchContextRefs = BenchReadContextOpenOutput["refs"]
 type ObjectViewData = ObjectsViewResponse["data"]
 type ObjectResourceViewData = Extract<ObjectViewData, { renderer: "resource-reader" }>
@@ -169,12 +174,17 @@ function isPresentContentLine(line: string | null | undefined): line is string {
   return line !== null && line !== undefined && line.length > 0
 }
 
-function objectBenchTarget(view: ObjectsViewResponse): Extract<BenchTarget, { type: "object" }> {
+function objectBenchTarget(view: ObjectsViewResponse): ObjectBenchTarget {
   return {
     type: "object",
     ref: view.ref,
     viewID: view.viewID,
   }
+}
+
+function useObjectBenchContextTarget(view: ObjectsViewResponse): ObjectBenchTarget {
+  const routeTarget = useBenchRouteContext().state.target
+  return objectContextTargetForRoute({ routeTarget, viewTarget: objectBenchTarget(view) })
 }
 
 function ObjectBenchPending(props: { layout?: TBenchSurfacePendingLayout }) {
@@ -239,8 +249,9 @@ function ObjectBenchContextProvider(props: {
     }),
     [props.content, props.hints, props.metadata, props.refs, props.status, props.view],
   )
+  const contextTarget = useObjectBenchContextTarget(props.view)
   useRegisterBenchContextProvider({
-    target: objectBenchTarget(props.view),
+    target: contextTarget,
     provider: contextProvider,
     leaveGuard: props.leaveGuard,
   })
@@ -426,13 +437,14 @@ function ResourceObjectBenchView(props: {
   resourceMarkdown?: ProjectExplorerEditableFileState
   resourceKey?: string
 }) {
+  const contextTarget = useObjectBenchContextTarget(props.view)
   if (props.resourcePath && props.resourceViewer === "reading") {
     return (
       <DirectoryChatReadingPage
         directory={props.directory}
         resourcePath={props.resourcePath}
         resourceKey={props.resourceKey ?? props.data.alias}
-        target={objectBenchTarget(props.view)}
+        target={contextTarget}
       />
     )
   }
@@ -1166,6 +1178,7 @@ function QuestionSetObjectBenchView(props: {
   view: ObjectsViewResponse
   questionSet?: ObjectQuestionSetReadQuestionsResponse
 }) {
+  const contextTarget = useObjectBenchContextTarget(props.view)
   const queryInput = {
     directory: props.directory,
     objectID: props.view.ref.objectID,
@@ -1202,7 +1215,7 @@ function QuestionSetObjectBenchView(props: {
   return (
     <QuestionSetBenchReview
       directory={props.directory}
-      target={objectBenchTarget(props.view)}
+      target={contextTarget}
       questionSet={questionSet}
       onSubmit={async (answers, submissionID) => {
         const response = await getBuddyClient(props.directory).objectQuestionSet.submitAttempt({
@@ -1225,6 +1238,7 @@ function FlashcardDeckObjectBenchView(props: {
   view: ObjectsViewResponse
   deck?: ObjectFlashcardDeckReadDeckResponse
 }) {
+  const contextTarget = useObjectBenchContextTarget(props.view)
   if (!props.deck) {
     return (
       <ObjectBenchContextProvider
@@ -1247,7 +1261,7 @@ function FlashcardDeckObjectBenchView(props: {
     <FlashcardBenchDeck
       directory={props.directory}
       objectID={props.deck.objectID}
-      target={objectBenchTarget(props.view)}
+      target={contextTarget}
       deck={props.deck}
     />
   )

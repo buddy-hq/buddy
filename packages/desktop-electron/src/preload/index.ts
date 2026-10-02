@@ -10,12 +10,14 @@ import {
   IN_APP_BROWSER_MESSAGE_CHANNEL,
   IN_APP_BROWSER_NEW_TAB_CHANNEL,
   IN_APP_BROWSER_SHORTCUT_CHANNEL,
+  IN_APP_BROWSER_SHORTCUT_MODIFIER_CHANNEL,
   type InAppBrowserAudioMessage,
   type InAppBrowserCitationMessage,
   type InAppBrowserFaviconMessage,
   type InAppBrowserHostMessage,
   type InAppBrowserNewTabMessage,
   type InAppBrowserShortcutMessage,
+  type InAppBrowserShortcutModifierMessage,
 } from "@buddy/browser-contract"
 
 const appVersion = readBuddyWindowVersionArg(process.argv)
@@ -188,6 +190,12 @@ const api: ElectronAPI = {
     const handler = (_: IpcRendererEvent, message: InAppBrowserShortcutMessage) => cb(message)
     ipcRenderer.on(IN_APP_BROWSER_SHORTCUT_CHANNEL, handler)
     return () => ipcRenderer.removeListener(IN_APP_BROWSER_SHORTCUT_CHANNEL, handler)
+  },
+  onInAppBrowserShortcutModifier: (cb) => {
+    const handler = (_: IpcRendererEvent, message: InAppBrowserShortcutModifierMessage) =>
+      cb(message)
+    ipcRenderer.on(IN_APP_BROWSER_SHORTCUT_MODIFIER_CHANNEL, handler)
+    return () => ipcRenderer.removeListener(IN_APP_BROWSER_SHORTCUT_MODIFIER_CHANNEL, handler)
   },
   onInAppBrowserNewTab: (cb) => {
     const handler = (_: IpcRendererEvent, message: InAppBrowserNewTabMessage) => cb(message)

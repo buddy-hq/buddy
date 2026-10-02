@@ -368,8 +368,10 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const effectiveWorkspaceLayoutMode = transientBenchLayoutMode ?? workspaceLayoutMode
   const workspaceOpen = presentation.workspaceOpen
   // The empty page is on screen only when no tab and no collection drawer is shown.
-  const emptyBenchPageVisible = workspaceOpen && activeTabKey === null && workspaceDrawer === null
+  const emptyTabSelected = workspaceOpen && activeTabKey === null
+  const emptyBenchPageVisible = emptyTabSelected && workspaceDrawer === null
   const shownEmptyTabID = emptyBenchPageVisible ? activeEmptyTabID : null
+  const selectedEmptyTabID = emptyTabSelected ? activeEmptyTabID : null
   const effectiveWorkspaceOpen = transientBenchActive || workspaceOpen
   const workspaceHostOpen = presentation.workspaceOpen
   const effectiveWorkspaceHostOpen = transientBenchActive || workspaceHostOpen
@@ -1067,6 +1069,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
             workspaceCollectionForDrawer(workspaceDrawer) !==
               workspaceCollectionForTarget(activeBenchTarget))
         }
+        coveredContextSuspended={transientBenchActive}
         retainedTargetKeys={retainedBenchTargetKeys}
         benchVisible={persistentBenchVisible}
         activeRuntimeState={benchRuntimeState}
@@ -1100,7 +1103,8 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   // Only the docked Bench can expand — in floating mode this same strip is the
   // immersive chrome, so the control would offer the state it is already in.
   const enterImmersiveFromTabs =
-    presentation.controls.showFloatChat && effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED
+    (presentation.controls.showFloatChat || emptyBenchPageVisible) &&
+    effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED
       ? handleFloatChat
       : undefined
   const titlebarBenchTabs = !transientBenchActive ? (
@@ -1116,7 +1120,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       onCloseAll={closeAllBenchTabs}
       onNewTab={() => void handleNewTab()}
       emptyTabIDs={emptyTabIDs}
-      activeEmptyTabID={shownEmptyTabID}
+      activeEmptyTabID={selectedEmptyTabID}
       onActivateEmptyTab={(emptyTabID) => void openEmptyBenchTab(emptyTabID)}
       onCloseEmptyTab={closeEmptyBenchTab}
       onEnterImmersive={enterImmersiveFromTabs}
@@ -1213,12 +1217,14 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                   onNewTab={() => void handleNewTab()}
                   emptyTabIDs={emptyTabIDs}
                   activeEmptyTabID={shownEmptyTabID}
+                  selectedEmptyTabID={selectedEmptyTabID}
                   onActivateEmptyTab={(emptyTabID) => void openEmptyBenchTab(emptyTabID)}
                   onCloseEmptyTab={closeEmptyBenchTab}
                   showTabsInWorkspace={
                     effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING &&
                     titlebarContentTarget === null
                   }
+                  tabShortcutHints={!transientBenchActive}
                   bench={benchOutlet}
                   presentation={presentation}
                 />

@@ -33,6 +33,10 @@ type ModelVisibleBenchTarget =
   | {
       type: "new-tab"
     }
+  | {
+      type: "session"
+      sessionID: string
+    }
 
 type NumberedBenchTab = BenchTabSummary & {
   tabNumber: number
@@ -77,6 +81,9 @@ type ModelVisibleBrowserTabs = {
 function searchableTabValues(tab: NumberedBenchTab): string[] {
   const target = tab.target
   if (target.type === "new-tab") return [tab.title, tab.tabKey, `tab ${tab.tabNumber}`, target.type]
+  if (target.type === "session") {
+    return [tab.title, tab.tabKey, `tab ${tab.tabNumber}`, target.type, "chat", target.sessionID]
+  }
   if (target.type === "workspace-file") {
     return [
       tab.title,
@@ -118,7 +125,7 @@ function tabMatchesSearch(tab: NumberedBenchTab, normalizedSearch: string): bool
 function benchTargetAbsolutePath(input: {
   directory: string
   notesDirectory?: string
-  target: Exclude<BenchTabSummary["target"], { type: "browser" | "new-tab" }>
+  target: Exclude<BenchTabSummary["target"], { type: "browser" | "new-tab" | "session" }>
 }): string {
   if (input.target.type === "workspace-file") {
     const root = input.target.root
@@ -155,6 +162,7 @@ function modelVisibleTarget(input: {
 }): ModelVisibleBenchTarget {
   const { target } = input
   if (target.type === "new-tab") return { type: target.type }
+  if (target.type === "session") return { type: target.type, sessionID: target.sessionID }
   if (target.type === "browser") {
     return {
       type: target.type,
@@ -245,7 +253,13 @@ function projectModelVisibleBenchTabs(input: {
       tabKey: tab.tabKey,
       title: tab.title,
     }
-    if (tab.tabKey !== input.selectedTabKey) return summary
+    if (tab.tabKey !== input.selectedTabKey) {
+      return tab.target.type === "session"
+        ? Object.assign(summary, {
+            target: { type: tab.target.type, sessionID: tab.target.sessionID },
+          })
+        : summary
+    }
     return {
       tabNumber: tab.tabNumber,
       tabKey: tab.tabKey,

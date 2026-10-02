@@ -41,6 +41,7 @@ import {
   sendInAppBrowserNewTab,
   sendInAppBrowserNotice,
   sendInAppBrowserShortcut,
+  sendInAppBrowserShortcutModifier,
 } from "./in-app-browser-host-messages"
 import { installInAppBrowserMouseNavigation } from "./in-app-browser-mouse-navigation"
 import {
@@ -285,6 +286,7 @@ function browserGuestBoundary(guest: WebContents): InAppBrowserGuestBoundary {
     openInNewTab: (url) => sendInAppBrowserNewTab(guest, url),
     sendMessage: (message) => sendInAppBrowserNotice(guest, message),
     sendShortcut: (shortcut) => sendInAppBrowserShortcut(guest, shortcut),
+    sendShortcutModifier: (state) => sendInAppBrowserShortcutModifier(guest, state),
     setWindowOpenHandler(handler) {
       guest.setWindowOpenHandler(({ url, disposition, frameName }) =>
         handler({ url, disposition, frameName }),
@@ -307,6 +309,10 @@ function browserGuestBoundary(guest: WebContents): InAppBrowserGuestBoundary {
       }
       guest.on("before-input-event", listener)
       return () => guest.removeListener("before-input-event", listener)
+    },
+    onBlur(handler) {
+      guest.on("blur", handler)
+      return () => guest.removeListener("blur", handler)
     },
     onDestroyed(handler) {
       guest.once("destroyed", handler)

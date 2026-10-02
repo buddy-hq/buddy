@@ -13,9 +13,37 @@ import {
   normalizeInAppBrowserUrl,
   resolveAppShortcutID,
   resolveInAppBrowserShortcutID,
+  resolveShortcutModifierState,
   stepInAppBrowserZoomFactor,
   type AppShortcutInput,
 } from "./index"
+
+describe("Browser shortcut modifier contract", () => {
+  test("reports the platform modifier without forwarding page keystrokes", () => {
+    for (const platform of ["macos", "windows", "linux"] as const) {
+      const key = platform === "macos" ? "Meta" : "Control"
+      const held = { meta: platform === "macos", control: platform !== "macos" }
+      expect(resolveShortcutModifierState(shortcutInput({ key, ...held }), platform)).toBe(
+        "pressed",
+      )
+      expect(resolveShortcutModifierState(shortcutInput({ key: "c", ...held }), platform)).toBe(
+        "interrupted",
+      )
+      expect(
+        resolveShortcutModifierState(
+          shortcutInput({ type: "keyUp", key, meta: false, control: false }),
+          platform,
+        ),
+      ).toBe("released")
+      expect(
+        resolveShortcutModifierState(
+          shortcutInput({ key: "a", meta: false, control: false }),
+          platform,
+        ),
+      ).toBeNull()
+    }
+  })
+})
 
 function shortcutInput(overrides: Partial<AppShortcutInput> = {}): AppShortcutInput {
   return {

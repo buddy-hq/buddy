@@ -1301,6 +1301,18 @@ async function presentOnBench(input: {
         objectResult: null,
       }
     }
+    if (tab.target.type === "session") {
+      return {
+        status: "error",
+        reason: "unsupported_target",
+        target: null,
+        benchTarget: null,
+        mode: null,
+        message:
+          "Chat tabs can only be switched to by the user. Call bench_read_context for the chat ID and where its transcript is stored.",
+        objectResult: null,
+      }
+    }
     const requested = {
       status: "presented",
       reason: "focused_tab",
@@ -1444,7 +1456,7 @@ const benchPresentTool = createBuddyTool({
   description: [
     "Present an existing stable target, focus an exact open tab, or close Bench.",
     "",
-    "Use present_file, present_resource, or present_object to open and focus a stable target. Use focus_tab to switch to an already-open tab, including an open Browser tab or a New tab (new-tab:...), only with an exact current tabKey copied from bench_read_context; a missing key means the tab set is stale and must be read again. Focusing a Browser tab only brings it to the front; it does not let you read, click, type into, or capture the page. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
+    "Use present_file, present_resource, or present_object to open and focus a stable target. Use focus_tab to switch to an already-open tab, including an open Browser tab or a New tab (new-tab:...), only with an exact current tabKey copied from bench_read_context; a missing key means the tab set is stale and must be read again. A chat tab (session:...) can only be switched to by the user. Focusing a Browser tab only brings it to the front; it does not let you read, click, type into, or capture the page. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
     "",
     "For Buddy objects, pass only objectID copied from a prior tool result. Do not pass object kind, revision id, item id, view id, routes, layout pixels, or user preferences.",
     "",

@@ -87,7 +87,7 @@ Show/hide: titlebar **Expand/Collapse left panel**. Width is resizable; preferen
 
 ### Right workspace
 
-Right edge is a vertical **rail**. Icons open drawers (same icon again closes when Bench is open):
+Right edge is a vertical **rail**. Icons open drawers, and the same icon again closes it. For the section the item on Bench belongs to, the icon shows or hides that section's list beside the item; the icon is highlighted only while its list or drawer is showing:
 
 | Rail | Drawer |
 | --- | --- |
@@ -151,8 +151,8 @@ Workspace for content that needs more room than chat: files, Markdown notes, rea
 Bench has a tab strip, like a web browser:
 
 - **+** (desktop: **Cmd/Ctrl+T**) opens a **New tab** page (New tab below). Open as many as needed.
-- **Cmd/Ctrl+1** … **Cmd/Ctrl+8** switch to that tab, counting from the left; **Cmd/Ctrl+9** switches to the last tab. A collapsed Bench opens on that tab.
-- Desktop **Cmd/Ctrl+W** closes the tab on screen. On Mac, with no tab on screen, **Cmd+W** closes the window (**Cmd+Shift+W** always does). Right-click a tab for **Close**, **Close others**, **Close to the right**, and **Close all**; these also close New tabs, which sit to the right.
+- **Cmd/Ctrl+1** … **Cmd/Ctrl+8** switch to that tab, counting from the left; **Cmd/Ctrl+9** switches to the last tab. A collapsed Bench opens on that tab. Holding **Cmd** (Mac) or **Ctrl** (Windows) shows each tab's key on the tab.
+- Desktop **Cmd/Ctrl+W** closes the tab on screen. On Mac, with no tab on screen, **Cmd+W** closes the window (**Cmd+Shift+W** always does). Right-click a tab for **Close**, **Close others**, **Close to the right**, and **Close all**; these also close New tabs, which sit to the right. The same menu copies what the tab holds: **Copy path** and **Copy contents** (text files and notes) with **Reveal in Finder / File Explorer** on desktop, **Copy address** on a web page, **Copy chat ID** on a chat, **Copy path** on a source or presentation, and **Copy source** on a diagram.
 - **Immersive mode** (button at the start of the docked strip) expands Bench to the full window, with chat floating over it. In immersive mode the tabs sit in the window titlebar.
 
 ### Layout
@@ -233,6 +233,20 @@ Typing (2+ characters):
 ### Buddy and New tabs
 
 Buddy sees when a New tab is showing, sees New tabs in the tab list, and can switch to one. A New tab has no content for Buddy to read.
+
+### Buddy and chat tabs
+
+A chat or subagent chat opened as a Bench tab shows in Buddy's tab list with its chat ID, and Buddy is told when one is the tab on screen. Buddy cannot switch to a chat tab or read it through Bench; **Read Bench** gives the chat ID and the session database the transcript is stored in, which Buddy can inspect with its own tools. An `@`-mentioned chat tab reaches Buddy as `Title (open Bench tab session:…; chat: <chat ID>)`.
+
+### What Buddy sees of Bench
+
+- The item on the selected tab, including when a different section's list (say Sources, opened from the rail) is covering it. Buddy is told the list is in front and that the user cannot see the item. The same goes for a chat tab with a list in front of it.
+- A drawer over part of the item.
+- A section's own list sitting beside its item (say the Sources list next to an open Source). Buddy is told the list is open beside the item and that the user can see both.
+- A list opened from a New tab page: Buddy sees the New tab, the list in front of it, and every open tab.
+- A collapsed (parked) Bench: the open tabs and which one is selected, a New tab included, even when only New tabs are open.
+- A diagram or figure opened from the library, with its source.
+- A note that failed to load or a Browser page that failed, as unavailable or failed rather than loading.
 
 ### Gotchas
 

@@ -1,7 +1,22 @@
 import { useMemo } from "react"
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import type { BenchTarget } from "@/lib/bench-navigation"
-import type { InAppBrowserTabRuntime } from "@/state/in-app-browser-tabs-store"
+import type {
+  InAppBrowserPageError,
+  InAppBrowserTabRuntime,
+} from "@/state/in-app-browser-tabs-store"
+
+const LIVE_BROWSER_TAB_CONTENT =
+  "This is a live Browser tab controlled by the user. The agent knows its URL and status but cannot read or operate the page. The user can cite selected page text into the chat; each citation carries the exact excerpt they selected and the page URL."
+
+function pageErrorSummary(error: InAppBrowserPageError): string {
+  if (error["_tag"] === "load-failed") {
+    return `The page failed to load: ${error.description} (code ${error.code}).`
+  }
+  if (error["_tag"] === "open-failed") return "The page could not be opened."
+  if (error["_tag"] === "crashed") return "The page crashed."
+  return "The page is unavailable."
+}
 
 export function useBrowserBenchContext(input: {
   target: Extract<BenchTarget, { type: "browser" }>
@@ -22,9 +37,11 @@ export function useBrowserBenchContext(input: {
           "surface: browser",
           "control: user-only",
           `loading: ${runtime.loading ? "yes" : "no"}`,
+          ...(runtime.error ? [`page_error: ${runtime.error["_tag"]}`] : []),
         ],
-        content:
-          "This is a live Browser tab controlled by the user. The agent knows its URL and status but cannot read or operate the page. The user can cite selected page text into the chat; each citation carries the exact excerpt they selected and the page URL.",
+        content: runtime.error
+          ? `${pageErrorSummary(runtime.error)} ${LIVE_BROWSER_TAB_CONTENT}`
+          : LIVE_BROWSER_TAB_CONTENT,
         refs: [
           {
             kind: "url" as const,
