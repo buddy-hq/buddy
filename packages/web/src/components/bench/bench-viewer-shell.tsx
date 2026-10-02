@@ -285,10 +285,14 @@ export function BenchFloatingControlDock(props: {
             {props.upperRow}
           </div>
         ) : null}
+        {/* A narrow pane wraps the dock between groups rather than scrolling it:
+            a sideways scroller hides controls with no affordance, and a vertical
+            mouse wheel can't reach them. Groups keep their size and stay whole;
+            the scroll is only a fallback for a single group wider than the pane. */}
         <div
           data-component="bench-control-dock"
           data-bench-pan-disabled
-          className="pointer-events-auto flex max-w-full items-center gap-1 rounded-2xl border border-border-base/70 bg-surface-base/88 p-1.5 text-text-base shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+          className="pointer-events-auto flex min-w-0 max-w-full flex-wrap items-center justify-center gap-1 overflow-x-auto rounded-2xl border border-border-base/70 bg-surface-base/88 p-1.5 text-text-base shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl *:shrink-0"
         >
           {props.children}
         </div>
