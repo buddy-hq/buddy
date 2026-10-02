@@ -1,10 +1,11 @@
-import { useRef, useState, type CSSProperties } from "react"
+import { useMemo, useRef, useState, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { IN_APP_BROWSER_BLANK_URL, isAllowedInAppBrowserUrl } from "@buddy/browser-contract"
 import { Button } from "@buddy/ui"
 import { DEFAULT_IN_APP_BROWSER_PROFILE_ID } from "@buddy/browser-contract/profiles"
 import { usePlatform, type InAppBrowserPlatform } from "@/context/platform"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
+import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import type { BenchTarget } from "@/lib/bench-navigation"
 import { inAppBrowserSearchEngineLabel } from "@/lib/in-app-browser-search"
 import {
@@ -32,6 +33,7 @@ import {
 } from "@/state/in-app-browser-settings-store"
 
 const OPEN_FAILED_NOTICE = "The page could not be opened."
+const BROWSER_SETTINGS_FAILED_METADATA = ["surface: browser", "surface_status: error"]
 
 export function BrowserTab(props: {
   directory: string
@@ -41,6 +43,7 @@ export function BrowserTab(props: {
   const hydrationStatus = useInAppBrowserSettingsHydrationStatus()
   const pageKey = hostedBrowserKey(props.directory, props.target.tabID)
   const page = useHostedBrowserStore((state) => state.pagesByKey[pageKey])
+  const idleBrowser = useMemo(() => ({ url: props.target.url, loading: false }), [props.target.url])
   if (hydrationStatus === "hydrating") {
     return (
       <div
@@ -52,16 +55,23 @@ export function BrowserTab(props: {
   }
   if (hydrationStatus === "failed") {
     return (
-      <div
-        role="alert"
-        data-component="browser-bench-surface"
-        className="flex h-full min-h-0 flex-col items-center justify-center gap-3 bg-background-base p-6 text-center"
+      <BenchStaticContextProvider
+        status="error"
+        metadata={BROWSER_SETTINGS_FAILED_METADATA}
+        content="This Browser tab is not showing its page because Browser settings could not be loaded. The user can retry from the tab."
+        browser={idleBrowser}
       >
-        <p className="text-sm text-text-weak">Browser settings could not be loaded.</p>
-        <Button variant="outline" onClick={() => void retryInAppBrowserSettingsHydration()}>
-          Try again
-        </Button>
-      </div>
+        <div
+          role="alert"
+          data-component="browser-bench-surface"
+          className="flex h-full min-h-0 flex-col items-center justify-center gap-3 bg-background-base p-6 text-center"
+        >
+          <p className="text-sm text-text-weak">Browser settings could not be loaded.</p>
+          <Button variant="outline" onClick={() => void retryInAppBrowserSettingsHydration()}>
+            Try again
+          </Button>
+        </div>
+      </BenchStaticContextProvider>
     )
   }
   if (!page) {

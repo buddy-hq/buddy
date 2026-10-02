@@ -212,6 +212,18 @@ function benchContextRefsFromBenchTarget(target: BenchTarget): BenchContextRef[]
   return refs
 }
 
+function objectContextTargetForRoute(input: {
+  routeTarget: BenchTarget
+  viewTarget: Extract<BenchTarget, { type: "object" }>
+}): Extract<BenchTarget, { type: "object" }> {
+  const { routeTarget, viewTarget } = input
+  if (routeTarget.type !== "object" || routeTarget.ref.revisionID !== null) return viewTarget
+  const viewAtCurrentRevision = { ...viewTarget, ref: { ...viewTarget.ref, revisionID: null } }
+  return benchTargetKey(viewAtCurrentRevision) === benchTargetKey(routeTarget)
+    ? routeTarget
+    : viewTarget
+}
+
 function benchRouteFallbackContextFromTarget(input: {
   target: BenchTarget
   directory: string
@@ -276,6 +288,7 @@ export {
   benchContextTargetFromBenchTarget,
   benchContextRefsFromBenchTarget,
   buildBenchSurfaceContextSnapshot,
+  objectContextTargetForRoute,
   objectRef,
   objectTarget,
   routeString,

@@ -11,6 +11,7 @@ type BenchStaticContextProviderProps = {
   content: string
   refs?: BenchReadContextOpenOutput["refs"]
   hints?: string[]
+  browser?: { url: string; loading: boolean }
   children: ReactNode
 }
 
@@ -28,9 +29,18 @@ export function BenchStaticContextProvider(props: BenchStaticContextProviderProp
           },
           props.title ? { title: props.title } : undefined,
           props.refs ? { refs: props.refs } : undefined,
+          props.browser ? { browser: props.browser } : undefined,
         ),
     }),
-    [props.content, props.hints, props.metadata, props.refs, props.status, props.title],
+    [
+      props.browser,
+      props.content,
+      props.hints,
+      props.metadata,
+      props.refs,
+      props.status,
+      props.title,
+    ],
   )
   useRegisterBenchContextProvider({
     target: benchContext.state.target,
