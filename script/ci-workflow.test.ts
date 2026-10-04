@@ -60,6 +60,76 @@ function workflowStep(job: JsonObject, name: string): JsonObject {
 }
 
 describe("CI workflow", () => {
+  test.skipIf(process.platform === "win32")(
+    "retries timed-out installs and fails after the final bounded attempt",
+    async () => {
+      const document = await ciWorkflow()
+      const environment = objectValue(document.env, "CI environment")
+      const jobs = workflowJobs(document)
+
+      for (const jobName of ["static", "tests"]) {
+        const installStep = workflowStep(workflowJob(jobs, jobName), "Install dependencies")
+        const installScript = stringValue(installStep.run, "dependency install script")
+        for (const scenario of ["recover", "exhaust"]) {
+          // GNU timeout is a Linux runner boundary. Simulate its timeout result
+          // while executing the real workflow retry loop without live installs.
+          const child = Bun.spawn(
+            [
+              "bash",
+              "-e",
+              "-c",
+              `
+              attempts=0
+              timeout() {
+                [[ "$1" == "--kill-after=15s" && "$2" == "180s" ]] || return 99
+                shift 2
+                attempts=$((attempts + 1))
+                echo "install-attempt:$attempts" >&2
+                if [[ "$TEST_INSTALL_SCENARIO" == "exhaust" || "$attempts" == "1" ]]; then
+                  return 124
+                fi
+                "$@"
+              }
+              bun() {
+                [[ "$1" == "install" && "$2" == "--frozen-lockfile" ]] || return 98
+              }
+              sleep() { :; }
+              ${installScript}
+              `,
+            ],
+            {
+              env: {
+                ...process.env,
+                INSTALL_MAX_ATTEMPTS: stringValue(
+                  environment.INSTALL_MAX_ATTEMPTS,
+                  "install attempts",
+                ),
+                INSTALL_TIMEOUT_SECONDS: stringValue(
+                  environment.INSTALL_TIMEOUT_SECONDS,
+                  "install timeout",
+                ),
+                INSTALL_RETRY_DELAY_SECONDS: "0",
+                TEST_INSTALL_SCENARIO: scenario,
+              },
+              stdout: "pipe",
+              stderr: "pipe",
+            },
+          )
+          const [exitCode, stderr] = await Promise.all([
+            child.exited,
+            new Response(child.stderr).text(),
+          ])
+          expect(exitCode).toBe(scenario === "recover" ? 0 : 124)
+          expect(stderr.trim().split("\n")).toEqual(
+            scenario === "recover"
+              ? ["install-attempt:1", "install-attempt:2"]
+              : ["install-attempt:1", "install-attempt:2", "install-attempt:3"],
+          )
+        }
+      }
+    },
+  )
+
   test("runs static analysis, tests, and the vendor guard in parallel behind one final gate", async () => {
     const document = await ciWorkflow()
     const jobs = workflowJobs(document)
