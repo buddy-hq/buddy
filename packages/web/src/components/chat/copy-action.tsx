@@ -1,15 +1,18 @@
 import { useState } from "react"
 import { cn, CopyIcon, CheckIcon, Tooltip, TooltipContent, TooltipTrigger } from "@buddy/ui"
+import { writeMarkdownToClipboard } from "@/lib/markdown-clipboard"
 
 type CopyActionProps = {
   value: string
   label?: string
+  /** Copy the value as Markdown, with rendered HTML for rich-text apps. */
+  markdown?: boolean
   /** Extra classes on the trigger (e.g. flush-left meta rows). */
   className?: string
   iconClassName?: string
 }
 
-export function CopyAction({ value, label, className, iconClassName }: CopyActionProps) {
+export function CopyAction({ value, label, markdown, className, iconClassName }: CopyActionProps) {
   const [copied, setCopied] = useState(false)
 
   async function onCopy() {
@@ -17,7 +20,7 @@ export function CopyAction({ value, label, className, iconClassName }: CopyActio
     if (!("clipboard" in navigator)) return
 
     try {
-      await navigator.clipboard.writeText(value)
+      await (markdown ? writeMarkdownToClipboard(value) : navigator.clipboard.writeText(value))
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
