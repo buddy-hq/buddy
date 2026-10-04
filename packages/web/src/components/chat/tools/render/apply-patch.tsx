@@ -7,9 +7,8 @@ function basename(filePath: string): string {
   return lastSlash >= 0 ? filePath.slice(lastSlash + 1) : filePath
 }
 
-export function renderApplyPatchTool({ state, icon }: ToolPartProps) {
-  const running = state.status === "pending" || state.status === "running"
-
+/** Renders a native patch tool with its resolved lifecycle action and file targets. */
+export function renderApplyPatchTool({ state, icon, info }: ToolPartProps) {
   const files = state.metadata.files
   const patchFiles = Array.isArray(files) ? files.filter(isRecord) : []
   const fileCount = patchFiles.length
@@ -25,7 +24,7 @@ export function renderApplyPatchTool({ state, icon }: ToolPartProps) {
   return (
     <ToolRow>
       <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
-      <ToolRowAction>{running ? "patching" : "patched"}</ToolRowAction>
+      <ToolRowAction>{info.title}</ToolRowAction>
       {subject ? <ToolRowSubject>{subject}</ToolRowSubject> : null}
     </ToolRow>
   )
