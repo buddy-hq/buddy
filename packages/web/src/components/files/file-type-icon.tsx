@@ -52,6 +52,8 @@ import fileYamlIconUrl from "@uiw/file-icons/icon/yaml.svg"
 import fileZipIconUrl from "@uiw/file-icons/icon/zip.svg"
 import { cn } from "@buddy/ui"
 
+import "./file-type-icon.css"
+
 import { fileExtensionFromPath, fileNameFromPath } from "@/lib/workspace-file-paths"
 import type { WorkspaceMediaKind } from "@/lib/workspace-file-media"
 
@@ -111,6 +113,28 @@ const FILE_ICON_BY_KEY = {
 } as const
 
 type FileIconKey = keyof typeof FILE_ICON_BY_KEY
+
+// Only the approved monochrome assets need deeper light ink. The original SVG
+// remains underneath the mask and is the artwork rendered in dark mode.
+const LIGHT_INK_BY_KEY: ReadonlyMap<FileIconKey, string> = new Map([
+  ["javascript", "color-mix(in srgb, #FFCA28 55%, var(--text-strong))"],
+  ["typescript", "color-mix(in srgb, #0288D1 78%, var(--text-strong))"],
+  ["css3", "color-mix(in srgb, #3074BC 78%, var(--text-strong))"],
+  ["microsoft-excel", "color-mix(in srgb, #3A9161 78%, var(--text-strong))"],
+  ["pdf", "color-mix(in srgb, #F44336 78%, var(--text-strong))"],
+])
+
+const MASK_ICON_CLASS = "file-type-icon-mask inline-block size-12 shrink-0"
+const ORIGINAL_ART_CLASS = "file-type-icon-original"
+const LIGHT_INK_CLASS = "file-type-icon-light-ink"
+
+function lightMaskPaint(url: string, ink: string) {
+  return {
+    "--file-type-icon-light-ink": ink,
+    maskImage: `url("${url}")`,
+    WebkitMaskImage: `url("${url}")`,
+  }
+}
 
 type FileIconResolverInput = {
   fileName: string
@@ -367,6 +391,7 @@ export function hasFileTypeIcon(fileName: string): boolean {
   return detectIconKey(fileName) !== "file"
 }
 
+/** Resolve the original library artwork, including a supplied media-kind override. */
 export function resolveFileTypeIconUrl(input: FileIconResolverInput) {
   return resolveFileTypeIcon(input).url
 }
@@ -387,7 +412,7 @@ function shouldUseThemeColoredIcon(key: FileIconKey): boolean {
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg"
 const MARKDOWN_ICON_VIEWBOX = "0 0 48 48"
-const MARKDOWN_ICON_CLASS = "inline-block shrink-0 text-icon-info-base"
+const MARKDOWN_ICON_CLASS = "file-type-icon-markdown inline-block shrink-0 text-icon-info-base"
 const MARKDOWN_ICON_PATH =
   "M42.8236518,9 L5.17634821,9 C3.4245,9 2,10.4031375 2,12.1298375 L2,36.8667719 C2,38.5946344 3.4245,40 5.17634821,40 L42.8236518,40 C44.5755,40 46,38.5946344 46,36.866675 L46,12.1298375 C46,10.4031375 44.5755,9 42.8236518,9 Z M26.7522589,33.8 L21.2475446,33.8 L21.2475446,24.5 L17.1186161,29.7194312 L12.9914554,24.5 L12.9914554,33.8 L7.48713393,33.8 L7.48713393,15.2 L12.9914554,15.2 L17.1186161,21.7855625 L21.2475446,15.2 L26.7522589,15.2 L26.7522589,33.8 Z M34.9685714,33.8 L28.1294196,24.5 L32.2544196,24.5 L32.2544196,15.2 L37.7586429,15.2 L37.7586429,24.5 L41.8862946,24.5 L34.9668036,33.8 L34.9685714,33.8 Z"
 
@@ -411,12 +436,14 @@ function MarkdownFileIcon(props: { className?: string }) {
  * as the contenteditable prompt pills, so a file gets the same icon everywhere
  * — including the theme-coloured markdown glyph, which stays legible where the
  * raw `markdown.svg` asset would fade into a dark background.
+ * A supplied media kind selects the same override artwork as the React variant.
  */
 export function createFileTypeIconElement(
   fileName: string,
   className?: string,
+  mediaKind?: WorkspaceMediaKind | null,
 ): HTMLElement | SVGElement {
-  const icon = resolveFileTypeIcon({ fileName })
+  const icon = resolveFileTypeIcon({ fileName, mediaKind })
 
   if (shouldUseThemeColoredIcon(icon.key)) {
     const svg = document.createElementNS(SVG_NAMESPACE, "svg")
@@ -435,10 +462,26 @@ export function createFileTypeIconElement(
   img.src = icon.url
   img.alt = ""
   img.setAttribute("aria-hidden", "true")
+  const ink = LIGHT_INK_BY_KEY.get(icon.key)
+  if (ink) {
+    const wrapper = document.createElement("span")
+    wrapper.setAttribute("aria-hidden", "true")
+    wrapper.className = cn(MASK_ICON_CLASS, className)
+    img.className = ORIGINAL_ART_CLASS
+    const mask = document.createElement("span")
+    mask.className = LIGHT_INK_CLASS
+    const paint = lightMaskPaint(icon.url, ink)
+    mask.style.setProperty("--file-type-icon-light-ink", paint["--file-type-icon-light-ink"])
+    mask.style.setProperty("mask-image", paint.maskImage)
+    mask.style.setProperty("-webkit-mask-image", paint.WebkitMaskImage)
+    wrapper.append(img, mask)
+    return wrapper
+  }
   if (className) img.className = className
   return img
 }
 
+/** Render the resolved file artwork with deeper ink only on Buddy's actual light theme. */
 export function FileTypeIcon(props: FileTypeIconProps) {
   const icon = resolveFileTypeIcon({
     fileName: props.fileName,
@@ -447,6 +490,16 @@ export function FileTypeIcon(props: FileTypeIconProps) {
 
   if (shouldUseThemeColoredIcon(icon.key)) {
     return <MarkdownFileIcon className={props.className} />
+  }
+
+  const ink = LIGHT_INK_BY_KEY.get(icon.key)
+  if (ink) {
+    return (
+      <span aria-hidden className={cn(MASK_ICON_CLASS, props.className)}>
+        <img src={icon.url} alt="" aria-hidden className={ORIGINAL_ART_CLASS} />
+        <span className={LIGHT_INK_CLASS} style={lightMaskPaint(icon.url, ink)} />
+      </span>
+    )
   }
 
   return <img src={icon.url} alt="" aria-hidden className={props.className} />
