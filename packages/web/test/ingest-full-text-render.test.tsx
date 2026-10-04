@@ -154,7 +154,12 @@ describe("ingest_full_text tool rendering", () => {
       const cover = container.querySelector<HTMLElement>(`[data-resource-format="${extension}"]`)
       expect(cover?.dataset.resourceMediaKind).toBe(mediaKind)
       expect(cover?.firstElementChild?.className).toContain(heroClass)
-      expect(cover?.querySelector("span:last-child")?.className).toContain("line-clamp-2")
+      const title = Array.from(cover?.querySelectorAll("span") ?? []).find(
+        (element) =>
+          element.textContent ===
+          `A deliberately long ${extension} resource title that must be clamped`,
+      )
+      expect(title?.className).toContain("line-clamp-2")
     }
   })
 
