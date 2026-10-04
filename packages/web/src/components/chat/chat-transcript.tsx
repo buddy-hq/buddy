@@ -654,6 +654,7 @@ function TimelineUserRow(props: {
       <UserSection
         userMessage={userMessage}
         providers={props.providers}
+        showElapsedTime={props.row.showElapsedTime}
         onRevertMessage={props.canRevert ? props.onRevertMessage : undefined}
         onQuoteMessage={props.onQuoteMessage}
         animateEntrance={props.animateEntrance}
@@ -809,6 +810,7 @@ function TimelineAssistantRow(props: {
             >
               <AssistantPartRenderer
                 part={itemPart}
+                showElapsedTime={props.row.showElapsedTime}
                 actionPartID={props.row.assistantActionPartID}
                 actionsEnabled={props.row.assistantActionsEnabled}
                 metaText={assistantMetaText}
@@ -832,6 +834,7 @@ function TimelineAssistantRow(props: {
           ) : (
             <AssistantPartRenderer
               part={itemPart}
+              showElapsedTime={props.row.showElapsedTime}
               actionPartID={props.row.assistantActionPartID}
               actionsEnabled={props.row.assistantActionsEnabled}
               metaText={assistantMetaText}

@@ -1,5 +1,6 @@
-import { memo, useMemo } from "react"
+import { memo, useMemo, useState } from "react"
 import { cn } from "@buddy/ui"
+import { formatMessageElapsedTime } from "../message-elapsed-time"
 import { FileAttachmentPart } from "../parts/file-attachment"
 import { UserMessagePart } from "../parts/user-message"
 import { FileAttachmentChip } from "@/components/files/file-attachment-chip"
@@ -108,7 +109,9 @@ export const UserSection = memo(function UserSection({
   onRevertMessage,
   onQuoteMessage,
   animateEntrance,
+  showElapsedTime = false,
 }: UserSectionProps) {
+  const [elapsedNow, setElapsedNow] = useState(() => Date.now())
   const userParts = useMemo(() => userMessage?.parts ?? [], [userMessage?.parts])
   const userFileParts = useMemo(() => userParts.filter(isChatFilePart), [userParts])
   const stackedContent = useMemo(() => projectUserMessageStackedContent(userParts), [userParts])
@@ -199,6 +202,16 @@ export const UserSection = memo(function UserSection({
     userTextFileAttachmentParts.length > 0 ||
     standaloneReferenceParts.size > 0 ||
     combinedTextPart !== undefined
+  const elapsedDate =
+    showElapsedTime && userMessage ? new Date(userMessage.info.time.created) : undefined
+  const elapsedTimestamp =
+    elapsedDate && Number.isFinite(elapsedDate.getTime()) ? elapsedDate.toISOString() : undefined
+  const elapsedTime =
+    elapsedTimestamp === undefined
+      ? undefined
+      : formatMessageElapsedTime(elapsedTimestamp, elapsedNow)
+
+  const refreshElapsedTime = showElapsedTime ? () => setElapsedNow(Date.now()) : undefined
 
   if (!userMessage || !hasVisibleContent) return null
   if (isHiddenFromUserMessage(userMessage)) {
@@ -214,7 +227,11 @@ export const UserSection = memo(function UserSection({
         animateEntrance && "user-section-entrance",
       )}
     >
-      <div className="group/user flex w-full flex-col items-end gap-2">
+      <div
+        className="group/user flex w-full flex-col items-end gap-2"
+        onMouseEnter={refreshElapsedTime}
+        onFocusCapture={refreshElapsedTime}
+      >
         {userAttachmentParts.length > 0 ? (
           <div className="flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">
             {userAttachmentParts.map((part) => (
@@ -243,6 +260,7 @@ export const UserSection = memo(function UserSection({
             inlineReferences={inlineReferences}
             notebookReferences={notebookReferences}
             providers={providers}
+            elapsedTime={elapsedTime}
             onQuoteMessage={
               onQuoteMessage && quoteText
                 ? () =>
@@ -263,6 +281,17 @@ export const UserSection = memo(function UserSection({
                 : undefined
             }
           />
+        ) : null}
+        {showElapsedTime && !combinedTextPart && elapsedTimestamp && elapsedTime ? (
+          <div className="mt-1 flex min-h-6 w-full items-center justify-end text-xs text-text-weaker opacity-0 transition-opacity group-hover/user:opacity-100 group-focus-within/user:opacity-100">
+            <time
+              tabIndex={0}
+              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
+              dateTime={elapsedTimestamp}
+            >
+              {elapsedTime}
+            </time>
+          </div>
         ) : null}
       </div>
     </div>

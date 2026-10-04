@@ -56,6 +56,8 @@ export type TimelineRow =
       type: "user"
       key: string
       userMessageID: string
+      /** Show the age of the latest user message when its turn ended without a visible reply. */
+      showElapsedTime?: boolean
       partIDs: string[]
       /** Characters the bubble renders. Hidden and synthetic text is excluded. */
       textLength: number
@@ -73,6 +75,8 @@ export type TimelineRow =
       type: "assistant"
       key: string
       userMessageID: string
+      /** Show the age of the final visible assistant text part in the latest settled turn. */
+      showElapsedTime?: boolean
       item: TimelineAssistantItem
       assistantMessageIDs: string[]
       /**
@@ -421,6 +425,7 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         type: "user",
         key: `user:${turn.user.info.id}`,
         userMessageID: turn.user.info.id,
+        showElapsedTime: isLastTurn && !active && textPartID === undefined,
         partIDs: turn.user.parts.map((part) => part.id),
         textLength: visibleUserTextLength(turn.user.parts),
         stackedContentCount: userMessageStackedContentCount(stackedContent),
@@ -471,6 +476,11 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         type: "assistant",
         key: `assistant:${userMessageID}:${item.key}`,
         userMessageID,
+        showElapsedTime:
+          isLastTurn &&
+          !active &&
+          textPartID !== undefined &&
+          assistantPartIDs(item).includes(textPartID),
         item: converted,
         assistantMessageIDs: turn.assistants.map((message) => message.info.id),
         assistantActionPartID: textPartID,
@@ -603,6 +613,7 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
       return (
         right.type === "user" &&
         left.userMessageID === right.userMessageID &&
+        left.showElapsedTime === right.showElapsedTime &&
         stringArraysEqual(left.partIDs, right.partIDs) &&
         left.textLength === right.textLength &&
         left.stackedContentCount === right.stackedContentCount &&
@@ -618,6 +629,7 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
       return (
         right.type === "assistant" &&
         left.userMessageID === right.userMessageID &&
+        left.showElapsedTime === right.showElapsedTime &&
         assistantItemsEqual(left.item, right.item) &&
         stringArraysEqual(left.assistantMessageIDs, right.assistantMessageIDs) &&
         left.assistantActionPartID === right.assistantActionPartID &&

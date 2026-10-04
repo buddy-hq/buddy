@@ -32,6 +32,7 @@ type UserMessagePartProps = {
   queued?: boolean
   onRevertMessage?: () => Promise<void> | void
   onQuoteMessage?: () => void
+  elapsedTime?: string
 }
 
 function userMessagePartEqual(
@@ -43,6 +44,7 @@ function userMessagePartEqual(
   if (prevProps.part.text !== nextProps.part.text) return false
   if (prevProps.part.synthetic !== nextProps.part.synthetic) return false
   if (prevProps.quotes !== nextProps.quotes) return false
+  if (prevProps.elapsedTime !== nextProps.elapsedTime) return false
 
   // Compare info (shallow comparison of key fields)
   const prevTime = prevProps.info.time?.created
@@ -64,7 +66,7 @@ function userMessagePartEqual(
 export const UserMessagePart = memo(function UserMessagePart({
   part,
   quotes = NO_QUOTES,
-  info: _info,
+  info,
   references,
   agents,
   inlineReferences,
@@ -73,6 +75,7 @@ export const UserMessagePart = memo(function UserMessagePart({
   queued,
   onRevertMessage,
   onQuoteMessage,
+  elapsedTime,
 }: UserMessagePartProps) {
   const [reverting, setReverting] = useState(false)
   const [expanded, setExpanded] = useState(false)
@@ -85,6 +88,10 @@ export const UserMessagePart = memo(function UserMessagePart({
   // transition, so it never fights the transcript virtualiser, which measures
   // each row's height on layout.
   const hasToggledRef = useRef(false)
+
+  const elapsedDate = elapsedTime === undefined ? undefined : new Date(info.time.created)
+  const elapsedTimestamp =
+    elapsedDate && Number.isFinite(elapsedDate.getTime()) ? elapsedDate.toISOString() : undefined
 
   const text = part.text
 
@@ -207,6 +214,14 @@ export const UserMessagePart = memo(function UserMessagePart({
         )}
       </div>
       <div className="mt-1 flex min-h-6 w-full items-center justify-end gap-2.5 text-text-weaker opacity-0 pointer-events-none transition-opacity group-hover/user:opacity-100 group-hover/user:pointer-events-auto group-focus-within/user:opacity-100 group-focus-within/user:pointer-events-auto">
+        {elapsedTimestamp && elapsedTime ? (
+          <time
+            className="inline-flex h-8 shrink-0 items-center text-xs leading-none"
+            dateTime={elapsedTimestamp}
+          >
+            {elapsedTime}
+          </time>
+        ) : null}
         {onQuoteMessage ? (
           <MessageNoteAction
             className="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base"
