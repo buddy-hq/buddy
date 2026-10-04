@@ -5,7 +5,7 @@ import "katex/dist/katex.min.css"
 import "@/components/chat/tools/text-shimmer.css"
 import { createFileTypeIconElement } from "@/components/files/file-type-icon"
 import { createAppIconElement, githubIconData, globeIconData } from "@/icons/app-icons"
-import { inAppBrowserOriginFaviconUrl } from "@/lib/in-app-browser-favicon"
+import { inAppBrowserOriginFaviconUrl, publicWebsiteFaviconUrl } from "@/lib/in-app-browser-favicon"
 import { markdownFileLinkPath } from "@/lib/markdown-file-links"
 import {
   findPresentedMediaCandidateMatches,
@@ -249,13 +249,13 @@ function hasRecentLinkFaviconFailure(faviconUrl: string) {
   return false
 }
 
-function linkFaviconGlyph(hostname: string, faviconUrl: string) {
+function linkFaviconGlyph(hostname: string, faviconUrl: string | undefined) {
   if (hostname === "github.com" || hostname.endsWith(".github.com")) return githubIconData
-  if (hasRecentLinkFaviconFailure(faviconUrl)) return globeIconData
+  if (!faviconUrl || hasRecentLinkFaviconFailure(faviconUrl)) return globeIconData
   return undefined
 }
 
-function createLinkFavicon(hostname: string, faviconUrl: string) {
+function createLinkFavicon(hostname: string, faviconUrl: string | undefined) {
   const icon = document.createElement("span")
   icon.setAttribute("data-slot", "link-favicon")
   icon.setAttribute("aria-hidden", "true")
@@ -263,8 +263,8 @@ function createLinkFavicon(hostname: string, faviconUrl: string) {
     "ms-[0.25em] me-[0.2em] inline-flex size-[1em] items-center overflow-hidden leading-none align-middle"
 
   const glyph = linkFaviconGlyph(hostname, faviconUrl)
-  if (glyph) {
-    icon.appendChild(createAppIconElement(glyph, LINK_FAVICON_CLASS))
+  if (glyph || !faviconUrl) {
+    icon.appendChild(createAppIconElement(glyph ?? globeIconData, LINK_FAVICON_CLASS))
     return icon
   }
 
@@ -556,8 +556,8 @@ function markFileLinks(root: HTMLDivElement) {
 function markLinkFavicons(root: HTMLDivElement) {
   for (const link of Array.from(root.querySelectorAll<HTMLAnchorElement>("a.external-link"))) {
     if (!link.textContent?.trim()) continue
-    const faviconUrl = inAppBrowserOriginFaviconUrl(link.href)
-    if (!faviconUrl) continue
+    if (!inAppBrowserOriginFaviconUrl(link.href)) continue
+    const faviconUrl = publicWebsiteFaviconUrl(link.href)
     prependLinkFavicon(link, createLinkFavicon(new URL(link.href).hostname, faviconUrl))
   }
 }

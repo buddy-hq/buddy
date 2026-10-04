@@ -2,7 +2,72 @@ import { describe, expect, test } from "bun:test"
 import {
   inAppBrowserFaviconImageSources,
   inAppBrowserOriginFaviconUrl,
+  publicWebsiteFaviconUrl,
 } from "../src/lib/in-app-browser-favicon"
+
+describe("Public website favicon lookup", () => {
+  test("looks up only the public host, stripping page paths and credentials", () => {
+    expect(
+      publicWebsiteFaviconUrl("https://student:secret@developer.mozilla.org/en-US/?q=private#part"),
+    ).toBe("https://www.google.com/s2/favicons?domain=developer.mozilla.org&sz=32")
+    expect(publicWebsiteFaviconUrl("http://EXAMPLE.COM.:8080/page")).toBe(
+      "https://www.google.com/s2/favicons?domain=example.com%3A8080&sz=32",
+    )
+    expect(publicWebsiteFaviconUrl("https://bücher.de/page")).toBe(
+      "https://www.google.com/s2/favicons?domain=xn--bcher-kva.de&sz=32",
+    )
+  })
+
+  test.each([
+    "http://localhost:5173",
+    "http://printer",
+    "http://printer.local",
+    "http://app.localhost",
+    "http://home.arpa",
+    "https://notebook.internal",
+    "https://machine.ts.net",
+    "https://example.test",
+    "https://site.example",
+    "https://site.invalid",
+    "https://site.onion",
+    "https://site.alt",
+    "http://printer.lan",
+    "http://app.home",
+    "http://app.corp",
+    "http://127.0.0.1",
+    "http://127.1",
+    "http://2130706433",
+    "http://0x7f000001",
+    "http://10.0.0.1",
+    "http://172.16.0.1",
+    "http://192.168.1.1",
+    "http://169.254.169.254",
+    "http://100.64.0.1",
+    "http://192.0.2.1",
+    "http://[::1]",
+    "http://[::ffff:127.0.0.1]",
+    "http://[fd00::1]",
+    "http://[fe80::1]",
+    "https://8.8.8.8",
+    "https://[2606:4700:4700::1111]",
+    "https://example.com..",
+    "https://-example.com",
+  ])("does not disclose a local/reserved name or IP literal: %s", (url) => {
+    expect(publicWebsiteFaviconUrl(url)).toBeUndefined()
+  })
+
+  test.each([
+    "",
+    "not a url",
+    "about:blank",
+    "file:///tmp/private",
+    "javascript:alert(1)",
+    "data:image/png;base64,AAAA",
+    `https://example.com/${"a".repeat(10_000)}`,
+  ])("rejects addresses outside bounded HTTP(S) pages: %s", (url) => {
+    expect(publicWebsiteFaviconUrl(url)).toBeUndefined()
+  })
+})
 
 describe("Browser favicon display sources", () => {
   test("asks the live page origin for its conventional favicon", () => {
