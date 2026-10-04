@@ -4,6 +4,7 @@ import { defaultBenchObjectViewID, type BenchObjectKind } from "@/lib/bench-navi
 import { resolveResourceObjectViewerPathWithFallback } from "@/lib/resource-object-viewer-path"
 import {
   LARGE_TEXT_FILE_LIMIT_BYTES,
+  WorkspaceFileMissingError,
   readWorkspaceFileRawMetadata,
 } from "@/lib/workspace-file-media"
 import {
@@ -31,11 +32,13 @@ import type {
 
 const BENCH_SURFACE_QUERY_ROOT = "bench-surface"
 const BENCH_SURFACE_STALE_TIME_MS = 30_000
+const FILE_METADATA_QUERY_KEY = "file-metadata"
+const FILE_METADATA_RETRY_COUNT = 1
 
 export const benchSurfaceQueryKeys = {
   root: [BENCH_SURFACE_QUERY_ROOT] as const,
   fileMetadata: (input: { directory: string; path: string }) =>
-    [BENCH_SURFACE_QUERY_ROOT, "file-metadata", input.directory, input.path] as const,
+    [BENCH_SURFACE_QUERY_ROOT, FILE_METADATA_QUERY_KEY, input.directory, input.path] as const,
   markdownFile: (input: { directory: string; path: string }) =>
     [BENCH_SURFACE_QUERY_ROOT, "markdown-file", input.directory, input.path] as const,
   objectView: (input: {
@@ -68,6 +71,14 @@ export function workspaceFileMetadataQueryOptions(input: { directory: string; pa
     queryKey: benchSurfaceQueryKeys.fileMetadata(input),
     queryFn: (): Promise<WorkspaceFileMetadata> => readWorkspaceFileRawMetadata(input),
     staleTime: BENCH_SURFACE_STALE_TIME_MS,
+    retry: (failureCount, error) =>
+      !(error instanceof WorkspaceFileMissingError) && failureCount < FILE_METADATA_RETRY_COUNT,
+  })
+}
+
+export function invalidateWorkspaceFileMetadata(queryClient: QueryClient, directory: string) {
+  return queryClient.invalidateQueries({
+    queryKey: [BENCH_SURFACE_QUERY_ROOT, FILE_METADATA_QUERY_KEY, directory],
   })
 }
 

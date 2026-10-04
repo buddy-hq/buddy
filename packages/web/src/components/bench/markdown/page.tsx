@@ -17,13 +17,13 @@ import {
   type MarkdownBenchHistoryControlsState,
   type MarkdownBenchEditorHandle,
 } from "@/components/bench/markdown/editor"
+import { BenchFileMissing } from "@/components/bench/bench-file-missing"
 import { markdownBenchDirty } from "@/components/bench/markdown/file-rules"
 import { resolveMarkdownBenchLink } from "@/components/bench/markdown/link-navigation"
 import { resolveMarkdownBenchNoteTitle } from "@/components/bench/markdown/note-title"
 import {
   MarkdownBenchAdvancedToolbarSlot,
   MarkdownBenchFileInfo,
-  MarkdownBenchMissingFile,
   MarkdownBenchSaveError,
 } from "@/components/bench/markdown/panels"
 import type { MarkdownBenchProperty } from "@/components/bench/markdown/property-values"
@@ -383,7 +383,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       {saveError ? <MarkdownBenchSaveError message={saveError} /> : null}
       <div ref={exportRef} className="h-full min-h-0">
         {!exists && !dirty ? (
-          <MarkdownBenchMissingFile path={location.path} />
+          <BenchFileMissing path={location.path} />
         ) : (
           <MarkdownBenchEditor
             ref={editorRef}

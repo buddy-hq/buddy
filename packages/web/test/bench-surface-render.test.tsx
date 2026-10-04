@@ -16,8 +16,12 @@ import {
   useRegisterBenchContextProvider,
 } from "../src/components/bench/bench-route-context"
 import { BenchMediaPreview } from "../src/components/bench/bench-media-preview"
+import { FileBenchSurface } from "../src/components/bench/surfaces/file-bench-surface"
 import { MarkdownBenchPage } from "../src/components/bench/markdown/page"
 import { obsidianVaultQueryKeys } from "../src/state/obsidian-vault-query"
+import { notifyNotebookFilesChanged } from "../src/state/notebook-files-changed"
+import { invalidateWorkspaceFileMetadata } from "../src/state/bench-surface-query"
+import { readingResourceBlobQueryKey } from "../src/state/resources-query"
 import {
   DirectoryNotebookRouteContext,
   type DirectoryNotebookRouteContextValue,
@@ -118,6 +122,8 @@ const TEST_BETA_MARKDOWN_TARGET = {
 } satisfies BenchTarget
 
 const originalFetch = globalThis.fetch
+const LARGE_FILE_BYTES = "2000000"
+const UNSUPPORTED_FILE_TEXT = "This file cannot be opened in Buddy."
 const originalPlatform = getPlatform()
 
 function contentsEntries(label: string): HTMLButtonElement[] {
@@ -754,6 +760,215 @@ describe("bench surface rendering", () => {
     expect(image?.className).toContain("max-w-full")
     expect(image?.className).not.toContain("72vh")
     expect(image?.className).not.toContain("72vw")
+  })
+
+  test("an image deleted while open is replaced by the deleted-file panel", async () => {
+    let onDisk = true
+    globalThis.fetch = withFetchPreconnect(
+      async () =>
+        onDisk
+          ? new Response(null, {
+              status: 200,
+              headers: { "content-type": "image/png", "content-length": "12" },
+            })
+          : new Response(null, { status: 404 }),
+      originalFetch,
+    )
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const target = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "figures/plot.png",
+      viewer: "file",
+    } satisfies BenchTarget
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <TestBenchContextProvider target={target}>
+            <FileBenchSurface directory={TEST_DIRECTORY} path={target.path} />
+          </TestBenchContextProvider>
+        </QueryClientProvider>,
+      )
+    })
+    await waitForEffect(
+      () => container.querySelector('[data-component="bench-media-image"]') !== null,
+    )
+    expect(container.querySelector('[data-component="bench-file-missing"]')).toBeNull()
+
+    onDisk = false
+    await act(async () => {
+      void notifyNotebookFilesChanged(queryClient, TEST_DIRECTORY)
+    })
+    await waitForEffect(
+      () => container.querySelector('[data-component="bench-file-missing"]') !== null,
+    )
+    expect(container.querySelector('[data-component="bench-media-image"]')).toBeNull()
+    expect(container.textContent).toContain("figures/plot.png no longer exists on disk.")
+
+    onDisk = true
+    await new Promise((resolve) => setTimeout(resolve, 1_100))
+    await act(async () => {
+      void notifyNotebookFilesChanged(queryClient, TEST_DIRECTORY)
+    })
+    await waitForEffect(
+      () => container.querySelector('[data-component="bench-media-image"]') !== null,
+    )
+  })
+
+  test("a reading file deleted while open shows the deleted-file panel until it returns", async () => {
+    let onDisk = false
+    globalThis.fetch = withFetchPreconnect(
+      async () => new Response(null, { status: onDisk ? 200 : 404 }),
+      originalFetch,
+    )
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const target = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "books/gone.pdf",
+      viewer: "file",
+    } satisfies BenchTarget
+    const blobKey = readingResourceBlobQueryKey(TEST_DIRECTORY, target.path)
+    queryClient.setQueryData(blobKey, new Blob(["deleted book"]))
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <DirectoryNotebookRouteContext.Provider value={OPENING_NOTEBOOK_ROUTE}>
+            <TestBenchContextProvider target={target}>
+              <FileBenchSurface directory={TEST_DIRECTORY} path={`/${target.path}`} />
+            </TestBenchContextProvider>
+          </DirectoryNotebookRouteContext.Provider>
+        </QueryClientProvider>,
+      )
+    })
+    await waitForEffect(
+      () => container.querySelector('[data-component="bench-file-missing"]') !== null,
+    )
+    // The leading slash is normalized away, so the panel names the notebook path.
+    expect(container.textContent).toContain("books/gone.pdf no longer exists on disk.")
+    // A book recreated at this path must not open with the deleted file's cached bytes.
+    expect(queryClient.getQueryData(blobKey)).toBeUndefined()
+
+    onDisk = true
+    await act(async () => {
+      void notifyNotebookFilesChanged(queryClient, TEST_DIRECTORY)
+    })
+    await waitForEffect(
+      () => container.querySelector('[data-component="directory-chat-reading-opening"]') !== null,
+    )
+    expect(container.querySelector('[data-component="bench-file-missing"]')).toBeNull()
+  })
+
+  test("a large file deleted behind its warning shows the deleted-file panel", async () => {
+    let onDisk = true
+    globalThis.fetch = withFetchPreconnect(
+      async () =>
+        onDisk
+          ? new Response(null, {
+              status: 200,
+              headers: { "content-type": "application/zip", "content-length": LARGE_FILE_BYTES },
+            })
+          : new Response(null, { status: 404 }),
+      originalFetch,
+    )
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const target = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "exports/large.zip",
+      viewer: "file",
+    } satisfies BenchTarget
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <TestBenchContextProvider target={target}>
+            <FileBenchSurface directory={TEST_DIRECTORY} path={target.path} />
+          </TestBenchContextProvider>
+        </QueryClientProvider>,
+      )
+    })
+    await waitForEffect(() => container.textContent?.includes("Large file") === true)
+
+    onDisk = false
+    await act(async () => {
+      await invalidateWorkspaceFileMetadata(queryClient, TEST_DIRECTORY)
+    })
+    await waitForEffect(
+      () => container.querySelector('[data-component="bench-file-missing"]') !== null,
+    )
+    expect(container.textContent).not.toContain("Large file")
+  })
+
+  test("a large file that shrank open does not return to the warning when it grows", async () => {
+    let sizeBytes = LARGE_FILE_BYTES
+    globalThis.fetch = withFetchPreconnect(
+      async () =>
+        new Response(null, {
+          status: 200,
+          headers: { "content-type": "application/zip", "content-length": sizeBytes },
+        }),
+      originalFetch,
+    )
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const target = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "exports/shifting.zip",
+      viewer: "file",
+    } satisfies BenchTarget
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <TestBenchContextProvider target={target}>
+            <FileBenchSurface directory={TEST_DIRECTORY} path={target.path} />
+          </TestBenchContextProvider>
+        </QueryClientProvider>,
+      )
+    })
+    await waitForEffect(() => container.textContent?.includes("Large file") === true)
+
+    sizeBytes = "12"
+    await act(async () => {
+      await invalidateWorkspaceFileMetadata(queryClient, TEST_DIRECTORY)
+    })
+    await waitForEffect(() => container.textContent?.includes(UNSUPPORTED_FILE_TEXT) === true)
+
+    sizeBytes = LARGE_FILE_BYTES
+    await act(async () => {
+      await invalidateWorkspaceFileMetadata(queryClient, TEST_DIRECTORY)
+    })
+    await act(async () => {
+      await flushEffects()
+    })
+    expect(container.textContent).toContain(UNSUPPORTED_FILE_TEXT)
+    expect(container.textContent).not.toContain("Large file")
+  })
+
+  test("opening a file that is already gone shows the deleted-file panel", async () => {
+    globalThis.fetch = withFetchPreconnect(
+      async () => new Response(null, { status: 404 }),
+      originalFetch,
+    )
+    const queryClient = new QueryClient()
+    const target = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "figures/gone.png",
+      viewer: "file",
+    } satisfies BenchTarget
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <TestBenchContextProvider target={target}>
+            <FileBenchSurface directory={TEST_DIRECTORY} path={target.path} />
+          </TestBenchContextProvider>
+        </QueryClientProvider>,
+      )
+    })
+    await waitForEffect(
+      () => container.querySelector('[data-component="bench-file-missing"]') !== null,
+    )
+    expect(container.textContent).not.toContain("File could not be loaded.")
   })
 
   test("renders SVG previews as isolated images in the zoomable bench", async () => {

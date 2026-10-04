@@ -16,6 +16,7 @@ import {
   type BenchContextProvider,
 } from "@/components/bench/bench-route-context"
 import { objectRef, workspaceFileRef } from "@/components/bench/bench-context-utils"
+import { BenchFileMissingSurface } from "@/components/bench/bench-file-missing"
 import {
   appendCitationToDraft,
   removeReadingSelectionFromDraft,
@@ -23,11 +24,14 @@ import {
 import type { ReaderSelection } from "@/components/readers/reader-types"
 import type { DocumentReaderHandle } from "@/components/readers/reader-types"
 import { language } from "@/context/language"
+import { WorkspaceFileMissingError } from "@/lib/workspace-file-media"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
+import { workspaceFileMetadataQueryOptions } from "@/state/bench-surface-query"
 import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer-live-draft"
 import { useChatStore } from "@/state/chat-store"
 import {
   invalidateResourcesQueries,
+  readingResourceBlobQueryKey,
   resourceFileExtensionFromFormat,
   resourcesQueryOptions,
 } from "@/state/resources-query"
@@ -53,6 +57,26 @@ function normalizeResourceRecordPath(record: ResourceRecord) {
 const READING_DRAFT_SESSION_ID = undefined
 
 export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
+  const queryClient = useQueryClient()
+  const sourcePath = normalizeRelativePath(props.resourcePath)
+  const sourceMetadataQuery = useQuery({
+    ...workspaceFileMetadataQueryOptions({ directory: props.directory, path: sourcePath }),
+    enabled: Boolean(props.directory) && Boolean(sourcePath),
+  })
+  const missingOnDisk = sourceMetadataQuery.error instanceof WorkspaceFileMissingError
+  useEffect(() => {
+    if (!missingOnDisk) return
+    // A file recreated at this path must open with its own bytes, not the deleted file's cached blob.
+    queryClient.removeQueries({
+      queryKey: readingResourceBlobQueryKey(props.directory, sourcePath),
+      exact: true,
+    })
+  }, [missingOnDisk, props.directory, queryClient, sourcePath])
+  if (missingOnDisk) return <BenchFileMissingSurface path={sourcePath} />
+  return <ReadingPage {...props} />
+}
+
+function ReadingPage(props: DirectoryChatReadingPageProps) {
   const queryClient = useQueryClient()
   const [processing, setProcessing] = useState(false)
   const [processingError, setProcessingError] = useState<string | undefined>(undefined)

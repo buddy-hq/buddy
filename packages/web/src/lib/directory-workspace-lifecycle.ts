@@ -111,6 +111,7 @@ type BenchSurfaceSnapshot = {
 
 type BenchSurfaceSynchronizationReason =
   | "watcher"
+  | "files-changed"
   | "turn-complete"
   | "context-flush"
   | "client-action"

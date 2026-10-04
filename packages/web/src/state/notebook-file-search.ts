@@ -7,7 +7,6 @@ import {
   type QueryClient,
 } from "@tanstack/react-query"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
-import { buildProjectFileRawParameters } from "@/lib/project-file-raw-url"
 import { rankNotebookFilePaths } from "@/state/notebook-file-ranking"
 
 /** Queries shorter than two characters stay local. */
@@ -16,13 +15,6 @@ export const NOTEBOOK_FILE_SEARCH_MIN_QUERY_LENGTH = 2
 export const NOTEBOOK_FILE_SEARCH_RESULT_LIMIT = 50
 
 const NO_MATCHES: readonly string[] = []
-/** After a reload, later changes in this window share one more reload at its end. */
-const NOTEBOOK_FILE_INDEX_RELOAD_WINDOW_MS = 1_000
-
-type NotebookFileIndexReloadWindow = { again: boolean }
-const reloadWindowsByClient = new WeakMap<QueryClient, Map<string, NotebookFileIndexReloadWindow>>()
-// Every open search hears the same focus event; the first one to handle it reloads for all.
-const focusReloads = new WeakMap<Event, Set<string>>()
 
 /** Shared key for the notebook's file list, which every file search surface ranks locally. */
 export function notebookFileIndexQueryKey(directory: string) {
@@ -44,7 +36,7 @@ export function notebookFileIndexQueryOptions(directory: string) {
     queryFn: ({ signal }) => fetchNotebookFileIndex(directory, signal),
     staleTime: 0,
     retry: false,
-    // The window focus listener below owns refocus reloads; a second refetch would be cancelled mid-walk.
+    // The notebook files-changed signal owns refocus reloads; a second refetch would be cancelled mid-walk.
     refetchOnWindowFocus: false,
   })
 }
@@ -61,79 +53,18 @@ export function useWarmNotebookFileIndex(directory: string) {
   }, [directory, queryClient])
 }
 
-async function reloadNotebookFileIndex(queryClient: QueryClient, directory: string) {
+export async function reloadNotebookFileIndex(queryClient: QueryClient, directory: string) {
   const queryKey = notebookFileIndexQueryKey(directory)
   // A first load that is still running would be joined rather than restarted, and its walk
   // may already have passed the change being reported.
-  if (queryClient.getQueryData(queryKey) === undefined)
+  const firstLoadRunning =
+    queryClient.getQueryData(queryKey) === undefined && queryClient.isFetching({ queryKey }) > 0
+  if (firstLoadRunning) {
     await queryClient.cancelQueries({ queryKey })
+    // Invalidation only restarts loads that a surface is watching, so a warm-up restarts here.
+    void queryClient.prefetchQuery(notebookFileIndexQueryOptions(directory))
+  }
   await queryClient.invalidateQueries({ queryKey })
-}
-
-/**
- * Reloads the file list wherever search is open; closed surfaces reload when they next open.
- * A burst of changes, such as a bulk delete or a busy agent turn, reloads at once and then at
- * most once per window, always ending with a reload that sees the last change.
- */
-export function invalidateNotebookFileIndex(
-  queryClient: QueryClient,
-  directory: string,
-): Promise<void> {
-  const reloadWindows =
-    reloadWindowsByClient.get(queryClient) ?? new Map<string, NotebookFileIndexReloadWindow>()
-  reloadWindowsByClient.set(queryClient, reloadWindows)
-  const openWindow = reloadWindows.get(directory)
-  if (openWindow) {
-    openWindow.again = true
-    return Promise.resolve()
-  }
-  const reloadWindow: NotebookFileIndexReloadWindow = { again: false }
-  reloadWindows.set(directory, reloadWindow)
-  const closeWindow = () => {
-    if (!reloadWindow.again) {
-      reloadWindows.delete(directory)
-      return
-    }
-    reloadWindow.again = false
-    void reloadNotebookFileIndex(queryClient, directory)
-    setTimeout(closeWindow, NOTEBOOK_FILE_INDEX_RELOAD_WINDOW_MS)
-  }
-  setTimeout(closeWindow, NOTEBOOK_FILE_INDEX_RELOAD_WINDOW_MS)
-  return reloadNotebookFileIndex(queryClient, directory)
-}
-
-/** Whether a notebook file still exists; unknown when the check itself fails. */
-async function notebookFileExists(input: {
-  directory: string
-  path: string
-}): Promise<boolean | undefined> {
-  try {
-    const response = await getBuddyClient(input.directory).headApiFileRawFileName(
-      buildProjectFileRawParameters(input.path),
-    )
-    if (response.response?.ok) return true
-    return response.response?.status === 404 ? false : undefined
-  } catch {
-    return undefined
-  }
-}
-
-/**
- * False only when a file offered from the cached index is gone, which also drops it from
- * the index. A failed check never blocks opening.
- */
-export async function confirmNotebookFileAvailable(input: {
-  queryClient: QueryClient
-  directory: string
-  path: string
-}): Promise<boolean> {
-  if ((await notebookFileExists(input)) !== false) return true
-  void invalidateNotebookFileIndex(input.queryClient, input.directory)
-  return false
-}
-
-export function notebookFileMissingMessage(path: string): string {
-  return `${path.split("/").at(-1) ?? path} was moved or deleted.`
 }
 
 /** One file index and ranking for the explorer, notebook search, and quick open. */
@@ -148,19 +79,6 @@ export function useNotebookFileSearch(input: {
   const canSearch = enabled && query.length >= NOTEBOOK_FILE_SEARCH_MIN_QUERY_LENGTH
   // Load as soon as the surface opens so the first keystroke already has paths to rank.
   const index = useQuery({ ...notebookFileIndexQueryOptions(input.directory), enabled })
-  useEffect(() => {
-    if (!enabled) return
-    // Files made in other apps send no event, so returning to Buddy reloads the index.
-    const reload = (event: Event) => {
-      const reloaded = focusReloads.get(event) ?? new Set<string>()
-      focusReloads.set(event, reloaded)
-      if (reloaded.has(input.directory)) return
-      reloaded.add(input.directory)
-      void invalidateNotebookFileIndex(queryClient, input.directory)
-    }
-    window.addEventListener("focus", reload)
-    return () => window.removeEventListener("focus", reload)
-  }, [enabled, input.directory, queryClient])
   const matches = useMemo(
     () =>
       canSearch && index.data

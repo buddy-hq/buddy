@@ -9,7 +9,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Separator, cn, toast } from "@buddy/ui"
 import { usePlatform } from "@/context/platform"
 import {
@@ -78,7 +78,8 @@ import { notesLibraryQueryOptions } from "@/features/notes/queries"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { stringifyError } from "@/lib/api-client"
 import { useWorkspaceFileOpen } from "@/lib/use-workspace-file-open"
-import { readWorkspaceFileRawMetadata } from "@/lib/workspace-file-media"
+import { WorkspaceFileMissingError, readWorkspaceFileRawMetadata } from "@/lib/workspace-file-media"
+import { notifyNotebookFilesChanged } from "@/state/notebook-files-changed"
 import { absoluteWorkspaceFilePath, fileNameFromPath } from "@/lib/workspace-file-paths"
 import { obsidianVaultProfileQueryOptions } from "@/state/obsidian-vault-query"
 import { BenchTabs } from "@/components/bench/bench-tabs"
@@ -350,6 +351,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
   // Opens from the empty page and the collection chrome keep the layout they were made in.
   const openWorkspaceTarget = useRightWorkspaceOpen({ mode: props.presentation.mode })
   const platform = usePlatform()
+  const queryClient = useQueryClient()
   const { executePrimary: openWorkspaceFile } = useWorkspaceFileOpen(
     props.directory,
     props.onOpenResource,
@@ -559,11 +561,21 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
         if (opened) closeSelector()
         return opened ? "opened" : "blocked"
       } catch (error) {
+        if (error instanceof WorkspaceFileMissingError) {
+          void notifyNotebookFilesChanged(queryClient, props.directory)
+        }
         toast.error(stringifyError(error))
         return "failed"
       }
     },
-    [closeSelector, openWorkspaceFile, platform.openPath, platform.revealPath, props.directory],
+    [
+      closeSelector,
+      openWorkspaceFile,
+      platform.openPath,
+      platform.revealPath,
+      props.directory,
+      queryClient,
+    ],
   )
 
   async function openInstructions() {

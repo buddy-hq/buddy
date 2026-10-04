@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useQueries, useQueryClient, type UseQueryResult } from "@tanstack/react-query"
 import { useDurableScrollTop } from "@/lib/use-durable-scroll-top"
 import {
   WORKSPACE_DRAWER_UI_EXPLORER,
@@ -14,9 +15,14 @@ import { usePlatform } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"
 import { useWorkspaceFileOpen, type WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import type { BenchModeRequest } from "@/lib/bench-navigation"
-import { readWorkspaceFileRawMetadata } from "@/lib/workspace-file-media"
+import { WorkspaceFileMissingError, readWorkspaceFileRawMetadata } from "@/lib/workspace-file-media"
 import { absoluteWorkspaceFilePath, fileNameFromPath } from "@/lib/workspace-file-paths"
-import { listProjectExplorerDirectory, type ProjectExplorerFileNode } from "@/state/chat-actions"
+import type { ProjectExplorerFileNode } from "@/state/chat-actions"
+import { notifyNotebookFilesChanged } from "@/state/notebook-files-changed"
+import {
+  invalidateProjectExplorerListings,
+  projectExplorerDirectoryQueryOptions,
+} from "@/state/project-explorer-query"
 import {
   NOTEBOOK_FILE_SEARCH_MIN_QUERY_LENGTH,
   NOTEBOOK_FILE_SEARCH_RESULT_LIMIT,
@@ -48,27 +54,27 @@ type ProjectFileExplorerPanelProps = {
   selectedPath?: string
 }
 
-type ExplorerDirectoryState = {
-  expanded: boolean
+type DirectoryExpansionMap = Record<string, boolean>
+
+type ExplorerDirectoryListing = {
   loaded: boolean
   loading: boolean
   error?: string
   children: string[]
 }
 
-type DirectoryStateMap = Record<string, ExplorerDirectoryState>
+type DirectoryListingMap = Record<string, ExplorerDirectoryListing>
 type NodeMap = Record<string, ProjectExplorerFileNode>
 
-const ROOT_DIRECTORY_STATE: ExplorerDirectoryState = {
-  expanded: true,
+const UNLISTED_DIRECTORY: ExplorerDirectoryListing = {
   loaded: false,
   loading: false,
   children: EMPTY_CHILDREN,
 }
 
-function expandedDirectoryPaths(state: DirectoryStateMap): string[] {
-  return Object.entries(state)
-    .filter(([path, directoryState]) => path !== ROOT_DIRECTORY_PATH && directoryState.expanded)
+function expandedDirectoryPaths(expansion: DirectoryExpansionMap): string[] {
+  return Object.entries(expansion)
+    .filter(([, expanded]) => expanded)
     .map(([path]) => path)
 }
 
@@ -81,13 +87,8 @@ function ancestorDirectoryPaths(filePath: string): string[] {
   return segments.slice(0, -1).map((_, index) => segments.slice(0, index + 1).join("/"))
 }
 
-function restoreExpandedDirectoryState(expandedPaths: string[] | undefined) {
-  return Object.fromEntries([
-    [ROOT_DIRECTORY_PATH, ROOT_DIRECTORY_STATE],
-    ...(expandedPaths ?? []).map(
-      (path) => [path, { ...ROOT_DIRECTORY_STATE, expanded: true }] as const,
-    ),
-  ])
+function restoreDirectoryExpansion(expandedPaths: string[] | undefined): DirectoryExpansionMap {
+  return Object.fromEntries((expandedPaths ?? []).map((path) => [path, true] as const))
 }
 
 function sortedNodes(paths: string[], nodesByPath: NodeMap) {
@@ -133,15 +134,45 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const revealedSelectionRef = useRef<string>()
   const revealedAncestorsRef = useRef<{ key: string; paths: Set<string> }>()
   const platform = usePlatform()
+  const queryClient = useQueryClient()
   const { executePrimary } = useWorkspaceFileOpen(props.directory, props.onOpenResource, {
     benchMode: props.benchMode,
   })
   // The drawer unmounts on every chat switch, so expansion is seeded from durable state and the
   // listings are reloaded rather than cached here.
-  const [directoriesByPath, setDirectoriesByPath] = useState<DirectoryStateMap>(() =>
-    restoreExpandedDirectoryState(readWorkspaceDrawerUiState(drawerUiKey)?.expandedPaths),
+  const [directoryExpansion, setDirectoryExpansion] = useState<DirectoryExpansionMap>(() =>
+    restoreDirectoryExpansion(readWorkspaceDrawerUiState(drawerUiKey)?.expandedPaths),
   )
-  const [nodesByPath, setNodesByPath] = useState<NodeMap>({})
+  // Collapsed folders drop out, so background refreshes only list what is open.
+  const listedDirectoryPaths = useMemo(
+    () => [ROOT_DIRECTORY_PATH, ...expandedDirectoryPaths(directoryExpansion)],
+    [directoryExpansion],
+  )
+  const combineDirectoryListings = useCallback(
+    (results: UseQueryResult<ProjectExplorerFileNode[]>[]) => {
+      const listings: DirectoryListingMap = {}
+      const nodes: NodeMap = {}
+      results.forEach((result, index) => {
+        const path = listedDirectoryPaths[index]
+        if (path === undefined) return
+        listings[path] = {
+          loaded: result.data !== undefined,
+          loading: result.isLoading,
+          error: result.error ? stringifyError(result.error) : undefined,
+          children: result.data?.map((node) => node.path) ?? EMPTY_CHILDREN,
+        }
+        for (const node of result.data ?? []) nodes[node.path] = node
+      })
+      return { listingsByPath: listings, nodesByPath: nodes }
+    },
+    [listedDirectoryPaths],
+  )
+  const { listingsByPath, nodesByPath } = useQueries({
+    queries: listedDirectoryPaths.map((path) =>
+      projectExplorerDirectoryQueryOptions({ directory: props.directory, path }),
+    ),
+    combine: combineDirectoryListings,
+  })
   const searchQuery = props.searchValue?.trim() ?? ""
   const searchFiles = searchQuery.length >= NOTEBOOK_FILE_SEARCH_MIN_QUERY_LENGTH
   // The index loads once the user starts filtering; a cached index still answers instantly.
@@ -152,77 +183,20 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   })
   const refreshSearch = fileSearch.refresh
 
-  const loadDirectory = useCallback(
-    async (path: string, force = false) => {
-      const current = directoriesByPath[path]
-      if (!force && (current?.loading || current?.loaded)) return
-
-      setDirectoriesByPath((state) => ({
-        ...state,
-        [path]: {
-          ...(state[path] ?? ROOT_DIRECTORY_STATE),
-          loading: true,
-          error: undefined,
-        },
-      }))
-
-      try {
-        const listed = await listProjectExplorerDirectory({ directory: props.directory, path })
-        setNodesByPath((state) => ({
-          ...state,
-          ...Object.fromEntries(listed.map((node) => [node.path, node])),
-        }))
-        setDirectoriesByPath((state) => ({
-          ...state,
-          [path]: {
-            ...(state[path] ?? ROOT_DIRECTORY_STATE),
-            loaded: true,
-            loading: false,
-            error: undefined,
-            children: listed.map((node) => node.path),
-          },
-        }))
-      } catch (error) {
-        setDirectoriesByPath((state) => ({
-          ...state,
-          [path]: {
-            ...(state[path] ?? ROOT_DIRECTORY_STATE),
-            loading: false,
-            error: stringifyError(error),
-          },
-        }))
-      }
-    },
-    [directoriesByPath, props.directory],
-  )
-
+  // Only a requested refresh spins the header icon; background refreshes stay silent.
+  const [refreshingTree, setRefreshingTree] = useState(false)
   const refreshTree = useCallback(() => {
-    for (const [path, state] of Object.entries(directoriesByPath)) {
-      if (path === ROOT_DIRECTORY_PATH || state.expanded) void loadDirectory(path, true)
-    }
-    // Closed branches also need fresh listings the next time they expand.
-    setDirectoriesByPath((state) =>
-      Object.fromEntries(
-        Object.entries(state).map(([path, directoryState]) => [
-          path,
-          path !== ROOT_DIRECTORY_PATH && !directoryState.expanded
-            ? { ...directoryState, loaded: false }
-            : directoryState,
-        ]),
-      ),
+    setRefreshingTree(true)
+    void invalidateProjectExplorerListings(queryClient, props.directory).finally(() =>
+      setRefreshingTree(false),
     )
-  }, [directoriesByPath, loadDirectory])
+  }, [props.directory, queryClient])
 
   useEffect(() => {
-    setDirectoriesByPath(
-      restoreExpandedDirectoryState(readWorkspaceDrawerUiState(drawerUiKey)?.expandedPaths),
+    setDirectoryExpansion(
+      restoreDirectoryExpansion(readWorkspaceDrawerUiState(drawerUiKey)?.expandedPaths),
     )
-    setNodesByPath({})
   }, [drawerUiKey, props.directory])
-
-  useEffect(() => {
-    void loadDirectory(ROOT_DIRECTORY_PATH)
-  }, [loadDirectory])
 
   useEffect(() => {
     if (!props.selectedPath) return
@@ -243,13 +217,11 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
       .filter((path): path is string => path !== undefined && !revealed.has(path))
     if (actualAncestors.length === 0) return
     for (const path of actualAncestors) revealed.add(path)
-    setDirectoriesByPath((state) => {
-      const closed = actualAncestors.filter((path) => !state[path]?.expanded)
-      if (closed.length === 0) return state
-      const next = { ...state }
-      for (const path of closed) {
-        next[path] = { ...(next[path] ?? ROOT_DIRECTORY_STATE), expanded: true }
-      }
+    setDirectoryExpansion((expansion) => {
+      const closed = actualAncestors.filter((path) => !expansion[path])
+      if (closed.length === 0) return expansion
+      const next = { ...expansion }
+      for (const path of closed) next[path] = true
       writeWorkspaceDrawerUiState(drawerUiKey, { expandedPaths: expandedDirectoryPaths(next) })
       return next
     })
@@ -273,7 +245,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     }
   }, [
     cancelPendingRestore,
-    directoriesByPath,
+    listingsByPath,
     drawerUiKey,
     fileSearch.matches,
     nodesByPath,
@@ -282,16 +254,6 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     searchQuery,
     treeContainerRef,
   ])
-
-  // Restored expansion carries no listings, so every expanded directory loads its own children.
-  // Without this the tree renders open but empty after a chat switch.
-  useEffect(() => {
-    for (const [path, directoryState] of Object.entries(directoriesByPath)) {
-      if (path === ROOT_DIRECTORY_PATH) continue
-      if (!directoryState.expanded || directoryState.loaded || directoryState.loading) continue
-      void loadDirectory(path)
-    }
-  }, [directoriesByPath, loadDirectory])
 
   useEffect(() => {
     if (
@@ -307,21 +269,12 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     refreshTree()
   }, [props.refreshRequest, refreshSearch, refreshTree, searchFiles])
 
-  const toggleDirectory = async (path: string) => {
-    const current = directoriesByPath[path]
-    const expanded = !(current?.expanded ?? false)
-    setDirectoriesByPath((state) => {
-      const next = {
-        ...state,
-        [path]: {
-          ...(state[path] ?? ROOT_DIRECTORY_STATE),
-          expanded,
-        },
-      }
+  const toggleDirectory = (path: string) => {
+    setDirectoryExpansion((expansion) => {
+      const next = { ...expansion, [path]: !expansion[path] }
       writeWorkspaceDrawerUiState(drawerUiKey, { expandedPaths: expandedDirectoryPaths(next) })
       return next
     })
-    if (expanded && !current?.loaded) await loadDirectory(path)
   }
 
   const openFile = async (node: ProjectExplorerFileNode) => {
@@ -348,6 +301,9 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
       props.onFileOpenBlocked?.()
     } catch (error) {
       props.onFileOpenBlocked?.()
+      if (error instanceof WorkspaceFileMissingError) {
+        void notifyNotebookFilesChanged(queryClient, props.directory)
+      }
       toast.error(stringifyError(error))
     }
   }
@@ -363,33 +319,31 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     if (node.type !== "directory" || visitedDirectories.has(node.path)) return false
 
     visitedDirectories.add(node.path)
-    const childState = directoriesByPath[node.path]
-    return sortedNodes(childState?.children ?? EMPTY_CHILDREN, nodesByPath).some((child) =>
+    const childListing = listingsByPath[node.path]
+    return sortedNodes(childListing?.children ?? EMPTY_CHILDREN, nodesByPath).some((child) =>
       nodeMatchesSearch(child, normalizedSearch, visitedDirectories),
     )
   }
 
   function renderDirectory(path: string, depth: number): ReactNode {
-    const directoryState = directoriesByPath[path]
+    const listing = listingsByPath[path]
     const normalizedSearch = props.searchValue?.trim().toLocaleLowerCase() ?? ""
-    const children = sortedNodes(directoryState?.children ?? EMPTY_CHILDREN, nodesByPath).filter(
-      (node) => nodeMatchesSearch(node, normalizedSearch, new Set()),
+    const children = sortedNodes(listing?.children ?? EMPTY_CHILDREN, nodesByPath).filter((node) =>
+      nodeMatchesSearch(node, normalizedSearch, new Set()),
     )
 
     return children.map((node) => {
       if (node.type === "directory") {
-        const childState = directoriesByPath[node.path] ?? {
-          ...ROOT_DIRECTORY_STATE,
-          expanded: false,
-        }
-        const visiblyExpanded = childState.expanded || normalizedSearch.length > 0
+        const childListing = listingsByPath[node.path] ?? UNLISTED_DIRECTORY
+        const visiblyExpanded =
+          directoryExpansion[node.path] === true || normalizedSearch.length > 0
         return (
           <div key={node.path}>
             <button
               type="button"
               className="flex h-7 w-full items-center gap-1.5 rounded-lg px-2 text-left text-xs text-text-weak transition-colors hover:bg-surface-raised-base/80 hover:text-text-base"
               style={{ paddingLeft: depth * TREE_DEPTH_INDENT_PX + TREE_ROW_BASE_PADDING_PX }}
-              onClick={() => void toggleDirectory(node.path)}
+              onClick={() => toggleDirectory(node.path)}
             >
               {visiblyExpanded ? (
                 <ChevronDownIcon className="size-3 shrink-0" aria-hidden />
@@ -404,12 +358,12 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
                   variant,
                 })}
               </span>
-              {childState.loading ? <Loader2Icon className="size-3 animate-spin" /> : null}
+              {childListing.loading ? <Loader2Icon className="size-3 animate-spin" /> : null}
             </button>
-            {childState.error ? (
-              <p className="px-2 py-1 text-xs text-icon-critical-base">{childState.error}</p>
+            {childListing.error ? (
+              <p className="px-2 py-1 text-xs text-icon-critical-base">{childListing.error}</p>
             ) : null}
-            {visiblyExpanded && childState.loaded ? renderDirectory(node.path, depth + 1) : null}
+            {visiblyExpanded && childListing.loaded ? renderDirectory(node.path, depth + 1) : null}
           </div>
         )
       }
@@ -455,15 +409,15 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     })
   }
 
-  const rootState = directoriesByPath[ROOT_DIRECTORY_PATH]
+  const rootListing = listingsByPath[ROOT_DIRECTORY_PATH]
   const searchedPaths = useMemo(() => {
     if (!searchFiles) return []
     // Rows in the current listings join the index matches, so whatever the tree shows (including
     // hidden or git-ignored files the index skips) can also be found by name. Nodes from earlier
-    // listings are skipped so deleted files drop out.
-    const loadedFilePaths = Object.values(directoriesByPath)
-      .filter((directoryState) => directoryState.loaded)
-      .flatMap((directoryState) => directoryState.children)
+    // listings are skipped so deleted files drop out, as are rows kept from a folder whose
+    // listing now fails, which is usually a deleted folder.
+    const loadedFilePaths = Object.values(listingsByPath)
+      .flatMap((listing) => (listing.error ? EMPTY_CHILDREN : listing.children))
       .flatMap((path) => {
         const node = nodesByPath[path]
         return node?.type === "file" ? [node.path] : []
@@ -483,7 +437,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
       .toSorted((left, right) => left.score - right.score || left.path.localeCompare(right.path))
       .slice(0, NOTEBOOK_FILE_SEARCH_RESULT_LIMIT)
       .map((match) => match.path)
-  }, [directoriesByPath, fileSearch.matches, nodesByPath, searchFiles, searchQuery])
+  }, [fileSearch.matches, listingsByPath, nodesByPath, searchFiles, searchQuery])
   return (
     <section
       data-component="project-file-explorer-panel"
@@ -512,7 +466,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
               refreshTree()
             }}
           >
-            <RefreshCwIcon className={cn("size-4", rootState?.loading && "animate-spin")} />
+            <RefreshCwIcon className={cn("size-4", refreshingTree && "animate-spin")} />
           </Button>
         </header>
       ) : null}
@@ -521,8 +475,8 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
         onScroll={onTreeScroll}
         className="scrollbar-hover min-h-0 flex-1 overflow-y-auto p-1.5"
       >
-        {!searchFiles && rootState?.error ? (
-          <p className="p-2 text-xs text-icon-critical-base">{rootState.error}</p>
+        {!searchFiles && rootListing?.error ? (
+          <p className="p-2 text-xs text-icon-critical-base">{rootListing.error}</p>
         ) : null}
         {searchFiles ? (
           <>
