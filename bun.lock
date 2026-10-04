@@ -305,6 +305,7 @@
         "es6-promise-pool": "2.5.0",
         "foliate-js": "github:johnfactotum/foliate-js#399248a67a8862ffb5e6463a33f9d52b317ca2eb",
         "fuzzysort": "catalog:",
+        "github-slugger": "2.0.0",
         "immer": "^11.1.4",
         "indigo-ketcher": "1.43.0",
         "katex": "^0.16.22",

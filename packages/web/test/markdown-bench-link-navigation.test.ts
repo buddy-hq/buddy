@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { resolveMarkdownBenchLink } from "../src/components/bench/markdown/link-navigation"
+import {
+  findMarkdownBenchFragmentTarget,
+  readMarkdownBenchHeadings,
+} from "../src/components/bench/markdown/editor-fragments"
 import { createNotesWikiLinkContext } from "../src/features/notes/notes-wikilinks"
 import { notesQueryKeys } from "../src/features/notes/queries"
 import {
@@ -10,6 +14,68 @@ import {
 import { encodeDirectory } from "../src/lib/directory-token"
 
 describe("Markdown Bench link navigation", () => {
+  test("resolves punctuation, Unicode and duplicate heading slugs without changing the document", () => {
+    const root = document.createElement("div")
+    root.innerHTML = [
+      "<h2>Agentic <em>Software Engineering</em>: Session Plan</h2>",
+      "<h2>Session plan</h2>",
+      "<h2>Session plan</h2>",
+      "<h2>Session plan-1</h2>",
+      "<h2>你好 Café</h2>",
+    ].join("")
+    const source = root.innerHTML
+    const headings = readMarkdownBenchHeadings(root)
+    expect(headings.map((heading) => heading.id)).toEqual([
+      "agentic-software-engineering-session-plan",
+      "session-plan",
+      "session-plan-1",
+      "session-plan-1-1",
+      "你好-café",
+    ])
+    for (const [fragment, label] of [
+      ["agentic-software-engineering-session-plan", "Agentic Software Engineering: Session Plan"],
+      ["session-plan-1", "Session plan"],
+      ["session-plan-1-1", "Session plan-1"],
+      ["%E4%BD%A0%E5%A5%BD-caf%C3%A9", "你好 Café"],
+    ] as const) {
+      expect(findMarkdownBenchFragmentTarget(root, fragment)?.textContent).toBe(label)
+    }
+    expect(findMarkdownBenchFragmentTarget(root, "session-plan-1")).toBe(
+      root.querySelectorAll<HTMLElement>("h2")[2],
+    )
+    expect(root.innerHTML).toBe(source)
+  })
+
+  test("preserves explicit anchors and Obsidian targets while excluding embedded notes from the outline", () => {
+    const root = document.createElement("div")
+    root.innerHTML = [
+      '<div class="mdxeditor-root-contenteditable">',
+      "<h2>Session plan</h2>",
+      '<section data-component="markdown-bench-obsidian-note-embed"><h2>Session plan</h2></section>',
+      "<h2>Session plan</h2><h2>Questions &amp; discussion</h2>",
+      '<p id="session-plan">Explicit anchor</p><p>Important paragraph ^block-id</p>',
+      "</div>",
+    ].join("")
+    expect(readMarkdownBenchHeadings(root).map((heading) => heading.id)).toEqual([
+      "session-plan",
+      "session-plan-1",
+      "questions--discussion",
+    ])
+    expect(findMarkdownBenchFragmentTarget(root, "session-plan")?.textContent).toBe(
+      "Explicit anchor",
+    )
+    expect(findMarkdownBenchFragmentTarget(root, "session-plan-1")).toBe(
+      root.querySelectorAll("h2")[2],
+    )
+    expect(findMarkdownBenchFragmentTarget(root, "Questions%20%26%20discussion")?.textContent).toBe(
+      "Questions & discussion",
+    )
+    expect(findMarkdownBenchFragmentTarget(root, "^block-id")?.textContent).toBe(
+      "Important paragraph ^block-id",
+    )
+    expect(findMarkdownBenchFragmentTarget(root, "missing")).toBeUndefined()
+  })
+
   test("resolves same-document fragments and relative workspace files", () => {
     expect(resolveMarkdownBenchLink("Notes/Current.md", "#Polynomial%20Functions")).toEqual({
       type: "workspace-file",

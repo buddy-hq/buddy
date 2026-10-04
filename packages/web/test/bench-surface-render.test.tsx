@@ -16,6 +16,12 @@ import {
   useRegisterBenchContextProvider,
 } from "../src/components/bench/bench-route-context"
 import { BenchMediaPreview } from "../src/components/bench/bench-media-preview"
+import { MarkdownBenchPage } from "../src/components/bench/markdown/page"
+import { obsidianVaultQueryKeys } from "../src/state/obsidian-vault-query"
+import {
+  DirectoryNotebookRouteContext,
+  type DirectoryNotebookRouteContextValue,
+} from "../src/components/directory-chat/directory-notebook-route-context-value"
 import { DirectoryWorkspaceProvider } from "../src/components/directory-chat/directory-workspace-context"
 import { QuestionSetBenchReview } from "../src/components/bench/question-set-bench-review"
 import { SvgBenchView } from "../src/components/bench/svg-bench-view"
@@ -60,6 +66,10 @@ import { parseRequestUrl } from "./parse-test-values"
 import { ThemeProvider } from "../src/theme"
 
 const TEST_DIRECTORY = "/repo"
+const OPENING_NOTEBOOK_ROUTE: DirectoryNotebookRouteContextValue = {
+  directoryToken: "repo",
+  controller: { status: "opening" },
+}
 const TEST_DECK_ID = "deck-1"
 const TEST_NOTE_ID = "note-1"
 const TEST_CARD_ID = "card-1"
@@ -109,6 +119,12 @@ const TEST_BETA_MARKDOWN_TARGET = {
 
 const originalFetch = globalThis.fetch
 const originalPlatform = getPlatform()
+
+function contentsEntries(label: string): HTMLButtonElement[] {
+  return Array.from(
+    document.querySelectorAll<HTMLButtonElement>('[data-slot="popover-content"] button'),
+  ).filter((button) => button.textContent === label)
+}
 
 function createServerConnection(): ServerConnection {
   return {
@@ -525,12 +541,82 @@ describe("bench surface rendering", () => {
       expect(container.querySelector(`[data-component="${component}"]`)).not.toBeNull()
       if (component === "read-only-markdown-bench-view") {
         expect(container.querySelector('[data-component="markdown-bench-editor"]')).not.toBeNull()
+        expect(container.querySelector('button[aria-label="Contents"]')).not.toBeNull()
         expect(container.textContent).toContain("External file · Read-only")
       } else {
         expect(container.querySelector('[data-component="markdown-bench-editor"]')).toBeNull()
       }
     },
   )
+
+  test("native Markdown Contents opens, jumps to a duplicate heading and closes after selection", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    queryClient.setQueryData(obsidianVaultQueryKeys.profile(TEST_DIRECTORY), {
+      connected: false,
+      detected: false,
+      configDirectories: [],
+    })
+    const markdown = "# Guide\n\n## Details\n\n## Details\n"
+    await act(async () => {
+      root.render(
+        <ServerProvider value={createServerConnection()}>
+          <QueryClientProvider client={queryClient}>
+            <TestBenchContextProvider target={TEST_ALPHA_MARKDOWN_TARGET}>
+              <DirectoryNotebookRouteContext.Provider value={OPENING_NOTEBOOK_ROUTE}>
+                <ThemeProvider>
+                  <MarkdownBenchPage
+                    directory={TEST_DIRECTORY}
+                    document={{
+                      storageDirectory: TEST_DIRECTORY,
+                      path: TEST_ALPHA_MARKDOWN_TARGET.path,
+                      target: TEST_ALPHA_MARKDOWN_TARGET,
+                      initialFile: {
+                        path: TEST_ALPHA_MARKDOWN_TARGET.path,
+                        content: markdown,
+                        version: "v1",
+                      },
+                    }}
+                  />
+                </ThemeProvider>
+              </DirectoryNotebookRouteContext.Provider>
+            </TestBenchContextProvider>
+          </QueryClientProvider>
+        </ServerProvider>,
+      )
+      await flushEffects()
+    })
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-component="markdown-bench-editor"]',
+    )
+    const contentsButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Contents"]',
+    )
+    if (!viewport || !contentsButton)
+      throw new Error("Expected native Markdown Contents and viewport")
+    viewport.getBoundingClientRect = () => new DOMRect(0, 100, 480, 400)
+    Array.from(viewport.querySelectorAll<HTMLElement>("h1,h2")).forEach((heading, index) => {
+      heading.getBoundingClientRect = () =>
+        new DOMRect(0, 300 + index * 400 - viewport.scrollTop, 400, 40)
+    })
+    await act(async () => {
+      contentsButton.click()
+      await flushEffects()
+    })
+    await waitForEffect(() => contentsEntries("Details").length === 2)
+    await act(async () => {
+      contentsEntries("Details")[1]?.click()
+      await flushEffects()
+    })
+    expect(viewport.scrollTop).toBe(976)
+    expect(contentsButton.getAttribute("aria-expanded")).toBe("false")
+    expect(document.querySelector('[data-slot="popover-content"]')).toBeNull()
+    await act(async () => {
+      contentsButton.click()
+      await flushEffects()
+    })
+    expect(contentsEntries("Details")[0]?.getAttribute("aria-current")).toBeNull()
+    expect(contentsEntries("Details")[1]?.getAttribute("aria-current")).toBe("location")
+  })
 
   test("reveals an unsupported local link in presented Markdown without launching it", async () => {
     const openedPaths: string[] = []

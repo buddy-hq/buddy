@@ -46,8 +46,12 @@ import {
   EXPLORER_EMBEDDED_MARKDOWN_LOADER,
   type ObsidianWikiLinkContext,
 } from "@/components/bench/markdown/plugins/obsidian"
-import { findMarkdownBenchFragmentTarget } from "@/components/bench/markdown/editor-fragments"
 import { readEditorLinkUrl } from "@/components/bench/markdown/editor-link-url"
+import { resolveMarkdownBenchLink } from "@/components/bench/markdown/link-navigation"
+import {
+  useMarkdownBenchContents,
+  type MarkdownBenchContentsState,
+} from "@/components/bench/markdown/use-contents"
 import { resolveSelectionHeadingPath } from "@/components/bench/markdown/editor-selection"
 import {
   applyMarkdownFileTextFormat,
@@ -130,6 +134,7 @@ export type MarkdownBenchEditorHandle = Pick<
 > & {
   redo(): void
   scrollToFragment(fragment: string): boolean
+  scrollToHeading(id: string): boolean
   undo(): void
 }
 
@@ -169,6 +174,7 @@ type MarkdownBenchEditorProps = Pick<
   selectTitleOnOpen?: boolean
   viewportKey?: string
   obsidianWikiLinkContext?: ObsidianWikiLinkContext
+  onContentsChange?(contents: MarkdownBenchContentsState): void
   onHistoryControlsChange?(controls: MarkdownBenchHistoryControlsState): void
   onOpenLink?(href: string, options: OpenLinkOptions): void
   onProcessingResult?(result: MarkdownBenchProcessingResult): void
@@ -511,6 +517,11 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     const benchTarget = useBenchRouteContextOptional()?.state.target
     const citationSurfaceKey = benchTarget ? benchTargetKey(benchTarget) : undefined
     const surfaceActive = useBenchSurfaceActive()
+    const { scrollToFragment, scrollToHeading, refreshContents } = useMarkdownBenchContents(
+      editorRootRef,
+      surfaceActive,
+      props.onContentsChange,
+    )
     const surfaceActiveRef = useRef(surfaceActive)
     surfaceActiveRef.current = surfaceActive
     const deferredCitationRef = useRef<Citation | undefined>(undefined)
@@ -551,18 +562,43 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       revealCitation(deferred)
     }, [revealCitation, surfaceActive])
     const onOpenLink = props.onOpenLink
+    const localFragment = useCallback(
+      (href: string) => {
+        const target = resolveMarkdownBenchLink(props.path, href)
+        return target?.type === "workspace-file" && target.path === props.path.replaceAll("\\", "/")
+          ? target.fragment
+          : undefined
+      },
+      [props.path],
+    )
+    const preventHeadingLinkSelection = useCallback(
+      (event: ReactMouseEvent<HTMLDivElement>) => {
+        if (event.button !== 0 || !(event.target instanceof Element)) return
+        const anchor = event.target.closest("a")
+        if (!(anchor instanceof HTMLAnchorElement)) return
+        const href = readEditorLinkUrl(anchor)
+        if (!href || !localFragment(href)) return
+        // Preserve the caret for toolbar editing; a navigation click must not select the link.
+        event.preventDefault()
+        event.stopPropagation()
+      },
+      [localFragment],
+    )
     const openLink = useCallback(
       (event: ReactMouseEvent<HTMLDivElement>) => {
-        if (!onOpenLink || !(event.target instanceof Element)) return
+        if (!(event.target instanceof Element)) return
         const anchor = event.target.closest("a")
         if (!(anchor instanceof HTMLAnchorElement)) return
         const href = readEditorLinkUrl(anchor)
         if (!href) return
-        onOpenLink(href, { modified: event.metaKey || event.ctrlKey })
+        const fragment = localFragment(href)
+        const scrolled = fragment ? scrollToFragment(fragment) : false
+        if (!scrolled && !onOpenLink) return
+        if (!scrolled) onOpenLink?.(href, { modified: event.metaKey || event.ctrlKey })
         event.preventDefault()
         event.stopPropagation()
       },
-      [onOpenLink],
+      [localFragment, onOpenLink, scrollToFragment],
     )
 
     const plugins = useMarkdownBenchEditorPlugins({
@@ -593,6 +629,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           processingMarkdownRef.current = markdown
           loadedMarkdownRef.current = { source: markdown }
           editorRef.current?.setMarkdown(prepareEditorMarkdown(markdown, props.documentFormat))
+          refreshContents()
           window.queueMicrotask(() => {
             applyingExternalMarkdownRef.current = false
             captureLoadedBaseline()
@@ -604,19 +641,20 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         redo() {
           historyControlsRef.current.redo()
         },
-        scrollToFragment(fragment: string) {
-          const editorRoot = editorRootRef.current
-          if (!editorRoot) return false
-          const target = findMarkdownBenchFragmentTarget(editorRoot, fragment)
-          if (!target) return false
-          target.scrollIntoView({ block: "center" })
-          return true
-        },
+        scrollToFragment,
+        scrollToHeading,
         undo() {
           historyControlsRef.current.undo()
         },
       }),
-      [captureLoadedBaseline, props.documentFormat, restoreEditorMarkdown],
+      [
+        captureLoadedBaseline,
+        props.documentFormat,
+        refreshContents,
+        restoreEditorMarkdown,
+        scrollToFragment,
+        scrollToHeading,
+      ],
     )
 
     useEffect(() => {
@@ -635,11 +673,18 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       applyingExternalMarkdownRef.current = true
       loadedMarkdownRef.current = { source: props.markdown }
       editor.setMarkdown(editorMarkdown)
+      refreshContents()
       window.queueMicrotask(() => {
         applyingExternalMarkdownRef.current = false
         captureLoadedBaseline()
       })
-    }, [captureLoadedBaseline, editorMarkdown, props.markdown, restoreEditorMarkdown])
+    }, [
+      captureLoadedBaseline,
+      editorMarkdown,
+      props.markdown,
+      refreshContents,
+      restoreEditorMarkdown,
+    ])
 
     const mdxEditorElement = (
       <div
@@ -730,6 +775,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
                     : MARKDOWN_SERIALIZATION_OPTIONS
                 }
                 onChange={(nextMarkdown, initialMarkdownNormalize) => {
+                  refreshContents()
                   if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
                     loadedMarkdownRef.current.baseline = restoreEditorBody(nextMarkdown)
                     return
@@ -769,6 +815,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           props.className,
         )}
         onClickCapture={openLink}
+        onMouseDownCapture={preventHeadingLinkSelection}
       >
         <CitationSelectionToolbar
           actionRef={citationActionRef}

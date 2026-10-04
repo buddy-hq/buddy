@@ -1,4 +1,38 @@
-const MARKDOWN_FRAGMENT_TARGET_SELECTOR = "[id],h1,h2,h3,h4,h5,h6,p,li,blockquote"
+import GithubSlugger from "github-slugger"
+
+const MARKDOWN_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6"
+const MARKDOWN_CONTENT_SELECTOR = ".mdxeditor-root-contenteditable"
+
+/** A rendered document heading, identified with Markdown's unique heading slug. */
+export type MarkdownBenchHeading = {
+  readonly id: string
+  readonly label: string
+  readonly level: number
+  readonly element: HTMLElement
+}
+
+function documentElements(root: HTMLElement, selector: string): HTMLElement[] {
+  const content = root.matches(MARKDOWN_CONTENT_SELECTOR)
+    ? root
+    : (root.querySelector<HTMLElement>(MARKDOWN_CONTENT_SELECTOR) ?? root)
+  return Array.from(content.querySelectorAll<HTMLElement>(selector)).filter(
+    (element) =>
+      !element.closest("[data-markdown-export-ignore]") &&
+      !element.closest('[data-component="markdown-bench-obsidian-note-embed"]') &&
+      (!content.matches(MARKDOWN_CONTENT_SELECTOR) ||
+        element.closest(MARKDOWN_CONTENT_SELECTOR) === content),
+  )
+}
+
+/** Read live headings without assigning attributes to DOM owned by the editor. */
+export function readMarkdownBenchHeadings(root: HTMLElement): MarkdownBenchHeading[] {
+  const slugger = new GithubSlugger()
+  return documentElements(root, MARKDOWN_HEADING_SELECTOR).flatMap((element) => {
+    const label = element.textContent?.trim() ?? ""
+    if (!label) return []
+    return [{ id: slugger.slug(label), label, level: Number(element.tagName.slice(1)), element }]
+  })
+}
 
 function normalizedMarkdownFragment(value: string): string {
   return value
@@ -19,20 +53,24 @@ function decodedMarkdownFragment(fragment: string): string {
   }
 }
 
+/** Resolve explicit anchors, Markdown heading slugs, and Obsidian heading/block links. */
 export function findMarkdownBenchFragmentTarget(
   root: HTMLElement,
   fragment: string,
 ): HTMLElement | undefined {
   const decoded = decodedMarkdownFragment(fragment).trim()
   if (!decoded) return undefined
+  const explicitTarget = documentElements(root, "[id]").find((element) => element.id === decoded)
+  if (explicitTarget) return explicitTarget
+  const headings = readMarkdownBenchHeadings(root)
+  const slugTarget = headings.find((heading) => heading.id === decoded)
+  if (slugTarget) return slugTarget.element
   const normalized = normalizedMarkdownFragment(decoded)
-  const blockMarker = decoded.startsWith("^") ? decoded : `^${decoded}`
-  return Array.from(root.querySelectorAll<HTMLElement>(MARKDOWN_FRAGMENT_TARGET_SELECTOR)).find(
-    (element) => {
-      if (element.id === decoded) return true
-      const text = element.textContent?.trim() ?? ""
-      if (decoded.startsWith("^") && text.endsWith(blockMarker)) return true
-      return /^H[1-6]$/u.test(element.tagName) && normalizedMarkdownFragment(text) === normalized
-    },
-  )
+  if (decoded.startsWith("^")) {
+    return documentElements(root, "p,li,blockquote").find((element) =>
+      (element.textContent?.trim() ?? "").endsWith(decoded),
+    )
+  }
+  return headings.find((heading) => normalizedMarkdownFragment(heading.label) === normalized)
+    ?.element
 }
