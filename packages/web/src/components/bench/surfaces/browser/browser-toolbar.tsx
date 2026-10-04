@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from "react"
-import { Button } from "@buddy/ui"
-import { ArrowLeftIcon, ArrowRightIcon, RefreshCwIcon } from "@/icons/app-icons"
+import { Button, RefreshIcon } from "@buddy/ui"
+import { ArrowLeftIcon, ArrowRightIcon } from "@/icons/app-icons"
 
 function BrowserToolbarButton(props: {
   label: string
@@ -58,7 +58,7 @@ export function BrowserToolbar(props: {
         disabled={!props.canGoForward}
         onClick={props.onForward}
       />
-      <BrowserToolbarButton label="Reload" icon={RefreshCwIcon} onClick={props.onReload} />
+      <BrowserToolbarButton label="Reload" icon={RefreshIcon} onClick={props.onReload} />
       {props.children}
       {props.loading ? <div aria-hidden className="browser-loading-bar" /> : null}
     </div>

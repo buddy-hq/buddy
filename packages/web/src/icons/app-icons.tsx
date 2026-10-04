@@ -113,6 +113,7 @@ import {
   Presentation01Icon as Presentation01IconData,
   PrinterIcon as PrinterIconData,
   Progress03Icon as Progress03IconData,
+  Refresh03Icon as Refresh03IconData,
   RotateLeft01Icon as RotateLeft01IconData,
   RotateRight01Icon as RotateRight01IconData,
   SaveIcon as SaveIconData,
@@ -131,6 +132,7 @@ import {
   StudyLampIcon as StudyLampIconData,
   Summation01Icon as Summation01IconData,
   Sun01Icon as Sun01IconData,
+  TaskDaily01Icon as TaskDaily01IconData,
   TeachingIcon as TeachingIconData,
   TerminalIcon as TerminalIconData,
   TextAlignJustifyCenterIcon as TextAlignJustifyCenterIconData,
@@ -148,7 +150,6 @@ import {
   ArrowExpandIcon as ArrowExpandIconData,
   ArrowExpand02Icon as ArrowExpand02IconData,
   ArrowLeft02Icon as ArrowLeft02IconData,
-  ArrowReloadHorizontalIcon as ArrowReloadHorizontalIconData,
   ArrowRight02Icon as ArrowRight02IconData,
   ArrowShrinkIcon as ArrowShrinkIconData,
   ArrowUpRight03Icon as ArrowUpRight03IconData,
@@ -429,7 +430,7 @@ export const PresentationIcon = createIcon(Presentation01IconData, "Presentation
 export const PrinterIcon = createIcon(PrinterIconData, "PrinterIcon")
 export const BlocksIcon = createIcon(BlocksIconData, "BlocksIcon")
 export const Redo2Icon = createIcon(Redo03IconData, "Redo2Icon")
-export const RefreshCwIcon = createIcon(ArrowReloadHorizontalIconData, "RefreshCwIcon")
+export const RefreshCwIcon = createIcon(Refresh03IconData, "RefreshCwIcon")
 export const RotateCcwIcon = createIcon(RotateLeft01IconData, "RotateCcwIcon")
 export const RubiksCube = createIcon(RubiksCubeIconData, "RubiksCube")
 export const RotateCwIcon = createIcon(RotateRight01IconData, "RotateCwIcon")
@@ -462,6 +463,7 @@ export const SquarePen = createIcon(PencilEdit02IconData, "SquarePen")
 export const SquarePenIcon = createIcon(PencilEdit02IconData, "SquarePenIcon")
 export const SunIcon = createIcon(Sun01IconData, "SunIcon")
 export const TableOfContents = createIcon(LeftToRightListBulletIconData, "TableOfContents")
+export const TaskDaily01Icon = createIcon(TaskDaily01IconData, "TaskDaily01Icon")
 /** Settings · Standards nav — Hugeicons free Teaching. */
 export const TeachingIcon = createIcon(TeachingIconData, "TeachingIcon")
 export const Terminal = createIcon(TerminalIconData, "Terminal")
