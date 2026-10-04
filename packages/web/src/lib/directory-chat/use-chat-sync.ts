@@ -39,7 +39,7 @@ import { normalizeSessionStatusValue } from "@/state/session-status"
 import { invalidateReferenceList } from "@/state/reference-query"
 import { invalidateNotesQueries } from "@/features/notes/queries"
 import { refetchActiveWorkspaceObjectQueries } from "@/state/workspace-objects-query"
-import { invalidateNotebookFileIndex } from "@/state/notebook-file-search"
+import { notifyNotebookFilesChanged } from "@/state/notebook-files-changed"
 import {
   removeDirectoryPermissionQueryData,
   removeDirectoryQuestionQueryData,
@@ -509,10 +509,14 @@ export function useChatSync(props: UseChatSyncProps) {
           const partResult = MessagePartEventSchema.safeParse(properties.part)
           if (!partResult.success) return
           applyPartUpdated(directory, partResult.data)
-          // Not every notebook has a file watcher, so an open search reloads its file index
-          // as soon as the agent changes files rather than when the turn ends.
-          if (FileChangingToolCompletionSchema.safeParse(partResult.data).success) {
-            void invalidateNotebookFileIndex(queryClient, directory)
+          // Not every notebook has a file watcher, so file views refresh as soon as the
+          // agent changes files rather than when the turn ends.
+          const fileChange = FileChangingToolCompletionSchema.safeParse(partResult.data)
+          if (fileChange.success) {
+            // Only shell commands can add, move, or delete PDF and EPUB sources.
+            void notifyNotebookFilesChanged(queryClient, directory, {
+              resources: fileChange.data.tool === "bash",
+            })
           }
           return
         }

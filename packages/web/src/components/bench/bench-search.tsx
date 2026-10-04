@@ -36,10 +36,8 @@ import {
   scoreNotebookSearchText,
 } from "@/state/notebook-search"
 import { useNotebookSearch } from "@/state/use-notebook-search"
-import {
-  confirmNotebookFileAvailable,
-  notebookFileMissingMessage,
-} from "@/state/notebook-file-search"
+import { confirmNotebookFileAvailable } from "@/state/notebook-files-changed"
+import { workspaceFileMissingMessage } from "@/lib/workspace-file-media"
 import { useInAppBrowserHistoryStore } from "@/state/in-app-browser-history-store"
 import {
   useInAppBrowserSettingsStore,
@@ -319,7 +317,7 @@ export function useBenchSearch(input: BenchSearchInput) {
       })
       if (pickGenerationRef.current !== pickGeneration) return
       if (!available) {
-        toast.error(notebookFileMissingMessage(result.target.path))
+        toast.error(workspaceFileMissingMessage(result.target.path))
         return
       }
     }

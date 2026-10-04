@@ -3,11 +3,11 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { act, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { setRuntimeServerConnection } from "../src/context/server"
+import { notebookFileIndexQueryKey, useNotebookFileSearch } from "../src/state/notebook-file-search"
 import {
-  invalidateNotebookFileIndex,
-  notebookFileIndexQueryKey,
-  useNotebookFileSearch,
-} from "../src/state/notebook-file-search"
+  notifyNotebookFilesChanged,
+  useNotifyNotebookFilesChangedOnWindowFocus,
+} from "../src/state/notebook-files-changed"
 import {
   notesLibraryQueryOptions,
   invalidateNotesSearchQueries,
@@ -70,6 +70,11 @@ function FileProbe(props: {
     enabled: props.enabled,
   })
   props.receive(search)
+  return null
+}
+
+function WindowFocusProbe() {
+  useNotifyNotebookFilesChangedOnWindowFocus(DIRECTORY)
   return null
 }
 
@@ -645,6 +650,7 @@ describe("shared notebook search", () => {
     let otherSearch: FileSearch | undefined
     await render(
       <>
+        <WindowFocusProbe />
         <FileProbe
           query="alpha"
           receive={(value) => {
@@ -691,14 +697,14 @@ describe("shared notebook search", () => {
     )
     await until(() => search?.matches[0] === "alpha.md", "initial index")
     await act(async () => {
-      void invalidateNotebookFileIndex(client, DIRECTORY)
+      void notifyNotebookFilesChanged(client, DIRECTORY)
     })
     await until(() => requests === 2, "immediate reload")
     // The rest of the burst lands after that walk, so one trailing reload must still see it.
     paths = ["alpha.md", "alpha-last.md"]
     await act(async () => {
       for (let change = 0; change < 5; change += 1)
-        void invalidateNotebookFileIndex(client, DIRECTORY)
+        void notifyNotebookFilesChanged(client, DIRECTORY)
     })
     expect(requests).toBe(2)
     await until(() => search?.matches.includes("alpha-last.md") === true, "trailing reload")
@@ -729,7 +735,7 @@ describe("shared notebook search", () => {
     )
     await firstLoad.promise
     await act(async () => {
-      void invalidateNotebookFileIndex(client, DIRECTORY)
+      void notifyNotebookFilesChanged(client, DIRECTORY)
     })
     await until(() => search?.matches.includes("alpha-new.md") === true, "restarted first load")
     expect(requests).toBe(2)

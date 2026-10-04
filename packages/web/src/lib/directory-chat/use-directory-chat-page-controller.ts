@@ -73,7 +73,11 @@ import {
 } from "../../state/directory-chat-query"
 import { teachingSessionStateQueryOptions } from "../../state/teaching-session-query"
 import { invalidateObsidianWatcherCaches } from "../../state/obsidian-vault-query"
-import { invalidateNotebookFileIndex } from "../../state/notebook-file-search"
+import {
+  notifyNotebookFilesChanged,
+  useNotebookFilesChangedListener,
+  useNotifyNotebookFilesChangedOnWindowFocus,
+} from "../../state/notebook-files-changed"
 import { refetchActiveWorkspaceObjectQueries } from "../../state/workspace-objects-query"
 import {
   clonePromptDraft,
@@ -392,32 +396,35 @@ export function useDirectoryChatPageController(
     [benchActionLedger, decodedDirectory, queryClient],
   )
   const onAgentTurnComplete = useCallback(() => {
-    // Watchers do not cover every notebook, so a finished turn refreshes what search sees.
-    void invalidateNotebookFileIndex(queryClient, decodedDirectory)
     void refetchActiveWorkspaceObjectQueries(queryClient, decodedDirectory)
-    return workspace.lifecycle.synchronizeCurrentWorkspaceFile({
-      reason: "turn-complete",
-    })
-  }, [decodedDirectory, queryClient, workspace.lifecycle])
+    // Watchers do not cover every notebook, so a finished turn refreshes every file view,
+    // including the open file through the files-changed listener below.
+    return notifyNotebookFilesChanged(queryClient, decodedDirectory)
+  }, [decodedDirectory, queryClient])
   const onWorkspaceFileChanged = useCallback(
     async (input: { path: string; event: "add" | "change" | "unlink" }) => {
       await Promise.all([
-        workspace.lifecycle.synchronizeWorkspaceFile({
-          path: input.path,
-          reason: "watcher",
-        }),
         invalidateObsidianWatcherCaches(queryClient, {
           directory: decodedDirectory,
           path: input.path,
           event: input.event,
         }),
+        // Adds and removals reach the open file through the files-changed listener below.
         input.event === "change"
-          ? undefined
-          : invalidateNotebookFileIndex(queryClient, decodedDirectory),
+          ? workspace.lifecycle.synchronizeWorkspaceFile({
+              path: input.path,
+              reason: "watcher",
+            })
+          : notifyNotebookFilesChanged(queryClient, decodedDirectory),
       ])
     },
     [decodedDirectory, queryClient, workspace.lifecycle],
   )
+  useNotifyNotebookFilesChangedOnWindowFocus(decodedDirectory || undefined)
+  const synchronizeOnNotebookFilesChanged = useCallback(() => {
+    void workspace.lifecycle.synchronizeCurrentWorkspaceFile({ reason: "files-changed" })
+  }, [workspace.lifecycle])
+  useNotebookFilesChangedListener(decodedDirectory || undefined, synchronizeOnNotebookFilesChanged)
   const includeReadingResourceForPrompt = !(
     benchPolicyStateForPrompt.status === "open" &&
     benchPolicyStateForPrompt.mode === BENCH_CHAT_LAYOUT_DOCKED &&

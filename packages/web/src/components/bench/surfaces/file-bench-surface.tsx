@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { AlertCircleIcon } from "@/icons/app-icons"
 import { useMemo, useState } from "react"
+import { BenchFileMissingSurface } from "@/components/bench/bench-file-missing"
 import { BenchMediaPreview } from "@/components/bench/bench-media-preview"
 import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import { BenchSurfacePending } from "@/components/bench/bench-surface-pending"
@@ -16,6 +17,7 @@ import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { isSvgMedia } from "@/lib/svg-media"
 import {
+  WorkspaceFileMissingError,
   canOpenWorkspaceFileOnBench,
   classifyWorkspaceMedia,
   isWorkspaceFileOverSoftLimit,
@@ -59,8 +61,8 @@ function ProjectFileBenchError() {
 }
 
 export function FileBenchSurface(props: { directory: string; path: string; fragment?: string }) {
-  // Reading resources render through DirectoryChatReadingPage and never consult the metadata, so
-  // the request would be issued and discarded on every epub or PDF open.
+  // Reading resources render through DirectoryChatReadingPage, which checks its own source file,
+  // so a request here would be issued and discarded on every epub or PDF open.
   const isReadingResource = isSupportedReadingResourcePath(props.path)
   const metadataQuery = useQuery({
     ...workspaceFileMetadataQueryOptions({ directory: props.directory, path: props.path }),
@@ -86,8 +88,11 @@ export function FileBenchSurface(props: { directory: string; path: string; fragm
       />
     )
   }
+  const missingOnDisk = metadataQuery.error instanceof WorkspaceFileMissingError
   if (metadataQuery.isPending) return <ProjectFileBenchPending />
-  if (metadataQuery.isError || !metadataQuery.data) return <ProjectFileBenchError />
+  if (!metadataQuery.data) {
+    return missingOnDisk ? <BenchFileMissingSurface path={props.path} /> : <ProjectFileBenchError />
+  }
 
   return (
     <ProjectFileBenchView
@@ -95,6 +100,7 @@ export function FileBenchSurface(props: { directory: string; path: string; fragm
       directory={props.directory}
       path={props.path}
       metadata={metadataQuery.data}
+      missingOnDisk={missingOnDisk}
     />
   )
 }
@@ -103,14 +109,23 @@ function ProjectFileBenchView(props: {
   directory: string
   path: string
   metadata: { mimeType: string | undefined; sizeBytes: number | undefined }
+  missingOnDisk: boolean
 }) {
-  const [approved, setApproved] = useState(() =>
-    consumeWorkspaceFileLargeOpenApproval(props.directory, props.path),
+  // A file that has been open under the limit stays open as it grows, so a metadata refresh after
+  // an agent edit never swaps an editor, and its unsaved changes, for the large-file warning.
+  const [approved, setApproved] = useState(
+    () =>
+      consumeWorkspaceFileLargeOpenApproval(props.directory, props.path) ||
+      !isWorkspaceFileOverSoftLimit({ path: props.path, ...props.metadata }),
   )
   const classification = classifyWorkspaceMedia({ path: props.path, ...props.metadata })
   const overSoftLimit = isWorkspaceFileOverSoftLimit({ path: props.path, ...props.metadata })
+  if (!overSoftLimit && !approved) setApproved(true)
 
   if (overSoftLimit && !approved && props.metadata.sizeBytes !== undefined) {
+    // A failed refresh keeps the last metadata, so a deleted file would otherwise stay behind
+    // the warning.
+    if (props.missingOnDisk) return <BenchFileMissingSurface path={props.path} />
     return (
       <BenchStaticContextProvider
         status="ready"
@@ -131,19 +146,37 @@ function ProjectFileBenchView(props: {
     )
   }
 
-  if (
+  const mediaRenderMode =
     classification.renderMode === "image" ||
     classification.renderMode === "audio" ||
     classification.renderMode === "video"
-  ) {
-    return <ProjectFileMediaView {...props} renderMode={classification.renderMode} />
-  }
+      ? classification.renderMode
+      : undefined
 
-  if (canOpenWorkspaceFileOnBench({ path: props.path, ...props.metadata })) {
+  if (!mediaRenderMode && canOpenWorkspaceFileOnBench({ path: props.path, ...props.metadata })) {
     return <SourceFileBenchView directory={props.directory} path={props.path} />
   }
 
-  return <ProjectFileUnsupportedView {...props} mediaKind={classification.mediaKind} />
+  if (props.missingOnDisk) return <BenchFileMissingSurface path={props.path} />
+
+  if (mediaRenderMode) {
+    return (
+      <ProjectFileMediaView
+        directory={props.directory}
+        path={props.path}
+        metadata={props.metadata}
+        renderMode={mediaRenderMode}
+      />
+    )
+  }
+
+  return (
+    <ProjectFileUnsupportedView
+      path={props.path}
+      metadata={props.metadata}
+      mediaKind={classification.mediaKind}
+    />
+  )
 }
 
 function ProjectFileMediaView(props: {

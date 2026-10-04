@@ -19,10 +19,8 @@ import {
 } from "@buddy/ui"
 import { Gamepad2Icon, PenLineIcon } from "@/icons/app-icons"
 import { NOTEBOOK_SEARCH_FILTER_ALL } from "@/state/notebook-search"
-import {
-  confirmNotebookFileAvailable,
-  notebookFileMissingMessage,
-} from "@/state/notebook-file-search"
+import { confirmNotebookFileAvailable } from "@/state/notebook-files-changed"
+import { workspaceFileMissingMessage } from "@/lib/workspace-file-media"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNotebookSearch } from "@/state/use-notebook-search"
 import type { SessionInfo } from "@/state/chat-types"
@@ -1451,7 +1449,7 @@ export function PromptComposer(props: PromptComposerProps) {
         })
         if (mentionMenuGenerationRef.current !== menuGeneration) return
         if (!available) {
-          toast.error(notebookFileMissingMessage(path))
+          toast.error(workspaceFileMissingMessage(path))
           return
         }
       } finally {

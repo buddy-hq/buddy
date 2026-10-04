@@ -400,7 +400,7 @@ export function resourcesQueryOptions(directory: string) {
   return queryOptions({
     queryKey: resourcesQueryKey(directory),
     queryFn: async ({ client }) => {
-      const discovered = await client.ensureQueryData(resourceDiscoveryQueryOptions(directory))
+      const discovered = await client.fetchQuery(resourceDiscoveryQueryOptions(directory))
       return loadResourceDirectoryData(directory, discovered)
     },
     refetchInterval: (query) =>
@@ -446,15 +446,27 @@ export function readingResourceBlobQueryOptions(directory: string, resourcePath:
   })
 }
 
+async function markResourceDiscoveryStale(queryClient: QueryClient, directory: string) {
+  const queryKey = resourceDiscoveryQueryKey(directory)
+  // A walk already running may have passed the change, and the composite query would join it
+  // rather than start a new one.
+  await queryClient.cancelQueries({ queryKey })
+  // Discovery is intentionally independent from preparation polling. Mark it stale first so the
+  // composite query's next load refreshes file paths exactly once after a resource mutation.
+  await queryClient.invalidateQueries({ queryKey, refetchType: "none" })
+}
+
+export async function invalidateResourceDiscovery(queryClient: QueryClient, directory: string) {
+  if (!directory) return
+
+  await markResourceDiscoveryStale(queryClient, directory)
+  await queryClient.invalidateQueries({ queryKey: resourcesQueryKey(directory) })
+}
+
 export async function invalidateResourcesQueries(queryClient: QueryClient, directory: string) {
   if (!directory) return
 
-  // Discovery is intentionally independent from preparation polling. Mark it stale first so the
-  // composite query's next load refreshes file paths exactly once after a resource mutation.
-  await queryClient.invalidateQueries({
-    queryKey: resourceDiscoveryQueryKey(directory),
-    refetchType: "none",
-  })
+  await markResourceDiscoveryStale(queryClient, directory)
 
   await Promise.all([
     queryClient.invalidateQueries({
