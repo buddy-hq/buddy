@@ -45,19 +45,19 @@ describe("presented media path helpers", () => {
     ).toEqual([])
   })
 
-  test("collects workspace-relative candidates with spaces and unicode characters", () => {
+  test("collects explicit workspace-relative candidates with spaces and unicode characters", () => {
     expect(
       collectPresentedMediaCandidatePaths(
         [
-          "generated/Mark Richards; Neal Ford - Fundamentals of Software Architecture.pdf",
-          "generated/Command R+ Blog Header.png",
-          "generated/Рильке, Райнер Мария - Letters to a Young Poet.epub",
+          "./generated/Mark Richards; Neal Ford - Fundamentals of Software Architecture.pdf",
+          "./generated/Command R+ Blog Header.png",
+          "./generated/Рильке, Райнер Мария - Letters to a Young Poet.epub",
         ].join("\n"),
       ),
     ).toEqual([
-      "generated/Mark Richards; Neal Ford - Fundamentals of Software Architecture.pdf",
-      "generated/Command R+ Blog Header.png",
-      "generated/Рильке, Райнер Мария - Letters to a Young Poet.epub",
+      "./generated/Mark Richards; Neal Ford - Fundamentals of Software Architecture.pdf",
+      "./generated/Command R+ Blog Header.png",
+      "./generated/Рильке, Райнер Мария - Letters to a Young Poet.epub",
     ])
   })
 
@@ -122,6 +122,12 @@ describe("presented media path helpers", () => {
     expect(collectPresentedMediaCandidatePaths("generated/report (1).pdf")).toEqual([
       "generated/report (1).pdf",
     ])
+    expect(collectPresentedMediaCandidatePaths("generated/report(1).pdf")).toEqual([
+      "generated/report(1).pdf",
+    ])
+    expect(collectPresentedMediaCandidatePaths("src/app/(auth)/page.tsx")).toEqual([
+      "src/app/(auth)/page.tsx",
+    ])
     expect(collectPresentedMediaCandidatePaths("./artifacts/report (1).pdf")).toEqual([
       "./artifacts/report (1).pdf",
     ])
@@ -167,11 +173,38 @@ describe("presented media path helpers", () => {
       "and/or",
       "24/7",
       "1/2",
+      "token/s",
+      "req/s",
+      "MB/s",
+      "tokens/s, see README.md",
+      "tokens/s, saved results in report.csv",
+      "token/s; see README.md",
+      "MB/s and README.md",
+      "and/or see README.md",
+      "50 tokens/s. see README.md",
+      "req/s, max = 32.98ms",
+      "ratio 1/2, report.csv",
     ]
 
     expect(proseWithSlash.map((text) => [text, collectPresentedMediaCandidatePaths(text)])).toEqual(
       proseWithSlash.map((text) => [text, []]),
     )
+  })
+
+  test("finds later file paths without borrowing their extension for a unit", () => {
+    const cases: [string, string[]][] = [
+      ["50 tokens/s, see docs/report.pdf", ["docs/report.pdf"]],
+      ["50 token/s. see docs/report.pdf", ["docs/report.pdf"]],
+      ["50 req/s and docs/report.pdf", ["docs/report.pdf"]],
+      ["50 tokens/s, see generated/report(1).pdf", ["generated/report(1).pdf"]],
+      ["See src/app/(auth)/page.tsx; 50 tokens/s", ["src/app/(auth)/page.tsx"]],
+      ["units MB/s; artifact ./report.csv", ["./report.csv"]],
+      ["ratio 1/2, see /tmp/report.pdf", ["/tmp/report.pdf"]],
+      ["MB/s, saved to C:\\Reports\\final report.pdf", ["C:\\Reports\\final report.pdf"]],
+      ["req/s, read \\\\server\\share\\report.pdf", ["\\\\server\\share\\report.pdf"]],
+    ]
+
+    expect(cases.map(([text]) => [text, collectPresentedMediaCandidatePaths(text)])).toEqual(cases)
   })
 
   test("stops a relative path before a decimal number that follows it", () => {
@@ -193,18 +226,18 @@ describe("presented media path helpers", () => {
     expect(collectPresentedMediaCandidatePaths("docs/v1.2/guide.pdf")).toEqual([
       "docs/v1.2/guide.pdf",
     ])
-    expect(collectPresentedMediaCandidatePaths("generated/report v1.2.pdf")).toEqual([
-      "generated/report v1.2.pdf",
+    expect(collectPresentedMediaCandidatePaths("./generated/report v1.2.pdf")).toEqual([
+      "./generated/report v1.2.pdf",
     ])
-    expect(collectPresentedMediaCandidatePaths("2024/Q3 report.pdf")).toEqual([
-      "2024/Q3 report.pdf",
+    expect(collectPresentedMediaCandidatePaths("./2024/Q3 report.pdf")).toEqual([
+      "./2024/Q3 report.pdf",
     ])
     expect(collectPresentedMediaCandidatePaths("reports/a=b.pdf")).toEqual(["reports/a=b.pdf"])
     expect(collectPresentedMediaCandidatePaths("year=2024/month=01/part.parquet")).toEqual([
       "year=2024/month=01/part.parquet",
     ])
-    expect(collectPresentedMediaCandidatePaths("generated/My Folder/file.pdf")).toEqual([
-      "generated/My Folder/file.pdf",
+    expect(collectPresentedMediaCandidatePaths("./generated/My Folder/file.pdf")).toEqual([
+      "./generated/My Folder/file.pdf",
     ])
     expect(collectPresentedMediaCandidatePaths("notes/Week 1/worksheet.pdf")).toEqual([
       "notes/Week 1/worksheet.pdf",
@@ -228,14 +261,14 @@ describe("presented media path helpers", () => {
     expect(cases.map(([text]) => [text, collectPresentedMediaCandidatePaths(text)])).toEqual(cases)
   })
 
-  test("keeps periods inside spaced names from ending a relative path", () => {
+  test("keeps periods inside explicitly relative spaced names", () => {
     const names = [
-      "generated/Dr. Smith.pdf",
-      "generated/John F. Kennedy - Profiles.pdf",
-      "generated/Tolkien, J.R.R. Collection/report.pdf",
+      "./generated/Dr. Smith.pdf",
+      "./generated/John F. Kennedy - Profiles.pdf",
+      "./generated/Tolkien, J.R.R. Collection/report.pdf",
       "generated/report (v1. Final).pdf",
-      "generated/v1.2 final/report.pdf",
-      "generated/Vol. 2 notes.pdf",
+      "./generated/v1.2 final/report.pdf",
+      "./generated/Vol. 2 notes.pdf",
     ]
 
     expect(names.map((text) => [text, collectPresentedMediaCandidatePaths(text)])).toEqual(
@@ -256,8 +289,8 @@ describe("presented media path helpers", () => {
       ["Compare (generated/a.pdf) and (generated/b.pdf)", ["generated/a.pdf", "generated/b.pdf"]],
       ["Open Week 1/a.pdf and Week 2/b.pdf", ["Week 1/a.pdf", "Week 2/b.pdf"]],
       [
-        "generated/Smith, John/a.pdf and generated/Jones, Jane/b.pdf",
-        ["generated/Smith, John/a.pdf", "generated/Jones, Jane/b.pdf"],
+        "./generated/Smith, John/a.pdf and ./generated/Jones, Jane/b.pdf",
+        ["./generated/Smith, John/a.pdf", "./generated/Jones, Jane/b.pdf"],
       ],
     ]
 
@@ -267,9 +300,9 @@ describe("presented media path helpers", () => {
   test("keeps spaced relative names whole", () => {
     const names = [
       "Week 1/worksheet.pdf",
-      "generated/Command R+ Blog Header.png",
-      "generated/Mark Richards; Neal Ford - Fundamentals of Software Architecture.pdf",
-      "generated/Рильке, Райнер Мария - Letters to a Young Poet.epub",
+      "./generated/Command R+ Blog Header.png",
+      "./generated/Mark Richards; Neal Ford - Fundamentals of Software Architecture.pdf",
+      "./generated/Рильке, Райнер Мария - Letters to a Young Poet.epub",
       "generated/report (1).pdf",
       "notes/Week 1/worksheet.pdf",
     ]
