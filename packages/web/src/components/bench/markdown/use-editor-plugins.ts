@@ -32,6 +32,7 @@ import { buddyHardBreakPlugin } from "@/components/bench/markdown/plugins/hard-b
 import { buddyFrontmatterPlugin } from "@/components/bench/markdown/plugins/frontmatter"
 import { buddyFormattingRunsPlugin } from "@/components/bench/markdown/plugins/formatting-runs"
 import { buddyListFidelityPlugin } from "@/components/bench/markdown/plugins/list-fidelity"
+import { buddyMarkdownPastePlugin } from "@/components/bench/markdown/plugins/markdown-paste"
 import { buddyMathPlugin } from "@/components/bench/markdown/plugins/math"
 import { buddyMdxEsmPlugin } from "@/components/bench/markdown/plugins/mdx-esm"
 import { buddyObsidianPlainSyntaxPlugin } from "@/components/bench/markdown/plugins/obsidian-plain-syntax"
@@ -137,6 +138,7 @@ export function useMarkdownBenchEditorPlugins(input: {
         onProcessingErrorChange: onProcessingErrorChange,
       }),
       markdownShortcutPlugin(),
+      buddyMarkdownPastePlugin({ documentFormat }),
       toolbarPlugin({
         toolbarClassName: "!hidden",
         toolbarContents: MarkdownBenchToolbarContents,

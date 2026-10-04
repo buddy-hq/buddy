@@ -250,6 +250,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
           <CopyAction
             value={displayedText}
             label="Copy response"
+            markdown
             className="h-auto w-auto shrink-0 rounded-sm p-0 text-inherit hover:bg-transparent hover:text-text-weak"
           />
           {onForkMessage ? (
