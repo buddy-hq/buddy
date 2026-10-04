@@ -61,7 +61,9 @@ describe("markdown link decoration", () => {
     const link = container.querySelector("a.external-link")
     const favicon = link?.querySelector('[data-slot="link-favicon"]')
     const faviconImg = favicon?.querySelector("img")
-    expect(faviconImg?.getAttribute("src")).toBe("https://developer.mozilla.org/favicon.ico")
+    expect(faviconImg?.getAttribute("src")).toBe(
+      "https://www.google.com/s2/favicons?domain=developer.mozilla.org&sz=32",
+    )
     expect(faviconImg?.classList.contains("m-0")).toBe(true)
     expect(favicon?.classList.contains("align-middle")).toBe(true)
     expect(favicon?.classList.contains("leading-none")).toBe(true)
@@ -74,6 +76,31 @@ describe("markdown link decoration", () => {
     const favicon = container.querySelector('a.external-link [data-slot="link-favicon"]')
     expect(favicon?.querySelector("svg")).not.toBeNull()
     expect(favicon?.querySelector("img")).toBeNull()
+  })
+
+  test("keeps private website links on the globe without a public-provider request", async () => {
+    for (const url of [
+      "http://localhost:3000/private",
+      "http://192.168.1.10/account",
+      "http://[::1]/private",
+      "https://notebook.internal/page",
+    ]) {
+      await renderMarkdown(`[Private page](${url})`)
+      const link = container.querySelector("a.external-link")
+      expect(link?.getAttribute("href")).toBe(url)
+      expect(link?.textContent).toBe("Private page")
+      const favicon = link?.querySelector('[data-slot="link-favicon"]')
+      expect(favicon?.querySelector("img")).toBeNull()
+      expect(favicon?.querySelector("svg")).not.toBeNull()
+    }
+  })
+
+  test("leaves raw non-website external anchors undecorated", async () => {
+    await renderMarkdown('<a class="external-link" href="mailto:help@example.com">Email</a>')
+    const link = container.querySelector("a.external-link")
+    expect(link?.getAttribute("href")).toBe("mailto:help@example.com")
+    expect(link?.textContent).toBe("Email")
+    expect(link?.querySelector('[data-slot="link-favicon"]')).toBeNull()
   })
 
   test("keeps a link that wraps inline code", async () => {
@@ -353,17 +380,20 @@ describe("markdown link decoration", () => {
   })
 
   test("retries a failed favicon after a while", async () => {
-    await renderMarkdown("[Retry one](https://retry.example/one)")
+    await renderMarkdown("[Retry one](https://retry.example.com/one)")
     const image = container.querySelector('[data-slot="link-favicon"] img')
+    expect(image?.getAttribute("src")).toBe(
+      "https://www.google.com/s2/favicons?domain=retry.example.com&sz=32",
+    )
     image?.dispatchEvent(new Event("error"))
     expect(container.querySelector('[data-slot="link-favicon"] svg')).not.toBeNull()
 
-    await renderMarkdown("[Retry two](https://retry.example/two)")
+    await renderMarkdown("[Retry two](https://retry.example.com/two)")
     expect(container.querySelector('[data-slot="link-favicon"] img')).toBeNull()
 
     setSystemTime(new Date(Date.now() + 11 * 60 * 1000))
     try {
-      await renderMarkdown("[Retry three](https://retry.example/three)")
+      await renderMarkdown("[Retry three](https://retry.example.com/three)")
       expect(container.querySelector('[data-slot="link-favicon"] img')).not.toBeNull()
     } finally {
       setSystemTime()
