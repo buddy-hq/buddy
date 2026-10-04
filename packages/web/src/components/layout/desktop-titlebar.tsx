@@ -42,6 +42,7 @@ type DesktopTitlebarProps = {
   isTurnActive?: boolean
   variant?: "chat" | "shell"
   leftSidebarOpen?: boolean
+  leftSidebarOverlayOpen?: boolean
   rightWorkspaceOpen?: boolean
   onLeftSidebarToggle?: () => void
   onRightWorkspaceToggle?: () => void
@@ -161,6 +162,8 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const rightWorkspaceOpen = props.rightWorkspaceOpen ?? false
   const [isFullscreen, setIsFullscreen] = useState(false)
   const resolvedLeftSidebarOpen = props.leftSidebarOpen ?? leftSidebarOpen
+  const chatTitleActive =
+    (props.isTurnActive ?? false) && !resolvedLeftSidebarOpen && !props.leftSidebarOverlayOpen
   const showSidebarToggles =
     props.showSidebarToggles ??
     (placement === "chat" || (pathname !== "/chat" && pathname.endsWith("/chat")))
@@ -557,7 +560,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                     showHistory
                     size="titlebar"
                     title={props.chatTitle}
-                    titleActive={props.isTurnActive}
+                    titleActive={chatTitleActive}
                     className="[-webkit-app-region:no-drag]"
                   />
                 </div>
@@ -600,7 +603,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
               {!props.showThreadBrowser ? (
                 <h1 className="min-w-0 max-w-[24rem] self-center truncate px-4 text-sm font-medium text-text-strong">
                   {props.chatTitle ? (
-                    <TextShimmer text={props.chatTitle} active={props.isTurnActive ?? false} />
+                    <TextShimmer text={props.chatTitle} active={chatTitleActive} />
                   ) : null}
                 </h1>
               ) : null}

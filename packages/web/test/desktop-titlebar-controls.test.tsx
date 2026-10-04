@@ -16,16 +16,15 @@ const TEST_DESKTOP_PLATFORM = {
   os: "macos",
 } satisfies Platform
 
-function TitlebarProbe(props: {
-  leftSidebarOpen: boolean
-  showThreadBrowser: boolean
-  onNewSession: () => void
-}) {
+function TitlebarProbe(props: TTitlebarRouterProps) {
   return (
     <DesktopTitlebar
       placement="chat"
       variant="chat"
+      chatTitle="A chat in progress"
+      isTurnActive={props.isTurnActive}
       leftSidebarOpen={props.leftSidebarOpen}
+      leftSidebarOverlayOpen={props.leftSidebarOverlayOpen}
       showThreadBrowser={props.showThreadBrowser}
       sessions={[]}
       onNewSession={props.onNewSession}
@@ -38,7 +37,7 @@ function TitlebarRouterRoute() {
   const props = titlebarRouterProps
   if (!props) return null
   return (
-    <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
+    <PlatformProvider value={props.platform ?? TEST_DESKTOP_PLATFORM}>
       <TitlebarProbe {...props} />
     </PlatformProvider>
   )
@@ -46,7 +45,10 @@ function TitlebarRouterRoute() {
 
 type TTitlebarRouterProps = {
   leftSidebarOpen: boolean
+  leftSidebarOverlayOpen?: boolean
+  isTurnActive?: boolean
   showThreadBrowser: boolean
+  platform?: Platform
   onNewSession: () => void
 }
 
@@ -131,4 +133,67 @@ describe("desktop titlebar new chat control", () => {
     expect(container.querySelectorAll('[aria-label="New chat"]')).toHaveLength(1)
     expect(container.querySelector('[data-action="chat-new-session"]')).not.toBeNull()
   })
+
+  test.each([
+    { os: "macos", showThreadBrowser: false },
+    { os: "macos", showThreadBrowser: true },
+    { os: "windows", showThreadBrowser: false },
+    { os: "windows", showThreadBrowser: true },
+  ] as const)(
+    "shows title progress only while the sidebar is hidden ($os, thread browser: $showThreadBrowser)",
+    async ({ os, showThreadBrowser }) => {
+      Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+      container = document.createElement("div")
+      document.body.appendChild(container)
+      root = createRoot(container)
+
+      for (const state of [
+        {
+          leftSidebarOpen: false,
+          leftSidebarOverlayOpen: false,
+          isTurnActive: true,
+          active: "true",
+        },
+        {
+          leftSidebarOpen: true,
+          leftSidebarOverlayOpen: false,
+          isTurnActive: true,
+          active: "false",
+        },
+        {
+          leftSidebarOpen: false,
+          leftSidebarOverlayOpen: true,
+          isTurnActive: true,
+          active: "false",
+        },
+        {
+          leftSidebarOpen: false,
+          leftSidebarOverlayOpen: false,
+          isTurnActive: true,
+          active: "true",
+        },
+        {
+          leftSidebarOpen: false,
+          leftSidebarOverlayOpen: false,
+          isTurnActive: false,
+          active: "false",
+        },
+      ]) {
+        await act(async () => {
+          root?.render(
+            <TitlebarRouterProvider
+              {...state}
+              showThreadBrowser={showThreadBrowser}
+              platform={{ ...TEST_DESKTOP_PLATFORM, os }}
+              onNewSession={() => undefined}
+            />,
+          )
+        })
+
+        const title = container.querySelector('[aria-label="A chat in progress"]')
+        expect(title).not.toBeNull()
+        expect(title?.getAttribute("data-active")).toBe(state.active)
+      }
+    },
+  )
 })
