@@ -189,6 +189,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
             isTurnActive={isTurnActive}
             variant={titlebarVariant}
             leftSidebarOpen={leftSidebarOpen}
+            leftSidebarOverlayOpen={leftSidebarOverlayOpen}
             rightWorkspaceOpen={rightWorkspaceOpen}
             onLeftSidebarToggle={onLeftSidebarToggle}
             onRightWorkspaceToggle={handleRightWorkspaceToggle}
