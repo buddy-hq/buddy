@@ -16,6 +16,7 @@ import { CHAT_MARKDOWN_TEXT_STYLE } from "../../chat-text-styles"
 import { filterStagedQuotes, useStagedQuotes } from "@/lib/citations/staged-quotes"
 import { QuoteCommentMarkers } from "@/components/citations/quote-comment-markers"
 import { useRenderedTextCommentAnchors } from "@/components/citations/use-rendered-text-comment-anchors"
+import { formatMessageElapsedTime } from "../../message-elapsed-time"
 
 type AssistantTextPartProps = {
   part: ChatTextPart
@@ -23,6 +24,8 @@ type AssistantTextPartProps = {
   ownsActions: boolean
   /** The turn is terminal, so the footer's controls exist. */
   actionsEnabled: boolean
+  /** Show the age of the latest settled assistant reply beside its controls. */
+  showElapsedTime?: boolean
   interrupted?: boolean
   streaming?: boolean
   stripLeadingFigureImage?: boolean
@@ -74,6 +77,7 @@ function assistantTextPartEqual(
   if (prevProps.part.id !== nextProps.part.id) return false
   if (prevProps.ownsActions !== nextProps.ownsActions) return false
   if (prevProps.actionsEnabled !== nextProps.actionsEnabled) return false
+  if (prevProps.showElapsedTime !== nextProps.showElapsedTime) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.streaming !== nextProps.streaming) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
@@ -89,6 +93,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   part,
   ownsActions,
   actionsEnabled,
+  showElapsedTime = false,
   interrupted,
   streaming = false,
   stripLeadingFigureImage,
@@ -99,6 +104,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   onQuoteMessage,
 }: AssistantTextPartProps) {
   const [branching, setBranching] = useState(false)
+  const [elapsedNow, setElapsedNow] = useState(() => Date.now())
   const textPartRef = useRef<HTMLDivElement>(null)
   const stagedQuotes = useStagedQuotes()
   const partQuotes = useMemo(
@@ -127,6 +133,27 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   })
   const useStreamingMath = streaming || displayedText !== visibleText || interrupted === true
   const message = useTranscriptMessage(part.messageID)
+  const completedAt = message?.role === "assistant" ? message.time.completed : undefined
+  let elapsedAt: number | undefined
+  if (message?.role === "assistant") {
+    elapsedAt = message.time.created
+    if (
+      completedAt !== undefined &&
+      completedAt !== null &&
+      Number.isFinite(completedAt) &&
+      completedAt >= message.time.created
+    ) {
+      elapsedAt = completedAt
+    }
+  }
+  const elapsedDate = elapsedAt === undefined ? undefined : new Date(elapsedAt)
+  const elapsedTimestamp =
+    elapsedDate && Number.isFinite(elapsedDate.getTime()) ? elapsedDate.toISOString() : undefined
+  const elapsedTime =
+    showElapsedTime && elapsedTimestamp !== undefined
+      ? formatMessageElapsedTime(elapsedTimestamp, elapsedNow)
+      : undefined
+  const refreshElapsedTime = showElapsedTime ? () => setElapsedNow(Date.now()) : undefined
   const mermaidContext: MarkdownMermaidContext | undefined =
     directory && part.sessionID && part.messageID && part.id
       ? {
@@ -164,7 +191,12 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   }
 
   return (
-    <div ref={textPartRef} className="group/text-part relative min-w-0 w-full max-w-full">
+    <div
+      ref={textPartRef}
+      className="group/text-part relative min-w-0 w-full max-w-full"
+      onMouseEnter={refreshElapsedTime}
+      onFocusCapture={refreshElapsedTime}
+    >
       <QuoteCommentMarkers anchors={commentAnchors} />
       <div
         data-chat-typography
@@ -239,6 +271,14 @@ export const AssistantTextPart = memo(function AssistantTextPart({
                 <p>{language.t("chat.assistantMessage.branch")}</p>
               </TooltipContent>
             </Tooltip>
+          ) : null}
+          {elapsedTimestamp && elapsedTime ? (
+            <time
+              className="inline-flex h-4 shrink-0 items-center text-xs leading-none"
+              dateTime={elapsedTimestamp}
+            >
+              {elapsedTime}
+            </time>
           ) : null}
         </div>
       ) : null}

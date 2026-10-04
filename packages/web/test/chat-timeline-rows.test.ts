@@ -150,6 +150,59 @@ function assistantRow(
 }
 
 describe("chat timeline rows", () => {
+  test("marks only the latest settled assistant reply for elapsed time", () => {
+    const latestUserMessageID = "msg_latest_user"
+    const rows = rowsFor([
+      userMessage({ id: "msg_older_user" }),
+      assistantMessage("msg_older_assistant", [textPart("older_reply")]),
+      userMessage({ id: latestUserMessageID }),
+      assistantMessage("msg_latest_assistant", [textPart("latest_reply")]),
+    ])
+    const elapsedRows = rows.filter(
+      (row) => (row.type === "user" || row.type === "assistant") && row.showElapsedTime === true,
+    )
+
+    expect(elapsedRows).toHaveLength(1)
+    expect(elapsedRows[0]).toMatchObject({
+      type: "assistant",
+      userMessageID: latestUserMessageID,
+    })
+  })
+
+  test("falls back to the latest user message when its stopped turn has no visible reply", () => {
+    const latestUserMessageID = "msg_stopped_user"
+    const stoppedAssistant = createMessageWithParts(
+      createAssistantMessageInfo({
+        id: "msg_stopped_assistant",
+        sessionID: "ses_rows",
+        finish: "aborted",
+      }),
+      [
+        {
+          id: "stopped_reasoning",
+          sessionID: "ses_rows",
+          messageID: "msg_stopped_assistant",
+          type: "reasoning",
+          text: "Thinking before the stop",
+          time: { start: 1, end: 2 },
+        },
+      ],
+    )
+    const rows = rowsFor([userMessage({ id: latestUserMessageID }), stoppedAssistant])
+    const elapsedRows = rows.filter(
+      (row) => (row.type === "user" || row.type === "assistant") && row.showElapsedTime === true,
+    )
+    const pendingRows = rowsFor([userMessage({ id: "msg_pending_user" })], true)
+
+    expect(elapsedRows).toHaveLength(1)
+    expect(elapsedRows[0]).toMatchObject({ type: "user", userMessageID: latestUserMessageID })
+    expect(
+      pendingRows.some(
+        (row) => (row.type === "user" || row.type === "assistant") && row.showElapsedTime === true,
+      ),
+    ).toBe(false)
+  })
+
   test("keeps a completed empty reasoning part as a thought row", () => {
     const reasoning: MessagePart = {
       id: "reasoning-empty-summary",

@@ -18,6 +18,8 @@ export type AssistantPartRendererProps = {
   part: MessagePart
   actionPartID?: string
   actionsEnabled?: boolean
+  /** Show the age of the latest settled assistant reply beside its controls. */
+  showElapsedTime?: boolean
   metaText?: string
   interrupted?: boolean
   streaming?: boolean
@@ -40,6 +42,7 @@ function assistantPartRendererEqual(
   if (prevProps.part.id !== nextProps.part.id) return false
   if (prevProps.actionPartID !== nextProps.actionPartID) return false
   if (prevProps.actionsEnabled !== nextProps.actionsEnabled) return false
+  if (prevProps.showElapsedTime !== nextProps.showElapsedTime) return false
   if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.streaming !== nextProps.streaming) return false
@@ -74,6 +77,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   part,
   actionPartID,
   actionsEnabled = false,
+  showElapsedTime = false,
   interrupted,
   streaming = false,
   onOpenSession,
@@ -96,6 +100,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         part={part}
         ownsActions={actionPartID === part.id}
         actionsEnabled={actionsEnabled}
+        showElapsedTime={showElapsedTime}
         interrupted={interrupted}
         streaming={streaming}
         stripLeadingFigureImage={stripLeadingFigureImage}

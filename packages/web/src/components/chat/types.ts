@@ -77,6 +77,8 @@ export type UserSectionProps = {
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   /** `text` is the quoted message, not a note: the composer takes the note itself. */
   onQuoteMessage?: (input: { sessionID: string; messageID: string; text: string }) => void
+  /** Show age for the latest user message when the latest settled turn has no visible assistant reply. */
+  showElapsedTime?: boolean
   /** Play the transform/opacity entrance once, when this message is first sent. */
   animateEntrance?: boolean
 }
