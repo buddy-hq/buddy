@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { MarkdownBenchDocumentFormat } from "@buddy/workspace-file-policy"
 import { BenchMediaMessage } from "@/components/bench/bench-media-preview"
 import { useBenchRouteContextOptional } from "@/components/bench/bench-route-context"
@@ -6,7 +6,13 @@ import { BenchSurfacePending } from "@/components/bench/bench-surface-pending"
 import type { BenchViewerAction } from "@/components/bench/bench-viewer-shell"
 import { BenchSurfaceViewer } from "@/components/bench/bench-viewer-shell"
 import { useMarkdownBenchContentTheme } from "@/components/bench/markdown/use-content-theme"
-import { MarkdownBenchEditor } from "@/components/bench/markdown/editor"
+import {
+  MarkdownBenchEditor,
+  type MarkdownBenchEditorHandle,
+} from "@/components/bench/markdown/editor"
+import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
+import type { MarkdownBenchContentsState } from "@/components/bench/markdown/use-contents"
+import { ReaderTocPopover } from "@/components/readers/ui/reader-toc-popover"
 import type {
   ObsidianEmbeddedMarkdownLoader,
   ObsidianWikiLinkContext,
@@ -64,6 +70,16 @@ const EXTERNAL_MARKDOWN_EMBED_LOADER: ObsidianEmbeddedMarkdownLoader = {
  * This is the same editor used by notes, without save/rename. Edits are discarded.
  */
 export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps) {
+  const editorRef = useRef<MarkdownBenchEditorHandle>(null)
+  const [contents, setContents] = useState<MarkdownBenchContentsState>({
+    items: [],
+    activeItemId: undefined,
+  })
+  const [contentsOpen, setContentsOpen] = useState(false)
+  const surfaceActive = useBenchSurfaceActive()
+  useEffect(() => {
+    if (!surfaceActive) setContentsOpen(false)
+  }, [surfaceActive])
   const citeSelection = useMarkdownBenchSelectionSync({
     path: props.path,
     promptKey: props.promptKey,
@@ -116,6 +132,19 @@ export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps
       actions={props.actions}
       controlsPlacement="dock"
       hideHeader
+      toolbar={
+        <ReaderTocPopover
+          items={contents.items}
+          activeItemId={contents.activeItemId}
+          emptyMessage="No headings in this document."
+          open={contentsOpen}
+          onOpenChange={setContentsOpen}
+          onSelect={(id) => {
+            editorRef.current?.scrollToHeading(id)
+            setContentsOpen(false)
+          }}
+        />
+      }
     >
       {showPending ? (
         <BenchSurfacePending />
@@ -133,6 +162,7 @@ export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps
           </div>
           <div className="min-h-0 flex-1 overflow-hidden">
             <MarkdownBenchEditor
+              ref={editorRef}
               markdown={markdown}
               version={props.version}
               dirty={false}
@@ -149,6 +179,7 @@ export function ReadOnlyMarkdownBenchView(props: TReadOnlyMarkdownBenchViewProps
               viewportKey={props.viewportKey}
               obsidianWikiLinkContext={wikiLinkContext}
               onChange={ignoreReadOnlyMarkdownChange}
+              onContentsChange={setContents}
               onOpenLink={openLink}
               onCiteSelection={citeSelection}
             />

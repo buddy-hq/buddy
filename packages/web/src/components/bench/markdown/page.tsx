@@ -5,7 +5,10 @@ import {
   markdownBenchDocumentFormatFromPath,
 } from "@buddy/workspace-file-policy"
 import { BenchViewerShell, type BenchViewerAction } from "@/components/bench/bench-viewer-shell"
-import { useOnBenchSurfaceActivated } from "@/components/bench/bench-surface-activity"
+import {
+  useBenchSurfaceActive,
+  useOnBenchSurfaceActivated,
+} from "@/components/bench/bench-surface-activity"
 import { MarkdownBenchAgentEditWatcher } from "@/components/bench/markdown/agent-edit-watcher"
 import { isMarkdownBenchContentThemeMode } from "@/components/bench/markdown/document-theme"
 import { useMarkdownBenchContentTheme } from "@/components/bench/markdown/use-content-theme"
@@ -25,6 +28,8 @@ import {
 } from "@/components/bench/markdown/panels"
 import type { MarkdownBenchProperty } from "@/components/bench/markdown/property-values"
 import { MarkdownBenchToolbar } from "@/components/bench/markdown/toolbar"
+import type { MarkdownBenchContentsState } from "@/components/bench/markdown/use-contents"
+import { ReaderTocPopover } from "@/components/readers/ui/reader-toc-popover"
 import { useMarkdownBenchActions } from "@/components/bench/markdown/use-actions"
 import { useMarkdownBenchContext } from "@/components/bench/markdown/use-bench-context"
 import {
@@ -113,6 +118,15 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const openBenchRoute = useOpenBench()
   const openLink = useOpenLink(props.directory)
   const editorRef = useRef<MarkdownBenchEditorHandle>(null)
+  const [contents, setContents] = useState<MarkdownBenchContentsState>({
+    items: [],
+    activeItemId: undefined,
+  })
+  const [contentsOpen, setContentsOpen] = useState(false)
+  const surfaceActive = useBenchSurfaceActive()
+  useEffect(() => {
+    if (!surfaceActive) setContentsOpen(false)
+  }, [surfaceActive])
   const [renamingTitle, setRenamingTitle] = useState(false)
   const [openDockPanel, setOpenDockPanel] = useState<MarkdownBenchDockPanel>()
   const [advancedToolbarContainer, setAdvancedToolbarContainer] = useState<HTMLDivElement | null>(
@@ -312,29 +326,42 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       subtitle={status === "Saved" ? location.path : `${location.path} · ${status}`}
       actions={actions}
       toolbar={
-        <MarkdownBenchToolbar
-          advancedToolsOpen={advancedToolsOpen}
-          canDecreaseFontScale={
-            !isPrintView && contentFontScale > MIN_MARKDOWN_BENCH_CONTENT_FONT_SCALE
-          }
-          canIncreaseFontScale={
-            !isPrintView && contentFontScale < MAX_MARKDOWN_BENCH_CONTENT_FONT_SCALE
-          }
-          canRedo={historyControls.canRedo}
-          canUndo={historyControls.canUndo}
-          contentThemeMode={contentThemeMode}
-          fileInfoOpen={fileInfoOpen}
-          fontScaleLabel={`${Math.round(contentFontScale * 100)}%`}
-          printView={isPrintView}
-          onContentThemeModeChange={changeContentThemeMode}
-          onDecreaseFontScale={decreaseContentFontScale}
-          onIncreaseFontScale={increaseContentFontScale}
-          onRedo={redo}
-          onResetFontScale={resetContentFontScale}
-          onToggleAdvancedTools={toggleAdvancedTools}
-          onToggleFileInfo={toggleFileInfo}
-          onUndo={undo}
-        />
+        <>
+          <ReaderTocPopover
+            items={contents.items}
+            activeItemId={contents.activeItemId}
+            emptyMessage="No headings in this document."
+            open={contentsOpen}
+            onOpenChange={setContentsOpen}
+            onSelect={(id) => {
+              editorRef.current?.scrollToHeading(id)
+              setContentsOpen(false)
+            }}
+          />
+          <MarkdownBenchToolbar
+            advancedToolsOpen={advancedToolsOpen}
+            canDecreaseFontScale={
+              !isPrintView && contentFontScale > MIN_MARKDOWN_BENCH_CONTENT_FONT_SCALE
+            }
+            canIncreaseFontScale={
+              !isPrintView && contentFontScale < MAX_MARKDOWN_BENCH_CONTENT_FONT_SCALE
+            }
+            canRedo={historyControls.canRedo}
+            canUndo={historyControls.canUndo}
+            contentThemeMode={contentThemeMode}
+            fileInfoOpen={fileInfoOpen}
+            fontScaleLabel={`${Math.round(contentFontScale * 100)}%`}
+            printView={isPrintView}
+            onContentThemeModeChange={changeContentThemeMode}
+            onDecreaseFontScale={decreaseContentFontScale}
+            onIncreaseFontScale={increaseContentFontScale}
+            onRedo={redo}
+            onResetFontScale={resetContentFontScale}
+            onToggleAdvancedTools={toggleAdvancedTools}
+            onToggleFileInfo={toggleFileInfo}
+            onUndo={undo}
+          />
+        </>
       }
       controlsPlacement="dock"
       hideHeader={contextTarget.type !== "workspace-file"}
@@ -383,6 +410,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             properties={benchDocument.properties}
             obsidianWikiLinkContext={wikiLinkContext}
             onChange={changeMarkdown}
+            onContentsChange={setContents}
             onHistoryControlsChange={setHistoryControls}
             onOpenLink={openMarkdownLink}
             onProcessingResult={applyProcessingResult}

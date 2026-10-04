@@ -1,22 +1,22 @@
-import { forwardRef, type ComponentType } from "react"
+import { forwardRef, type ComponentProps, type ComponentType } from "react"
 import { Button, cn } from "@buddy/ui"
 
-type ReaderToolbarButtonProps = {
+type ReaderToolbarButtonProps = Omit<ComponentProps<typeof Button>, "children"> & {
   icon: ComponentType<{ className?: string }>
   label: string
   active?: boolean
   pressed?: boolean
-  onClick?: () => void
-  className?: string
 }
 
+/** Native reader control that forwards popover semantics and input handlers to its button. */
 export const ReaderToolbarButton = forwardRef<HTMLButtonElement, ReaderToolbarButtonProps>(
   function ReaderToolbarButton(
-    { icon: Icon, label, active = false, pressed, onClick, className },
+    { icon: Icon, label, active = false, pressed, className, ...buttonProps },
     ref,
   ) {
     return (
       <Button
+        {...buttonProps}
         ref={ref}
         type="button"
         variant="ghost"
@@ -24,7 +24,6 @@ export const ReaderToolbarButton = forwardRef<HTMLButtonElement, ReaderToolbarBu
         aria-label={label}
         aria-pressed={pressed}
         title={label}
-        onClick={onClick}
         className={cn(
           "shrink-0",
           active

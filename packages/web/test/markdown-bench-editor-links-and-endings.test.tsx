@@ -19,6 +19,7 @@ import {
   readMarkdownFileTextFormat,
 } from "../src/components/bench/markdown/file-text-format"
 import { resolveMarkdownBenchLink } from "../src/components/bench/markdown/link-navigation"
+import type { MarkdownBenchContentsState } from "../src/components/bench/markdown/use-contents"
 import type { OpenLinkOptions } from "../src/components/directory-chat/use-open-link"
 import { ThemeProvider } from "../src/theme"
 
@@ -41,6 +42,16 @@ async function flushEffects(delay = 0) {
   await new Promise<void>((resolve) => {
     setTimeout(resolve, delay)
   })
+}
+
+async function waitForContents(predicate: () => boolean) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (predicate()) return
+    await act(async () => {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+    })
+  }
+  throw new Error("The document outline did not reach the expected state")
 }
 
 const BYTE_ORDER_MARK = "﻿"
@@ -104,6 +115,7 @@ describe("MarkdownBenchEditor link clicks and file endings", () => {
     path?: string
     onChange?(markdown: string): void
     onOpenLink?(href: string, options: OpenLinkOptions): void
+    onContentsChange?(contents: MarkdownBenchContentsState): void
   }) {
     const editorRef = createRef<MarkdownBenchEditorHandle>()
     await act(async () => {
@@ -121,6 +133,7 @@ describe("MarkdownBenchEditor link clicks and file endings", () => {
             path={input.path ?? "Index.md"}
             onChange={input.onChange ?? (() => {})}
             onOpenLink={input.onOpenLink}
+            onContentsChange={input.onContentsChange}
           />
         </ThemeProvider>,
       )
@@ -293,6 +306,111 @@ describe("MarkdownBenchEditor link clicks and file endings", () => {
       expect(openedLinks.map((link) => link.href)).toEqual([unsafeUrl])
       expect(resolveMarkdownBenchLink("Index.md", unsafeUrl)).toBeUndefined()
       expect(resolveMarkdownBenchLink("Index.md", CHAT_MESSAGE_URL)).toBeUndefined()
+    })
+  })
+
+  describe("heading navigation", () => {
+    function documentLayout() {
+      const viewport = container.querySelector<HTMLElement>(
+        '[data-component="markdown-bench-editor"]',
+      )
+      if (!viewport) throw new Error("Expected the document viewport")
+      viewport.getBoundingClientRect = () => new DOMRect(0, 100, 480, 400)
+      Array.from(container.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6")).forEach(
+        (heading, index) => {
+          heading.getBoundingClientRect = () =>
+            new DOMRect(0, 300 + index * 400 - viewport.scrollTop, 400, 40)
+        },
+      )
+      return viewport
+    }
+
+    test.each(["markdown", "mdx"] as const)(
+      "ordinary %s heading clicks jump locally on every click",
+      async (documentFormat) => {
+        const path = documentFormat === "mdx" ? "Index.mdx" : "Index.md"
+        const markdown = `[Session](#agentic-software-engineering-session-plan)\n\n[Repeat](./${path}#session-plan-1)\n\n## Agentic Software Engineering: Session Plan\n\n## Session plan\n\n## Session plan\n`
+        const openedLinks: OpenedLink[] = []
+        const changes: string[] = []
+        const editorRef = await mountEditor({
+          markdown,
+          documentFormat,
+          path,
+          onOpenLink: (href, options) => openedLinks.push({ href, options }),
+          onChange: (value) => changes.push(value),
+        })
+        const viewport = documentLayout()
+        container.scrollTop = 42
+        const links = container.querySelectorAll<HTMLAnchorElement>("a")
+        const firstLink = links[0]
+        if (!firstLink) throw new Error("Expected the section link")
+        const pointerDown = new MouseEvent("mousedown", {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+        })
+        await act(async () => {
+          firstLink.dispatchEvent(pointerDown)
+        })
+        expect(pointerDown.defaultPrevented).toBe(true)
+        await clickAnchor(firstLink)
+        expect(viewport.scrollTop).toBe(176)
+        await clickAnchor(links[1] ?? null)
+        expect(viewport.scrollTop).toBe(976)
+        viewport.scrollTop = 0
+        await clickAnchor(links[1] ?? null)
+        expect(viewport.scrollTop).toBe(976)
+        expect(container.scrollTop).toBe(42)
+        expect(openedLinks).toEqual([])
+        expect(changes).toEqual([])
+        expect(editorRef.current?.getMarkdown()).toBe(markdown)
+      },
+    )
+
+    test("Contents follows scrolling and heading edits, including duplicate targets and replacement documents", async () => {
+      let contents: MarkdownBenchContentsState = { items: [], activeItemId: undefined }
+      const editorRef = await mountEditor({
+        markdown: "# Guide\n\n### Details\n\n## Details\n",
+        onContentsChange: (next) => {
+          contents = next
+        },
+      })
+      const viewport = documentLayout()
+      await waitForContents(() => contents.items.length > 0)
+      expect(contents.items).toEqual([
+        {
+          id: "guide",
+          label: "Guide",
+          subitems: [
+            { id: "details", label: "Details", subitems: [] },
+            { id: "details-1", label: "Details", subitems: [] },
+          ],
+        },
+      ])
+      await act(async () => {
+        viewport.scrollTop = 960
+        viewport.dispatchEvent(new Event("scroll"))
+      })
+      await waitForContents(() => contents.activeItemId === "details-1")
+      viewport.scrollTop = 0
+      await act(async () => {
+        expect(editorRef.current?.scrollToHeading("details-1")).toBe(true)
+      })
+      expect(viewport.scrollTop).toBe(976)
+      await editFirstBlock(" revised")
+      expect(container.querySelector("h1")?.textContent).toBe("Guide revised")
+      await waitForContents(() => contents.items[0]?.label === "Guide revised")
+      expect(contents.items[0]?.id).toBe("guide-revised")
+      await act(async () => {
+        editorRef.current?.setMarkdown("## Replacement\n")
+      })
+      await waitForContents(() => contents.items[0]?.label === "Replacement")
+      expect(contents.items).toEqual([{ id: "replacement", label: "Replacement", subitems: [] }])
+      await act(async () => {
+        editorRef.current?.setMarkdown("No headings here.\n")
+      })
+      await waitForContents(() => contents.items.length === 0)
+      expect(contents.activeItemId).toBeUndefined()
     })
   })
 

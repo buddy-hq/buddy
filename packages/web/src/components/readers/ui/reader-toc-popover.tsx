@@ -10,15 +10,18 @@ type ReaderTocPopoverProps = {
   items: ReaderNavigationItem[]
   activeItemId?: string
   activeLabel?: string
+  emptyMessage?: string
   onSelect: (navigationId: string) => void
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }
 
+/** Contents control shared by native readers, with document-specific empty-state copy. */
 export function ReaderTocPopover({
   items,
   activeItemId,
   activeLabel,
+  emptyMessage = READER_EMPTY_TOC_MESSAGE,
   onSelect,
   open,
   onOpenChange,
@@ -43,7 +46,7 @@ export function ReaderTocPopover({
               onSelect={onSelect}
             />
           ) : (
-            <p className="px-1 py-4 text-sm text-text-weaker">{READER_EMPTY_TOC_MESSAGE}</p>
+            <p className="px-1 py-4 text-sm text-text-weaker">{emptyMessage}</p>
           )}
         </ScrollArea>
       </PopoverContent>
