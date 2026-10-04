@@ -1,0 +1,45 @@
+.file-type-icon-mask {
+  position: relative;
+}
+
+.file-type-icon-mask > .file-type-icon-original {
+  /* Artwork inside an inline file mark must not inherit prose image spacing. */
+  position: absolute;
+  inset: 0;
+  display: block;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.file-type-icon-light-ink {
+  position: absolute;
+  inset: 0;
+  display: none;
+  background-color: var(--file-type-icon-light-ink);
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+}
+
+/* Read the appearance installed by ThemeProvider, never a separate guessed mode. */
+html[data-color-scheme="light"] .file-type-icon-mask > .file-type-icon-original {
+  visibility: hidden;
+}
+
+html[data-color-scheme="light"] .file-type-icon-mask > .file-type-icon-light-ink {
+  display: block;
+}
+
+html[data-color-scheme="light"] .file-type-icon-markdown {
+  color: var(--text-info-strong);
+}
+
+/* Match the original TypeScript SVG ink in dark mode. */
+html[data-color-scheme="dark"] .file-type-icon-markdown {
+  color: #0288d1;
+}
