@@ -16,6 +16,7 @@ permissions:
 env:
   BUN_VERSION: "1.3.13"
   INSTALL_MAX_ATTEMPTS: "3"
+  INSTALL_TIMEOUT_SECONDS: "180"
   INSTALL_RETRY_DELAY_SECONDS: "10"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
@@ -36,11 +37,14 @@ jobs:
       - name: Install dependencies
         run: |
           for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
-            if bun install --frozen-lockfile; then
+            if timeout --kill-after=15s "${INSTALL_TIMEOUT_SECONDS}s" bun install --frozen-lockfile; then
               exit 0
+            else
+              status=$?
+              echo "::warning::Dependency install attempt $attempt/$INSTALL_MAX_ATTEMPTS failed (exit $status)"
             fi
             if ((attempt == INSTALL_MAX_ATTEMPTS)); then
-              exit 1
+              exit "$status"
             fi
             sleep "$INSTALL_RETRY_DELAY_SECONDS"
           done
@@ -112,11 +116,14 @@ jobs:
       - name: Install dependencies
         run: |
           for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
-            if bun install --frozen-lockfile; then
+            if timeout --kill-after=15s "${INSTALL_TIMEOUT_SECONDS}s" bun install --frozen-lockfile; then
               exit 0
+            else
+              status=$?
+              echo "::warning::Dependency install attempt $attempt/$INSTALL_MAX_ATTEMPTS failed (exit $status)"
             fi
             if ((attempt == INSTALL_MAX_ATTEMPTS)); then
-              exit 1
+              exit "$status"
             fi
             sleep "$INSTALL_RETRY_DELAY_SECONDS"
           done
