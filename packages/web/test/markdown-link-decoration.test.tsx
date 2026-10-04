@@ -204,6 +204,40 @@ describe("markdown link decoration", () => {
     expect(container.textContent).toContain("p50 = 17.88 tokens/s, max = 32.98 tokens/s.")
   })
 
+  test("keeps slash clauses intact while chipping later paths in the same paragraph", async () => {
+    const text = [
+      "tokens/s, see README.md; token/s; see README.md; MB/s and README.md;",
+      "50 tokens/s. see README.md; req/s, max = 32.98ms; ratio 1/2, report.csv.",
+      "50 tokens/s, see docs/report.pdf; units MB/s; artifact ./report.csv.",
+    ].join(" ")
+
+    await renderMarkdown(text)
+
+    expect(
+      Array.from(container.querySelectorAll("a.presented-media-link"), (link) =>
+        link.getAttribute("data-presented-media-path"),
+      ),
+    ).toEqual(["docs/report.pdf", "./report.csv"])
+    expect(container.textContent).toContain(
+      "tokens/s, see README.md; token/s; see README.md; MB/s and README.md;",
+    )
+    expect(container.textContent).toContain(
+      "50 tokens/s. see README.md; req/s, max = 32.98ms; ratio 1/2, report.csv.",
+    )
+  })
+
+  test("keeps spaced relative filenames when file intent is explicit", async () => {
+    await renderMarkdown(
+      "Open ./generated/Command R+ Blog Header.png and [the book](<generated/Mark Richards; Neal Ford.pdf>).",
+    )
+
+    expect(
+      Array.from(container.querySelectorAll("a.presented-media-link"), (link) =>
+        link.getAttribute("data-presented-media-path"),
+      ),
+    ).toEqual(["./generated/Command R+ Blog Header.png", "generated/Mark Richards; Neal Ford.pdf"])
+  })
+
   test("uses the theme-colored Markdown icon on file chips", async () => {
     await renderMarkdown("[Frames](~/Desktop/frames.md)")
 
