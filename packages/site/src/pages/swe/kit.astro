@@ -29,11 +29,28 @@ const workshop = {
 
 const speaker = {
   name: "Prashant Bhudwal",
-  role: "Creator of Buddy and edtech entrepreneur",
-  bio: "Prashant is the creator of Buddy, a free and open-source AI agent for students. He has spent the past decade building education ventures. He co-founded FalconAI, founded Medal, and was a founding member of Genius Learning Labs, which was later acquired by Schoolnet India. He now builds Buddy hands-on, bringing both an education entrepreneur’s and a software builder’s perspective to the workshop.",
+  role: "Founder & CEO, Buddy",
+  bio: "Prashant is the Founder & CEO of Buddy, a free and open-source AI agent for students. He has spent the past decade building education ventures. He co-founded FalconAI, founded Medal, and was a founding member of Genius Learning Labs, which was later acquired by Schoolnet India. He now builds Buddy hands-on, bringing both an education entrepreneur’s and a software builder’s perspective to the workshop.",
   showcase: "Work showcased at OpenAI Codex Meetup, Microsoft LocalHost, and AgentCon Bangalore.",
   photo: { href: "/swe/prashant-bhudwal.jpg", filename: "prashant-bhudwal.jpg" },
+  profile: {
+    href: "/swe/prashant-bhudwal-speaker-profile.pdf",
+    filename: "prashant-bhudwal-speaker-profile.pdf",
+    label: "Download full profile (PDF)",
+  },
 } as const
+
+// Shown first: the one thing a college must arrange, plus the room.
+const requirements = {
+  students: "Every student needs access to a laptop or computer with Wi-Fi.",
+  source: "Students can bring their own, or the college can provide them, for example in a computer lab.",
+  why: "The workshop is hands-on. Students build software with AI coding agents, and the agents need the internet to work.",
+  venue: ["Wi-Fi that students can connect to", "Power sockets for laptops", "A projector with HDMI"],
+} as const
+
+const requirementsCopy = `Workshop requirements
+Students: ${requirements.students} ${requirements.source}
+Venue: ${requirements.venue.join(", ")}.`
 
 // Messages the coordinator posts to class WhatsApp groups, in their own voice.
 // *Asterisks* are WhatsApp bold.
@@ -45,15 +62,16 @@ const whatsappVariants = [
 
 The Department of [DEPARTMENT] is organising a workshop on *${workshop.title}*.
 
-*Resource person:* ${speaker.name}, Creator of Buddy
+*Resource person:* ${speaker.name}, ${speaker.role}
 *Date:* [DATE]
 *Time:* [TIME]
 *Venue:* [VENUE]
+*Laptop or computer with Wi-Fi:* [BRING YOUR OWN / PROVIDED BY THE COLLEGE]
 
 The workshop covers how LLMs and coding agents work, followed by hands-on practice building and debugging a small feature with OpenCode, Codex, and Claude Code.
 For more details, visit https://www.hibuddy.in/swe
 
-Students are requested to bring their laptops, if available. No prior machine learning background is required.
+Every student needs access to a laptop or computer with Wi-Fi. No prior machine learning background is required.
 
 Regards,
 [COORDINATOR NAME]`,
@@ -68,11 +86,12 @@ We have a workshop on *${workshop.title}* coming up. If you already use AI to wr
 You'll learn how coding agents actually work, then build and debug a small feature with OpenCode, Codex, and Claude Code.
 More about it 👉 https://www.hibuddy.in/swe
 
-🎤 ${speaker.name}, creator of Buddy
+🎤 ${speaker.name}, Founder & CEO of Buddy
 📅 [DATE], [TIME]
 📍 [VENUE]
+💻 Laptop or computer with Wi-Fi: [BRING YOUR OWN / PROVIDED BY THE COLLEGE]
 
-Bring your laptop if you have one. Pairs are fine, and no ML background is needed.`,
+You'll need one to follow along. No ML background needed.`,
   },
 ] as const
 
@@ -135,13 +154,25 @@ const facts = [
     value:
       "Beginner friendly. Students should be able to write a basic program in any language. No machine learning background needed.",
   },
+  { label: "Laptops", value: `Required. ${requirements.students} ${requirements.source}` },
   {
     label: "Room setup",
-    value:
-      "A lab or hall with Wi-Fi and power sockets, and a projector with HDMI. Students bring laptops if they have them; pairs work fine.",
+    value: "A lab or hall with Wi-Fi that students can connect to, power sockets for laptops, and a projector with HDMI.",
   },
   { label: "Full outline", value: "hibuddy.in/swe" },
 ] as const
+
+// Jump nav, in page order. Numbers match the section headings.
+const toc = [
+  { id: "requirements", label: "Requirements" },
+  { id: "whatsapp", label: "WhatsApp message" },
+  { id: "poster", label: "Poster" },
+  { id: "speaker", label: "Speaker profile" },
+  { id: "report", label: "Event report" },
+  { id: "facts", label: "Facts" },
+] as const
+
+const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
 ---
 
 <Landing title={seo.title} description={seo.description} robots="noindex, follow">
@@ -156,15 +187,59 @@ const facts = [
     <div class="kit-column">
       <section class="kit-intro" data-analytics-section="swe_kit_intro">
         <p class="kit-kicker">Organizer kit</p>
-        <h1 class="kit-intro__title">Everything you need to announce the workshop</h1>
-        <p class="kit-intro__lede">
-          Each block is ready to copy. Start with the WhatsApp message for students. The workshop facts at the bottom are
-          there if you would rather write your own.
-        </p>
+        <h1 class="kit-intro__title">Announce the workshop</h1>
+        <p class="kit-intro__lede">Ready-to-copy text for students, posters and reports.</p>
       </section>
 
-      <section class="kit-section" data-analytics-section="swe_kit_message">
-        <h2 class="kit-h2"><span>01</span> WhatsApp message</h2>
+      <nav class="kit-toc" aria-label="On this page">
+        <button type="button" class="kit-toc__toggle" aria-expanded="false" aria-controls="kit-toc-list">
+          <svg class="kit-toc__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="18" x2="20" y2="18" />
+          </svg>
+          <span class="kit-toc__text">
+            <span class="kit-toc__title">Go to a section</span>
+            <span class="kit-toc__now">
+              Now: <span class="kit-toc__current"><span>{tocNumber(0)}</span>{toc[0].label}</span>
+            </span>
+          </span>
+          <span class="kit-toc__chevron">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+        </button>
+        <ol id="kit-toc-list">
+          {
+            toc.map((item, index) => (
+              <li>
+                <a href={`#${item.id}`} data-toc={item.id}>
+                  <span>{tocNumber(index)}</span>
+                  {item.label}
+                </a>
+              </li>
+            ))
+          }
+        </ol>
+      </nav>
+
+      <section id="requirements" class="kit-section" data-analytics-section="swe_kit_requirements">
+        <h2 class="kit-h2"><span>01</span> Workshop requirements</h2>
+        <KitBlock label="Requirements" copy={requirementsCopy}>
+          <p class="kit-req__must">{requirements.students}</p>
+          <p class="kit-req__why">{requirements.source} {requirements.why}</p>
+          <div class="kit-req__venue">
+            <p>The venue needs</p>
+            <ul>
+              {requirements.venue.map((item) => <li>{item}</li>)}
+            </ul>
+          </div>
+        </KitBlock>
+      </section>
+
+      <section id="whatsapp" class="kit-section" data-analytics-section="swe_kit_message">
+        <h2 class="kit-h2"><span>02</span> WhatsApp message</h2>
         <p class="kit-lede">Pick the tone that suits your groups, copy it, and fill in the highlighted brackets.</p>
         <KitBlock label="WhatsApp message" copy={whatsappVariants[0].text} primary>
           <div slot="controls" class="kit-tone" role="group" aria-label="Message tone">
@@ -200,8 +275,8 @@ const facts = [
         </KitBlock>
       </section>
 
-      <section class="kit-section" data-analytics-section="swe_kit_poster">
-        <h2 class="kit-h2"><span>02</span> Poster and circular</h2>
+      <section id="poster" class="kit-section" data-analytics-section="swe_kit_poster">
+        <h2 class="kit-h2"><span>03</span> Poster and circular</h2>
         <p class="kit-lede">The pieces of a poster, circular or stage introduction.</p>
         <div class="kit-grid">
           {
@@ -212,16 +287,28 @@ const facts = [
             ))
           }
         </div>
+      </section>
+
+      <section id="speaker" class="kit-section" data-analytics-section="swe_kit_speaker">
+        <h2 class="kit-h2"><span>04</span> Speaker profile</h2>
+        <p class="kit-lede">Photo, bio and the full profile, for posters, introductions and records.</p>
         <div class="kit-speaker">
           <KitBlock label="Speaker photo" download={speaker.photo}>
             <Image src={instructorPhoto} alt="Prashant Bhudwal" class="kit-photo" width={480} height={480} />
           </KitBlock>
           <KitBlock label="Speaker bio" copy={`${speaker.bio}\n\n${speaker.showcase}`} />
         </div>
+        <div class="kit-profile">
+          <KitBlock label="Speaker profile" download={speaker.profile}>
+            <p class="kit-profile__text">
+              The full speaker profile as a one-page PDF, for approval files and event records.
+            </p>
+          </KitBlock>
+        </div>
       </section>
 
-      <section class="kit-section" data-analytics-section="swe_kit_report">
-        <h2 class="kit-h2"><span>03</span> Event report</h2>
+      <section id="report" class="kit-section" data-analytics-section="swe_kit_report">
+        <h2 class="kit-h2"><span>05</span> Event report</h2>
         <p class="kit-lede">For IQAC, NAAC and NBA documentation, usually written after the workshop.</p>
         <div class="kit-stack">
           <KitBlock label="Abstract" copy={abstract} />
@@ -233,8 +320,8 @@ const facts = [
         </div>
       </section>
 
-      <section class="kit-section" data-analytics-section="swe_kit_facts">
-        <h2 class="kit-h2"><span>04</span> Workshop facts</h2>
+      <section id="facts" class="kit-section" data-analytics-section="swe_kit_facts">
+        <h2 class="kit-h2"><span>06</span> Workshop facts</h2>
         <p class="kit-lede">The raw details, for writing your own announcement or report.</p>
         <KitBlock label="Workshop facts" copy={facts.map((fact) => `${fact.label}: ${fact.value}`).join("\n")}>
           <dl class="kit-facts">
@@ -292,7 +379,7 @@ const facts = [
 
   /* === Intro === */
   .kit-intro {
-    padding-block: clamp(2.5rem, 6vw, 4rem) var(--space-4);
+    padding-block: clamp(2.5rem, 6vw, 4rem) 0;
   }
 
   .kit-kicker {
@@ -323,9 +410,276 @@ const facts = [
     text-wrap: pretty;
   }
 
+  /* === Jump nav ===
+     Wide screens: a floating pill under the header that marks the section in
+     view. Narrow screens: a "Jump to" bar showing the current section, which
+     opens the full list as a dropdown. */
+  .kit-toc {
+    position: sticky;
+    top: 76px;
+    z-index: 50;
+    margin-block: var(--space-8) var(--space-4);
+  }
+
+  .kit-toc__toggle {
+    display: none;
+  }
+
+  .kit-toc ol {
+    display: flex;
+    gap: 2px;
+    width: fit-content;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    border: 1px solid var(--border-base);
+    border-radius: 999px;
+    background-color: var(--surface-sticky);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-raised);
+  }
+
+  .kit-toc a {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--fg-weak);
+    text-decoration: none;
+    transition:
+      background-color 150ms var(--ease-out),
+      color 150ms var(--ease-out);
+  }
+
+  .kit-toc a span,
+  .kit-toc__current span {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--accent-base);
+  }
+
+  .kit-toc a:hover {
+    background: var(--chrome-bar);
+    color: var(--fg-strong);
+  }
+
+  .kit-toc a[aria-current="true"] {
+    background: var(--accent-weak);
+    color: var(--fg-strong);
+  }
+
+  /* Narrow screens: a large, plainly labelled button that opens the list. */
+  @media (max-width: 900px) {
+    .kit-toc {
+      top: 72px;
+    }
+
+    .kit-toc__toggle {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      width: 100%;
+      min-height: 56px;
+      padding: 8px 8px 8px 14px;
+      border: 1.5px solid color-mix(in oklab, var(--accent-base) 45%, var(--border-base));
+      border-radius: 12px;
+      background-color: var(--surface-raised);
+      box-shadow: var(--shadow-raised);
+      font-family: var(--font-body);
+      color: var(--fg-strong);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .kit-toc__icon {
+      flex-shrink: 0;
+      color: var(--fg-strong);
+    }
+
+    .kit-toc__text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .kit-toc__title {
+      font-size: var(--text-base);
+      font-weight: 600;
+      line-height: 1.25;
+    }
+
+    .kit-toc__now {
+      font-size: var(--text-sm);
+      line-height: 1.3;
+      color: var(--fg-weak);
+    }
+
+    .kit-toc__current {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      color: var(--fg-strong);
+    }
+
+    .kit-toc__chevron {
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: var(--accent-weak);
+      color: var(--accent-base);
+    }
+
+    .kit-toc__chevron svg {
+      transition: transform 150ms var(--ease-out);
+    }
+
+    .kit-toc[data-open] .kit-toc__chevron svg {
+      transform: rotate(180deg);
+    }
+
+    .kit-toc ol {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      gap: 0;
+      width: auto;
+      padding: var(--space-2);
+      border-radius: 14px;
+      background-color: var(--surface-raised);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    .kit-toc[data-open] ol {
+      display: flex;
+    }
+
+    .kit-toc li + li {
+      border-top: 1px solid var(--border-weak);
+    }
+
+    .kit-toc a {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-3);
+      padding: 18px var(--space-4);
+      border-radius: 10px;
+      font-size: var(--text-lg);
+      color: var(--fg-strong);
+    }
+
+    .kit-toc a span {
+      font-size: var(--text-sm);
+    }
+  }
+
+  /* Phones: the button sits in an edge-to-edge bar directly under the header. */
+  @media (max-width: 768px) {
+    .kit-toc {
+      top: 64px;
+      margin-inline: calc(var(--space-5) * -1);
+      padding: var(--space-3) var(--space-5);
+      transition: background-color 150ms var(--ease-out);
+    }
+
+    .kit-toc[data-stuck] {
+      background-color: var(--surface-sticky);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 1px 0 var(--border-weak);
+    }
+
+    .kit-toc__toggle {
+      box-shadow: none;
+    }
+
+    /* Open just under the button, over the bar's bottom padding. */
+    .kit-toc ol {
+      top: calc(100% - var(--space-2));
+      left: var(--space-5);
+      right: var(--space-5);
+    }
+  }
+
   /* === Sections === */
   .kit-section {
     padding-block: clamp(2rem, 4vw, 3rem);
+    scroll-margin-top: 132px;
+  }
+
+  /* Clear the taller "Go to a section" bar on narrow screens. */
+  @media (max-width: 900px) {
+    .kit-section {
+      scroll-margin-top: 168px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .kit-section {
+      scroll-margin-top: 164px;
+    }
+  }
+
+  /* === Requirements === */
+  .kit-req__must {
+    font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.625rem);
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    color: var(--fg-strong);
+    text-wrap: balance;
+    margin-bottom: var(--space-3);
+  }
+
+  .kit-req__why {
+    max-width: 60ch;
+    line-height: 1.5;
+    color: var(--fg-weak);
+    margin-bottom: var(--space-5);
+  }
+
+  .kit-req__venue {
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border-weak);
+  }
+
+  .kit-req__venue p {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--fg-weaker);
+    margin-bottom: var(--space-2);
+  }
+
+  .kit-req__venue ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .kit-req__venue li {
+    padding: 4px 12px;
+    border: 1px solid var(--border-base);
+    border-radius: 999px;
+    font-size: var(--text-sm);
+    color: var(--fg-strong);
   }
 
   .kit-h2 {
@@ -446,7 +800,6 @@ const facts = [
     display: grid;
     grid-template-columns: 264px minmax(0, 1fr);
     gap: var(--space-3);
-    margin-top: var(--space-3);
     align-items: stretch;
   }
 
@@ -457,6 +810,15 @@ const facts = [
     aspect-ratio: 1;
     object-fit: cover;
     border-radius: 8px;
+  }
+
+  .kit-profile {
+    margin-top: var(--space-3);
+  }
+
+  .kit-profile__text {
+    color: var(--fg-weak);
+    line-height: 1.5;
   }
 
   /* === Event report === */
@@ -528,6 +890,59 @@ const facts = [
 </style>
 
 <script>
+  // Jump nav: mark the last section whose top has passed 40% of the viewport,
+  // and show it in the "Jump to" bar used on narrow screens.
+  const toc = document.querySelector<HTMLElement>(".kit-toc")
+  const tocToggle = toc?.querySelector<HTMLButtonElement>(".kit-toc__toggle")
+  const tocCurrent = toc?.querySelector<HTMLElement>(".kit-toc__current")
+  const tocLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>(".kit-toc a"))
+  const tocTargets = tocLinks.map((link) => document.getElementById(link.dataset.toc ?? ""))
+  let tocActive = -1
+  let tocFrame = 0
+
+  const header = document.querySelector<HTMLElement>(".kit-header")
+
+  const updateToc = () => {
+    tocFrame = 0
+    if (toc && header) {
+      toc.toggleAttribute("data-stuck", toc.getBoundingClientRect().top <= header.offsetHeight + 1)
+    }
+    const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
+    let current = 0
+    tocTargets.forEach((target, index) => {
+      if (target && target.getBoundingClientRect().top <= window.innerHeight * 0.4) current = index
+    })
+    if (atBottom) current = tocTargets.length - 1
+    if (current === tocActive) return
+    tocActive = current
+    tocLinks.forEach((link, index) => link.setAttribute("aria-current", String(index === current)))
+    const link = tocLinks[current]
+    if (link && tocCurrent) tocCurrent.innerHTML = link.innerHTML
+  }
+
+  const setTocOpen = (open: boolean) => {
+    toc?.toggleAttribute("data-open", open)
+    tocToggle?.setAttribute("aria-expanded", String(open))
+  }
+
+  tocToggle?.addEventListener("click", () => setTocOpen(!toc?.hasAttribute("data-open")))
+  for (const link of tocLinks) link.addEventListener("click", () => setTocOpen(false))
+  document.addEventListener("click", (event) => {
+    if (toc && !toc.contains(event.target as Node)) setTocOpen(false)
+  })
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setTocOpen(false)
+  })
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (!tocFrame) tocFrame = requestAnimationFrame(updateToc)
+    },
+    { passive: true },
+  )
+  updateToc()
+
   // Formal / Casual switch: show the chosen message and point Copy at its text.
   for (const tone of document.querySelectorAll<HTMLElement>(".kit-tone")) {
     const block = tone.closest(".kit-block")

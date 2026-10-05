@@ -9,7 +9,8 @@
 type Props = {
   label: string
   copy?: string
-  download?: { href: string; filename: string }
+  /** `label` replaces the default "Download" button text. */
+  download?: { href: string; filename: string; label?: string }
   /** `line` for single values such as a title; `text` for paragraphs. */
   size?: "line" | "text"
   /** Accent the action, for the one block most coordinators need. */
@@ -44,7 +45,7 @@ const hasBody = Astro.slots.has("default")
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            <span>Download</span>
+            <span>{download.label ?? "Download"}</span>
           </a>
         )
       }
@@ -146,6 +147,13 @@ const hasBody = Astro.slots.has("default")
     font-weight: 500;
     line-height: 1.35;
     color: var(--fg-strong);
+  }
+
+  /* A long button label drops below the block label instead of overflowing. */
+  @media (max-width: 900px) {
+    .kit-block__bar {
+      flex-wrap: wrap;
+    }
   }
 
   @media (hover: hover) and (pointer: fine) {
