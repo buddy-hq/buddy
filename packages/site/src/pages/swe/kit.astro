@@ -13,6 +13,7 @@ import { Image } from "astro:assets"
 import KitAction from "../../components/swe/KitAction.astro"
 import KitBlock from "../../components/swe/KitBlock.astro"
 import Landing from "../../layouts/Landing.astro"
+import { GITHUB_URL } from "../../lib/constants"
 import instructorPhoto from "../../assets/swe/prashant.jpg"
 
 export const prerender = true
@@ -49,7 +50,7 @@ const requirements = {
     heading: "Organizer form",
     instruction:
       "The organizer must fill in this form before the workshop, so we know about your students, the schedule and the venue.",
-    name: "Workshop coordination form",
+    name: "Coordination form",
     href: "https://forms.gle/NSA7G19enfGvB8xK7",
   },
   computers: {
@@ -79,13 +80,22 @@ const requirements = {
     heading: "Venue",
     items: ["Wi-Fi that students can connect to", "Power sockets for laptops", "A projector with HDMI"],
   },
+  clone: {
+    heading: "Optional: clone the Buddy repository",
+    instruction: "For students who want to go deeper in the hands-on part. Needs Git installed.",
+    command: `git clone ${GITHUB_URL}.git`,
+  },
 } as const
 
 const numbered = (items: readonly string[]) => items.map((item, index) => `${index + 1}. ${item}`).join("\n")
 const bulleted = (items: readonly string[]) => items.map((item) => `- ${item}`).join("\n")
 
-const { form, computers, software, accounts, venue } = requirements
+const { form, computers, software, accounts, clone, venue } = requirements
 const downloadLinks = software.apps.map((app) => `${app.name}: ${app.href}`)
+// On a narrow screen the clone command wraps after the host, keeping the repo path whole.
+const cloneBreak = clone.command.indexOf("github.com/") + "github.com/".length
+const cloneCommandHead = clone.command.slice(0, cloneBreak)
+const cloneCommandTail = clone.command.slice(cloneBreak)
 const accountLines = accounts.items.map((item) => `${item.name}: ${item.detail}`)
 
 // Plain text with one numbered heading per step, in the card's order, so it
@@ -101,6 +111,7 @@ const requirementsCopy = [
     },
     { heading: accounts.heading, body: bulleted(accountLines) },
     { heading: venue.heading, body: bulleted(venue.items) },
+    { heading: clone.heading, body: `${clone.instruction}\n${clone.command}` },
   ].map((step, index) => `${index + 1}. ${step.heading}\n${step.body}`),
 ].join("\n\n")
 
@@ -140,6 +151,9 @@ Every student needs access to a laptop or computer with Wi-Fi. No prior machine 
 ${numbered(prepSteps)}
 ${software.platforms}
 
+*Optional:* to go deeper in the hands-on part, clone the Buddy repository:
+${clone.command}
+
 Regards,
 [COORDINATOR NAME]`,
   },
@@ -162,7 +176,10 @@ You'll need one to follow along. No ML background needed.
 
 *Before the workshop:*
 ${prepSteps.map((step) => `✅ ${step}`).join("\n")}
-${software.platforms}`,
+${software.platforms}
+
+🔧 *Optional:* want to go deeper? Clone Buddy:
+${clone.command}`,
   },
 ] as const
 
@@ -378,6 +395,14 @@ const toc = [
                 {venue.items.map((item) => <li>{item}</li>)}
               </ul>
             </li>
+            <li>
+              <h3 class="kit-req__heading">{clone.heading}</h3>
+              <p class="kit-req__instruction">{clone.instruction}</p>
+              <div class="kit-req__command">
+                <code>{cloneCommandHead}<wbr /><span>{cloneCommandTail}</span></code>
+                <KitAction copy={clone.command} />
+              </div>
+            </li>
           </ol>
         </KitBlock>
       </section>
@@ -404,14 +429,14 @@ const toc = [
         <h2 class="kit-h2">Speaker profile</h2>
         <p class="kit-lede">Photo, bio and the full profile, for posters, introductions and records.</p>
         <ul class="kit-lines">
-          <li class="kit-line kit-line--top">
+          <li class="kit-line">
             <div>
               <p class="kit-line__label">Photo</p>
               <Image src={instructorPhoto} alt="Prashant Bhudwal" class="kit-photo" width={480} height={480} />
             </div>
             <KitAction download={speaker.photo} />
           </li>
-          <li class="kit-line kit-line--top">
+          <li class="kit-line">
             <div>
               <p class="kit-line__label">Bio</p>
               <p class="kit-line__text">{`${speaker.bio}\n\n${speaker.showcase}`}</p>
@@ -471,7 +496,7 @@ const toc = [
         <ul class="kit-lines">
           {
             reportParts.map((part) => (
-              <li class="kit-line kit-line--top">
+              <li class="kit-line">
                 <div>
                   <p class="kit-line__label">{part.label}</p>
                   <p class="kit-line__text">{part.text}</p>
@@ -876,22 +901,27 @@ const toc = [
   .kit-req__apps {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-3);
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
+  /* Each link is its own card: the name, the visible link, and its button. */
   .kit-req__app {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: var(--space-2) var(--space-4);
+    padding: var(--space-4);
+    border: 1px solid var(--border-base);
+    border-radius: 10px;
+    background: var(--surface-raised);
   }
 
   .kit-req__app-name {
-    font-weight: 500;
+    font-weight: 600;
     color: var(--fg-strong);
   }
 
@@ -901,6 +931,30 @@ const toc = [
     text-decoration: underline;
     text-underline-offset: 3px;
     overflow-wrap: anywhere;
+  }
+
+  /* On a phone the command takes the full width and Copy drops below it. */
+  .kit-req__command {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+    border: 1px solid var(--border-base);
+    border-radius: 8px;
+  }
+
+  .kit-req__command code span {
+    white-space: nowrap;
+  }
+
+  .kit-req__command code {
+    flex: 1 1 20rem;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--fg-strong);
   }
 
   .kit-req__note {
@@ -1004,22 +1058,25 @@ const toc = [
     background: var(--surface-base);
   }
 
+  /* The heading and the row's action share the top line; the text below gets
+     the full width, which matters on a phone. */
   .kit-line {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "label action"
+      "body body";
     align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
+    column-gap: var(--space-4);
     padding: var(--space-4) var(--space-5);
   }
 
   .kit-line > div {
-    flex: 1;
-    min-width: 0;
+    display: contents;
   }
 
-  /* Long text and images keep their action at the top of the row. */
-  .kit-line--top {
-    align-items: flex-start;
+  .kit-line > :global(.kit-action) {
+    grid-area: action;
   }
 
   .kit-line + .kit-line {
@@ -1027,14 +1084,17 @@ const toc = [
   }
 
   .kit-line__label {
+    grid-area: label;
     font-size: var(--text-base);
     font-weight: 600;
     color: var(--fg-strong);
-    margin-bottom: var(--space-1);
   }
 
-  .kit-line--top .kit-line__label {
-    margin-bottom: var(--space-2);
+  .kit-line__value,
+  .kit-line__text,
+  .kit-photo {
+    grid-area: body;
+    margin-top: var(--space-2);
   }
 
   .kit-line__value {
@@ -1076,6 +1136,58 @@ const toc = [
   @media (max-width: 640px) {
     .kit-header__title span {
       display: none;
+    }
+
+    /* No indents on a phone: step numbers move into the heading line and
+       rows use the full width. */
+    .kit-req > li {
+      padding-left: 0;
+    }
+
+    .kit-req > li::before {
+      content: none;
+    }
+
+    .kit-req__heading::before {
+      content: counter(kit-req) ". ";
+      color: var(--fg-weaker);
+    }
+
+    .kit-req__list {
+      padding-left: 1em;
+    }
+
+    /* Link rows keep the name, the visible link and the button: the button
+       sits beside the name and the link runs full width underneath. */
+    .kit-req__app {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "name button"
+        "url url";
+      align-items: center;
+      gap: var(--space-1) var(--space-3);
+    }
+
+    .kit-req__app > div {
+      display: contents;
+    }
+
+    .kit-req__app-name {
+      grid-area: name;
+    }
+
+    .kit-req__app-url {
+      grid-area: url;
+      justify-self: start;
+    }
+
+    .kit-req__app > .btn-cta {
+      grid-area: button;
+    }
+
+    .kit-line {
+      padding-inline: var(--space-4);
     }
   }
 </style>

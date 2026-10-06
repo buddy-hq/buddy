@@ -158,6 +158,13 @@ const hasBody = Astro.slots.has("default")
     }
   }
 
+  /* A phone has little width to spare; keep the body inset small. */
+  @media (max-width: 640px) {
+    .kit-block__body {
+      padding: var(--space-4);
+    }
+  }
+
   @media (hover: hover) and (pointer: fine) {
     .kit-block__action:hover {
       border-color: var(--border-strong);
