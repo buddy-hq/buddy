@@ -25,6 +25,7 @@ import {
   COMPARE_PATH,
   DOCS_PATH,
   EDUCATOR_PATH,
+  GITHUB_URL,
   LEARNER_PATH,
   SOCIAL_LINKEDIN_URL,
   SOCIAL_X_URL,
@@ -43,9 +44,9 @@ type TFooterNavLink = {
 type TFooterSocialLink = {
   readonly label: string
   readonly href: string
-  readonly icon: "x" | "youtube" | "linkedin"
+  readonly icon: "x" | "youtube" | "linkedin" | "github"
   /**
-   * Optical, not geometric. All three glyphs are drawn in a 24×24 box but carry
+   * Optical, not geometric. All glyphs are drawn in a 24×24 box but carry
    * different visual mass in it — X is a thin diagonal, YouTube is full-width
    * but only ~70% tall. A single shared pixel size makes them look mismatched,
    * so each is tuned by eye.
@@ -67,6 +68,7 @@ const socialLinks = [
   { label: "X", href: SOCIAL_X_URL, icon: "x", size: 17 },
   { label: "YouTube", href: SOCIAL_YOUTUBE_URL, icon: "youtube", size: 19 },
   { label: "LinkedIn", href: SOCIAL_LINKEDIN_URL, icon: "linkedin", size: 18 },
+  { label: "GitHub", href: GITHUB_URL, icon: "github", size: 18 },
 ] as const satisfies readonly TFooterSocialLink[]
 ---
 
@@ -153,6 +155,14 @@ const socialLinks = [
                     <path
                       fill="currentColor"
                       d="M6.94 5a2 2 0 1 1-4-.002 2 2 0 0 1 4 .002zM7 8.48H3V21h4V8.48zm6.32 0H9.34V21h3.94v-6.57c0-3.66 4.77-4 4.77 0V21H22v-7.93c0-6.17-7.06-5.94-8.72-2.91l.04-1.68z"
+                    />
+                  </svg>
+                )}
+                {link.icon === "github" && (
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path
+                      fill="currentColor"
+                      d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.438 9.8 8.205 11.385.6.11.82-.26.82-.577 0-.285-.01-1.04-.015-2.04-3.338.725-4.043-1.61-4.043-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.73.083-.73 1.205.085 1.838 1.237 1.838 1.237 1.07 1.835 2.807 1.305 3.492.998.108-.776.42-1.305.763-1.605-2.665-.305-5.467-1.333-5.467-5.93 0-1.31.468-2.382 1.236-3.222-.123-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.52 11.52 0 0 1 12 6.3c1.02.005 2.045.138 3.003.404 2.291-1.552 3.297-1.23 3.297-1.23.654 1.652.242 2.873.12 3.176.77.84 1.235 1.912 1.235 3.222 0 4.61-2.807 5.622-5.48 5.92.431.372.816 1.102.816 2.222 0 1.606-.015 2.898-.015 3.293 0 .32.216.694.825.576C20.565 22.297 24 17.8 24 12.5 24 5.87 18.627.5 12 .5z"
                     />
                   </svg>
                 )}
