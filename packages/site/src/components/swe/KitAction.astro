@@ -1,0 +1,71 @@
+---
+/**
+ * A Copy or Download button that sits beside the text or file it acts on, inside
+ * a /swe/kit list row. Pass `copy` for text, or `download` for a file. Copy
+ * buttons are wired by KitBlock's script, which handles every `button[data-copy]`
+ * on the page.
+ */
+type Props = {
+  copy?: string
+  download?: { href: string; filename: string }
+  /** Replaces the default "Copy" or "Download" text. */
+  label?: string
+}
+
+const { copy, download, label } = Astro.props
+---
+
+{
+  copy !== undefined && (
+    <button type="button" class="kit-action" data-copy={copy}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="13" height="13" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+      <span>{label ?? "Copy"}</span>
+    </button>
+  )
+}
+{
+  download && (
+    <a class="kit-action" href={download.href} download={download.filename}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </svg>
+      <span>{label ?? "Download"}</span>
+    </a>
+  )
+}
+
+<style>
+  .kit-action {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--border-base);
+    border-radius: 7px;
+    background: var(--surface-base);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--fg-strong);
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform 120ms var(--ease-out);
+  }
+
+  .kit-action:active {
+    transform: scale(0.97);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .kit-action:hover {
+      border-color: var(--border-strong);
+    }
+  }
+</style>

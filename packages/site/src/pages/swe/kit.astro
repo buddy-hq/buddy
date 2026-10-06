@@ -3,12 +3,14 @@
  * /swe/kit — the organizer kit for the "Hands-on Agentic Software Engineering" workshop.
  *
  * The reader is the faculty coordinator at a college that has already agreed to
- * host. The page is a set of ready-to-copy assets, most-used first: the message
- * for students, the pieces of a poster or circular, text for the event report,
- * and finally the raw workshop facts for anyone writing their own. It is
+ * host. The page starts with the requirements the college must arrange, then
+ * the ready-to-copy assets: the pieces of a poster or circular, the speaker
+ * profile, the message for students, text for the event report, and finally
+ * the raw workshop facts for anyone writing their own. It is
  * unlisted: sent by email after a yes, and kept out of search and the sitemap.
  */
 import { Image } from "astro:assets"
+import KitAction from "../../components/swe/KitAction.astro"
 import KitBlock from "../../components/swe/KitBlock.astro"
 import Landing from "../../layouts/Landing.astro"
 import instructorPhoto from "../../assets/swe/prashant.jpg"
@@ -40,17 +42,78 @@ const speaker = {
   },
 } as const
 
-// Shown first: the one thing a college must arrange, plus the room.
+// Shown first: everything a college must arrange, one section each. The card
+// and its plain-text copy share these headings.
 const requirements = {
-  students: "Every student needs access to a laptop or computer with Wi-Fi.",
-  source: "Students can bring their own, or the college can provide them, for example in a computer lab.",
-  why: "The workshop is hands-on. Students build software with AI coding agents, and the agents need the internet to work.",
-  venue: ["Wi-Fi that students can connect to", "Power sockets for laptops", "A projector with HDMI"],
+  form: {
+    heading: "Organizer form",
+    instruction:
+      "The organizer must fill in this form before the workshop, so we know about your students, the schedule and the venue.",
+    name: "Workshop coordination form",
+    href: "https://forms.gle/NSA7G19enfGvB8xK7",
+  },
+  computers: {
+    heading: "Computers",
+    items: [
+      "Every student needs access to a laptop or computer with Wi-Fi.",
+      "Students can bring their own, or the college can provide them, for example in a computer lab.",
+    ],
+  },
+  software: {
+    heading: "Software to install before the workshop",
+    apps: [
+      { name: "OpenCode Desktop", href: "https://opencode.ai/download" },
+      { name: "Buddy Desktop", href: "https://hibuddy.in/download" },
+    ],
+    platforms: "Both apps are free and work on macOS and Windows.",
+    labComputers: "If the college provides the computers, please install both apps on them before the workshop.",
+  },
+  accounts: {
+    heading: "Accounts",
+    items: [
+      { name: "ChatGPT account", detail: "Every student needs one, free or paid." },
+      { name: "GitHub account", detail: "Every student needs one. A free account works." },
+    ],
+  },
+  venue: {
+    heading: "Venue",
+    items: ["Wi-Fi that students can connect to", "Power sockets for laptops", "A projector with HDMI"],
+  },
 } as const
 
-const requirementsCopy = `Workshop requirements
-Students: ${requirements.students} ${requirements.source}
-Venue: ${requirements.venue.join(", ")}.`
+const numbered = (items: readonly string[]) => items.map((item, index) => `${index + 1}. ${item}`).join("\n")
+const bulleted = (items: readonly string[]) => items.map((item) => `- ${item}`).join("\n")
+
+const { form, computers, software, accounts, venue } = requirements
+const downloadLinks = software.apps.map((app) => `${app.name}: ${app.href}`)
+const accountLines = accounts.items.map((item) => `${item.name}: ${item.detail}`)
+
+// Plain text with one numbered heading per step, in the card's order, so it
+// pastes cleanly into email or WhatsApp.
+const requirementsCopy = [
+  "Workshop requirements",
+  ...[
+    { heading: form.heading, body: bulleted([form.instruction, `${form.name}: ${form.href}`]) },
+    { heading: computers.heading, body: bulleted(computers.items) },
+    {
+      heading: software.heading,
+      body: `${bulleted(downloadLinks)}\n${software.platforms} ${software.labComputers}`,
+    },
+    { heading: accounts.heading, body: bulleted(accountLines) },
+    { heading: venue.heading, body: bulleted(venue.items) },
+  ].map((step, index) => `${index + 1}. ${step.heading}\n${step.body}`),
+].join("\n\n")
+
+const downloadLinksCopy = `Install these apps before the workshop:
+${numbered(downloadLinks)}
+${software.platforms}`
+
+// The same checklist closes both WhatsApp messages.
+const prepSteps = [
+  ...software.apps.map((app) => `Install ${app.name}: ${app.href}`),
+  "Have a ChatGPT account ready (free or paid)",
+  "Have a free GitHub account ready",
+]
 
 // Messages the coordinator posts to class WhatsApp groups, in their own voice.
 // *Asterisks* are WhatsApp bold.
@@ -73,6 +136,10 @@ For more details, visit https://www.hibuddy.in/swe
 
 Every student needs access to a laptop or computer with Wi-Fi. No prior machine learning background is required.
 
+*Before the workshop, please:*
+${numbered(prepSteps)}
+${software.platforms}
+
 Regards,
 [COORDINATOR NAME]`,
   },
@@ -91,7 +158,11 @@ More about it 👉 https://www.hibuddy.in/swe
 📍 [VENUE]
 💻 Laptop or computer with Wi-Fi: [BRING YOUR OWN / PROVIDED BY THE COLLEGE]
 
-You'll need one to follow along. No ML background needed.`,
+You'll need one to follow along. No ML background needed.
+
+*Before the workshop:*
+${prepSteps.map((step) => `✅ ${step}`).join("\n")}
+${software.platforms}`,
   },
 ] as const
 
@@ -111,11 +182,11 @@ const toChatLines = (message: string) =>
   )
 
 const posterLines = [
-  { label: "Title", value: workshop.title, wide: true },
-  { label: "Subtitle", value: workshop.subtitle, wide: true },
-  { label: "Resource person", value: speaker.name, wide: false },
-  { label: "Designation", value: speaker.role, wide: false },
-  { label: "Duration", value: workshop.duration, wide: false },
+  { label: "Title", value: workshop.title },
+  { label: "Subtitle", value: workshop.subtitle },
+  { label: "Resource person", value: speaker.name },
+  { label: "Designation", value: speaker.role },
+  { label: "Duration", value: workshop.duration },
 ] as const
 
 const abstract = [
@@ -138,7 +209,11 @@ const outcomes = [
   "Explain what RAG, agent skills and MCP servers are for.",
 ] as const
 
-const numbered = (items: readonly string[]) => items.map((item, index) => `${index + 1}. ${item}`).join("\n")
+const reportParts = [
+  { label: "Abstract", text: abstract },
+  { label: "Objectives", text: numbered(objectives) },
+  { label: "Learning outcomes", text: `By the end of the workshop, students will be able to:\n${numbered(outcomes)}` },
+] as const
 
 const facts = [
   { label: "Title", value: workshop.title },
@@ -154,7 +229,15 @@ const facts = [
     value:
       "Beginner friendly. Students should be able to write a basic program in any language. No machine learning background needed.",
   },
-  { label: "Laptops", value: `Required. ${requirements.students} ${requirements.source}` },
+  { label: "Laptops", value: `Required. ${computers.items.join(" ")}` },
+  {
+    label: "Software",
+    value: `Install before the workshop: ${software.apps.map((app) => `${app.name} (${app.href})`).join(" and ")}. ${software.platforms}`,
+  },
+  {
+    label: "Accounts",
+    value: `Every student needs a ${accounts.items.map((item) => item.name).join(" and a ")}. Free accounts work for both.`,
+  },
   {
     label: "Room setup",
     value: "A lab or hall with Wi-Fi that students can connect to, power sockets for laptops, and a projector with HDMI.",
@@ -162,17 +245,15 @@ const facts = [
   { label: "Full outline", value: "hibuddy.in/swe" },
 ] as const
 
-// Jump nav, in page order. Numbers match the section headings.
+// Jump nav, in page order.
 const toc = [
   { id: "requirements", label: "Requirements" },
-  { id: "whatsapp", label: "WhatsApp message" },
   { id: "poster", label: "Poster" },
   { id: "speaker", label: "Speaker profile" },
+  { id: "whatsapp", label: "WhatsApp message" },
   { id: "report", label: "Event report" },
   { id: "facts", label: "Facts" },
 ] as const
-
-const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
 ---
 
 <Landing title={seo.title} description={seo.description} robots="noindex, follow">
@@ -186,8 +267,7 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
   <main class="container">
     <div class="kit-column">
       <section class="kit-intro" data-analytics-section="swe_kit_intro">
-        <p class="kit-kicker">Organizer kit</p>
-        <h1 class="kit-intro__title">Announce the workshop</h1>
+        <h1 class="kit-intro__title">Workshop organizer kit</h1>
         <p class="kit-intro__lede">Ready-to-copy text for students, posters and reports.</p>
       </section>
 
@@ -201,7 +281,7 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
           <span class="kit-toc__text">
             <span class="kit-toc__title">Go to a section</span>
             <span class="kit-toc__now">
-              Now: <span class="kit-toc__current"><span>{tocNumber(0)}</span>{toc[0].label}</span>
+              Now: <span class="kit-toc__current">{toc[0].label}</span>
             </span>
           </span>
           <span class="kit-toc__chevron">
@@ -212,10 +292,9 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
         </button>
         <ol id="kit-toc-list">
           {
-            toc.map((item, index) => (
+            toc.map((item) => (
               <li>
                 <a href={`#${item.id}`} data-toc={item.id}>
-                  <span>{tocNumber(index)}</span>
                   {item.label}
                 </a>
               </li>
@@ -225,21 +304,132 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
       </nav>
 
       <section id="requirements" class="kit-section" data-analytics-section="swe_kit_requirements">
-        <h2 class="kit-h2"><span>01</span> Workshop requirements</h2>
-        <KitBlock label="Requirements" copy={requirementsCopy}>
-          <p class="kit-req__must">{requirements.students}</p>
-          <p class="kit-req__why">{requirements.source} {requirements.why}</p>
-          <div class="kit-req__venue">
-            <p>The venue needs</p>
-            <ul>
-              {requirements.venue.map((item) => <li>{item}</li>)}
-            </ul>
-          </div>
+        <h2 class="kit-h2">Workshop requirements</h2>
+        <KitBlock label="Requirements" copy={requirementsCopy} copyLabel="Copy requirements">
+          <ol class="kit-req">
+            <li>
+              <h3 class="kit-req__heading">{form.heading}</h3>
+              <p class="kit-req__instruction">{form.instruction}</p>
+              <div class="kit-req__app">
+                <div>
+                  <p class="kit-req__app-name">{form.name}</p>
+                  <a class="kit-req__app-url" href={form.href} target="_blank" rel="noopener">
+                    {form.href}
+                  </a>
+                </div>
+                <a class="btn-cta" href={form.href} target="_blank" rel="noopener">
+                  Open form
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="7" y1="17" x2="17" y2="7" />
+                    <polyline points="7 7 17 7 17 17" />
+                  </svg>
+                </a>
+              </div>
+            </li>
+            <li>
+              <h3 class="kit-req__heading">{computers.heading}</h3>
+              <ul class="kit-req__list">
+                {computers.items.map((item) => <li>{item}</li>)}
+              </ul>
+            </li>
+            <li>
+              <div class="kit-req__heading-row">
+                <h3 class="kit-req__heading">{software.heading}</h3>
+                <KitAction copy={downloadLinksCopy} label="Copy download links" />
+              </div>
+              <ul class="kit-req__apps">
+                {
+                  software.apps.map((app) => (
+                    <li class="kit-req__app">
+                      <div>
+                        <p class="kit-req__app-name">{app.name}</p>
+                        <a class="kit-req__app-url" href={app.href} target="_blank" rel="noopener">
+                          {app.href}
+                        </a>
+                      </div>
+                      <a class="btn-cta" href={app.href} target="_blank" rel="noopener">
+                        Download
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <line x1="7" y1="17" x2="17" y2="7" />
+                          <polyline points="7 7 17 7 17 17" />
+                        </svg>
+                      </a>
+                    </li>
+                  ))
+                }
+              </ul>
+              <p class="kit-req__note">{software.platforms} {software.labComputers}</p>
+            </li>
+            <li>
+              <h3 class="kit-req__heading">{accounts.heading}</h3>
+              <ul class="kit-req__list kit-req__accounts">
+                {
+                  accounts.items.map((item) => (
+                    <li>
+                      <strong>{item.name}:</strong> {item.detail}
+                    </li>
+                  ))
+                }
+              </ul>
+            </li>
+            <li>
+              <h3 class="kit-req__heading">{venue.heading}</h3>
+              <ul class="kit-req__list">
+                {venue.items.map((item) => <li>{item}</li>)}
+              </ul>
+            </li>
+          </ol>
         </KitBlock>
       </section>
 
+      <section id="poster" class="kit-section" data-analytics-section="swe_kit_poster">
+        <h2 class="kit-h2">Poster and circular</h2>
+        <p class="kit-lede">The pieces of a poster, circular or stage introduction.</p>
+        <ul class="kit-lines">
+          {
+            posterLines.map((line) => (
+              <li class="kit-line">
+                <div>
+                  <p class="kit-line__label">{line.label}</p>
+                  <p class="kit-line__value">{line.value}</p>
+                </div>
+                <KitAction copy={line.value} />
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <section id="speaker" class="kit-section" data-analytics-section="swe_kit_speaker">
+        <h2 class="kit-h2">Speaker profile</h2>
+        <p class="kit-lede">Photo, bio and the full profile, for posters, introductions and records.</p>
+        <ul class="kit-lines">
+          <li class="kit-line kit-line--top">
+            <div>
+              <p class="kit-line__label">Photo</p>
+              <Image src={instructorPhoto} alt="Prashant Bhudwal" class="kit-photo" width={480} height={480} />
+            </div>
+            <KitAction download={speaker.photo} />
+          </li>
+          <li class="kit-line kit-line--top">
+            <div>
+              <p class="kit-line__label">Bio</p>
+              <p class="kit-line__text">{`${speaker.bio}\n\n${speaker.showcase}`}</p>
+            </div>
+            <KitAction copy={`${speaker.bio}\n\n${speaker.showcase}`} />
+          </li>
+          <li class="kit-line">
+            <div>
+              <p class="kit-line__label">Full profile</p>
+              <p class="kit-line__text">A one-page PDF, for approval files and event records.</p>
+            </div>
+            <KitAction download={speaker.profile} label="Download PDF" />
+          </li>
+        </ul>
+      </section>
+
       <section id="whatsapp" class="kit-section" data-analytics-section="swe_kit_message">
-        <h2 class="kit-h2"><span>02</span> WhatsApp message</h2>
+        <h2 class="kit-h2">WhatsApp message</h2>
         <p class="kit-lede">Pick the tone that suits your groups, copy it, and fill in the highlighted brackets.</p>
         <KitBlock label="WhatsApp message" copy={whatsappVariants[0].text} primary>
           <div slot="controls" class="kit-tone" role="group" aria-label="Message tone">
@@ -275,66 +465,42 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
         </KitBlock>
       </section>
 
-      <section id="poster" class="kit-section" data-analytics-section="swe_kit_poster">
-        <h2 class="kit-h2"><span>03</span> Poster and circular</h2>
-        <p class="kit-lede">The pieces of a poster, circular or stage introduction.</p>
-        <div class="kit-grid">
+      <section id="report" class="kit-section" data-analytics-section="swe_kit_report">
+        <h2 class="kit-h2">Event report</h2>
+        <p class="kit-lede">For IQAC, NAAC and NBA documentation, usually written after the workshop.</p>
+        <ul class="kit-lines">
           {
-            posterLines.map((line) => (
-              <div class:list={{ "kit-grid__wide": line.wide }}>
-                <KitBlock label={line.label} copy={line.value} size="line" />
-              </div>
+            reportParts.map((part) => (
+              <li class="kit-line kit-line--top">
+                <div>
+                  <p class="kit-line__label">{part.label}</p>
+                  <p class="kit-line__text">{part.text}</p>
+                </div>
+                <KitAction copy={part.text} />
+              </li>
             ))
           }
-        </div>
-      </section>
-
-      <section id="speaker" class="kit-section" data-analytics-section="swe_kit_speaker">
-        <h2 class="kit-h2"><span>04</span> Speaker profile</h2>
-        <p class="kit-lede">Photo, bio and the full profile, for posters, introductions and records.</p>
-        <div class="kit-speaker">
-          <KitBlock label="Speaker photo" download={speaker.photo}>
-            <Image src={instructorPhoto} alt="Prashant Bhudwal" class="kit-photo" width={480} height={480} />
-          </KitBlock>
-          <KitBlock label="Speaker bio" copy={`${speaker.bio}\n\n${speaker.showcase}`} />
-        </div>
-        <div class="kit-profile">
-          <KitBlock label="Speaker profile" download={speaker.profile}>
-            <p class="kit-profile__text">
-              The full speaker profile as a one-page PDF, for approval files and event records.
-            </p>
-          </KitBlock>
-        </div>
-      </section>
-
-      <section id="report" class="kit-section" data-analytics-section="swe_kit_report">
-        <h2 class="kit-h2"><span>05</span> Event report</h2>
-        <p class="kit-lede">For IQAC, NAAC and NBA documentation, usually written after the workshop.</p>
-        <div class="kit-stack">
-          <KitBlock label="Abstract" copy={abstract} />
-          <KitBlock label="Objectives" copy={numbered(objectives)} />
-          <KitBlock
-            label="Learning outcomes"
-            copy={`By the end of the workshop, students will be able to:\n${numbered(outcomes)}`}
-          />
-        </div>
+        </ul>
       </section>
 
       <section id="facts" class="kit-section" data-analytics-section="swe_kit_facts">
-        <h2 class="kit-h2"><span>06</span> Workshop facts</h2>
-        <p class="kit-lede">The raw details, for writing your own announcement or report.</p>
-        <KitBlock label="Workshop facts" copy={facts.map((fact) => `${fact.label}: ${fact.value}`).join("\n")}>
-          <dl class="kit-facts">
-            {
-              facts.map((fact) => (
+        <h2 class="kit-h2">Workshop facts</h2>
+        <div class="kit-lede-row">
+          <p class="kit-lede">The raw details, for writing your own announcement or report.</p>
+          <KitAction copy={facts.map((fact) => `${fact.label}: ${fact.value}`).join("\n")} label="Copy all facts" />
+        </div>
+        <ul class="kit-lines">
+          {
+            facts.map((fact) => (
+              <li class="kit-line">
                 <div>
-                  <dt>{fact.label}</dt>
-                  <dd>{fact.value}</dd>
+                  <p class="kit-line__label">{fact.label}</p>
+                  <p class="kit-line__text">{fact.value}</p>
                 </div>
-              ))
-            }
-          </dl>
-        </KitBlock>
+              </li>
+            ))
+          }
+        </ul>
       </section>
     </div>
   </main>
@@ -380,16 +546,6 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
   /* === Intro === */
   .kit-intro {
     padding-block: clamp(2.5rem, 6vw, 4rem) 0;
-  }
-
-  .kit-kicker {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-    color: var(--accent-base);
-    margin-bottom: var(--space-3);
   }
 
   .kit-intro__title {
@@ -454,13 +610,6 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
     transition:
       background-color 150ms var(--ease-out),
       color 150ms var(--ease-out);
-  }
-
-  .kit-toc a span,
-  .kit-toc__current span {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--accent-base);
   }
 
   .kit-toc a:hover {
@@ -580,10 +729,6 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
       font-size: var(--text-lg);
       color: var(--fg-strong);
     }
-
-    .kit-toc a span {
-      font-size: var(--text-sm);
-    }
   }
 
   /* Phones: the button sits in an edge-to-edge bar directly under the header. */
@@ -616,8 +761,13 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
 
   /* === Sections === */
   .kit-section {
-    padding-block: clamp(2rem, 4vw, 3rem);
+    padding-block: clamp(2.5rem, 5vw, 4rem);
     scroll-margin-top: 132px;
+  }
+
+  /* A full-width rule between sections, so each one reads as its own block. */
+  .kit-section + .kit-section {
+    border-top: 1px solid var(--border-base);
   }
 
   /* Clear the taller "Go to a section" bar on narrow screens. */
@@ -633,71 +783,138 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
     }
   }
 
-  /* === Requirements === */
-  .kit-req__must {
-    font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.625rem);
-    font-weight: 600;
-    line-height: 1.3;
-    letter-spacing: -0.015em;
-    color: var(--fg-strong);
-    text-wrap: balance;
-    margin-bottom: var(--space-3);
+  /* === Requirements: numbered steps, one per thing the college arranges === */
+  .kit-req {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: kit-req;
   }
 
-  .kit-req__why {
-    max-width: 60ch;
-    line-height: 1.5;
-    color: var(--fg-weak);
-    margin-bottom: var(--space-5);
+  .kit-req > li {
+    position: relative;
+    padding-left: 2.25rem;
+    counter-increment: kit-req;
   }
 
-  .kit-req__venue {
-    padding-top: var(--space-4);
+  /* A lighter rule between steps; the number sits below it. */
+  .kit-req > li + li {
+    margin-top: var(--space-6);
+    padding-top: var(--space-6);
     border-top: 1px solid var(--border-weak);
   }
 
-  .kit-req__venue p {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-    color: var(--fg-weaker);
-    margin-bottom: var(--space-2);
+  .kit-req > li + li::before {
+    top: var(--space-6);
   }
 
-  .kit-req__venue ul {
+  .kit-req > li::before {
+    content: counter(kit-req) ".";
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: var(--text-xl);
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--fg-weaker);
+  }
+
+  .kit-req__heading {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--fg-strong);
+    margin-bottom: var(--space-3);
+  }
+
+  .kit-req__heading-row {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+
+  .kit-req__heading-row .kit-req__heading {
+    margin-bottom: 0;
+  }
+
+  .kit-req__instruction {
+    line-height: 1.5;
+    color: var(--fg-base);
+    margin-bottom: var(--space-4);
+  }
+
+  .kit-req__list {
+    display: flex;
+    flex-direction: column;
     gap: var(--space-2);
+    margin: 0;
+    padding-left: 1.1em;
+    list-style: disc;
+    line-height: 1.5;
+    color: var(--fg-base);
+  }
+
+  .kit-req__list li::marker {
+    color: var(--fg-weaker);
+  }
+
+  .kit-req__accounts li {
+    color: var(--fg-weak);
+  }
+
+  .kit-req__accounts strong {
+    font-weight: 600;
+    color: var(--fg-strong);
+  }
+
+  .kit-req__apps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  .kit-req__venue li {
-    padding: 4px 12px;
-    border: 1px solid var(--border-base);
-    border-radius: 999px;
-    font-size: var(--text-sm);
+  .kit-req__app {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+  }
+
+  .kit-req__app-name {
+    font-weight: 500;
     color: var(--fg-strong);
   }
 
+  .kit-req__app-url {
+    font-size: var(--text-sm);
+    color: var(--accent-base);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    overflow-wrap: anywhere;
+  }
+
+  .kit-req__note {
+    margin-top: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--fg-weak);
+  }
+
   .kit-h2 {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-3);
     font-size: var(--text-2xl);
     font-weight: 560;
     letter-spacing: -0.02em;
     color: var(--fg-strong);
     margin-bottom: var(--space-2);
-  }
-
-  .kit-h2 span {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--accent-base);
   }
 
   .kit-lede {
@@ -776,115 +993,89 @@ const tocNumber = (index: number) => String(index + 1).padStart(2, "0")
     font-weight: 500;
   }
 
-  /* === Poster and circular === */
-  .kit-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-3);
+  /* === Row lists (poster, speaker, report, facts): one bordered list, a
+     label and value per row, and the row's Copy or Download on the right. === */
+  .kit-lines {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--border-base);
+    border-radius: 12px;
+    background: var(--surface-base);
   }
 
-  .kit-grid > div {
+  .kit-line {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
   }
 
-  .kit-grid > div > :global(.kit-block) {
+  .kit-line > div {
     flex: 1;
+    min-width: 0;
   }
 
-  .kit-grid__wide {
-    grid-column: 1 / -1;
+  /* Long text and images keep their action at the top of the row. */
+  .kit-line--top {
+    align-items: flex-start;
   }
 
-  .kit-speaker {
-    display: grid;
-    grid-template-columns: 264px minmax(0, 1fr);
-    gap: var(--space-3);
-    align-items: stretch;
+  .kit-line + .kit-line {
+    border-top: 1px solid var(--border-weak);
+  }
+
+  .kit-line__label {
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--fg-strong);
+    margin-bottom: var(--space-1);
+  }
+
+  .kit-line--top .kit-line__label {
+    margin-bottom: var(--space-2);
+  }
+
+  .kit-line__value {
+    font-size: var(--text-lg);
+    line-height: 1.35;
+    color: var(--fg-base);
+  }
+
+  .kit-line__text {
+    max-width: 68ch;
+    white-space: pre-wrap;
+    line-height: 1.6;
+    color: var(--fg-base);
   }
 
   .kit-photo {
     display: block;
-    width: 100%;
+    width: 160px;
     height: auto;
     aspect-ratio: 1;
     object-fit: cover;
     border-radius: 8px;
   }
 
-  .kit-profile {
-    margin-top: var(--space-3);
-  }
-
-  .kit-profile__text {
-    color: var(--fg-weak);
-    line-height: 1.5;
-  }
-
-  /* === Event report === */
-  .kit-stack {
+  .kit-lede-row {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-5);
   }
 
-  /* === Facts === */
-  .kit-facts div {
-    display: grid;
-    grid-template-columns: 10rem minmax(0, 1fr);
-    gap: var(--space-4);
-    padding-block: var(--space-3);
-  }
-
-  .kit-facts div:first-child {
-    padding-top: 0;
-  }
-
-  .kit-facts div:last-child {
-    padding-bottom: 0;
-  }
-
-  .kit-facts div + div {
-    border-top: 1px solid var(--border-weak);
-  }
-
-  .kit-facts dt {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-    color: var(--fg-weaker);
-    padding-top: 3px;
-  }
-
-  .kit-facts dd {
-    color: var(--fg-strong);
-    line-height: 1.5;
+  .kit-lede-row .kit-lede {
+    margin-bottom: 0;
   }
 
   /* === Responsive === */
-  @media (max-width: 720px) {
-    .kit-grid {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .kit-speaker {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .kit-speaker > :first-child {
-      max-width: 280px;
-    }
-  }
-
   @media (max-width: 640px) {
     .kit-header__title span {
       display: none;
-    }
-
-    .kit-facts div {
-      grid-template-columns: minmax(0, 1fr);
-      gap: var(--space-1);
     }
   }
 </style>
