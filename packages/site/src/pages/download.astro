@@ -1,0 +1,270 @@
+---
+/**
+ * /download — a standalone page to send when someone needs to install Buddy.
+ * One column, one block per platform: the command, a Copy button, and the few
+ * steps around it. Steps match what the install scripts print at the end.
+ * Detection only moves the visitor's platform to the top.
+ */
+import { Image } from "astro:assets"
+import Landing from "../layouts/Landing.astro"
+import buddyAppIcon from "../assets/buddy-app-icon.png"
+import { content } from "../content/site"
+import { LEARNER_PATH, MAC_INSTALL_CMD, WIN_INSTALL_CMD } from "../lib/constants"
+
+export const prerender = true
+
+const { header } = content
+
+const seo = {
+  title: "Download Buddy for Mac and Windows",
+  description:
+    "Install Buddy, the free AI agent for students, on macOS or Windows. Copy one command, paste it, and the installer does the rest.",
+}
+
+const platforms = [
+  {
+    id: "mac",
+    name: "macOS",
+    command: MAC_INSTALL_CMD,
+    steps: [
+      "Open Terminal: press Command + Space, type Terminal, and press Return.",
+      "Paste this command and press Return:",
+      "In the window that opens, drag Buddy into Applications.",
+    ],
+  },
+  {
+    id: "win",
+    name: "Windows",
+    command: WIN_INSTALL_CMD,
+    steps: [
+      "Open PowerShell: press the Windows key, type PowerShell, and press Enter.",
+      "Paste this command and press Enter:",
+      "Follow the setup window that opens.",
+    ],
+  },
+] as const
+---
+
+<Landing title={seo.title} description={seo.description}>
+  <header class="dl-header">
+    <a href={LEARNER_PATH} class="dl-brand">
+      <Image src={buddyAppIcon} alt="" width={28} height={28} />
+      <span>{header.brandName}</span>
+    </a>
+  </header>
+
+  <main class="dl-main" data-analytics-section="download">
+    <h1 class="dl-title">Download Buddy</h1>
+    <p class="dl-lede">Free for macOS and Windows.</p>
+
+    <p class="dl-phone" data-phone-notice hidden>
+      Buddy installs on a computer. Open this page on your Mac or Windows laptop.
+    </p>
+
+    <div class="dl-platforms">
+      {
+        platforms.map((platform) => (
+          <section class="dl-platform" data-platform={platform.id}>
+            <h2 class="dl-platform__name">
+              {platform.id === "mac" ? (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.08 1.85-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+                </svg>
+              ) : (
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M0 0h11v11H0zM13 0h11v11H13zM0 13h11v11H0zM13 13h11v11H13z" />
+                </svg>
+              )}
+              {platform.name}
+            </h2>
+            <ol class="dl-steps">
+              <li>{platform.steps[0]}</li>
+              <li>
+                {platform.steps[1]}
+                <div class="dl-command">
+                  <code>{platform.command}</code>
+                  <button type="button" class="dl-copy" data-copy={platform.command}>
+                    Copy
+                  </button>
+                </div>
+              </li>
+              <li>{platform.steps[2]}</li>
+            </ol>
+          </section>
+        ))
+      }
+    </div>
+  </main>
+</Landing>
+
+<style>
+  .dl-header,
+  .dl-main {
+    width: 100%;
+    max-width: 720px;
+    margin-inline: auto;
+    padding-inline: var(--space-4);
+  }
+
+  .dl-header {
+    padding-block: var(--space-5);
+  }
+
+  .dl-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 600;
+    color: var(--fg-strong);
+    text-decoration: none;
+  }
+
+  .dl-brand img {
+    border-radius: 7px;
+  }
+
+  .dl-main {
+    padding-block: var(--space-12) var(--space-16);
+  }
+
+  .dl-title {
+    font-size: var(--text-3xl);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--fg-strong);
+  }
+
+  .dl-lede {
+    margin-top: var(--space-2);
+    font-size: var(--text-lg);
+    color: var(--fg-weak);
+  }
+
+  .dl-phone {
+    margin-top: var(--space-4);
+    color: var(--fg-strong);
+  }
+
+  .dl-phone[hidden] {
+    display: none;
+  }
+
+  .dl-platforms {
+    display: flex;
+    flex-direction: column;
+    margin-top: var(--space-10);
+    border-top: 1px solid var(--border-weak);
+  }
+
+  .dl-platform {
+    padding-block: var(--space-8);
+    border-bottom: 1px solid var(--border-weak);
+  }
+
+  .dl-platform[data-detected] {
+    order: -1;
+  }
+
+  .dl-platform__name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--fg-strong);
+    margin-bottom: var(--space-4);
+  }
+
+  .dl-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+    padding-left: 1.25em;
+    font-size: var(--text-base);
+    line-height: 1.6;
+    color: var(--fg-base);
+  }
+
+  .dl-steps li::marker {
+    color: var(--fg-weaker);
+  }
+
+  .dl-command {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+    border: 1px solid var(--border-base);
+    border-radius: 8px;
+  }
+
+  .dl-command code {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--fg-strong);
+    overflow-wrap: anywhere;
+  }
+
+  .dl-copy {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--fg-strong);
+    cursor: pointer;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .dl-copy:hover {
+      background: var(--surface-raised);
+    }
+  }
+</style>
+
+<script>
+  // Older and embedded browsers can refuse the async Clipboard API; fall back to
+  // copying a selected off-screen textarea.
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      const area = document.createElement("textarea")
+      area.value = text
+      area.setAttribute("readonly", "")
+      area.style.position = "fixed"
+      area.style.opacity = "0"
+      document.body.append(area)
+      area.select()
+      const copied = document.execCommand("copy")
+      area.remove()
+      return copied
+    }
+  }
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>("button[data-copy]")) {
+    button.addEventListener("click", async () => {
+      button.textContent = (await copyText(button.dataset.copy ?? "")) ? "Copied" : "Copy failed"
+      window.setTimeout(() => {
+        button.textContent = "Copy"
+      }, 2000)
+    })
+  }
+
+  // iPadOS reports a Mac user agent, so touch points separate it from a real Mac.
+  const userAgent = navigator.userAgent
+  const isMacUserAgent = /Macintosh|Mac OS X/.test(userAgent)
+  const isPhoneOrTablet = /Android|iPhone|iPad|iPod/i.test(userAgent) || (isMacUserAgent && navigator.maxTouchPoints > 1)
+  const detected = isPhoneOrTablet ? null : /Windows/i.test(userAgent) ? "win" : isMacUserAgent ? "mac" : null
+
+  if (isPhoneOrTablet) document.querySelector<HTMLElement>("[data-phone-notice]")?.removeAttribute("hidden")
+  if (detected) document.querySelector<HTMLElement>(`[data-platform="${detected}"]`)?.setAttribute("data-detected", "")
+</script>
