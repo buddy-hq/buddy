@@ -30,6 +30,7 @@ const facts = [
   { label: "Duration", value: "~2 hours · 90 min + 30 min Q&A" },
   { label: "Audience", value: "2nd–4th year CS/IT students" },
   { label: "Level", value: "Beginner friendly" },
+  { label: "Travel", value: "The college covers Prashant’s cab to the campus and back" },
 ] as const
 
 const outline = [
@@ -105,7 +106,11 @@ const prerequisites = [
 const faqs = [
   {
     q: "Why is this free?",
-    a: "Prashant is offering this session free to share practical experience building AI software with students. There is no session fee or travel charge for the college.",
+    a: "Prashant is building Buddy, a free and open-source AI agent for students and teachers. Meeting students and teachers, and understanding how they learn and teach in the age of agents, is valuable to Prashant, which is why there is no fee for the workshop. Neither the college nor the students need to adopt Buddy. The workshop itself is about agentic software engineering with tools like OpenCode, Codex and Claude Code.",
+  },
+  {
+    q: "Who pays for travel?",
+    a: "The college covers Prashant’s cab to the campus and back on the workshop day. Either the college books the cab, or Prashant books it and the college pays the fare on the day. This is the only cost to the college.",
   },
   {
     q: "What do we need to arrange?",
@@ -348,7 +353,7 @@ const faqs = [
       <aside class="swe-aside" aria-label="Workshop summary">
         <div class="swe-card">
           <p class="swe-card__price">Free</p>
-          <p class="swe-card__sub">for your college and your students</p>
+          <p class="swe-card__sub">No workshop fee for your college or your students</p>
           <a href={HOST_HREF} class="btn-cta swe-btn-lg swe-card__cta" target="_blank" rel="noopener noreferrer">Host this at your college</a>
           <dl class="swe-card__facts">
             {

@@ -80,6 +80,14 @@ const requirements = {
     heading: "Venue",
     items: ["Wi-Fi that students can connect to", "Power sockets for laptops", "A projector with HDMI"],
   },
+  travel: {
+    heading: "Travel",
+    items: [
+      "The college covers Prashant’s cab to the campus and back on the workshop day. There is no workshop fee.",
+      "Either the college books the cab, or Prashant books it and the college pays the fare on the day.",
+      "Let Prashant know which option suits you, and who will handle it, before the workshop.",
+    ],
+  },
   clone: {
     heading: "Optional: clone the Buddy repository",
     instruction: "For students who want to go deeper in the hands-on part. Needs Git installed.",
@@ -90,7 +98,7 @@ const requirements = {
 const numbered = (items: readonly string[]) => items.map((item, index) => `${index + 1}. ${item}`).join("\n")
 const bulleted = (items: readonly string[]) => items.map((item) => `- ${item}`).join("\n")
 
-const { form, computers, software, accounts, clone, venue } = requirements
+const { form, computers, software, accounts, clone, venue, travel } = requirements
 const downloadLinks = software.apps.map((app) => `${app.name}: ${app.href}`)
 // On a narrow screen the clone command wraps after the host, keeping the repo path whole.
 const cloneBreak = clone.command.indexOf("github.com/") + "github.com/".length
@@ -111,6 +119,7 @@ const requirementsCopy = [
     },
     { heading: accounts.heading, body: bulleted(accountLines) },
     { heading: venue.heading, body: bulleted(venue.items) },
+    { heading: travel.heading, body: bulleted(travel.items) },
     { heading: clone.heading, body: `${clone.instruction}\n${clone.command}` },
   ].map((step, index) => `${index + 1}. ${step.heading}\n${step.body}`),
 ].join("\n\n")
@@ -393,6 +402,12 @@ const toc = [
               <h3 class="kit-req__heading">{venue.heading}</h3>
               <ul class="kit-req__list">
                 {venue.items.map((item) => <li>{item}</li>)}
+              </ul>
+            </li>
+            <li>
+              <h3 class="kit-req__heading">{travel.heading}</h3>
+              <ul class="kit-req__list">
+                {travel.items.map((item) => <li>{item}</li>)}
               </ul>
             </li>
             <li>
