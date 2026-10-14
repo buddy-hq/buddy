@@ -20,6 +20,7 @@ build/
 .idea/
 *.swp
 *.swo
+/.codex/config.toml
 
 # Obsidian
 .obsidian/

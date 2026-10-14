@@ -58,10 +58,19 @@ import { SkillsDrawerCalmDensityEasel } from "./easel/skills-drawer-calm-density
 import { InlineTodoRedesignsEasel } from "./easel/inline-todo-redesigns"
 import { ErrorSystemRedesignEasel } from "./easel/error-system-redesign"
 import { ErrorCardPreviewEasel } from "./easel/error-card-preview"
+import { ErrorBannerDismissalEasel } from "./easel/error-banner-dismissal"
 import { TokenCounterMeterEasel } from "./easel/token-counter-meter"
 import { ObjectRowLanguageEasel } from "./easel/object-row-language"
 import { BenchTableRestyleEasel } from "./easel/bench-table-restyle"
+import { MarkdownContentsEasel } from "./easel/markdown-contents"
+import { FileIconContrastEasel } from "./easel/file-icon-contrast"
 import { SidebarAlignmentRedesignEasel } from "./easel/sidebar-alignment-redesign"
+import { SidebarActionAreaEasel } from "./easel/sidebar-action-area"
+import { BenchEmptyStateEasel } from "./easel/bench-empty-state"
+import { BenchHomeDirectionsEasel } from "./easel/bench-home/bench-home-directions"
+import { BenchResourcesEasel } from "./easel/bench-resources"
+import { BenchResourcesFitEasel } from "./easel/bench-resources-fit"
+import { BenchCreateBrowseEasel } from "./easel/bench-create-browse"
 import { SkillIconAtlasEasel } from "./easel/skill-icon-atlas"
 import { NotebookDialogRedesignEasel } from "./easel/notebook-dialog-redesign"
 import { ChatGptAccountCardRedesignEasel } from "./easel/chatgpt-account-card-redesign"
@@ -96,6 +105,14 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "file-icon-contrast"
+  | "markdown-contents"
+  | "bench-create-browse"
+  | "bench-resources-fit"
+  | "bench-home-directions"
+  | "bench-resources"
+  | "bench-empty-state"
+  | "sidebar-action-area"
   | "reasoning-activity-comparison"
   | "sent-message-motion"
   | "updater-surfaces"
@@ -123,6 +140,7 @@ type EaselPrototype =
   | "object-row-language"
   | "token-counter-meter"
   | "error-card-preview"
+  | "error-banner-dismissal"
   | "error-system-redesign"
   | "inline-todo-redesigns"
   | "skills-panel-redesigns"
@@ -141,6 +159,52 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "error-banner-dismissal",
+    label: "Error notices · dismiss and minimize",
+    subtitle: "Issue 18 · failed response dismissal, compact recovery controls, active retry status and new failure reset · preview only",
+  },
+  {
+    id: "file-icon-contrast",
+    label: "File icons · before and after",
+    subtitle: "Issue 24 · actual color families at 12, 14 and 16 px · tabs, explorer, inline references and dark mode",
+  },
+  {
+    id: "markdown-contents",
+    label: "Markdown · Contents",
+    subtitle: "Native book-style Contents popover · Markdown and MDX · docked and wide",
+  },
+  {
+    id: "bench-create-browse",
+    label: "Empty Bench · B with the book row",
+    subtitle: "Bar, book row, Recent · create in the bar card, as a quiet row, or as icons in the bar",
+  },
+  {
+    id: "bench-resources-fit",
+    label: "Empty Bench · Resources shelf (shipped, no label)",
+    subtitle: "The shelf, following the page · empty, partial and full · with and without the Resources label",
+  },
+  {
+    id: "bench-home-directions",
+    label: "Empty Bench · notebook home",
+    subtitle: "One bar for search, commands and Buddy · one list, the shelf, and three calmer shelves",
+  },
+  {
+    id: "bench-resources",
+    label: "Bench · Resources",
+    subtitle: "Recent books · pushed catalog · reader",
+  },
+  {
+    id: "bench-empty-state",
+    label: "Empty Bench · minimal directions",
+    subtitle: "Search · list · choose first",
+  },
+  {
+    id: "sidebar-action-area",
+    label: "Left sidebar · action area",
+    subtitle:
+      "New chat, note, board and tab outrank every chat below them · current next to five Arc-style tiles: icon row, captioned, wide New chat, 2 × 2 grid, outlined",
+  },
   {
     id: "reasoning-activity-comparison",
     label: "Thinking activity · before and after",
@@ -1304,7 +1368,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("sent-message-motion")
+  const [prototype, setPrototype] = useState<EaselPrototype>("bench-create-browse")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1447,7 +1511,15 @@ export function DevToolsEaselTab(props: { directory?: string }) {
       <div
         className={cn(
           "flex min-h-0 flex-1",
-          prototype === "reasoning-activity-comparison" ||
+          prototype === "bench-create-browse" ||
+            prototype === "file-icon-contrast" ||
+            prototype === "markdown-contents" ||
+            prototype === "bench-resources-fit" ||
+            prototype === "bench-home-directions" ||
+            prototype === "bench-resources" ||
+            prototype === "bench-empty-state" ||
+            prototype === "sidebar-action-area" ||
+            prototype === "reasoning-activity-comparison" ||
             prototype === "sent-message-motion" ||
             prototype === "updater-surfaces" ||
             prototype === "reader-highlight-strengths" ||
@@ -1471,6 +1543,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             prototype === "creations-panel-redesigns" ||
             prototype === "skills-panel-redesigns" ||
             prototype === "error-system-redesign" ||
+            prototype === "error-banner-dismissal" ||
             prototype === "error-card-preview" ||
             prototype === "token-counter-meter" ||
             prototype === "sidebar-alignment-redesign" ||
@@ -1480,6 +1553,34 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
       >
+        {prototype === "bench-create-browse" ? <BenchCreateBrowseEasel directory={props.directory} /> : null}
+
+        {prototype === "markdown-contents" ? <MarkdownContentsEasel /> : null}
+
+        {prototype === "file-icon-contrast" ? <FileIconContrastEasel /> : null}
+
+        {prototype === "bench-resources-fit" ? <BenchResourcesFitEasel directory={props.directory} /> : null}
+
+        {prototype === "bench-home-directions" ? <BenchHomeDirectionsEasel /> : null}
+
+        {prototype === "bench-resources" ? <BenchResourcesEasel /> : null}
+
+        {prototype === "bench-empty-state" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <BenchEmptyStateEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "sidebar-action-area" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <SidebarActionAreaEasel />
+            </div>
+          </div>
+        ) : null}
+
         {prototype === "reasoning-activity-comparison" ? (
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
@@ -1803,6 +1904,14 @@ export function DevToolsEaselTab(props: { directory?: string }) {
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
               <ErrorSystemRedesignEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "error-banner-dismissal" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <ErrorBannerDismissalEasel />
             </div>
           </div>
         ) : null}
