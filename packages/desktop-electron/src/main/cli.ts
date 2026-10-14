@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs"
+import { existsSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { app } from "electron"
@@ -8,10 +8,9 @@ import { APP_PROTOCOL, BACKEND_SERVER_USERNAME, CHANNEL } from "./constants"
 import { parseTString } from "../shared/parse-external"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 import {
-  resolveAllowedDirectoryRoots,
-  resolveDefaultNotebookHome,
-  resolveDevRuntimeEnvironment,
-  shouldUseDevRuntimeIsolation,
+  applyDesktopStorageEnvironment,
+  prepareDesktopStorageDirectories,
+  resolveDesktopStoragePlan,
 } from "./storage-paths"
 
 const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"] as const
@@ -107,13 +106,15 @@ function getBuddyMigrationDir() {
 
 export async function buildRuntimeEnvironment(password: string, port: number) {
   const home = os.homedir()
-  const shouldIsolateDevRuntime = shouldUseDevRuntimeIsolation({
+  const storagePlan = resolveDesktopStoragePlan({
     channel: CHANNEL,
     isPackaged: app.isPackaged,
+    home,
+    documentsPath: app.getPath("documents"),
+    userDataPath: app.getPath("userData"),
   })
-  const isolatedRuntimeEnvironment = shouldIsolateDevRuntime
-    ? resolveDevRuntimeEnvironment(app.getPath("userData"))
-    : {}
+  const shouldIsolateDevRuntime = storagePlan.kind === "development"
+  const isolatedRuntimeEnvironment = storagePlan.environmentOverrides
   const appEnvironment = Object.fromEntries(
     Object.entries(process.env).filter(
       (entry): entry is [string, string] => parseTString(entry[1]) !== undefined,
@@ -124,7 +125,8 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
   delete base[BUDDY_ENV.RUNTIME_ROOT]
   delete base[BUDDY_ENV.DESKTOP_CALLBACK_URL]
   delete base[OPENCODE_ENV.DISABLE_CHANNEL_DB]
-  ensureDirectories(Object.values(isolatedRuntimeEnvironment))
+  const storagePreparation = prepareDesktopStorageDirectories(storagePlan)
+  if (storagePreparation.type === "err") throw storagePreparation.error
 
   const environment = new Map<string, string>(
     Object.entries(
@@ -140,10 +142,8 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
           [BUDDY_ENV.BACKEND_RESOURCES_DIR]: getBackendResourcesDir(),
           [BUDDY_ENV.TESSDATA_DIR]: getTessdataDir(),
           [BUDDY_ENV.MIGRATION_DIR]: getBuddyMigrationDir(),
-          [BUDDY_ENV.DIRECTORY_BASE]: resolveDefaultNotebookHome(home),
-          [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: resolveAllowedDirectoryRoots({
-            home,
-          }),
+          [BUDDY_ENV.DIRECTORY_BASE]: storagePlan.notebookHome,
+          [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: storagePlan.notebookHome,
           PORT: String(port),
           [OPENCODE_ENV.EXPERIMENTAL_ICON_DISCOVERY]: "true",
           [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]: "true",
@@ -173,13 +173,11 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
     environment.set(BUDDY_ENV.STANDARDS_LOCAL_ASSET_DIR, standardsAssetDir)
   }
 
-  return Object.fromEntries(environment)
-}
-
-function ensureDirectories(directories: string[]) {
-  for (const directory of directories) {
-    mkdirSync(directory, { recursive: true })
-  }
+  return applyDesktopStorageEnvironment(
+    Object.fromEntries(environment),
+    storagePlan,
+    process.platform,
+  )
 }
 
 function resolveDevelopmentAdvancedMathAssetDir() {
