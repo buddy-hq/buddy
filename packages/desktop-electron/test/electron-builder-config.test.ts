@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import prodConfiguration from "./fixtures/prod-builder-config.json"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { createElectronBuilderConfiguration } from "../electron-builder-config"
@@ -11,6 +12,20 @@ describe("electron-builder config", () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url))
   const repositoryRoot = path.resolve(testDirectory, "../../..")
   const config = createElectronBuilderConfiguration({ channel: "prod", repositoryRoot })
+
+  test("keeps the complete prod configuration identical to the captured pre-Beta configuration", () => {
+    expect<unknown>(createElectronBuilderConfiguration({ channel: "prod", repositoryRoot: "/buddy-repository" })).toEqual(prodConfiguration)
+  })
+
+  test("isolates Beta identity, protocol, publishing and Windows updater cache metadata", () => {
+    const beta = createElectronBuilderConfiguration({ channel: "beta", repositoryRoot })
+    expect(beta.appId).toBe("ai.buddy.desktop.beta")
+    expect(beta.productName).toBe("Buddy Beta")
+    expect(beta.protocols).toEqual({ name: "Buddy Beta", schemes: ["buddy-beta"] })
+    expect(beta.publish).toEqual({ provider: "github", owner: "prashantbhudwal", repo: "buddy-beta-releases", channel: "latest" })
+    expect(beta.extraMetadata).toEqual({ ...config.extraMetadata, name: "buddy-desktop-beta" })
+    expect(beta.nsis).toEqual(config.nsis)
+  })
 
   test("packages Buddy and third-party license notices", () => {
     expect(config.extraResources).toEqual(

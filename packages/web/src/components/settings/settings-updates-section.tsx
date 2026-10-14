@@ -59,7 +59,11 @@ function resolveUpdateBanner(state: UpdateState, action: UpdateAction): UpdateBa
     return {
       tone: "critical",
       title: describeUpdateFailure(state.failure),
-      detail: language.t("updates.failure.detail"),
+      detail: language.t(
+        state.failure.reason === "not-configured"
+          ? "updates.failure.notConfiguredDetail"
+          : "updates.failure.detail",
+      ),
       busy: false,
       actionLabel: describeUpdateAction(action, state.failure),
     }
@@ -130,6 +134,7 @@ function UpdateBannerStrip(props: { banner: UpdateBanner; onAction: () => void }
 export function UpdatesSettingsSection() {
   const platform = usePlatform()
   const { state, action, perform, check, setRing, confirmation } = useUpdateControl()
+  const beta = state.distribution === "beta"
   const supported = state.activity.status !== "unsupported"
   const busy = isUpdateBusy(state)
   const banner = resolveUpdateBanner(state, action)
@@ -159,8 +164,14 @@ export function UpdatesSettingsSection() {
 
       <SettingsRow
         title={language.t("settings.updates.channelTitle")}
-        description={language.t(RING_DESCRIPTION_KEYS[state.ring])}
-        control={
+        description={language.t(
+          beta ? "settings.updates.channelBetaDescription" : RING_DESCRIPTION_KEYS[state.ring],
+        )}
+        control={beta ? (
+          <span data-action="settings-update-beta" className="text-xs text-text-weak">
+            {language.t("settings.updates.channelBeta")}
+          </span>
+        ) : (
           <Select
             value={state.ring}
             disabled={!supported || busy}
@@ -176,7 +187,7 @@ export function UpdatesSettingsSection() {
               <SelectItem value="preview">{language.t(RING_LABEL_KEYS.preview)}</SelectItem>
             </SelectContent>
           </Select>
-        }
+        )}
       />
 
       <SettingsRow
