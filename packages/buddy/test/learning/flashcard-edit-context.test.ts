@@ -127,24 +127,13 @@ describe("flashcard edit context", () => {
     )
 
     expect(reminderText).toContain(`- edit_path: ${editPath}`)
-    expect(reminderText).toContain("edit only notes[].fields text at edit_path")
-    expect(reminderText).toContain("Preserve IDs, cards, configuration")
-    expect(reminderText).toContain("Use the flashcard-author flow for structural")
+    expect(reminderText).toContain("notes[].fields")
     expect(reminderText).not.toContain("/revisions/")
   })
 
-  test("requires the flashcard author handoff to return only the absolute mutable state path", () => {
+  test("keeps the flashcard edit-path protocol in the author handoff", () => {
     expect(FLASHCARD_AUTHOR_AGENT.prompt).toContain('"edit_path"')
-    expect(FLASHCARD_AUTHOR_AGENT.prompt).toContain(
-      "actual, fully resolved OS path to the mutable state file",
-    )
-    expect(FLASHCARD_AUTHOR_AGENT.prompt).toContain(
-      "Never return `.buddy/...`, a workspace-relative",
-    )
-    expect(FLASHCARD_AUTHOR_AGENT.prompt).toContain("a path under `revisions/`")
-    expect(FLASHCARD_AUTHOR_AGENT.prompt).toContain(
-      "edit only notes[].fields text at edit_path without delegating",
-    )
+    expect(FLASHCARD_AUTHOR_AGENT.prompt).toContain("notes[].fields")
   })
 
   test("gives the main agent the absolute current question-set payload and content boundary", async () => {
@@ -238,21 +227,10 @@ describe("flashcard edit context", () => {
 
     expect(reminderText).toContain(`- edit_path: ${editPath}`)
     expect(reminderText).toContain("questions[].payload.choices[].content")
-    expect(reminderText).toContain("Preserve object, revision, question, and choice IDs")
-    expect(reminderText).toContain("Do not change object.json or create or repoint revisions")
   })
 
-  test("requires the question-set author handoff to return the concrete revision path", () => {
+  test("keeps the question-set edit-path protocol in the author handoff", () => {
     expect(QUESTION_SET_AUTHOR_AGENT.prompt).toContain('"edit_path"')
-    expect(QUESTION_SET_AUTHOR_AGENT.prompt).toContain(
-      "actual, fully resolved OS path to the saved current-revision payload",
-    )
-    expect(QUESTION_SET_AUTHOR_AGENT.prompt).toContain(
-      "Never return `.buddy/...`, a workspace-relative path",
-    )
     expect(QUESTION_SET_AUTHOR_AGENT.prompt).toContain("questions[].payload.choices[].content")
-    expect(QUESTION_SET_AUTHOR_AGENT.prompt).toContain(
-      "Do not change object.json or create or repoint revisions",
-    )
   })
 })

@@ -122,13 +122,6 @@ describe("native resource prompt handoff", () => {
     const parts = requireJsonArray(result.transformed.parts, "transformed prompt parts")
     const reminder = parts.find((part) => parseJsonObject(part)?.synthetic === true)
     expect(reminder).toBeDefined()
-    const reminderText = parsePromptString(parseJsonObject(reminder)?.text)
-    if (reminderText === undefined) {
-      throw new Error("Expected a native resource reminder")
-    }
-    expect(reminderText).toContain("call prepare_resource exactly once")
-    expect(reminderText).toContain("read the returned Markdown pack entrypoint")
-    expect(reminderText).toContain("full_text only when whole-document text is useful")
     const normalizedAttachmentPart = parts.find(
       (part) => parseJsonObject(part)?.type === NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
     )
@@ -137,15 +130,15 @@ describe("native resource prompt handoff", () => {
       delivery: "resource-only",
     }
     expect(normalizedAttachmentPart).toEqual(expectedAttachment)
-    expect(flattenPromptPartsForRuntime([expectedAttachment])).toEqual([
-      {
-        type: "text",
-        text: 'Attached native learning resource metadata: {"filename":"Lesson.docx","format":"docx"}. Follow the preparation instructions in the system reminder before relying on this document\'s contents.',
-        metadata: {
-          [BUDDY_PROMPT_PART_METADATA_KEY]: expectedAttachment,
-        },
+    const flattened = flattenPromptPartsForRuntime([expectedAttachment])
+    expect(flattened).toHaveLength(1)
+    expect(flattened[0]).toMatchObject({
+      type: "text",
+      metadata: {
+        [BUDDY_PROMPT_PART_METADATA_KEY]: expectedAttachment,
       },
-    ])
+    })
+    expect(parsePromptString(parseJsonObject(flattened[0])?.text)?.length).toBeGreaterThan(0)
   })
 
   test("keeps a PDF at the per-file limit beside the resource fallback", async () => {

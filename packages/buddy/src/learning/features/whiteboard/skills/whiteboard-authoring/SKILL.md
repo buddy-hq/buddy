@@ -1,6 +1,6 @@
 ---
 name: whiteboard-authoring
-description: Author clear, editable whiteboards with Buddy's compact append-program tool. Use when the teaching problem depends on canvas workflow, board layout, visual explanation, cumulative lesson records, worked examples, concept maps, diagrams, representation bridging, learner-work comparison, retrieval prompts, error analysis, or preserving a visual trail. Use this whenever the user mentions whiteboard, canvas, Excalidraw, draw, diagram, visual explanation, board work, or how much the agent should write or draw. Do not use for generic lesson planning, classroom management, or artifact authoring unless the visual canvas is central. MUST READ before using any whiteboarding tools.
+description: "Author clear, editable whiteboards with Buddy's compact drawing program. Use after selecting a shared canvas workflow: explicit whiteboard or Excalidraw work, learner drawing and annotation, rearranging ideas together, or preserving and revising a visual reasoning record across turns. A generic request to draw, explain, or show a diagram does not by itself select this skill. Do not use for a finished static diagram, a simulation with controls, or document authoring unless canvas editing is part of the requested activity. Read before using whiteboard tools."
 ---
 <!-- cspell:disable -->
 
@@ -72,7 +72,7 @@ Board means a digital visual surface such as an Excalidraw-like canvas, online w
 
 
 ### Ideal flow
-User: [explain x...]
+User: [work through x together on this whiteboard...]
 Assistant:
 - Loads Whiteboard skill
 - chooses a teaching model
@@ -428,7 +428,7 @@ Use this skill when the visual canvas itself is the teaching surface. In combine
 
 # Excalidraw Element Format
 
-Thanks for calling whiteboard-authoring skill! Do NOT call it again in this conversation — you will not see anything new. Now use whiteboard_create_view to draw.
+The element reference below applies when a whiteboard is the chosen medium. Reading this skill does not require a drawing call; use another representation if it better serves the current request.
 
 ## Color Palette (use consistently across all tools)
 
@@ -602,7 +602,7 @@ Tip: For large diagrams, emit a cameraUpdate to focus on each section as you dra
 
 ## Diagram Example
 
-Example prompt: "Explain how photosynthesis works"
+Example prompt: "Build a photosynthesis explanation with me on the whiteboard; leave space for me to label the inputs."
 
 Uses 2 camera positions: start zoomed in (M) for title, then zoom out (L) to reveal the full diagram. Sun art drawn last as a finishing touch.
 
@@ -651,7 +651,7 @@ Common mistakes to avoid:
 
 ## Sequence flow Diagram Example
 
-Example prompt: "show a sequence diagram explaining MCP Apps"
+Example prompt: "Put an editable MCP Apps sequence diagram on our whiteboard so we can annotate it together."
 
 This demonstrates a UML-style sequence diagram with 4 actors (User, Agent, App iframe, MCP Server), dashed lifelines, and labeled arrows showing the full MCP Apps request/response flow. Camera pans progressively across the diagram:
 
@@ -746,9 +746,11 @@ Place delete entries AFTER the elements you want to remove. The final render fil
 
 **IMPORTANT**: Every element id must be unique. Never reuse an id after deleting it — always assign a new id to replacement elements.
 
-## Animation Mode — Transform in Place
+## Drawing-transition mechanics for an existing board
 
 Instead of building left-to-right and panning away, you can animate by DELETING elements and replacing them at the same position. Combined with slight camera moves, this creates smooth visual transformations during streaming.
+
+For a standalone animation or simulation that the user controls or replays, use an HTML widget instead.
 
 Pattern:
 1. Draw initial elements

@@ -81,10 +81,10 @@ import { SentMessageMotionEasel } from "./easel/sent-message-motion"
 import { ReasoningActivityComparisonEasel } from "./easel/reasoning-activity-comparison"
 import { ThemeSelectors } from "./theme-selectors"
 import { findCatalogID } from "./easel/select-value"
+import { useDevToolsNavigation, type EaselSectionID } from "./devtools-navigation-store"
 
 const FigureGlyph = AppIcons["ShapesIcon"]
 
-type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
 type EaselRailItemID = EaselSectionID | "agents"
 
 type EaselPracticeFilter = "all" | "flashcards" | "question-sets"
@@ -1298,13 +1298,17 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const previewOpenTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
   const previewCloseTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
   const preparedCreationIDRef = useRef<string>()
-  const [activeSection, setActiveSection] = useState<EaselSectionID>("sources")
+  const activeSection = useDevToolsNavigation((state) => state.easelSection)
+  const setActiveSection = useDevToolsNavigation((state) => state.setEaselSection)
   const [drawerOpen, setDrawerOpen] = useState(true)
-  const [lotsOfContent, setLotsOfContent] = useState(false)
+  const lotsOfContent = useDevToolsNavigation((state) => state.easelLotsOfContent)
+  const setLotsOfContent = useDevToolsNavigation((state) => state.setEaselLotsOfContent)
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("sent-message-motion")
+  const storedPrototypeID = useDevToolsNavigation((state) => state.easelPrototypeID)
+  const setPrototype = useDevToolsNavigation((state) => state.setEaselPrototypeID)
+  const prototype = findCatalogID(storedPrototypeID, EASEL_PROTOTYPES) ?? "sent-message-motion"
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)

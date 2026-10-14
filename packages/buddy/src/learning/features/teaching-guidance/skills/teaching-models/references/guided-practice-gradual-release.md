@@ -1,5 +1,7 @@
 # Guided Practice and Gradual Release
 
+> In Buddy: this reference informs the move in your teaching plan. Learner sees: A shared working space where they take the next step and you respond to what they did. Settle what the learner sees and does before you reply.
+
 ## What This Model Addresses
 
 Guided practice with gradual release is the instructional move that turns demonstration into performance. After a teacher has shown what success looks like, learners need structured chances to try the same knowledge or skill while support is still available, feedback is immediate, and responsibility can shift step by step from the teacher to the learner.

@@ -20,8 +20,12 @@ import {
 } from "../render-figure"
 
 const RenderFigureInputSchema = z.object({
-  caption: nonEmptyString.optional(),
-  spec: GeometryFigureSpecSchema,
+  caption: nonEmptyString
+    .optional()
+    .describe("Optional short caption shown under the figure. Omit unless it helps the reader."),
+  spec: GeometryFigureSpecSchema.describe(
+    "geometry.v1 figure spec: a canvas size, named points, and optional segments, polygons, labels, markers, and constraints. Express any point derived from others as a constraint instead of placing it by hand.",
+  ),
 })
 
 type RenderFigureInput = z.infer<typeof RenderFigureInputSchema>

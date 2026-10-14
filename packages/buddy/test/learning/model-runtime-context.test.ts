@@ -68,7 +68,6 @@ describe("model runtime context", () => {
 
     expect(result.transformed.agent).toBe("buddy")
     expect(result.nextTeachingState?.persona).toBe("buddy")
-    expect(result.transformed.system).not.toContain("Primary use: teaching")
 
     const followup = await runMessagePromptPipeline({
       context: {
@@ -128,13 +127,13 @@ describe("model runtime context", () => {
 
     expect(result.transformed).not.toHaveProperty("modelRuntime")
     const system = requireString(result.transformed.system, "system")
-    expect(system).toContain("Active model: missing-provider/missing-model")
-    expect(system).toContain("Context window: 321000")
-    expect(system).toContain("Input window: 123000")
-    expect(system).toContain("Output window: 8000")
-    expect(system).toContain(
-      "vision: yes [this model supports vision; you can use read tool to view images]",
-    )
+    const modelLimits = system.match(/<model_limits>([\s\S]*?)<\/model_limits>/u)?.[1]
+    expect(modelLimits).toBeDefined()
+    expect(modelLimits).toContain("missing-provider/missing-model")
+    expect(modelLimits).toContain("321000")
+    expect(modelLimits).toContain("123000")
+    expect(modelLimits).toContain("8000")
+    expect(modelLimits).toMatch(/vision:\s*yes/iu)
   })
 
   test("preserves non-html tag structure in the assembled system prompt", async () => {

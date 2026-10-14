@@ -6,6 +6,7 @@ import type {
   SessionInfo,
 } from "@/state/chat-types"
 import { getTranscriptMessages } from "@/state/transcript-repository"
+import { resolveServerEndpoint } from "@/lib/server-client"
 
 type TTracePrimitive = string | number | boolean | null
 type TTraceValue = TTracePrimitive | TTraceValue[] | TTraceObject
@@ -235,9 +236,11 @@ export function buildSessionTrace(input: {
   directoryState?: DirectoryChatState
   sessionID?: string
   streamStatus: string
+  messages?: MessageWithParts[]
 }) {
   const directoryState = input.directoryState
   const sid = input.sessionID ?? directoryState?.sessionID
+  const rawMessages = input.messages ?? getTranscriptMessages(input.directory, sid)
 
   return JSON.stringify(
     {
@@ -264,7 +267,7 @@ export function buildSessionTrace(input: {
               sessions: directoryState.sessions
                 .filter((s) => !sid || s.id === sid)
                 .map((s) => slimSession(s, s.id === sid)),
-              messages: getTranscriptMessages(input.directory, sid).map(slimMessage),
+              messages: rawMessages.map(slimMessage),
             },
           )
         : undefined,
@@ -272,4 +275,140 @@ export function buildSessionTrace(input: {
     null,
     2,
   )
+}
+
+
+export type SaveSessionTraceInput = {
+  trace: string
+  sessionID?: string
+  sessionTitle?: string
+  directory?: string
+  devInstanceName?: string
+  devServer?: string
+  repositoryRoot?: string
+}
+
+export type SaveSessionTraceResult = {
+  success: boolean
+  filePath: string
+  relativeFilePath: string
+  worktree: string
+  worktreeName: string
+  branch: string
+  devServer: string
+  devInstanceName: string
+  databasePath?: string
+  sessionID?: string
+  sessionTitle?: string
+  directory?: string
+  byteCount: number
+  tokenCount: number
+  messageCount: number
+  streamStatus?: string
+  savedAt: string
+}
+
+export type SessionTraceSaveMetadata = {
+  sessionID?: string
+  sessionTitle?: string
+  directory?: string
+  databasePath?: string
+  devServer?: string
+  devInstanceName?: string
+  worktree?: string
+  worktreeName?: string
+  branch?: string
+  filePath?: string
+  relativeFilePath?: string
+  capturedAt?: string
+  streamStatus?: string
+  messageCount?: number
+  tokenCount?: number
+  byteCount?: number
+}
+
+export function formatSessionTraceSummary(meta: SessionTraceSaveMetadata): string {
+  const lines: string[] = [
+    `Session: ${meta.sessionTitle || "Untitled chat"}${meta.sessionID ? ` (${meta.sessionID})` : ""}`,
+  ]
+
+  if (meta.databasePath) {
+    lines.push(`Session DB: ${meta.databasePath}`)
+  }
+
+  if (meta.directory) {
+    lines.push(`Directory: ${meta.directory}`)
+  }
+
+  const worktreeDisplay = meta.worktree || meta.worktreeName || "unknown"
+  const branchPart = meta.branch ? ` (branch: ${meta.branch})` : ""
+  lines.push(`Worktree: ${worktreeDisplay}${branchPart}`)
+
+  const serverDisplay = meta.devServer || "local dev server"
+  const instancePart = meta.devInstanceName ? ` (${meta.devInstanceName})` : ""
+  lines.push(`Dev Server: ${serverDisplay}${instancePart}`)
+
+  if (meta.relativeFilePath || meta.filePath) {
+    lines.push(`Saved Trace File: ${meta.relativeFilePath || meta.filePath}`)
+    if (meta.filePath && meta.relativeFilePath && meta.filePath !== meta.relativeFilePath) {
+      lines.push(`Full Path: ${meta.filePath}`)
+    }
+  }
+
+  if (meta.capturedAt) {
+    lines.push(`Captured At: ${meta.capturedAt}`)
+  }
+
+  const details: string[] = []
+  if (meta.streamStatus) {
+    details.push(`Status: ${meta.streamStatus}`)
+  }
+  if (meta.messageCount !== undefined) {
+    details.push(`${meta.messageCount} messages`)
+  }
+  if (meta.tokenCount !== undefined) {
+    details.push(`~${meta.tokenCount.toLocaleString()} tokens`)
+  }
+  if (meta.byteCount !== undefined) {
+    details.push(`${meta.byteCount.toLocaleString()} bytes`)
+  }
+  if (details.length > 0) {
+    lines.push(`Trace Info: ${details.join(" | ")}`)
+  }
+
+  return lines.join("\n")
+}
+
+export async function saveSessionTraceToFile(
+  input: SaveSessionTraceInput,
+): Promise<SaveSessionTraceResult> {
+  const payload = JSON.stringify(input)
+  const headers = { "Content-Type": "application/json" }
+
+  const endpoints = [
+    resolveServerEndpoint("/api/dev/session-trace"),
+    "/api/dev/session-trace",
+    "/__buddy_devtools/session-trace",
+  ]
+
+  let lastError: Error | undefined
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: payload,
+      })
+
+      if (response.ok) {
+        // SAFETY: The trace saving endpoint returns the validated SaveSessionTraceResult payload.
+        return (await response.json()) as SaveSessionTraceResult
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+    }
+  }
+
+  throw lastError ?? new Error("Failed to save session trace to file")
 }

@@ -31,8 +31,8 @@ Instead:
 1. Name the likely teaching failure internally.
 2. Select a better-fit model.
 3. Run a short teaching cycle.
-4. Check understanding with a small learner action.
-5. If it still fails, switch representation or model again.
+4. Assess understanding from the learner's response or work in that cycle. If an important uncertainty remains and resolving it would change your next teaching move, request one small diagnostic action. Do not add a separate check when the activity already provides the evidence you need.
+5. If the evidence shows the approach still isn't working, switch representation or model again. An unanswered check is missing evidence, not evidence of failure.
 
 ## First Diagnosis
 
@@ -48,7 +48,11 @@ Before choosing a model, classify the situation internally:
 * `needs-transfer`: the learner can do familiar examples but fails changed cases.
 * `not-enough-evidence`: Buddy does not yet know why the learner is stuck.
 
-If evidence is weak, ask one short diagnostic question before teaching again.
+Use evidence already available about the learner's understanding. If an important uncertainty affects which teaching move to choose, ask one focused diagnostic question. Do not ask for information their work already provides.
+
+Honor the learner's request when choosing the approach. Give a direct explanation when that serves the request. Use guided discovery when working through a problem together and the learner's contribution will help them reason or help you choose what comes next. Questions should have a teaching purpose; they are not a required ending for each response.
+
+During guided practice, introduce manageable steps and pause where learner participation is useful. During a requested explanation or walkthrough, connect the ideas needed to make it understandable. Do not require a reply between ideas merely to keep turns short.
 
 ## Model Router
 
@@ -262,8 +266,8 @@ Do this:
 
 1. Acknowledge briefly without defensiveness.
 2. Ask what is not working only if needed: too abstract, too fast, too many questions, too much lecture, not enough examples, not relevant.
-3. Switch model explicitly.
-4. Keep the next attempt short and check with a learner action.
+3. Change the teaching approach to address that problem. Explain the change only if it helps the learner follow.
+4. Give the revised explanation or activity enough space to work. Use evidence from the learner's response or work; request a separate check only when an important uncertainty remains and resolving it would change your next teaching move.
 
 Example:
 
@@ -297,11 +301,8 @@ Use `resolve-confusions` when there is evidence of a stable faulty learner model
 
 ## Output Default
 
-When using this skill, Buddy should usually respond with:
+Deliver the teaching move that addresses the learner's need. Acknowledge their difficulty or explain a change of approach when that helps them follow.
 
-1. a brief acknowledgment of the learner's state;
-2. a short statement of the model switch, if useful;
-3. the teaching move itself;
-4. one small check or learner action.
+Use evidence already available from their response or work. Include a separate check only when it will resolve an important uncertainty about what to teach next. Do not automatically append a question or learner action.
 
-Keep the response short. The model is for Buddy's teaching behavior, not for explaining pedagogy to the learner.
+Follow the active response-style preference and the learner's requested depth and format. Keep the instructional model behind the scenes unless explaining the approach would help the learner.

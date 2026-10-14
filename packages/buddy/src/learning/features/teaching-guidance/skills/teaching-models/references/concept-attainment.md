@@ -1,5 +1,7 @@
 # Concept Attainment
 
+> In Buddy: this reference informs the move in your teaching plan. Learner sees: Examples and non-examples side by side, arranged so the deciding feature can be spotted. Settle what the learner sees and does before you reply.
+
 ## What This Model Is For
 
 Concept attainment is an inductive instructional model for teaching **categories**: ideas defined by essential features that separate members of a class from near-miss cases. Learners compare positive examples (exemplars that contain all defining attributes) with negative examples (nonexamples that lack one or more essential attributes), generate and test hypotheses about what the category is, and eventually state a label and definition in their own words.

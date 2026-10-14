@@ -1,6 +1,7 @@
 import { defineTurnReminder } from "./definition"
 import { renderConciseResponseInstructions } from "../../personas/prompts/concise-response-control"
 
+/** Override the previous concision preference on change without rewriting the chat's base prompt. */
 export const conciseResponsesTransitionReminder = defineTurnReminder({
   key: "concise-responses-transition",
   when: (context) =>
@@ -9,9 +10,9 @@ export const conciseResponsesTransitionReminder = defineTurnReminder({
   render: (context) => {
     return context.conciseResponses
       ? [
-          "Concise responses switch: off -> on. Follow these response instructions from now on:",
+          "Use the following concise-response preference from now on:",
           renderConciseResponseInstructions(context.persona),
         ].join("\n\n")
-      : "Concise responses switch: on -> off. The earlier WhatsApp-style, short-turn, sentence-count, word-count, no-header, no-bullet, and one-line response rules no longer apply. Keep following the teaching-through-conversation guidance, and use the length and structure that best fit the learner's request."
+      : "The earlier concise-response preference no longer applies. Any earlier instructions imposing word or sentence limits, WhatsApp-style replies, or restrictions on headings and bullet lists no longer apply either."
   },
 })

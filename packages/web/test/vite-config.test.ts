@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { fileURLToPath } from "node:url"
 import { resolveConfig } from "vite"
 import buddyWebVitePlugin from "../vite"
 
@@ -37,6 +38,24 @@ describe("Buddy web Vite config", () => {
       `${BUDDY_WEB_PACKAGE_NAME} > ${SEPARATE_WASM_CHEMISTRY_DEPENDENCY}`,
     )
     expect(config.optimizeDeps.exclude).toContain(SEPARATE_WASM_CHEMISTRY_DEPENDENCY)
+  })
+
+  test("provides the local source root only to development renderers", async () => {
+    const development = await resolveBuddyWebConfig(true)
+    const production = await resolveConfig(
+      {
+        configFile: false,
+        logLevel: "silent",
+        plugins: buddyWebVitePlugin(),
+      },
+      "build",
+    )
+    const rootDefine = "import.meta.env.VITE_BUDDY_DEV_REPOSITORY_ROOT"
+
+    expect(development.define?.[rootDefine]).toBe(
+      JSON.stringify(fileURLToPath(new URL("../../../", import.meta.url))),
+    )
+    expect(production.define?.[rootDefine]).toBe(JSON.stringify(""))
   })
 })
 

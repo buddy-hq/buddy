@@ -1025,7 +1025,7 @@ export const dict = {
     "Freeform global instructions that Buddy should follow across notebook sessions.",
   "settings.personalization.conciseResponsesTitle": "Concise responses",
   "settings.personalization.conciseResponsesDescription":
-    "Use short, casual, WhatsApp-style replies. Turn this off when you want Buddy to choose the length and structure that fit your request.",
+    "Prefer brief, complete answers, with more detail when needed. Turn off to remove this preference.",
   "settings.personalization.conciseResponsesAria": "Use concise responses",
   "settings.mcps.title": "MCPs",
   "settings.model.connectProviderFirst": "Connect a provider first",

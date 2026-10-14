@@ -6,6 +6,7 @@ import { createPdfJsVitePlugin } from "./scripts/create-pdfjs-vite-plugin"
 const BUDDY_WEB_PACKAGE_NAME = "@buddy/web"
 const BUDDY_WEB_SOURCE_ALIAS = "@"
 const WEB_SOURCE_DIRECTORY = fileURLToPath(new URL("./src", import.meta.url))
+const REPOSITORY_DIRECTORY = fileURLToPath(new URL("../..", import.meta.url))
 // TanStack Router auto-splits route components, so Vite's initial crawl cannot
 // reliably discover component-only dependencies before the first navigation.
 const WEB_OPTIMIZE_DEPS_INCLUDES = [
@@ -70,8 +71,13 @@ export function buddyWebVitePlugin(options: BuddyWebVitePluginOptions = {}): Plu
   return [
     {
       name: "buddy-web:vite-config",
-      config() {
+      config(_, { command }) {
         return {
+          define: {
+            "import.meta.env.VITE_BUDDY_DEV_REPOSITORY_ROOT": JSON.stringify(
+              command === "serve" ? REPOSITORY_DIRECTORY : "",
+            ),
+          },
           optimizeDeps: {
             include: optimizeDepsIncludes,
             exclude: WEB_OPTIMIZE_DEPS_EXCLUDES,

@@ -30,6 +30,7 @@ import { SvgRenderingRoutes } from "./routes"
 import { TeachingRoutes } from "./routes"
 import { isJsonContentType, normalizeValidationFailureResponse } from "./http"
 import { BUDDY_ENV } from "./storage"
+import { saveDevSessionTrace } from "./dev-trace"
 
 export function describeFatalError<TError>(error: TError): string {
   if (error instanceof Error) {
@@ -137,6 +138,15 @@ app.onError(async (error) => {
   return Response.json({ error: "Internal server error" }, { status: 500 })
 })
 app.get("/api/healthz", (c) => c.json({ healthy: true }))
+app.post("/api/dev/session-trace", async (c) => {
+  try {
+    const body = await c.req.json()
+    const result = saveDevSessionTrace(body)
+    return c.json(result)
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : String(error) }, 500)
+  }
+})
 app.route("/api", api)
 
 const generatedOpenApiHandler = openAPIRouteHandler(app, {

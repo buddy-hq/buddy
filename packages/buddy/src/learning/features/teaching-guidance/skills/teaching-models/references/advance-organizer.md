@@ -1,5 +1,7 @@
 # Advance Organizer
 
+> In Buddy: this reference informs the move in your teaching plan. Learner sees: A compact overview of the whole on the Bench, usually a whiteboard frame, kept within reach as the details arrive so each new piece can be placed on it. Settle what the learner sees and does before you reply.
+
 ## What This Model Is
 
 An **advance organizer** is introductory material presented **before** the main lesson content. It is more abstract, general, and inclusive than the details that follow. Its job is to help learners connect what they already know to what they are about to learn, so new information can be assimilated into a stable cognitive structure rather than memorized in isolation.

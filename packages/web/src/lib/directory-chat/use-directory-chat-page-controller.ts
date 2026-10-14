@@ -81,10 +81,12 @@ import {
 import { refetchActiveWorkspaceObjectQueries } from "../../state/workspace-objects-query"
 import {
   clonePromptDraft,
+  createTextPromptDraft,
   getPromptScopeKey,
   normalizePromptDraft,
   type PromptDraftState,
 } from "../../state/prompt-store"
+import { registerEvalDriver } from "../evals/eval-driver-store"
 import { useChatStore } from "../../state/chat-store"
 import { useNotifications } from "../../state/notifications"
 import type { SessionInfo } from "../../state/chat-types"
@@ -1584,6 +1586,43 @@ export function useDirectoryChatPageController(
     readVisibleBenchTarget,
   })
 
+  function onModelChange(model: string) {
+    pushRecentModelKey(model)
+    cs.setSelectedModel(cs.promptKey, model)
+  }
+
+  function onThinkingChange(thinking: string) {
+    setSelectedVariant(cs.promptKey, thinking === "default" ? null : thinking)
+  }
+
+  function createEvalDriverActions() {
+    return {
+      startChat: () => onNewSession(),
+      send: (text: string) => onSend(createTextPromptDraft(text)),
+      selectModel: onModelChange,
+      selectThinking: onThinkingChange,
+      resetBench: async () => {
+        await workspace.controller.execute({ type: "close-all-tabs" })
+      },
+    }
+  }
+
+  const evalDriverActionsRef = useRef(createEvalDriverActions())
+  useEffect(() => {
+    evalDriverActionsRef.current = createEvalDriverActions()
+  })
+  useEffect(() => {
+    if (!import.meta.env.DEV || !decodedDirectory) return undefined
+    return registerEvalDriver({
+      directory: decodedDirectory,
+      startChat: () => evalDriverActionsRef.current.startChat(),
+      send: (text) => evalDriverActionsRef.current.send(text),
+      selectModel: (model) => evalDriverActionsRef.current.selectModel(model),
+      selectThinking: (thinking) => evalDriverActionsRef.current.selectThinking(thinking),
+      resetBench: () => evalDriverActionsRef.current.resetBench(),
+    })
+  }, [decodedDirectory])
+
   // Scroll handling is fully managed by useAutoScroll.
 
   if (!decodedDirectory) return { status: "invalid" }
@@ -1614,13 +1653,8 @@ export function useDirectoryChatPageController(
     onPersonaChange: (persona: string) => {
       cs.setSessionPersona(cs.sessionKey, persona)
     },
-    onModelChange: (model: string) => {
-      pushRecentModelKey(model)
-      cs.setSelectedModel(cs.promptKey, model)
-    },
-    onThinkingChange: (thinking: string) => {
-      setSelectedVariant(cs.promptKey, thinking === "default" ? null : thinking)
-    },
+    onModelChange,
+    onThinkingChange,
     onAbort: () => {
       void onAbort()
     },

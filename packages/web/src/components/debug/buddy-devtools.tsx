@@ -75,6 +75,8 @@ import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
 import { DevToolsContextTab } from "./devtools-context-tab"
 import { DevToolsEaselTab } from "./devtools-easel-tab"
+import { PromptReviewWorkbench } from "./prompt-review-workbench"
+import { isBuddyDevToolsTab, useDevToolsNavigation } from "./devtools-navigation-store"
 import { DevToolsUITab } from "./devtools-ui-tab"
 import { DevToolsTranscriptTab } from "./devtools-transcript-tab"
 import { buildSessionTrace, copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
@@ -99,19 +101,6 @@ import { GET_STARTED_FLOW_STATUS, type GetStartedFlowStatus } from "@/lib/get-st
 import { parseTJsonObject, parseTNumber, parseTString } from "@/components/chat/tools/types"
 
 const BUDDY_WINDOW_GLOBALS_KEY = "__BUDDY__"
-
-type BuddyDevToolsTab =
-  | "palette"
-  | "trace"
-  | "context"
-  | "system"
-  | "snapshot"
-  | "memory"
-  | "query"
-  | "actions"
-  | "easel"
-  | "ui"
-  | "transcript"
 
 const DEVTOOLS_AFFORDANCE_POSITIONS = [
   "bottom-right",
@@ -219,22 +208,6 @@ type MemoryTestModelSettingKey = keyof Pick<
   "extractModel" | "consolidationModel"
 >
 type MemoryTestBooleanSettingKey = keyof Pick<MemoryTestSettingsDraft, "enabled" | "autoExtract">
-
-function isBuddyDevToolsTab(value: string): value is BuddyDevToolsTab {
-  return (
-    value === "palette" ||
-    value === "trace" ||
-    value === "context" ||
-    value === "system" ||
-    value === "snapshot" ||
-    value === "memory" ||
-    value === "query" ||
-    value === "actions" ||
-    value === "easel" ||
-    value === "ui" ||
-    value === "transcript"
-  )
-}
 
 function isDevToolsAffordancePosition(value: string): value is DevToolsAffordancePosition {
   return (
@@ -2609,9 +2582,12 @@ async function disconnectOpenAiAndReloadProviderRuntime(): Promise<void> {
 }
 
 export function BuddyDevTools() {
-  const [buddyOpen, setBuddyOpen] = useState(false)
+  const buddyOpen = useDevToolsNavigation((state) => state.buddyOpen)
+  const setBuddyOpen = useDevToolsNavigation((state) => state.setBuddyOpen)
+  const toggleBuddyOpen = useDevToolsNavigation((state) => state.toggleBuddyOpen)
   const [routerOpen, setRouterOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<BuddyDevToolsTab>("palette")
+  const activeTab = useDevToolsNavigation((state) => state.activeTab)
+  const setActiveTab = useDevToolsNavigation((state) => state.setActiveTab)
   const [isCopied, setIsCopied] = useState(false)
   const [isDisconnectingOpenAi, setIsDisconnectingOpenAi] = useState(false)
   const [isResettingOnboarding, setIsResettingOnboarding] = useState(false)
@@ -2626,10 +2602,10 @@ export function BuddyDevTools() {
   const affordanceTopInset = useDesktopTitlebarTopInset()
 
   useEffect(() => {
-    if (!learnerMemoryExperimentEnabled && activeTab === "memory") {
+    if (experimentalFeaturesQuery.isFetched && !learnerMemoryExperimentEnabled && activeTab === "memory") {
       setActiveTab("palette")
     }
-  }, [activeTab, learnerMemoryExperimentEnabled])
+  }, [activeTab, experimentalFeaturesQuery.isFetched, learnerMemoryExperimentEnabled, setActiveTab])
 
   const {
     rect,
@@ -2810,7 +2786,7 @@ export function BuddyDevTools() {
             <ContextMenuTrigger asChild>
               <button
                 type="button"
-                onClick={() => setBuddyOpen((v) => !v)}
+                onClick={toggleBuddyOpen}
                 className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors ${
                   buddyOpen
                     ? "bg-surface-raised-base text-text-strong"
@@ -2905,6 +2881,7 @@ export function BuddyDevTools() {
             onValueChange={(value) => {
               if (isBuddyDevToolsTab(value)) {
                 setActiveTab(value)
+                if (value === "prompt-engineering") snapMaximized()
               }
             }}
             className="flex min-h-0 flex-1 flex-col"
@@ -3036,6 +3013,9 @@ export function BuddyDevTools() {
                   </TabsTrigger>
                   <TabsTrigger value="easel" className="text-xs">
                     Easel
+                  </TabsTrigger>
+                  <TabsTrigger value="prompt-engineering" className="text-xs">
+                    Prompt engineering
                   </TabsTrigger>
                   <TabsTrigger value="ui" className="text-xs">
                     UI
@@ -3246,6 +3226,10 @@ export function BuddyDevTools() {
 
             <TabsContent value="easel" className="min-h-0 flex-1 overflow-hidden mt-0">
               <DevToolsEaselTab directory={activeDirectory} />
+            </TabsContent>
+
+            <TabsContent value="prompt-engineering" className="min-h-0 flex-1 overflow-hidden mt-0">
+              <PromptReviewWorkbench />
             </TabsContent>
 
             <TabsContent value="ui" className="min-h-0 flex-1 overflow-hidden mt-0">

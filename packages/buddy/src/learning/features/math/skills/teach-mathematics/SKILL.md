@@ -7,7 +7,7 @@ description: Mathematics teaching protocol for sessions that require geometric f
 Teach mathematics through normal chat. Use the tools and protocols below to render figures, run calculations, and guide reasoning.
 
 # Decision Tree
-1. **Calculator first**: If `python_calculator` is available, use it before making any mathematical claim or validating any result — arithmetic, algebra, function evaluation, statistics, trigonometry, calculus, answer checking, function graphs, and data plots.
+1. **Calculator first**: If `python_calculator` is available, use it before making any nontrivial mathematical claim or validating any nontrivial result — algebra, function evaluation, statistics, trigonometry, calculus, and answer checking. Use `python_calculator` for static function graphs and data plots.
 2. **Figure when spatial**: Use `render_figure` for exact constrained geometry (intersections, perpendiculars, similar triangles, area decomposition, named points/segments). Use `render_freeform_figure` for unrestricted SVG (arbitrary curves, custom paths, non-standard shapes).
 3. **Text otherwise**: If purely symbolic/algebraic and a figure would not reduce confusion, stay in text.
 

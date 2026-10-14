@@ -14,6 +14,7 @@ import {
 } from "../../src/opencode-runtime/plugins/buddy-runtime-plugin"
 import { tmpdir } from "../helpers/tmpdir"
 import { BUDDY } from "../../src/learning/personas/buddy"
+import { TEACHING_BUDDY } from "../../src/learning/personas/teaching-buddy"
 import {
   clearAllTeachingSessionState,
   writeTeachingSessionState,
@@ -40,45 +41,64 @@ afterEach(async () => {
 })
 
 describe("Buddy runtime plugin", () => {
-  test("keeps an old chat's base prompt cached and strips concise instructions only for a new flexible chat", async () => {
-    await using project = await tmpdir({ git: true })
-    const hooks = await createBuddyRuntimeHooks({
-      directory: project.path,
-      worktree: project.path,
-    })
-    const transform = hooks["experimental.chat.system.transform"]
-    expect(transform).toBeDefined()
+  test.each([
+    ["buddy", BUDDY.runtime.prompt],
+    ["teaching-buddy", TEACHING_BUDDY.runtime.prompt],
+  ] as const)(
+    "keeps %s's base prompt fixed through concision changes in both directions",
+    async (persona, prompt) => {
+      await using project = await tmpdir({ git: true })
+      const hooks = await createBuddyRuntimeHooks({
+        directory: project.path,
+        worktree: project.path,
+      })
+      const transform = hooks["experimental.chat.system.transform"]
+      expect(transform).toBeDefined()
 
-    const oldChatSessionID = "ses_old_cached_concise_prompt"
-    writeTeachingSessionState(project.path, {
-      sessionId: oldChatSessionID,
-      persona: "buddy",
-      currentSurface: "curriculum",
-      teachingWorkspaceState: "inactive",
-      baseConciseResponses: true,
-      conciseResponses: false,
-      focusGoalIds: [],
-    })
-    const oldChatOutput = { system: [BUDDY.runtime.prompt] }
-    await transform?.({ sessionID: oldChatSessionID }, oldChatOutput)
-    expect(oldChatOutput.system).toEqual([BUDDY.runtime.prompt.trim()])
+      const oldChatSessionID = "ses_old_cached_concise_prompt"
+      writeTeachingSessionState(project.path, {
+        sessionId: oldChatSessionID,
+        persona,
+        currentSurface: "curriculum",
+        teachingWorkspaceState: "inactive",
+        baseConciseResponses: true,
+        conciseResponses: false,
+        focusGoalIds: [],
+      })
+      const oldChatOutput = { system: [prompt] }
+      await transform?.({ sessionID: oldChatSessionID }, oldChatOutput)
+      expect(oldChatOutput.system).toEqual([prompt.trim()])
 
-    const newChatSessionID = "ses_new_flexible_prompt"
-    writeTeachingSessionState(project.path, {
-      sessionId: newChatSessionID,
-      persona: "buddy",
-      currentSurface: "curriculum",
-      teachingWorkspaceState: "inactive",
-      baseConciseResponses: false,
-      conciseResponses: false,
-      focusGoalIds: [],
-    })
-    const newChatOutput = { system: [BUDDY.runtime.prompt] }
-    await transform?.({ sessionID: newChatSessionID }, newChatOutput)
-    const newChatSystem = newChatOutput.system.join("\n")
-    expect(newChatSystem).not.toBe(BUDDY.runtime.prompt)
-    expect(newChatSystem.length).toBeLessThan(BUDDY.runtime.prompt.length)
-  })
+      const newChatSessionID = "ses_new_flexible_prompt"
+      writeTeachingSessionState(project.path, {
+        sessionId: newChatSessionID,
+        persona,
+        currentSurface: "curriculum",
+        teachingWorkspaceState: "inactive",
+        baseConciseResponses: false,
+        conciseResponses: false,
+        focusGoalIds: [],
+      })
+      const newChatOutput = { system: [prompt] }
+      await transform?.({ sessionID: newChatSessionID }, newChatOutput)
+      const newChatSystem = newChatOutput.system.join("\n")
+      expect(newChatSystem).not.toBe(prompt)
+      expect(newChatSystem.length).toBeLessThan(prompt.length)
+
+      writeTeachingSessionState(project.path, {
+        sessionId: newChatSessionID,
+        persona,
+        currentSurface: "curriculum",
+        teachingWorkspaceState: "inactive",
+        baseConciseResponses: false,
+        conciseResponses: true,
+        focusGoalIds: [],
+      })
+      const reenabledOutput = { system: [prompt] }
+      await transform?.({ sessionID: newChatSessionID }, reenabledOutput)
+      expect(reenabledOutput.system).toEqual(newChatOutput.system)
+    },
+  )
 
   test("relaxes provider verbosity only for Buddy personas when concise responses are off", () => {
     const buddyOptions = { textVerbosity: "low" }

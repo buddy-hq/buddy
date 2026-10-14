@@ -57,25 +57,19 @@ describe("get started chats", () => {
     expect(chats.every((chat) => chat.capabilities.length > 0)).toBe(true)
     expect(chats.every((chat) => chat.description.trim().length > 0)).toBe(true)
     expect(chats.every((chat) => chat.icon.trim().length > 0)).toBe(true)
+    expect(chats.every((chat) => chat.prompt.trim().length > 0)).toBe(true)
     expect(chats.find((chat) => chat.id === "interactive-simulation")?.title).toBe(
       "Release a Double Pendulum",
     )
     const classic = chats.find((chat) => chat.id === "read-odyssey")
     expect(classic?.title).toBe("Read The Odyssey")
     expect(classic?.icon).toBe("reading")
-    expect(classic?.prompt.toLowerCase()).toContain("gutenberg")
-    expect(classic?.prompt.toLowerCase()).toContain("epub")
-    expect(classic?.prompt.toLowerCase()).toContain("bench")
-    expect(classic?.prompt.toLowerCase()).toContain("reader")
-    expect(classic?.prompt.toLowerCase()).toContain("book itself must be visible and open")
-    expect(chats[1]?.prompt.toLowerCase()).toContain("directly on the bench")
+    expect(classic?.capabilities).toContain(GET_STARTED_CAPABILITY.reader)
     const research = chats.find((chat) => chat.id === "research-question")
-    expect(research?.prompt.toLowerCase()).toContain("exactly one research subagent")
+    expect(research?.capabilities).toContain(GET_STARTED_CAPABILITY.subagents)
     const skills = chats.find((chat) => chat.id === "skills-showcase")
     expect(skills?.title).toBe("Decode Caffeine")
     expect(skills?.capabilities).toContain(GET_STARTED_CAPABILITY.skills)
-    expect(skills?.prompt.toLowerCase()).toContain("load the teach-chemistry skill")
-    expect(skills?.prompt.toLowerCase()).toContain("one accurate chemistry structure")
   })
 
   test("provides five richer learner scenarios for connected models", () => {
@@ -86,18 +80,12 @@ describe("get started chats", () => {
     expect(chats[0]?.title).toBe("How Does Buddy Work?")
     expect(chats[1]?.title).toBe("Travel Through Space")
     expect(chats[2]?.title).toBe("Read The Odyssey")
-    expect(chats[2]?.prompt.toLowerCase()).toContain("book itself must be visible and open")
+    expect(chats[2]?.capabilities).toContain(GET_STARTED_CAPABILITY.reader)
     expect(chats[3]?.title).toBe("Why Does Roman Concrete Last?")
-    expect(chats[3]?.prompt.toLowerCase()).toContain("exactly two research subagents in parallel")
-    expect(chats[3]?.prompt.toLowerCase()).toContain("directly on the bench—not in chat")
+    expect(chats[3]?.capabilities).toContain(GET_STARTED_CAPABILITY.subagents)
     expect(chats[4]?.title).toBe("Why Does One pH Point Matter?")
-    expect(chats[4]?.prompt.toLowerCase()).toContain(
-      "load the teach-chemistry and teach-mathematics skills",
-    )
-    expect(chats[4]?.prompt.toLowerCase()).toContain(
-      "chemistry-native structure diagram of the hydronium ion",
-    )
-    expect(chats[4]?.prompt.toLowerCase()).toContain("tenfold change")
+    expect(chats[4]?.capabilities).toContain(GET_STARTED_CAPABILITY.skills)
+    expect(chats.every((chat) => chat.prompt.trim().length > 0)).toBe(true)
   })
 
   test("derives the learner prompt tier from the active provider model", () => {
@@ -115,17 +103,11 @@ describe("get started chats", () => {
 
     expect(chats.map((chat) => chat.id)).toEqual([...EDUCATOR_CHAT_IDS])
     expect(chats).toHaveLength(5)
-    expect(
-      chats.every(
-        (chat) =>
-          chat.prompt.toLowerCase().includes("bench") ||
-          chat.prompt.toLowerCase().includes("whiteboard"),
-      ),
-    ).toBe(true)
     expect(chats.every((chat) => hasCapability(chat, GET_STARTED_CAPABILITY.bench))).toBe(true)
     expect(chats.every((chat) => chat.capabilities.length > 0)).toBe(true)
     expect(chats.every((chat) => chat.description.trim().length > 0)).toBe(true)
     expect(chats.every((chat) => chat.icon.trim().length > 0)).toBe(true)
+    expect(chats.every((chat) => chat.prompt.trim().length > 0)).toBe(true)
   })
 
   test("maps each developer audience override to the complete matching prompt set", () => {
@@ -153,7 +135,6 @@ describe("get started chats", () => {
 
     expect(studentTour).toBeUndefined()
     expect(teacherTour).toBeDefined()
-    expect(teacherTour?.prompt.toLowerCase()).toContain("buddy-help")
     expect(teacherTour?.capabilities).toContain(GET_STARTED_CAPABILITY.buddyHelp)
     expect(teacherTour?.capabilities).toContain(GET_STARTED_CAPABILITY.htmlWidget)
   })

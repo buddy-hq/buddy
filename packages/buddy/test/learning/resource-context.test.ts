@@ -44,7 +44,5 @@ describe("notebook resources context", () => {
     )
     expect(output).toContain("alias=internal-text")
     expect(output).toContain("bench_reader=none")
-    expect(output).toContain("do not rewrite them to `~/.buddy`")
-    expect(output).toContain("do not call `bench_present` for `bench_reader=none`")
   })
 })

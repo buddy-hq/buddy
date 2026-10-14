@@ -4,7 +4,13 @@ import { AdvancedMathRuntimeService } from "../../../../local-runtimes/advanced-
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 
 const pythonCalculatorInputSchema = z.object({
-  code: z.string().trim().min(1),
+  code: z
+    .string()
+    .trim()
+    .min(1)
+    .describe(
+      "Python source to run. Import every library it uses, print the values you need to read back, and leave any Matplotlib or Seaborn figures open so they are returned as images.",
+    ),
 })
 
 export const pythonCalculatorTool = createBuddyTool({

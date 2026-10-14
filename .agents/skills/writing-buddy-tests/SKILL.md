@@ -23,6 +23,8 @@ No concrete, distinct regression: no test.
 - Source scraping. Use lint, shared data, or a real integration contract.
 - Coverage chasing, huge snapshots, and tests for dead code. Treat code deletion as a production change; check callers.
 
+Prompt tests must verify stable behavior and delivery contracts, not editorial copy. Do not assert exact prompt sentences, headings, complete fragments, snapshots, or source-text containment merely to prove wording exists. Test that the intended instruction or payload reaches the correct pipeline stage and produces the required state, structure, or observable behavior; when direct prompt inspection is the only truthful boundary, assert only stable protocol elements such as tags, field names, IDs, ordering, escaping, limits, and user-authored values. Exact text is appropriate only when the text itself is a public contract, serialization grammar, command syntax, or preserved user input; ordinary prompt prose should be freely editable without requiring test changes.
+
 Assert public behavior: result, state transition, persistence, event, HTTP contract, rendered/accessibility state, platform behavior.
 
 ## Boundary

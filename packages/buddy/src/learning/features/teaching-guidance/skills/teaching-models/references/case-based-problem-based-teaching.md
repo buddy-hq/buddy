@@ -1,5 +1,7 @@
 # Case-Based and Problem-Based Teaching
 
+> In Buddy: this reference informs the move in your teaching plan. Learner sees: The case itself, such as a real source, dataset, scenario, or artifact, before the concept that resolves it. Settle what the learner sees and does before you reply.
+
 ## What This Model Is
 
 Case-based and problem-based teaching are context-first instructional approaches. Instead of introducing abstract principles and only later applying them, the teacher anchors learning in a realistic situation—a case narrative, scenario, or open problem—that demands judgment, explanation, or action. Learners work from the situation toward concepts, evidence, and principles that help resolve it.

@@ -111,10 +111,7 @@ describe("tool schema compatibility", () => {
     const actionProperty = expectJsonSchemaObject(properties.action, "present_html_widget.action")
     expect(actionProperty.type).toBe("string")
     expect(actionProperty.enum).toEqual(["present_path", "present_object"])
-    const pathProperty = expectStringProperty(properties, "path")
-    expect(pathProperty.description).toContain("workspace-relative")
-    expect(pathProperty.description).toContain("absolute paths")
-    expect(pathProperty.description).toContain("resolve inside the current workspace")
+    expectStringProperty(properties, "path")
     expectStringProperty(properties, "objectID")
     expectStringProperty(properties, "entryPath")
     expectStringProperty(properties, "title")
@@ -144,15 +141,9 @@ describe("tool schema compatibility", () => {
       "focus_tab",
       "close",
     ])
-    const benchPathProperty = expectStringProperty(benchProperties, "path")
-    expect(benchPathProperty.description).toContain("workspace-relative")
-    expect(benchPathProperty.description).toContain("absolute paths")
-    expect(benchPathProperty.description).toContain("external-folder permission")
-    expect(benchPathProperty.description).toContain("present_html_widget")
-    const resourceKeyProperty = expectStringProperty(benchProperties, "resourceKey")
-    expect(resourceKeyProperty.description).toContain("object id or alias")
-    const benchObjectIDProperty = expectStringProperty(benchProperties, "objectID")
-    expect(benchObjectIDProperty.description).toContain("Buddy object id")
+    expectStringProperty(benchProperties, "path")
+    expectStringProperty(benchProperties, "resourceKey")
+    expectStringProperty(benchProperties, "objectID")
 
     const whiteboardCreateSchema = expectJsonSchemaObject(
       toolSchemas.find((entry) => entry.id === "whiteboard_create_view")?.schema,
@@ -175,7 +166,6 @@ describe("tool schema compatibility", () => {
       "whiteboard_create_view.title",
     )
     expect(whiteboardTitleProperty.type).toBe("string")
-    expect(whiteboardTitleProperty.description).toContain("Bench tabs")
 
     const whiteboardReadSchema = expectJsonSchemaObject(
       toolSchemas.find((entry) => entry.id === "whiteboard_read_context")?.schema,

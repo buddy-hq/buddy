@@ -119,7 +119,7 @@ describe("user section native resources", () => {
           sessionID: SESSION_ID,
           messageID: MESSAGE_ID,
           type: "text",
-          text: "Expanded whiteboard skill instructions",
+          text: "synthetic-context-sentinel",
           synthetic: true,
         },
       ],
@@ -137,7 +137,7 @@ describe("user section native resources", () => {
 
     expect(container.textContent).toContain("Whiteboard")
     expect(container.textContent).toContain("explain the payment flow")
-    expect(container.textContent).not.toContain("Expanded whiteboard skill instructions")
+    expect(container.textContent).not.toContain("synthetic-context-sentinel")
   })
 
   test("renders text files as chips while keeping their decoded contents out of the transcript", async () => {

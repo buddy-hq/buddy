@@ -32,6 +32,7 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | User asks about… | Open |
 | --- | --- |
 | What is an agent / tools / skills / MCP / subagents / session / context / providers (complete newbie or fundamentals only) | `references/basics-of-agents.md` |
+| Who made Buddy, who the creator is, who built it, Prashant Bhudwal (only when explicitly asked) | `references/about.md` |
 | Install, update, channels, download, won’t start, restart, logs, first launch, onboarding | `references/setup.md` |
 | Learn vs Teach, Buddy vs Teaching Buddy | `references/setup.md` |
 | No account, privacy, local data, site claims, permission prompts, Allow once/always | `references/trust.md` |

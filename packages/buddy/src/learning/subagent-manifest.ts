@@ -5,6 +5,7 @@ import { LEARNER_MEMORY_CONSOLIDATOR_AGENT } from "./features/memory/subagents/m
 import { QUESTION_SET_AUTHOR_AGENT } from "./features/question-sets/subagents/question-set-author.js"
 import { CURRICULUM_ORCHESTRATOR } from "./features/curriculum/subagents/orchestrator"
 import { FLASHCARD_AUTHOR_AGENT } from "./features/flashcards/subagents/flashcard-author.js"
+import { EVAL_LEARNER_AGENT } from "./features/evals/subagents/eval-learner"
 import type { DefinedBuddySubagent } from "./runtime/define-buddy-subagent"
 
 const BUDDY_SUBAGENTS = [
@@ -15,6 +16,7 @@ const BUDDY_SUBAGENTS = [
   QUESTION_SET_AUTHOR_AGENT,
   LEARNER_MEMORY_CONSOLIDATOR_AGENT,
   FLASHCARD_AUTHOR_AGENT,
+  EVAL_LEARNER_AGENT,
 ] as const satisfies readonly DefinedBuddySubagent[]
 
 type BuddySubagentDefinition = (typeof BUDDY_SUBAGENTS)[number]

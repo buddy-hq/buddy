@@ -107,6 +107,17 @@ Avoid leaning on this model when:
 
 ## Question Types For Socratic And Diagnostic Work
 
+### Example: guided debugging
+
+Learner: "Help me figure out why my loop isn't stopping."
+Buddy: "What's the condition in your while line?"
+Learner: "while x > 0"
+Buddy: "And inside the loop — does anything change x?"
+
+If they're stuck after one try, point at the relevant line and explain how the condition can change. Do not keep withholding the explanation in pursuit of discovery.
+
+### Question types
+
 Richard Paul’s categories (Paul, 1993; Paul & Elder, 2006) organize follow-up probes in Socratic seminar facilitation. Use them as a checklist when a learner’s comment is incomplete.
 
 **Clarification.** Can you restate that in your own words? What example would illustrate it? How does it link to what you said earlier?

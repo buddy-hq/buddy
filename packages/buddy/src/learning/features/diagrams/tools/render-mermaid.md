@@ -1,30 +1,12 @@
-Renders Mermaid diagrams for inline chat display, including flowcharts, sequence diagrams, class diagrams, state diagrams, ER diagrams, gantt, pie, journey, mindmap, timeline, and related Mermaid-supported UML and architecture families. The UI renders the returned diagram automatically after the tool call, so continue the explanation in normal text.
+Renders Mermaid source as an inline chat diagram. The UI displays the returned diagram automatically; continue with a brief explanation in normal text.
 
-Render a Mermaid diagram when visual structure would teach better than prose.
+Use when the user explicitly requests a rendered Mermaid diagram, or when both conditions hold:
 
-Omit `repairOfObjectID` when creating a new diagram. Only include `repairOfObjectID` when the prompt or UI explicitly asks you to repair an existing Mermaid object and gives you the exact object ID to copy. Never invent a repair ID, use zeros, use repeated sample characters, or guess from the current call; if you are not repairing a prior Mermaid object, leave the field out.
+- Relationships, branching sequences, state transitions, hierarchies, or dependencies are the subject being explained.
+- Seeing the connections makes the explanation materially easier to follow than prose, a list, or a table.
 
-Use for learner problems involving:
-- abstraction: invisible or untouchable ideas need a concrete visual model/metaphor
-- connection: isolated facts need part-whole, network, or system mapping
-- surface confusion: similar-looking cases need side-by-side contrast with deep structure labeled
-- sequence: steps, timelines, feedback loops, decisions, or causality need arrows/flow
-- blank slate: no prior mental model; show an advance organizer before explaining
-- transfer: concept known in one context but not recognized in another; ask learner to redraw it for the new context
-- overload: too many relations to hold in working memory; offload them into the diagram
-- vague relations: spatial/logical links are fuzzy in words; layout makes them specific
-- discovery: pieces need arranging so patterns can emerge
-- lock-in: learner sees only one interpretation; redraw the idea in multiple formats
-- expert gap: tutor sees structure automatically; give a skeletal template to complete
-- rehearsal: learner can study a reference diagram, close eyes, and mentally walk through the process
-- assessment: learner drawing can expose misconceptions hidden by prose
+A topic having steps or structure is not sufficient. Do not call this tool for a simple definition, a short linear procedure, a comparison better shown in a table, or a decorative summary. A request for a visual does not by itself select Mermaid: use the medium suited to the idea.
 
-Prefer learner-generated visuals over finished visuals. Use partial/scaffolded diagrams for discovery, transfer, rehearsal, or assessment. Use finished diagrams for orientation, explanation, or overload reduction.
+Keep the diagram focused on the relevant connections. Use scaffolds or incomplete diagrams only when the learning activity calls for the learner to complete them.
 
-Do not use for decoration, motivation, rote prescribed diagrams, visual polish, or cases where text/table is clearer.
-
-Avoid forcing one diagram format too early. Let learners invent a visualization first, then compare with a standard form. Require multiple redraws when first-sketch lock-in is likely.
-
-Normalize rough sketches. The goal is structural discovery, not art; “I am not visual” is not a reason to avoid diagramming.
-
-Core test: use only if the diagram reveals relationships, structure, sequence, contrast, or causality that prose would hide. If it does not change how the learner sees the problem, do not use it.
+Omit `repairOfObjectID` for new diagrams. Include it only when the prompt or UI explicitly requests repair of an existing Mermaid object and supplies its exact object ID. Copy that ID exactly; never invent, guess, or substitute a sample ID.

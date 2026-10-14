@@ -1,5 +1,7 @@
 # Inquiry / Predict-Check-Explain
 
+> In Buddy: this reference informs the move in your teaching plan. Learner sees: A committed prediction first, then the result: a real observation, a counterexample, or something they run themselves. Settle what the learner sees and does before you reply.
+
 An operational handbook for inquiry teaching organized around a short cycle: learners commit to a prediction and its reasoning, confront evidence that confirms or challenges that prediction, and rebuild an explanation that accounts for the mismatch. The cycle makes prior thinking visible, creates productive surprise when predictions fail, and turns revision into the main learning event rather than passive reception of a correct answer.
 
 This handbook treats **predict-check-explain** as a compact enactment pattern that appears inside several established inquiry traditions—not as a separate trademarked program or a standalone chapter title in *Instruction: A Models Approach* or *Models of Teaching*. In the teaching-models crosswalk (`resources/docs/artifacts/teaching-models.md`), it names one enactment pattern for **inquiry-based learning** (IMA Chapter 11 and related MOT inquiry material). It draws especially on **Suchman-style inquiry** (structured questioning toward hypotheses), **predict-observe-explain** in science education, and the hypothesis-testing logic common to problem-centered and scientific inquiry.

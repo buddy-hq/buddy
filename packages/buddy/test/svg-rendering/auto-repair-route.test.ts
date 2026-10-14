@@ -3,6 +3,7 @@ import { publishGlobalEvent } from "@buddy/opencode-adapter/global-event"
 import { app } from "../../src/index"
 import {
   readSvgAutoRepairRequest,
+  SVG_AUTO_REPAIR_MAX_RENDER_ATTEMPTS,
   svgAutoRepairScratchFile,
 } from "../../src/learning/features/svg-rendering/service/auto-repair"
 import { SVG_REPORTED_FENCE_MAX_BYTES } from "../../src/learning/features/svg-rendering/service/contracts"
@@ -202,11 +203,10 @@ describe("SVG auto-repair route", () => {
     })
     const content = parsePromptString(promptBody?.content) ?? ""
     expect(content).toContain("render_svg")
-    expect(content).toContain("at most 4 times")
+    expect(content).toContain(String(SVG_AUTO_REPAIR_MAX_RENDER_ATTEMPTS))
     expect(content).toContain('"invalid structure"')
     expect(content).not.toContain("```smiles\ninvalid structure\n```")
     expect(content).toContain(svgAutoRepairScratchFile(project.path, body.repairRequestID))
-    expect(content).not.toContain("Browser render error")
 
     expect(await readSvgAutoRepairRequest(project.path, body.repairRequestID)).toMatchObject({
       sessionID: SESSION_ID,

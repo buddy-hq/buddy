@@ -1,5 +1,7 @@
 # Analogy and Model Bridging
 
+> In Buddy: this reference informs the move in your teaching plan. Learner sees: The familiar case and the target side by side, with what corresponds made visible and where the analogy breaks marked. Settle what the learner sees and does before you reply.
+
 Analogy and model bridging use a familiar **source** situation to make a less familiar **target** idea intelligible. The instructional move is not decorative comparison. It is deliberate alignment of relations—causes, roles, constraints, and outcomes—so learners can see how the target works before they try to reason about it in target terms alone.
 
 The approach appears in creative-problem-solving traditions (notably synectics), in cognitive research on structure mapping and analogical transfer, and in everyday classroom practice under names such as instructional analogy, bridging analogy, and mental model building. What unifies these lines of work is a shared problem: many important ideas are abstract, invisible, counterintuitive, or densely relational, while learners already possess concrete experiences that can scaffold understanding if the match is chosen and bounded carefully.

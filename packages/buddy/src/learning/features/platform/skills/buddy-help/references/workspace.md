@@ -187,7 +187,7 @@ Minimize floating chat does **not** close Bench.
 - Docked is **Chat left \| Bench right** (not the reverse).
 - Parked looks like “gone” but content may still be open under the collapsed panel.
 - Opening something on Bench is best-effort; the pane may still show load/error in UI.
-- Auto-open (e.g. whiteboard) is best-effort and may skip if something else is already on Bench.
+- Auto-open is best-effort. When Buddy starts drawing on a whiteboard or presents a large widget in the current chat, Bench switches to it even if something else is showing; other auto-opens are skipped while a different item is on Bench.
 
 ## New tab
 

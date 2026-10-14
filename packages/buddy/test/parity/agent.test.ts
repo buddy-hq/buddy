@@ -54,8 +54,6 @@ describe("parity.agent", () => {
       expect(buddyPrompt.trim()).toBe(BUDDY.runtime.prompt.trim())
       expect(teachingBuddyPrompt.trim()).toBe(TEACHING_BUDDY.runtime.prompt.trim())
       expect(teachingBuddyPrompt).not.toBe(buddyPrompt)
-      expect(buddyPrompt).not.toContain("## Persona: Buddy")
-      expect(teachingBuddyPrompt).not.toContain("## Persona: Teaching Buddy")
     })
   }, 15_000)
 

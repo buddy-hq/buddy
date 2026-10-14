@@ -1378,13 +1378,11 @@ describe("bench surface rendering", () => {
       const editPath = `${TEST_DIRECTORY}/.buddy/objects/v1/flashcard-deck/${TEST_DECK_ID}/state/deck.json`
 
       expect(context?.metadata[0]).toBe(`edit_path: ${editPath}`)
-      expect(context?.content).toContain(`Edit path: ${editPath}`)
-      expect(context?.refs).toContainEqual({
+      expect(context?.refs).toContainEqual(expect.objectContaining({
         kind: "file",
         value: editPath,
-        note: "Authoritative flashcard deck state for minor text edits.",
-      })
-      expect(context?.hints.join("\n")).toContain("edit only notes[].fields text")
+      }))
+      expect(context?.hints.join("\n")).toContain("notes[].fields")
       expect(context?.metadata.join("\n")).not.toContain("/revisions/")
     } finally {
       queryClient.clear()
@@ -1778,9 +1776,7 @@ describe("bench surface rendering", () => {
       expect(context?.metadata).toContain("deck_mode: practice")
       expect(context?.metadata).toContain("revealed: false")
       expect(context?.metadata).toContain(`card_id: ${TEST_CARD_ID}`)
-      expect(context?.content).toContain("Flashcard practice: Biology Review")
-      expect(context?.content).toContain("Front:\nWhat powers the cell?")
-      expect(context?.content).toContain("Back: hidden until revealed")
+      expect(context?.content).toContain("What powers the cell?")
       expect(context?.content).not.toContain("Mitochondria")
     } finally {
       queryClient.clear()
@@ -1877,14 +1873,11 @@ describe("bench surface rendering", () => {
       const context = registrations.at(-1)?.getSnapshot().context
 
       expect(context?.metadata[0]).toBe(`edit_path: ${editPath}`)
-      expect(context?.content).toContain(`Edit path: ${editPath}`)
-      expect(context?.refs).toContainEqual({
+      expect(context?.refs).toContainEqual(expect.objectContaining({
         kind: "file",
         value: editPath,
-        note: "Authoritative question-set payload for minor text edits.",
-      })
+      }))
       expect(context?.hints.join("\n")).toContain("questions[].payload.choices[].content")
-      expect(context?.hints.join("\n")).toContain("Preserve object, revision, question")
     } finally {
       registerSurface.mockRestore()
     }

@@ -5,6 +5,8 @@ import { reflectionTool, dynamicReflectionTool } from "./tools/reflection"
 // import { explainSkill } from "./skills/explain"
 // import { learnSkill } from "./skills/learn"
 import { alignTeachingTopicsToGradeLevelAndAgeSkill } from "./skills/align-teaching-topics-to-grade-level-and-age"
+import { explanatoryDrawingSkill } from "./skills/explanatory-drawing"
+import { findAndShowResourcesSkill } from "./skills/find-and-show-resources"
 import { findIndianEducationResourcesSkill } from "./skills/find-indian-education-resources"
 import { fetchIndianCompetitionPapersSkill } from "./skills/fetch-indian-competition-papers"
 import { learningDesignFrameworksSkill } from "./skills/learning-design-frameworks"
@@ -35,6 +37,8 @@ export const teachingGuidanceFeature = defineBuddyFeature({
     findIndianEducationResourcesSkill,
     fetchIndianCompetitionPapersSkill,
     teachChemistrySkill,
+    explanatoryDrawingSkill,
+    findAndShowResourcesSkill,
   ],
   subagents: [],
   surfaces: [],

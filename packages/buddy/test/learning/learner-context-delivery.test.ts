@@ -64,7 +64,6 @@ describe("learner context delivery", () => {
       const firstPart = parseJsonObject(parts[0])
       expect(firstPart?.type).toBe("text")
       expect(parsePromptString(firstPart?.text)).toContain("<learner_context fingerprint=")
-      expect(parsePromptString(firstPart?.text)).toContain("Learner profile:")
       expect(parsePromptString(firstPart?.text)).toContain("Concrete examples first")
       expect(result.learnerContextDelivery?.kind).toBe("bootstrap")
     }),
@@ -159,7 +158,6 @@ describe("learner context delivery", () => {
       const parts = requireJsonArray(second.transformed.parts)
       const deltaText = parsePromptString(findPartContaining(parts, "<learner_context_delta")?.text)
       expect(deltaText).toContain("<learner_context_delta")
-      expect(deltaText).toContain("Added:")
       expect(deltaText).toContain("Goal: Implement bridge validation")
       expect(second.learnerContextDelivery?.kind).toBe("delta")
     }),
@@ -234,7 +232,7 @@ describe("learner context delivery", () => {
       const parts = requireJsonArray(second.transformed.parts)
       const deltaText = parsePromptString(findPartContaining(parts, "<learner_context_delta")?.text)
       expect(deltaText).toContain("<learner_context_delta")
-      expect(deltaText).toContain("Added:")
+      expect(deltaText).toContain("Add one validation checkpoint")
       expect(second.learnerContextDelivery?.kind).toBe("delta")
     }),
   )

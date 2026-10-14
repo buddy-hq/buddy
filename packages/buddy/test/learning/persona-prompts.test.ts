@@ -4,20 +4,11 @@ import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { BUDDY } from "../../src/learning/personas/buddy"
 import { CODE } from "../../src/learning/personas/code"
 import CODE_AVATAR_PROMPT from "../../src/learning/personas/prompts/code-avatar.p.md"
-import STUDENT_SHOW_DONT_TELL from "../../src/learning/personas/prompts/sections/constitution/student/show-dont-tell.p.md"
-import STUDENT_TEACH_THROUGH_CONVERSATION from "../../src/learning/personas/prompts/sections/constitution/student/teach-through-conversation.p.md"
-import TEACHER_SHOW_DONT_TELL from "../../src/learning/personas/prompts/sections/constitution/teacher/show-dont-tell.p.md"
-import TEACHER_TEACH_THROUGH_CONVERSATION from "../../src/learning/personas/prompts/sections/constitution/teacher/teach-through-conversation.p.md"
-import STUDENT_CONCISE_RESPONSES from "../../src/learning/personas/prompts/sections/product/concise-responses/student.p.md"
-import TEACHER_CONCISE_RESPONSES from "../../src/learning/personas/prompts/sections/product/concise-responses/teacher.p.md"
-import PICK_A_TEACHING_MODEL from "../../src/learning/personas/prompts/sections/teaching/student/pick-a-teaching-model.p.md"
-import SKILLS_SECTION from "../../src/learning/personas/prompts/sections/product/skills.p.md"
 import {
   PERSONA_PROMPT_ID,
   renderBuddyPersonaPrompt,
 } from "../../src/learning/personas/prompts/render-persona-prompt"
 import { TEACHING_BUDDY } from "../../src/learning/personas/teaching-buddy"
-import { stripConciseResponseInstructions } from "../../src/learning/personas/prompts/concise-response-control"
 import { defineBuddyPersona } from "../../src/learning/personas/wiring/define-buddy-persona"
 import { personaCatalogEntries } from "../../src/learning/personas/wiring/persona-metadata"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
@@ -63,7 +54,7 @@ describe("persona prompts", () => {
     expect(result.nextTeachingState?.conciseResponses).toBe(true)
   })
 
-  test("turning concise responses off removes the response-style section", async () => {
+  test("starts a new Buddy chat with concision off when configured", async () => {
     await using project = await tmpdir({ git: true })
     const projectConfig = await readProjectConfig(project.path)
     const result = await runMessagePromptPipeline({
@@ -80,13 +71,6 @@ describe("persona prompts", () => {
         concise_responses: false,
       },
     })
-    const flexiblePrompt = stripConciseResponseInstructions({
-      persona: "buddy",
-      systemPrompt: BUDDY.runtime.prompt,
-    })
-
-    expect(flexiblePrompt).not.toBe(BUDDY.runtime.prompt)
-    expect(flexiblePrompt.length).toBeLessThan(BUDDY.runtime.prompt.length)
     expect(result.nextTeachingState?.baseConciseResponses).toBe(false)
     expect(result.nextTeachingState?.conciseResponses).toBe(false)
   })
@@ -120,14 +104,10 @@ describe("persona prompts", () => {
       },
     })
 
-    const flexiblePrompt = stripConciseResponseInstructions({
-      persona: "teaching-buddy",
-      systemPrompt: TEACHING_BUDDY.runtime.prompt,
-    })
-    expect(flexiblePrompt).not.toBe(TEACHING_BUDDY.runtime.prompt)
-    expect(flexiblePrompt.length).toBeLessThan(TEACHING_BUDDY.runtime.prompt.length)
     expect(concise.nextTeachingState?.baseConciseResponses).toBe(true)
+    expect(concise.nextTeachingState?.conciseResponses).toBe(true)
     expect(flexible.nextTeachingState?.baseConciseResponses).toBe(false)
+    expect(flexible.nextTeachingState?.conciseResponses).toBe(false)
   })
 
   test("adds a one-turn reminder when concise responses change in an existing chat", async () => {
@@ -181,6 +161,7 @@ describe("persona prompts", () => {
     })
 
     expect(syntheticPromptText(second).length).toBeGreaterThan(syntheticPromptText(third).length)
+    expect(syntheticPromptText(third).length).toBeLessThan(syntheticPromptText(second).length)
     expect(third.nextTeachingState?.baseConciseResponses).toBe(true)
   })
 
@@ -217,6 +198,22 @@ describe("persona prompts", () => {
     expect(syntheticPromptText(second).length).toBeGreaterThan(0)
     expect(second.nextTeachingState?.baseConciseResponses).toBe(false)
     expect(second.nextTeachingState?.conciseResponses).toBe(true)
+
+    const third = await runMessagePromptPipeline({
+      context: {
+        directory: project.path,
+        sessionID: "ses_concise_enable",
+      },
+      body: {
+        content: "Continue.",
+        persona: "buddy",
+      },
+      projectConfig,
+      previousState: second.nextTeachingState,
+    })
+    expect(syntheticPromptText(third).length).toBeLessThan(syntheticPromptText(second).length)
+    expect(third.nextTeachingState?.baseConciseResponses).toBe(false)
+    expect(third.nextTeachingState?.conciseResponses).toBe(true)
   })
 
   test("treats pre-toggle in-memory chat state as the original concise behavior", async () => {
@@ -249,48 +246,12 @@ describe("persona prompts", () => {
     expect(result.nextTeachingState?.conciseResponses).toBe(false)
   })
 
-  test("renders only the sections for the selected persona variant", () => {
-    const learningCompanion = renderBuddyPersonaPrompt(PERSONA_PROMPT_ID.learningCompanion)
-    const teachingAssistant = renderBuddyPersonaPrompt(PERSONA_PROMPT_ID.teachingAssistant)
-
-    const studentAssets = [
-      STUDENT_SHOW_DONT_TELL,
-      STUDENT_TEACH_THROUGH_CONVERSATION,
-      STUDENT_CONCISE_RESPONSES,
-      PICK_A_TEACHING_MODEL,
-    ]
-    for (const asset of studentAssets) {
-      expect(learningCompanion).toContain(asset.trim())
-      expect(teachingAssistant).not.toContain(asset.trim())
-    }
-
-    const teacherAssets = [
-      TEACHER_SHOW_DONT_TELL,
-      TEACHER_TEACH_THROUGH_CONVERSATION,
-      TEACHER_CONCISE_RESPONSES,
-    ]
-    for (const asset of teacherAssets) {
-      expect(teachingAssistant).toContain(asset.trim())
-      expect(learningCompanion).not.toContain(asset.trim())
-    }
-  })
-
-  test("no section renders twice in a document", () => {
-    for (const personaPromptID of Object.values(PERSONA_PROMPT_ID)) {
-      const headings = renderBuddyPersonaPrompt(personaPromptID)
-        .split("\n")
-        .filter((line) => /^#{1,3} /.test(line))
-
-      expect(headings).toEqual([...new Set(headings)])
-    }
-  })
-
-  test("every section a document declares resolves, and no placeholder survives", () => {
+  test("renders complete persona prompts without unresolved placeholders", () => {
     for (const personaPromptID of Object.values(PERSONA_PROMPT_ID)) {
       const prompt = renderBuddyPersonaPrompt(personaPromptID)
 
+      expect(prompt.length).toBeGreaterThan(0)
       expect(prompt).not.toContain("{{")
-      expect(prompt).toContain(SKILLS_SECTION.trim())
     }
   })
 
@@ -309,7 +270,10 @@ describe("persona prompts", () => {
   })
 
   test("Code uses OpenCode's GPT prompt and is a valid runtime target", () => {
-    expect(CODE.runtime.prompt).toBe([OPEN_CODE_GPT_SYSTEM_PROMPT, CODE_AVATAR_PROMPT].join("\n\n"))
+    const basePromptIndex = CODE.runtime.prompt.indexOf(OPEN_CODE_GPT_SYSTEM_PROMPT)
+    const avatarPromptIndex = CODE.runtime.prompt.indexOf(CODE_AVATAR_PROMPT)
+    expect(basePromptIndex).toBe(0)
+    expect(avatarPromptIndex).toBeGreaterThan(basePromptIndex)
     expect(CODE.hidden).toBe(false)
     expect(personaCatalogEntries()).toContainEqual(
       expect.objectContaining({

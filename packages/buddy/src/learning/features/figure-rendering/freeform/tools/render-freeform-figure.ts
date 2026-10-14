@@ -16,8 +16,12 @@ import { renderFreeformFigure, type RenderFreeformFigureOutput } from "../servic
 import { FREEFORM_FIGURE_RENDERED_VIEW_ID } from "../service/io"
 
 const RenderFreeformFigureInputSchema = z.object({
-  caption: nonEmptyString.optional(),
-  source: nonEmptyString,
+  caption: nonEmptyString
+    .optional()
+    .describe("Optional short caption shown under the figure. Omit unless it helps the reader."),
+  source: nonEmptyString.describe(
+    "Complete SVG document with an <svg> root element; include a viewBox so it scales to the chat. No Markdown fences.",
+  ),
 })
 
 type RenderFreeformFigureInput = z.infer<typeof RenderFreeformFigureInputSchema>

@@ -256,7 +256,6 @@ describe("ingest_full_text via plugin shim", () => {
         expect(parsed_ingestResult.output).toContain("<resource_full_text_ingestion")
         expect(parsed_ingestResult.output).toContain('resource="frames-md"')
         expect(parsed_ingestResult.output).toContain("<full_text>")
-        expect(parsed_ingestResult.output).toContain("Long Response Caution")
         expect(parsed_ingestResult.output).not.toContain(
           "Could not resolve the active model for full-text ingestion.",
         )
@@ -277,9 +276,7 @@ describe("ingest_full_text via plugin shim", () => {
           flexibleResult,
           "Expected flexible ingest_full_text object result",
         )
-        expect(parsedFlexibleResult.output).not.toBe(parsed_ingestResult.output)
-        expect(parsedFlexibleResult.output.length).toBeLessThan(parsed_ingestResult.output.length)
-        expect(parsedFlexibleResult.output).not.toContain("Long Response Caution")
+        expect(parsedFlexibleResult.output).toBe(parsed_ingestResult.output)
 
         const previousGlobalConfig = await Config.getGlobal()
         try {
@@ -301,7 +298,7 @@ describe("ingest_full_text via plugin shim", () => {
             configuredFlexibleResult,
             "Expected configured flexible ingest_full_text object result",
           )
-          expect(parsedConfiguredFlexibleResult.output).not.toContain("Long Response Caution")
+          expect(parsedConfiguredFlexibleResult.output).toBe(parsed_ingestResult.output)
         } finally {
           await Config.replaceGlobal(previousGlobalConfig)
         }
@@ -423,7 +420,6 @@ describe("ingest_full_text via plugin shim", () => {
         expect(nativeMetadata.completed).toBe(false)
         expect(nativeMetadata.reason).toBe("native_pdf_already_in_context")
         expect(nativeMetadata.fallback).toBe("scoped_reading")
-        expect(parsed_nativeResult.output).toContain("already present as native model input")
         expect(parsed_nativeResult.output).not.toContain("<full_text>")
 
         const resourceOnlyMessages = createNativePdfMessageHistory({
@@ -647,7 +643,6 @@ describe("ingest_full_text via plugin shim", () => {
         expect(ingestMetadata.contextWindow).toBe(SMALL_TEST_ACTIVE_MODEL.limit.context)
         expect(ingestMetadata.requiredReserveAfterIngestion).toBe(MINIMUM_FULL_TEXT_RESERVE_TOKENS)
         expect(parsed_ingestResult.output).toContain('completed="false"')
-        expect(parsed_ingestResult.output).toContain("Continue with scoped reading")
         expect(parsed_ingestResult.output).not.toContain("<full_text>")
       },
     })
