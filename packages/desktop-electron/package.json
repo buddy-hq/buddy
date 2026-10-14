@@ -69,7 +69,7 @@
     "@types/react-dom": "^18.2.0",
     "@typescript/native-preview": "catalog:",
     "@vitejs/plugin-react": "^4.2.0",
-    "electron": "41.9.0",
+    "electron": "41.10.6",
     "electron-builder": "26.15.2",
     "electron-vite": "^5.0.0",
     "react": "^18.2.0",
