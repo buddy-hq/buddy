@@ -2,7 +2,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { setTimeout as sleep } from "node:timers/promises"
 import { afterEach, describe, expect, test } from "bun:test"
-import { resolveToolPresentationSnapshot } from "@buddy/opencode-adapter/tool-presentation"
+import { resolveToolPresentationSnapshot } from "@buddy/transcript-contract/tool-presentation"
 import {
   benchTargetKey,
   clearBenchContextRegistry,
@@ -10,14 +10,12 @@ import {
   type BenchContextTarget,
   type BenchTarget,
 } from "../../src/learning/features/bench/context"
-import "../../src/learning/features"
 import {
   SSE_EVENT_TYPE_CLIENT_ACTION,
   benchClientActionBroker,
   type BenchClientAction,
   type BenchClientLease,
 } from "../../src/learning/features/bench/client-actions"
-import { benchPresentTool, presentOnBench } from "../../src/learning/features/bench/tools/present"
 import { BUDDY_OBJECT_KIND_VALUES, getBuddyObjectKindDefinition } from "../../src/objects"
 import {
   addResource,
@@ -29,6 +27,11 @@ import { createTestPdf } from "../helpers/pdf"
 import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
 
 type TBuddyToolMetadataUpdate = Parameters<BuddyToolContext["metadata"]>[0]
+
+const { benchPresentTool, presentOnBench } = await import("../../src/learning/features/bench/tools/present")
+
+await import("../../src/opencode-runtime/client")
+await import("../../src/learning/features")
 
 const SESSION_ID = "session-bench-present"
 const TEST_CLIENT_INSTANCE_ID = "test-bench-client"

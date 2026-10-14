@@ -12,7 +12,7 @@ function stableSerialize<TValue>(value: TValue): string {
 
   const record = parseConfigObject(value)
   if (record !== undefined) {
-    const entries = Object.entries(record).toSorted(([left], [right]) => left.localeCompare(right))
+    const entries = Object.entries(record)
     return `{${entries.map(([key, nested]) => `${JSON.stringify(key)}:${stableSerialize(nested)}`).join(",")}}`
   }
 

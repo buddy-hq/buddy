@@ -18,6 +18,7 @@ export type ToolState = {
   end?: number
   output?: string
   error?: string
+  errorType?: string
   title?: string
 }
 

@@ -16,12 +16,10 @@ import {
 } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import type { ObjectFlashcardDeckReadDeckResponse } from "@buddy/sdk/types"
 import { ToolOutputPanel } from "../../tool-output-panel"
-import type { ToolPartProps } from "../../registry"
-import { readString } from "../../types"
 import { TASK_CARD_ENTER_ANIMATE, TASK_CARD_TRANSITION, taskCardEnterInitial } from "../task-motion"
-import { useSubagentCardData } from "./task-card-header"
+import { useSubagentCardData, type SubagentCardInput } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
-import { parseTaskResultOutput } from "./task-utils"
+import { useRefetchObjectsOnWorkerFinish } from "./use-subagent-objects"
 
 function FlashcardDeckTaskPreview(props: {
   directory: string
@@ -88,25 +86,25 @@ function flashcardDeckDetailQuery(directory: string, objectID: string, enabled: 
 }
 
 export function FlashcardAuthorTaskCard({
+  subagent,
   state,
   onOpenSession,
   directory,
-}: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
+}: SubagentCardInput) {
   const openBenchRoute = useOpenBench()
-  const { taskTitle, openChildSession, activityLine, activityContent, status } =
-    useSubagentCardData({ state, onOpenSession, directory })
+  const { taskTitle, openChildSession, activityLine, activityContent, status, childSessionID, workerFinished, result } =
+    useSubagentCardData({ subagent, state, onOpenSession, directory })
   const reducedMotion = useReducedMotion() === true
-  const output = state.output || (state.error ?? "")
-  const taskResultOutput = parseTaskResultOutput(output)
+  const taskResultOutput = result ?? ""
+  useRefetchObjectsOnWorkerFinish(directory, workerFinished)
 
-  const childSessionID = readString(state.metadata.sessionId)
   const decksQuery = useQuery({
     ...workspaceFlashcardDeckObjectsQueryOptions(directory ?? ""),
-    enabled: state.status === "completed" && !!directory && !!childSessionID,
+    enabled: workerFinished && !!directory && !!childSessionID,
   })
 
   const deckObjects = selectFlashcardDeckObjects(decksQuery)
-  const shouldLoadDecks = state.status === "completed" && !!directory && !!childSessionID
+  const shouldLoadDecks = workerFinished && !!directory && !!childSessionID
   const deckDetailQueries = useQueries({
     queries: deckObjects.map((deck) =>
       flashcardDeckDetailQuery(directory ?? "", deck.objectID, shouldLoadDecks),
@@ -124,17 +122,17 @@ export function FlashcardAuthorTaskCard({
   const detailPending = deckDetailQueries.some((query) => query.isPending)
   const detailError = deckDetailQueries.find((query) => query.error)?.error
 
-  const loadingObjects = decksQuery.isPending || detailPending
+  const loadingObjects = shouldLoadDecks && (decksQuery.isPending || detailPending)
 
   const objectError = decksQuery.error ?? detailError
 
   const shouldShowOutputFallback =
-    !loadingObjects && items.length === 0 && taskResultOutput.length > 0
+    status === "completed" && !loadingObjects && items.length === 0 && taskResultOutput.length > 0
 
   const shouldShowObjectError = objectError !== null && objectError !== undefined
 
-  const error = state.status === "error" ? taskResultOutput || undefined : undefined
-  const showCompletedBody = state.status === "completed"
+  const error = status === "error" ? taskResultOutput || undefined : undefined
+  const showCompletedBody = workerFinished
 
   return (
     <>

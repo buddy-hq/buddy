@@ -1,14 +1,15 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterAll, describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { app } from "../src"
-import { syncOpenCodeProjectConfig } from "../src/config/runtime/opencode-sync"
+import { closeOpenCodeHost } from "../src/opencode-runtime/runtime"
+import { Hono } from "hono"
+import { ReferenceRoutes } from "../src/routes/reference"
+const app = new Hono().route("/api/reference", ReferenceRoutes)
 import { tmpdir } from "./helpers/tmpdir"
 
 describe("OpenCode v2 reference routes", () => {
-  afterEach(async () => {
-    await OpenCodeInstance.disposeAll()
+  afterAll(async () => {
+    await closeOpenCodeHost()
   })
 
   test("returns the exact v2 location and reference catalog contract", async () => {
@@ -20,15 +21,14 @@ describe("OpenCode v2 reference routes", () => {
       JSON.stringify({
         references: {
           docs: {
-            type: "local",
             path: referenceDirectory,
             description: "Shared documentation",
           },
         },
       }),
     )
-    await syncOpenCodeProjectConfig(project.path, true)
     const resolvedProjectDirectory = await fs.realpath(project.path)
+
 
     const response = await app.request("/api/reference", {
       headers: {

@@ -1,11 +1,9 @@
-import { Effect, Schema } from "effect"
 import z from "zod"
-import { Tool, type ToolRuntimeServices } from "@buddy/opencode-adapter/tool"
+import type { MessageWithParts } from "@buddy/transcript-contract/message"
 import {
   cloneToolPresentationDescriptor,
   type ToolPresentationDescriptor,
-} from "@buddy/opencode-adapter/tool-presentation"
-import { withCurrentInstance } from "@buddy/opencode-adapter/effect-runtime"
+} from "@buddy/transcript-contract/tool-presentation"
 import {
   ACTIVE_TEACHING_WORKSPACE,
   ADVANCED_MATH_RUNTIME,
@@ -25,17 +23,39 @@ import {
 } from "../prompt/utils"
 
 type TBuddyToolMetadata = { [key: string]: TJsonValue | undefined }
+
+type BuddyToolPermissionRequest = {
+  permission: string
+  patterns: string[]
+  always: string[]
+  metadata: TBuddyToolMetadata
+}
+
+type BuddyToolAttachment = {
+  type: "file"
+  mime: string
+  url: string
+  filename?: string
+}
+
+type BuddyToolExecuteResult<Metadata extends TBuddyToolMetadata = TBuddyToolMetadata> = {
+  title: string
+  output: string
+  metadata: Metadata
+  attachments?: BuddyToolAttachment[]
+}
+
 type BuddyToolContext<Metadata extends TBuddyToolMetadata = TBuddyToolMetadata> = {
   directory: string
-  sessionID: Tool.Context<Metadata>["sessionID"]
-  messageID: Tool.Context<Metadata>["messageID"]
-  agent: Tool.Context<Metadata>["agent"]
-  abort: Tool.Context<Metadata>["abort"]
-  callID?: Tool.Context<Metadata>["callID"]
-  extra?: Tool.Context<Metadata>["extra"]
-  messages: Tool.Context<Metadata>["messages"]
+  sessionID: string
+  messageID: string
+  agent: string
+  abort: AbortSignal
+  callID?: string
+  extra?: TJsonObject
+  messages: MessageWithParts[]
   metadata(input: { title?: string; metadata?: Metadata }): Promise<void>
-  ask(input: Parameters<Tool.Context<Metadata>["ask"]>[0]): Promise<void>
+  ask(input: BuddyToolPermissionRequest): Promise<void>
 }
 
 type BuddyToolDefinition<
@@ -49,7 +69,7 @@ type BuddyToolDefinition<
   execute(
     args: z.infer<Parameters>,
     ctx: BuddyToolContext<Metadata>,
-  ): Promise<Tool.ExecuteResult<Metadata>> | Tool.ExecuteResult<Metadata>
+  ): Promise<BuddyToolExecuteResult<Metadata>> | BuddyToolExecuteResult<Metadata>
   normalizeInput?<TRaw>(rawArgs: TRaw): TRaw | TJsonObject
   formatValidationError?(error: z.ZodError): string
   constraints?: BuddyToolConstraints
@@ -76,19 +96,15 @@ type BuddyTool<
   id: Id
   description: string
   parameters: Parameters
-  jsonSchema?: NonNullable<Tool.Def["jsonSchema"]>
+  jsonSchema: TJsonObject
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
   presentation: ToolPresentationDescriptor
   output?: BuddyToolOutputPolicy
-  run<TRaw>(rawArgs: TRaw, ctx: BuddyToolContext<Metadata>): Promise<Tool.ExecuteResult<Metadata>>
-  toTool(directory: string): Effect.Effect<
-    Tool.Info<typeof Schema.Unknown, Metadata>,
-    never,
-    ToolRuntimeServices
-  > & {
-    id: Id
-  }
+  run<TRaw>(
+    rawArgs: TRaw,
+    ctx: BuddyToolContext<Metadata>,
+  ): Promise<BuddyToolExecuteResult<Metadata>>
 }
 
 function createAbortError() {
@@ -194,31 +210,6 @@ async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T
   }
 }
 
-function buddyToolContextFromEffectContext<Metadata extends TBuddyToolMetadata>(
-  directory: string,
-  ctx: Tool.Context<Metadata>,
-): BuddyToolContext<Metadata> {
-  const context: BuddyToolContext<Metadata> = Object.assign(
-    {
-      directory,
-      sessionID: ctx.sessionID,
-      messageID: ctx.messageID,
-      agent: ctx.agent,
-      abort: ctx.abort,
-      messages: ctx.messages,
-      metadata(input: { title?: string; metadata?: Metadata }) {
-        return Effect.runPromise(withCurrentInstance(ctx.metadata(input)))
-      },
-      ask(input: Parameters<Tool.Context<Metadata>["ask"]>[0]) {
-        return Effect.runPromise(withCurrentInstance(ctx.ask(input)))
-      },
-    },
-    ctx.callID ? { callID: ctx.callID } : undefined,
-    ctx.extra ? { extra: ctx.extra } : undefined,
-  )
-  return context
-}
-
 async function runBuddyTool<
   const Id extends string,
   Parameters extends z.ZodType,
@@ -228,7 +219,7 @@ async function runBuddyTool<
   definition: BuddyToolDefinition<Id, Parameters, Metadata>,
   rawArgs: TRaw,
   ctx: BuddyToolContext<Metadata>,
-): Promise<Tool.ExecuteResult<Metadata>> {
+): Promise<BuddyToolExecuteResult<Metadata>> {
   const normalizedArgs = definition.normalizeInput ? definition.normalizeInput(rawArgs) : rawArgs
   const parsed = definition.parameters.safeParse(normalizedArgs)
   if (!parsed.success) {
@@ -252,7 +243,7 @@ function validateProducedToolMetadata<
   Metadata extends TBuddyToolMetadata,
 >(
   definition: BuddyToolDefinition<Id, Parameters, Metadata>,
-  result: Tool.ExecuteResult<Metadata>,
+  result: BuddyToolExecuteResult<Metadata>,
 ): void {
   if (definition.produces?.buddyObjectResult !== true) {
     return
@@ -281,22 +272,6 @@ function createBuddyTool<
       presentation,
       run<TRaw>(rawArgs: TRaw, ctx: BuddyToolContext<Metadata>) {
         return runBuddyTool(definition, rawArgs, ctx)
-      },
-      toTool(directory: string) {
-        return Tool.define(
-          definition.id,
-          Effect.promise(async () => {
-            return {
-              ...definition,
-              parameters: Schema.Unknown,
-              jsonSchema,
-              execute(args, ctx: Tool.Context<Metadata>) {
-                const nextCtx = buddyToolContextFromEffectContext(directory, ctx)
-                return Effect.promise(() => runBuddyTool(definition, args, nextCtx))
-              },
-            }
-          }),
-        )
       },
     },
     clonedDynamic ? { dynamic: clonedDynamic } : undefined,
@@ -358,6 +333,14 @@ function cloneDynamicMetadata(
 export { createBuddyTool }
 export { ACTIVE_TEACHING_WORKSPACE, ADVANCED_MATH_RUNTIME, STANDARDS_RUNTIME }
 
-export type { BuddyTool, BuddyToolConstraints, BuddyToolContext, BuddyToolDefinition }
+export type {
+  BuddyTool,
+  BuddyToolAttachment,
+  BuddyToolConstraints,
+  BuddyToolContext,
+  BuddyToolDefinition,
+  BuddyToolExecuteResult,
+  BuddyToolPermissionRequest,
+}
 export type { BuddyToolRuntimeDependency }
 export type { ToolPresentationDescriptor }

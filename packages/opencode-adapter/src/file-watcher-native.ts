@@ -1,5 +1,5 @@
 import ParcelWatcher from "@parcel/watcher"
-import type { WorkspaceFileWatcherUpdate } from "./file-watcher"
+import type { WorkspaceFileWatcherUpdate } from "@buddy/transcript-contract/file-watcher"
 
 type NativeWorkspaceFileWatcherOptions = {
   directory: string

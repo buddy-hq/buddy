@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { getOpenCodeClient } from "../../src/opencode-runtime/client"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import { tmpdir } from "../helpers/tmpdir"
 import { requireString } from "../helpers/parse"
@@ -94,13 +93,7 @@ describe("model runtime context", () => {
   test("falls back to request model runtime when provider lookup misses", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
-    const sessionID = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: async () => {
-        const session = await OpenCodeSession.create({})
-        return session.id
-      },
-    })
+    const sessionID = (await (await getOpenCodeClient()).session.create({ location: { directory: project.path } })).id
 
     const result = await runMessagePromptPipeline({
       context: {

@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { MessageID, ModelID, PartID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { getOpenCodeClient } from "../../src/opencode-runtime/client"
+import { closeOpenCodeHost } from "../../src/opencode-runtime/runtime"
 import { app } from "../../src/index.ts"
 import { Config } from "../../src/config"
 import { annotateChatMessage, captureComposerNote } from "../../src/notes/chat-capture"
@@ -47,8 +46,6 @@ function requestWeekOneImage(src: string) {
   )
 }
 
-type RouteMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
-
 async function configureNotesHome(directory: string) {
   const previous = await Config.getGlobal()
   await Config.replaceGlobal({
@@ -60,47 +57,22 @@ async function configureNotesHome(directory: string) {
 }
 
 async function seedReadableChat(directory: string) {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: async () => {
-      const session = await OpenCodeSession.create({ title: "Research chat" })
-      const sessionID = SessionID.make(session.id)
-      const userMessageID = MessageID.ascending()
-      await OpenCodeSession.updateMessage({
-        id: userMessageID,
-        sessionID,
-        role: "user",
-        time: { created: 1 },
-        agent: "buddy",
-        model: {
-          providerID: ProviderID.openai,
-          modelID: ModelID.make("gpt-5.4-mini"),
-        },
-        tools: {},
-      } satisfies RouteMessage["info"])
-      await OpenCodeSession.updatePart({
-        id: PartID.ascending(),
-        sessionID,
-        messageID: userMessageID,
-        type: "text",
-        text: "Visible question",
-      })
-      await OpenCodeSession.updatePart({
-        id: PartID.ascending(),
-        sessionID,
-        messageID: userMessageID,
-        type: "text",
-        text: "Hidden synthetic context",
-        synthetic: true,
-      })
-      return { sessionID: session.id, userMessageID }
-    },
+  const client = await getOpenCodeClient()
+  const session = await client.session.create({ title: "Research chat", location: { directory } })
+  const userMessageID = "msg_note_question"
+  await client.session.remove({ sessionID: session.id })
+  await client.session.import({
+    info: session,
+    location: { directory },
+    messages: [
+      { id: userMessageID, type: "user", text: "Visible question", time: { created: 1 } },
+      { id: "msg_note_context", type: "synthetic", text: "Hidden synthetic context", time: { created: 2 } },
+    ],
   })
+  return { sessionID: session.id, userMessageID }
 }
 
-afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
-})
+afterEach(async () => { await closeOpenCodeHost() })
 
 function handEditedNoteSource(generatedTitle: string[]) {
   return [

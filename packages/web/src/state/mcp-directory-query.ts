@@ -6,6 +6,7 @@ const MCP_STATUS_QUERY_KEY = "status" as const
 const PROJECT_CONFIG_QUERY_KEY = "project-config" as const
 const GLOBAL_DIRECTORY_QUERY_KEY = "__global__" as const
 const MCP_QUERY_STALE_TIME_MS = 0
+const MCP_PENDING_REFETCH_INTERVAL_MS = 1_000
 
 function resolveDirectoryQueryKey(directory: string) {
   const normalizedDirectory = directory.trim()
@@ -28,6 +29,10 @@ export function mcpStatusQueryOptions(directory: string) {
     queryKey: mcpDirectoryQueryKeys.status(directory),
     queryFn: () => loadMcpStatus(directory),
     staleTime: MCP_QUERY_STALE_TIME_MS,
+    refetchInterval: (query) =>
+      Object.values(query.state.data ?? {}).some((status) => status.status === "pending")
+        ? MCP_PENDING_REFETCH_INTERVAL_MS
+        : false,
   })
 }
 

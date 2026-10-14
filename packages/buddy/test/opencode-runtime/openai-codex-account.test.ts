@@ -46,7 +46,6 @@ describe("OpenAI Codex account service", () => {
       fetch: fetchMock,
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
     expect(await service.readIdentity(DIRECTORY)).toEqual({
@@ -62,12 +61,11 @@ describe("OpenAI Codex account service", () => {
       fetch: async () => response.promise,
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
     const identity = service.readIdentity(DIRECTORY)
     await Bun.sleep(0)
-    auth = { ...auth, refresh: "another-account-refresh" }
+    auth = { ...auth, refresh: "another-account-refresh", access: "another-account-access" }
     response.resolve(Response.json({ email: "old-account@example.com" }))
 
     expect(await identity).toEqual({ status: "unavailable" })
@@ -78,7 +76,6 @@ describe("OpenAI Codex account service", () => {
       fetch: async () => Response.json({ sub: "user_123" }),
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
     expect(await service.readIdentity(DIRECTORY)).toEqual({ status: "unavailable" })
@@ -106,7 +103,6 @@ describe("OpenAI Codex account service", () => {
       fetch: fetchMock,
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
     expect(await service.readModelAvailability(DIRECTORY)).toEqual({
@@ -153,7 +149,6 @@ describe("OpenAI Codex account service", () => {
       fetch: fetchMock,
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
     expect(await service.resolveModelCatalog(DIRECTORY)).toEqual([
@@ -172,65 +167,6 @@ describe("OpenAI Codex account service", () => {
       },
     ])
     expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
-
-  test("does not overwrite or resolve against an account changed during token refresh", async () => {
-    const tokenResponse = createDeferredResponse()
-    const refreshFetchMock = mock(
-      async (_input: RequestInfo | URL, _init?: RequestInit) => tokenResponse.promise,
-    )
-    globalThis.fetch = Object.assign(
-      async (input: RequestInfo | URL, init?: Parameters<typeof fetch>[1]) =>
-        refreshFetchMock(input, init),
-      {
-        preconnect: originalFetch.preconnect,
-      },
-    )
-
-    let auth: OpenAICodexStoredAuth = {
-      type: "oauth",
-      access: "expired-account-a",
-      refresh: "refresh-account-a",
-      expires: 0,
-      accountId: "account-a",
-    }
-    const modelFetchMock = mock(async () =>
-      Response.json({
-        models: [{ slug: "model-a", visibility: "list", context_window: 100_000 }],
-      }),
-    )
-    const setAuth = mock(async (_directory: string, nextAuth: OpenAICodexStoredAuth) => {
-      auth = nextAuth
-    })
-    const service = createOpenAICodexAccountService({
-      fetch: modelFetchMock,
-      now: () => NOW,
-      getAuth: async () => auth,
-      setAuth,
-    })
-
-    const catalog = service.resolveModelCatalog(DIRECTORY)
-    await Bun.sleep(0)
-    expect(refreshFetchMock).toHaveBeenCalledTimes(1)
-
-    auth = {
-      type: "oauth",
-      access: "account-b",
-      refresh: "refresh-account-b",
-      expires: Date.now() + 60_000,
-      accountId: "account-b",
-    }
-    tokenResponse.resolve(
-      Response.json({
-        access_token: "refreshed-account-a",
-        refresh_token: "rotated-account-a",
-      }),
-    )
-
-    expect(await catalog).toBeUndefined()
-    expect(setAuth).not.toHaveBeenCalled()
-    expect(modelFetchMock).not.toHaveBeenCalled()
-    expect(auth.accountId).toBe("account-b")
   })
 
   test("does not back off account model loading after a catalog request is aborted", async () => {
@@ -254,7 +190,6 @@ describe("OpenAI Codex account service", () => {
       fetch: fetchMock,
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
     const abortController = new AbortController()
 
@@ -291,7 +226,6 @@ describe("OpenAI Codex account service", () => {
       fetch: fetchMock,
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
     await service.refreshModelAvailability(DIRECTORY)
@@ -316,7 +250,6 @@ describe("OpenAI Codex account service", () => {
       },
       now: () => now,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
     expect((await service.resolveModelCatalog(DIRECTORY))?.map((model) => model.slug)).toEqual([
@@ -348,7 +281,6 @@ describe("OpenAI Codex account service", () => {
       fetch: async () => Response.json({ models: [] }),
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
     expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({
@@ -361,7 +293,6 @@ describe("OpenAI Codex account service", () => {
       fetch: async () => Response.json({}, { status: 401 }),
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
     expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({
@@ -379,7 +310,6 @@ describe("OpenAI Codex account service", () => {
       fetch: fetchMock,
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
     service.markAuthenticationRejected(auth)
@@ -398,7 +328,6 @@ describe("OpenAI Codex account service", () => {
       fetch: async () => Response.json({}, { status: 503 }),
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
     expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({ status: "error" })
@@ -416,7 +345,6 @@ describe("OpenAI Codex account service", () => {
       fetch: fetchMock,
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
     expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({
@@ -460,7 +388,6 @@ describe("OpenAI Codex account service", () => {
       fetch: fetchMock,
       now: () => now,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
     const first = await service.readUsage(DIRECTORY)
@@ -494,7 +421,6 @@ describe("OpenAI Codex account service", () => {
       fetch: fetchMock,
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
     expect(await service.readUsage(DIRECTORY)).toMatchObject({ status: "ready" })
@@ -519,7 +445,6 @@ describe("OpenAI Codex account service", () => {
       },
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
     auth = {
@@ -569,7 +494,6 @@ describe("OpenAI Codex account service", () => {
       },
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
     auth = {
@@ -604,8 +528,7 @@ describe("OpenAI Codex account service", () => {
     const service = createOpenAICodexAccountService({
       fetch: fetchMock,
       now: () => NOW,
-      getAuth: async () => ({ type: "api", key: "api-key" }),
-      setAuth: async () => undefined,
+      getAuth: async () => undefined,
     })
 
     expect(await service.readModelAvailability(DIRECTORY)).toEqual({

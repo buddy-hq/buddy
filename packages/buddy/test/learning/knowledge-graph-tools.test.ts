@@ -2,16 +2,13 @@ import path from "node:path"
 import fs from "node:fs/promises"
 import { Database } from "bun:sqlite"
 import { describe, expect, test } from "bun:test"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { KnowledgeGraphService } from "../../src/learning/features/standards/service"
 import { KNOWLEDGE_GRAPH_DB_ENV } from "../../src/learning/features/standards/constants"
 import { tmpdir } from "../helpers/tmpdir"
 import {
-  createToolContext,
-  ensureBuddyPluginTools,
+  createBuddyToolContext,
   requireTool,
-  TEST_TOOL_MODEL,
+  listBuddyTools,
 } from "../helpers/tools"
 
 function createFixtureDatabase(databasePath: string) {
@@ -308,7 +305,7 @@ describe("knowledge graph tools", () => {
     }
   })
 
-  test("registers first-class knowledge graph tools in the runtime", async () => {
+  test("executes knowledge graph tools against fixture standards", async () => {
     await using project = await tmpdir({ git: true })
     const databasePath = path.join(project.path, "kg-test.db")
     createFixtureDatabase(databasePath)
@@ -317,33 +314,26 @@ describe("knowledge graph tools", () => {
     process.env[KNOWLEDGE_GRAPH_DB_ENV] = databasePath
 
     try {
-      await ensureBuddyPluginTools(project.path)
-
-      const result = await OpenCodeInstance.provide({
+      const tools = await listBuddyTools()
+      const searchTool = requireTool(tools, "search_standards")
+      const getStandardTool = requireTool(tools, "get_standard")
+      const prerequisitesTool = requireTool(tools, "get_prerequisites")
+      const sqlTool = requireTool(tools, "query_standards_sql")
+      const ctx = createBuddyToolContext({
         directory: project.path,
-        async fn() {
-          const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-          const searchTool = requireTool(tools, "search_standards")
-          const getStandardTool = requireTool(tools, "get_standard")
-          const prerequisitesTool = requireTool(tools, "get_prerequisites")
-          const sqlTool = requireTool(tools, "query_standards_sql")
-          const ctx = createToolContext({
-            sessionID: "ses_kg",
-            messageID: "msg_kg",
-            agent: "buddy",
-          })
-
-          return {
-            search: await searchTool.execute({ query: "fractions" }, ctx),
-            standard: await getStandardTool.execute({ code: "HSG-CO.B.6" }, ctx),
-            prerequisites: await prerequisitesTool.execute({ code: "HSG-CO.B.6" }, ctx),
-            sql: await sqlTool.execute(
-              { sql: "select code from standards order by code limit 1" },
-              ctx,
-            ),
-          }
-        },
+        sessionID: "ses_kg",
+        messageID: "msg_kg",
+        agent: "buddy",
       })
+      const result = {
+        search: await searchTool.run({ query: "fractions" }, ctx),
+        standard: await getStandardTool.run({ code: "HSG-CO.B.6" }, ctx),
+        prerequisites: await prerequisitesTool.run({ code: "HSG-CO.B.6" }, ctx),
+        sql: await sqlTool.run(
+          { sql: "select code from standards order by code limit 1" },
+          ctx,
+        ),
+      }
 
       expect(result.search.output).toContain("3.NF.A.1")
       expect(result.standard.output).toContain("HSG-CO.B.6")

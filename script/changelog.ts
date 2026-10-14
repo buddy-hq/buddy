@@ -37,11 +37,7 @@ const SECTION_RULES = [
   { prefix: "packages/ui/", section: "UI" },
   { prefix: "packages/opencode-adapter/", section: "Adapter/SDK" },
   { prefix: "packages/sdk/", section: "Adapter/SDK" },
-  { prefix: "vendor/opencode/packages/opencode/", section: "Vendored Core" },
-  { prefix: "vendor/opencode/packages/util/", section: "Vendored Core" },
-  { prefix: "vendor/opencode/packages/plugin/", section: "Vendored Core" },
-  { prefix: "vendor/opencode/packages/sdk/js/", section: "Vendored Core" },
-  { prefix: "vendor/opencode/packages/script/", section: "Vendored Core" },
+  { prefix: "vendor/opencode/", section: "Vendored Core" },
 ] as const
 
 export function latestReleaseVersionFromReleases(

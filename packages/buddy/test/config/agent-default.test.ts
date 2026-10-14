@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test"
-import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { Config, InvalidError } from "@buddy/backend/config"
 import { withSyncedOpenCodeConfig } from "../helpers/opencode"
 import { writeProjectConfig } from "../helpers/project-config"
@@ -9,7 +8,7 @@ describe("config default_persona", () => {
   test("defaults to buddy when no default_persona is configured", async () => {
     await using repo = await createGitRepo("buddy-config-default-persona-default")
 
-    const selected = await withSyncedOpenCodeConfig(repo.path, () => OpenCodeAgent.defaultAgent())
+    const selected = await withSyncedOpenCodeConfig(repo.path, async (host) => (await host.agent.list({ location: { directory: repo.path } })).data[0]?.id)
 
     expect(selected).toBe("buddy")
   })
@@ -28,7 +27,7 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    const selected = await withSyncedOpenCodeConfig(repo.path, () => OpenCodeAgent.defaultAgent())
+    const selected = await withSyncedOpenCodeConfig(repo.path, async (host) => (await host.agent.list({ location: { directory: repo.path } })).data[0]?.id)
 
     expect(selected).toBe("teaching-buddy")
   })
@@ -49,7 +48,7 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    const selected = await withSyncedOpenCodeConfig(repo.path, () => OpenCodeAgent.defaultAgent())
+    const selected = await withSyncedOpenCodeConfig(repo.path, async (host) => (await host.agent.list({ location: { directory: repo.path } })).data[0]?.id)
 
     expect(selected).toBe("teaching-buddy")
   })
@@ -71,7 +70,7 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    const selected = await withSyncedOpenCodeConfig(repo.path, () => OpenCodeAgent.defaultAgent())
+    const selected = await withSyncedOpenCodeConfig(repo.path, async (host) => (await host.agent.list({ location: { directory: repo.path } })).data[0]?.id)
 
     expect(selected).toBe("buddy")
   })
@@ -94,8 +93,8 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    const teachingBuddy = await withSyncedOpenCodeConfig(repo.path, async () =>
-      OpenCodeAgent.get("teaching-buddy"),
+    const teachingBuddy = await withSyncedOpenCodeConfig(repo.path, async (host) =>
+      (await host.agent.list({ location: { directory: repo.path } })).data.find((agent) => agent.id === "teaching-buddy"),
     )
 
     expect(teachingBuddy?.hidden).toBe(true)

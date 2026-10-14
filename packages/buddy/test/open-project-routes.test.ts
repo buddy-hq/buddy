@@ -10,7 +10,7 @@ import {
 } from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
+import { getOpenCodeClient } from "../src/opencode-runtime/client"
 import { app } from "../src/index.ts"
 import { Global } from "../src/storage/global"
 import { createGitRepo } from "./helpers/repo"
@@ -630,7 +630,7 @@ describe("open project routes", () => {
     await using repo = await createGitRepo("buddy-route-open-project-readonly")
     const canonicalRepo = realpathSync(repo.path)
     const originalCwd = process.cwd()
-    const before = (await OpenCodeProject.list()).map((project) => project.worktree)
+    const before = (await (await getOpenCodeClient()).project.list()).map((project) => project.canonical)
 
     process.chdir(repo.path)
 
@@ -638,7 +638,7 @@ describe("open project routes", () => {
       const response = await app.request("/api/open-projects")
 
       expect(response.status).toBe(200)
-      expect((await OpenCodeProject.list()).map((project) => project.worktree)).toEqual(before)
+      expect((await (await getOpenCodeClient()).project.list()).map((project) => project.canonical)).toEqual(before)
 
       const listed = requireJsonObject(await response.json())
       expect(requireJsonArray(listed.directories, "directories").includes(canonicalRepo)).toBe(

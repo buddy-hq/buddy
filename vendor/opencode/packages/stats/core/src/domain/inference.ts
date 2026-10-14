@@ -5,7 +5,9 @@ import type { ModelStatAggregate } from "./model"
 import {
   EXCLUDED_MODELS,
   MODEL_AUTHOR_RULES,
+  MODEL_NAME_ALIASES,
   RETIRED_STAT_PROVIDERS,
+  STEALTH_MODELS,
   statModel,
   statProvider,
 } from "./model-normalization"
@@ -253,12 +255,16 @@ function sqlString(value: string) {
 function statModelSql(model: string, providerModel: string) {
   return `COALESCE(NULLIF(regexp_replace(CASE
       WHEN lower(${model}) = 'big-pickle' THEN NULLIF(${providerModel}, '')
+${Object.entries(MODEL_NAME_ALIASES)
+  .map(([from, to]) => `      WHEN lower(${model}) = ${sqlString(from)} THEN ${sqlString(to)}`)
+  .join("\n")}
       ELSE ${model}
     END, '(-free|:global)+$', ''), ''), 'unknown')`
 }
 
 function statProviderSql(model: string, providerModel: string, provider: string) {
   return `CASE
+      WHEN lower(${model}) IN (${[...STEALTH_MODELS].map(sqlString).join(", ")}) THEN 'unknown'
 ${MODEL_AUTHOR_RULES.map((item) => `      WHEN strpos(lower(${providerModel}), ${sqlString(item.match)}) > 0 THEN ${sqlString(item.author)}`).join("\n")}
 ${MODEL_AUTHOR_RULES.map((item) => `      WHEN strpos(lower(${model}), ${sqlString(item.match)}) > 0 THEN ${sqlString(item.author)}`).join("\n")}
       WHEN ${provider} <> '' AND lower(${provider}) NOT IN (${RETIRED_STAT_PROVIDERS.map(sqlString).join(", ")}) THEN ${provider}

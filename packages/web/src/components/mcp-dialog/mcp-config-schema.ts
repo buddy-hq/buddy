@@ -70,6 +70,7 @@ export type McpDraftParseResult =
     }
 
 export const STATUS_LABELS = {
+  pending: language.t("mcp.listPanel.connecting"),
   connected: language.t("mcp.statusLabels.connected"),
   disabled: language.t("mcp.statusLabels.disabled"),
   failed: language.t("mcp.statusLabels.failed"),
@@ -79,6 +80,10 @@ export const STATUS_LABELS = {
 
 export function getMcpStatusLabel(status: McpStatusInfo["status"]) {
   return STATUS_LABELS[status]
+}
+
+export function mcpIsPending(status: McpStatusInfo | undefined) {
+  return status?.status === "pending"
 }
 
 export function mcpNeedsAuth(status: McpStatusInfo | undefined) {
@@ -400,8 +405,10 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
   }
 
   try {
-    const parsedUrl = new URL(url)
-    void parsedUrl
+    if (!/\{(?:env|file):[^}]+\}/u.test(url)) {
+      const parsedUrl = new URL(url)
+      void parsedUrl
+    }
   } catch {
     return {
       fieldError: createFieldError("url", language.t("mcp.validation.remoteUrlValid")),

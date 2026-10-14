@@ -5,6 +5,9 @@ import {
   CardContent,
   CardFooter,
   CardHeader,
+  Field,
+  FieldLabel,
+  Textarea,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -12,10 +15,9 @@ import {
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import { PermissionDockPathValue } from "@/components/directory-chat/permission-dock-path-value"
-import { PermissionDockTitle } from "@/components/directory-chat/permission-dock-title"
-import { getPermissionDockBody } from "@/lib/permission-dock-locations"
-import { getPermissionDockHeadline } from "@/lib/permission-dock-headline"
-import type { PermissionRequest } from "@/state/chat-types"
+import { PermissionDockTitle, getPermissionDockHeadline } from "@/components/directory-chat/permission-dock-title"
+import { getPermissionDockBody, rememberedApprovalDescription } from "@/lib/permission-dock-locations"
+import type { PermissionRequest } from "@/state/permission-types"
 import type { PermissionReply } from "@/state/permission-types"
 
 type PermissionDockProps = {
@@ -110,17 +112,23 @@ function PermissionAction(props: PermissionActionProps) {
   )
 }
 
-export function PermissionDock(props: PermissionDockProps) {
+function PermissionDockContent(props: PermissionDockProps) {
   const [responding, setResponding] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [feedback, setFeedback] = useState("")
+  const [replyError, setReplyError] = useState<string>()
   const headline = getPermissionDockHeadline(props.request)
   const body = getPermissionDockBody(props.request)
-  const hasBodyContent = body.kind !== "none" || (props.pendingCount ?? 0) > 0
+  const hasBodyContent = body.kind !== "none" || (props.pendingCount ?? 0) > 0 || Boolean(props.request.message) || Boolean(props.request.save?.length) || feedbackOpen || Boolean(replyError)
 
   async function onDecide(reply: PermissionReply) {
     if (responding) return
     setResponding(true)
+    setReplyError(undefined)
     try {
       await props.onReply(reply)
+    } catch (error) {
+      setReplyError(error instanceof Error ? error.message : "Could not reply. Try again.")
     } finally {
       setResponding(false)
     }
@@ -175,6 +183,16 @@ export function PermissionDock(props: PermissionDockProps) {
               <PermissionPathList paths={body.lines} requestID={props.request.id} scope="detail" />
             ) : null}
 
+            {props.request.message ? <p className="text-xs text-text-weak">{props.request.message}</p> : null}
+            {props.request.save?.length ? <p className="text-xs text-text-weak">{rememberedApprovalDescription(props.request)}</p> : null}
+            {feedbackOpen ? (
+              <Field>
+                <FieldLabel htmlFor={`permission-feedback-${props.request.id}`}>Tell Buddy what to do instead</FieldLabel>
+                <Textarea id={`permission-feedback-${props.request.id}`} value={feedback} onChange={(event) => setFeedback(event.target.value)} disabled={responding} />
+                <Button size="sm" disabled={responding || feedback.trim().length === 0} onClick={() => void onDecide({ reply: "reject", message: feedback.trim() })}>Deny and send feedback</Button>
+              </Field>
+            ) : null}
+            {replyError ? <p role="status" className="text-xs text-text-critical-base">{replyError}</p> : null}
             {(props.pendingCount ?? 0) > 0 ? (
               <p className="text-xs text-text-weak">
                 {language.t(
@@ -188,29 +206,34 @@ export function PermissionDock(props: PermissionDockProps) {
           </CardContent>
         ) : null}
 
-        <CardFooter className="justify-end gap-2">
+        <CardFooter className="flex-wrap justify-end gap-2">
+          <PermissionAction variant="outline" disabled={responding} onClick={() => setFeedbackOpen((open) => !open)} label="Deny with feedback" description="Deny this action and let Buddy continue with your note." />
           <PermissionAction
             variant="outline"
             disabled={responding}
             onClick={() => void onDecide("reject")}
-            label={language.t("chat.permissionDock.reject")}
-            description={language.t("chat.permissionDock.rejectDescription")}
+            label="Deny"
+            description="Deny the pending requests in this session and end its turn."
           />
           <PermissionAction
             variant="secondary"
             disabled={responding}
             onClick={() => void onDecide("always")}
-            label={language.t("chat.permissionDock.allowAlways")}
-            description={language.t("chat.permissionDock.allowAlwaysDescription")}
+            label="Always allow"
+            description={rememberedApprovalDescription(props.request)}
           />
           <PermissionAction
             disabled={responding}
             onClick={() => void onDecide("once")}
-            label={language.t("chat.permissionDock.allowOnce")}
+            label="Allow once"
             description={language.t("chat.permissionDock.allowOnceDescription")}
           />
         </CardFooter>
       </Card>
     </TooltipProvider>
   )
+}
+
+export function PermissionDock(props: PermissionDockProps) {
+  return <PermissionDockContent key={props.request.id} {...props} />
 }

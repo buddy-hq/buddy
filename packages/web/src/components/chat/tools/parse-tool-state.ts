@@ -53,6 +53,7 @@ export function parseToolState(part: MessagePart): ToolState {
   const end = parseTNumber(rawTime.end)
   const output = parseTString(rawState.output)
   const error = parseTString(rawState.error)
+  const errorType = parseTString(rawState.errorType)
   const title = readNonEmptyString(rawState.title)
   return Object.assign(
     Object.assign(
@@ -67,6 +68,7 @@ export function parseToolState(part: MessagePart): ToolState {
       output !== undefined ? { output } : undefined,
     ),
     error !== undefined ? { error } : undefined,
+    errorType !== undefined ? { errorType } : undefined,
     title !== undefined ? { title } : undefined,
   )
 }

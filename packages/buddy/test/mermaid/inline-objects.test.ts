@@ -1,22 +1,14 @@
-import { afterEach, describe, expect, test } from "bun:test"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { afterAll, describe, expect, test } from "bun:test"
+import { getOpenCodeClient } from "../../src/opencode-runtime/client"
+import { closeOpenCodeHost } from "../../src/opencode-runtime/runtime"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
 import { requireJsonObject, requireJsonArray, requireString } from "../helpers/parse"
 
-afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
-})
+afterAll(closeOpenCodeHost)
 
 async function createSession(directory: string) {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: async () => {
-      const session = await OpenCodeSession.create({})
-      return session.id
-    },
-  })
+  return (await (await getOpenCodeClient()).session.create({ location: { directory } })).id
 }
 
 async function postInlineMermaidObject(input: {

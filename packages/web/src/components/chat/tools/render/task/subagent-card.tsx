@@ -9,12 +9,13 @@ import { Markdown } from "@/components/markdown/Markdown"
 import { TASK_CARD_ENTER_ANIMATE, TASK_CARD_TRANSITION, taskCardEnterInitial } from "../task-motion"
 import { parseTString } from "../../types"
 
-export type SubagentCardStatus = "pending" | "running" | "completed" | "error"
+export type SubagentCardStatus = "pending" | "running" | "waiting" | "completed" | "error" | "cancelled"
 
 // No ellipsis: the glider carries liveness, so trailing dots would be a second,
 // weaker indicator saying the same thing.
 const STARTING_COPY = "Starting specialist"
 const WORKING_COPY = "Working"
+const WAITING_COPY = "Waiting for result"
 const DEFAULT_TASK_TITLE = "Delegated task"
 /** The left column. Every status uses it, so titles line up down a fan-out. */
 const GLYPH_CLS = "size-7 shrink-0"
@@ -117,17 +118,17 @@ type CardHeaderProps = {
 }
 
 function CardHeader({ status, taskTitle, activityLine, activityContent }: CardHeaderProps) {
-  if (status === "pending" || status === "running") {
+  if (status === "pending" || status === "running" || status === "waiting") {
     const startupPending = status === "pending"
     return (
       <div className="flex min-w-0 items-center gap-3">
-        <ConwayGlider seed={taskTitle} className={cn(GLYPH_CLS, "text-icon-interactive-base")} />
+        <ConwayGlider pattern={status === "waiting" ? "still" : undefined} seed={taskTitle} className={cn(GLYPH_CLS, "text-icon-interactive-base")} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-base">{taskTitle}</p>
           <div className="mt-0.5 min-w-0">
             {activityContent ?? (
               <p className="min-w-0 truncate text-xs text-text-weaker">
-                {startupPending ? STARTING_COPY : (activityLine ?? WORKING_COPY)}
+                {startupPending ? STARTING_COPY : (activityLine ?? (status === "waiting" ? WAITING_COPY : WORKING_COPY))}
               </p>
             )}
           </div>
@@ -145,12 +146,13 @@ function CardHeader({ status, taskTitle, activityLine, activityContent }: CardHe
         pattern="still"
         className={cn(
           GLYPH_CLS,
-          status === "completed" ? "text-icon-success-base" : "text-icon-critical-base",
+          status === "completed" ? "text-icon-success-base" : status === "cancelled" ? "text-text-weaker" : "text-icon-critical-base",
         )}
       />
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-base">
         {taskTitle}
       </span>
+      {status === "cancelled" ? <span className="text-xs text-text-weaker">Cancelled</span> : null}
     </div>
   )
 }
@@ -164,7 +166,7 @@ export function SubagentCard({
   children,
   error,
 }: SubagentCardProps) {
-  const hasChildBody = status === "completed" && !!children
+  const hasChildBody = (status === "completed" || status === "error" || status === "cancelled") && !!children
   const hasErrorBody = status === "error" && !!error
   const hasBody = hasChildBody || hasErrorBody
   const displayTaskTitle = taskTitle ?? DEFAULT_TASK_TITLE

@@ -34,4 +34,12 @@ describe("permission dock path display", () => {
       final: "*",
     })
   })
+  test("preserves Windows drive and network-share roots", () => {
+    expect(getPermissionDockPathDisplay("C:\\Users\\example\\notes\\file.md")).toEqual({ kind: "split", prefix: "C:/Users/", interactive: "example/notes", final: "file.md" })
+    expect(getPermissionDockPathDisplay("\\\\server\\share\\notes\\deep\\file.md")).toEqual({ kind: "split", prefix: "//server/share/", interactive: "notes/deep", final: "file.md" })
+  })
+  test("shows web resources without treating URL separators as filesystem segments", () => {
+    expect(getPermissionDockPathDisplay("https://example.com/a/b/page")).toEqual({ kind: "plain", path: "https://example.com/a/b/page" })
+  })
+
 })

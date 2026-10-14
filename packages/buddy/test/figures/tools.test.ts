@@ -1,7 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src"
 import { renderGeometryFigure } from "../../src/learning/features/figure-rendering/geometry/render-figure"
 import { RenderFigureOutputSchema } from "../../src/learning/features/figure-rendering/geometry/types"
@@ -15,10 +13,9 @@ import {
 import type { RenderFigureInput } from "../../src/learning/features/figure-rendering/geometry/tools/render-figure"
 import { tmpdir } from "../helpers/tmpdir"
 import {
-  createToolContext,
-  ensureBuddyPluginTools,
+  createBuddyToolContext,
   requireTool,
-  TEST_TOOL_MODEL,
+  listBuddyTools,
 } from "../helpers/tools"
 
 const FIGURE_SVG_FILE_NAME = "figure.svg"
@@ -106,24 +103,18 @@ function baseFigureInput(): RenderFigureInput {
 describe("figure tools", () => {
   test("renders a valid geometry figure into a stable SVG object", async () => {
     await using project = await tmpdir({ git: true })
-    await ensureBuddyPluginTools(project.path)
 
-    const result = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const renderFigure = requireTool(tools, "render_figure")
-
-        return renderFigure.execute(
-          baseFigureInput(),
-          createToolContext({
-            sessionID: "ses_math",
-            messageID: "msg_math",
-            agent: "buddy",
-          }),
-        )
-      },
-    })
+    const tools = await listBuddyTools()
+    const renderFigure = requireTool(tools, "render_figure")
+    const result = await renderFigure.run(
+      baseFigureInput(),
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: "ses_math",
+        messageID: "msg_math",
+        agent: "buddy",
+      }),
+    )
 
     const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
     const objectRef = requireFigureRef(objectResult)
@@ -175,29 +166,22 @@ describe("figure tools", () => {
 
   test("repairs removable spec issues before returning a rendered figure", async () => {
     await using project = await tmpdir({ git: true })
-    await ensureBuddyPluginTools(project.path)
 
-    const result = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const renderFigure = requireTool(tools, "render_figure")
-
-        const input = baseFigureInput()
-        input.spec.points.push({ id: "A", x: 40, y: 140, label: "A2" })
-        input.spec.segments?.push({ from: "A", to: "Z" })
-        input.spec.markers = [{ type: "tick", from: "A", to: "Z" }]
-
-        return renderFigure.execute(
-          input,
-          createToolContext({
-            sessionID: "ses_math",
-            messageID: "msg_math",
-            agent: "buddy",
-          }),
-        )
-      },
-    })
+    const tools = await listBuddyTools()
+    const renderFigure = requireTool(tools, "render_figure")
+    const input = baseFigureInput()
+    input.spec.points.push({ id: "A", x: 40, y: 140, label: "A2" })
+    input.spec.segments?.push({ from: "A", to: "Z" })
+    input.spec.markers = [{ type: "tick", from: "A", to: "Z" }]
+    const result = await renderFigure.run(
+      input,
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: "ses_math",
+        messageID: "msg_math",
+        agent: "buddy",
+      }),
+    )
 
     const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
     const objectRef = requireFigureRef(objectResult)
@@ -209,24 +193,18 @@ describe("figure tools", () => {
 
   test("tool metadata references only the rendered figure object", async () => {
     await using project = await tmpdir({ git: true })
-    await ensureBuddyPluginTools(project.path)
 
-    const result = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const renderFigure = requireTool(tools, "render_figure")
-
-        return renderFigure.execute(
-          baseFigureInput(),
-          createToolContext({
-            sessionID: "ses_math",
-            messageID: "msg_math",
-            agent: "buddy",
-          }),
-        )
-      },
-    })
+    const tools = await listBuddyTools()
+    const renderFigure = requireTool(tools, "render_figure")
+    const result = await renderFigure.run(
+      baseFigureInput(),
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: "ses_math",
+        messageID: "msg_math",
+        agent: "buddy",
+      }),
+    )
 
     const metadataValue = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
     const ref = requireFigureRef(metadataValue)

@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { MessageID, ModelID, PartID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { randomUUID } from "node:crypto"
+import { listMessages } from "@buddy/opencode-adapter/gateway/message"
+import { getOpenCodeClient } from "../../src/opencode-runtime/client"
+import { closeOpenCodeHost } from "../../src/opencode-runtime/runtime"
 import { app } from "../../src/index.ts"
 import {
   dynamicLearningToolSearchCandidateIDsForSession,
@@ -14,54 +15,22 @@ import { parseJsonObject, requireJsonObject, requireString } from "../helpers/pa
 const DYNAMIC_TEST_TOOL_ID = "dynamic-test-tool"
 
 afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
+  await closeOpenCodeHost()
 })
 
 async function createSession(directory: string, title?: string) {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: () => OpenCodeSession.create(title ? { title } : {}),
-  })
+  return (await getOpenCodeClient()).session.create({ location: { directory }, title })
 }
 
 async function seedMultiPartMessage(input: { directory: string; sessionID: string }) {
-  return OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => {
-      const messageID = MessageID.ascending()
-      const firstPartID = PartID.ascending()
-      const secondPartID = PartID.ascending()
-
-      await OpenCodeSession.updateMessage({
-        id: messageID,
-        sessionID: SessionID.make(input.sessionID),
-        role: "user",
-        time: { created: Date.now() },
-        agent: "buddy",
-        model: {
-          providerID: ProviderID.openai,
-          modelID: ModelID.make("gpt-5.4-mini"),
-        },
-        tools: {},
-      })
-      await OpenCodeSession.updatePart({
-        id: firstPartID,
-        sessionID: SessionID.make(input.sessionID),
-        messageID,
-        type: "text",
-        text: "first",
-      })
-      await OpenCodeSession.updatePart({
-        id: secondPartID,
-        sessionID: SessionID.make(input.sessionID),
-        messageID,
-        type: "text",
-        text: "second",
-      })
-
-      return { messageID, secondPartID }
-    },
-  })
+  const host = await getOpenCodeClient()
+  const current = await host.session.export({ sessionID: input.sessionID })
+  const messageID = `msg_${randomUUID()}`
+  const message = { id: messageID, type: "user" as const, text: "firstsecond", metadata: { buddy: { prompt: { segments: [{ start: 0, end: 5 }, { start: 5, end: 11 }] } } }, time: { created: current.messages.length + 1 } }
+  await host.session.remove({ sessionID: input.sessionID })
+  const messages = [...current.messages, message]
+  await host.session.import({ location: { directory: input.directory }, info: current.info, messages })
+  return { messageID, secondPartID: `prt_${messageID}_00000001_text` }
 }
 
 async function readRevertBoundary(response: Response): Promise<string | undefined> {
@@ -75,10 +44,7 @@ describe("Buddy session API parity", () => {
   test("delete route permanently removes a session and its children", async () => {
     await using project = await tmpdir({ git: true })
     const parent = await createSession(project.path, "Parent")
-    const child = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => OpenCodeSession.create({ parentID: parent.id, title: "Child" }),
-    })
+    const child = await (await getOpenCodeClient()).session.create({ location: { directory: project.path }, parentID: parent.id, title: "Child" })
     const resolvedProjectDirectory = resolveDirectory(project.path)
     recordDynamicLearningToolSearchCandidates({
       directory: resolvedProjectDirectory,
@@ -101,10 +67,7 @@ describe("Buddy session API parity", () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toBe(true)
 
-    const sessions = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => OpenCodeSession.list({ directory: project.path }),
-    })
+    const { data: sessions } = await (await getOpenCodeClient()).session.list({ directory: project.path })
     expect(sessions.some((session) => session.id === parent.id)).toBe(false)
     expect(sessions.some((session) => session.id === child.id)).toBe(false)
     expect(
@@ -141,10 +104,7 @@ describe("Buddy session API parity", () => {
     const forkedSessionID = requireString(body.id, "forked session id")
     expect(body.title).toBe("Fork title (2)")
 
-    const forkedMessages = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => OpenCodeSession.messages({ sessionID: SessionID.make(forkedSessionID) }),
-    })
+    const { items: forkedMessages } = await listMessages(await getOpenCodeClient(), { directory: project.path, sessionID: forkedSessionID })
     expect(forkedMessages).toHaveLength(1)
     expect(forkedMessages[0]?.parts).toHaveLength(2)
 
@@ -184,14 +144,11 @@ describe("Buddy session API parity", () => {
     const body = requireJsonObject(await response.json(), "fork session")
     const forkedSessionID = requireString(body.id, "forked session id")
 
-    const forkedMessages = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => OpenCodeSession.messages({ sessionID: SessionID.make(forkedSessionID) }),
-    })
+    const { items: forkedMessages } = await listMessages(await getOpenCodeClient(), { directory: project.path, sessionID: forkedSessionID })
     expect(forkedMessages).toHaveLength(1)
   })
 
-  test("revert route preserves partID when reverting a specific part", async () => {
+  test("revert route rejects legacy part boundaries", async () => {
     await using project = await tmpdir({ git: true })
     const session = await createSession(project.path)
     const seeded = await seedMultiPartMessage({
@@ -211,12 +168,8 @@ describe("Buddy session API parity", () => {
       }),
     })
 
-    expect(response.status).toBe(200)
-
-    const body = requireJsonObject(await response.json())
-    const revert = parseJsonObject(body.revert)
-    expect(revert?.messageID).toBe(seeded.messageID)
-    expect(revert?.partID).toBe(seeded.secondPartID)
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: "Reverting individual parts is unavailable" })
   })
 
   test("revert and unrevert routes preserve the vendor undo and redo sequence", async () => {
@@ -266,7 +219,6 @@ describe("Buddy session API parity", () => {
     expect(finalRedo.status).toBe(200)
     expect(await readRevertBoundary(finalRedo)).toBeUndefined()
 
-    expect(first.messageID < second.messageID).toBe(true)
-    expect(second.messageID < third.messageID).toBe(true)
+    expect(new Set([first.messageID, second.messageID, third.messageID]).size).toBe(3)
   })
 })

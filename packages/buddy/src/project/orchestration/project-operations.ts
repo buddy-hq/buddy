@@ -1,6 +1,5 @@
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
-import { ProjectID } from "@buddy/opencode-adapter/id"
-import { safeDecodeSchema } from "../../http/effect-schema"
+import { projectUpdateSchema, toBuddyProject } from "../contract"
+import { getOpenCodeClient } from "../../opencode-runtime/client"
 import { isAllowedDirectory, resolveDirectory } from "../directory"
 import {
   parseOpenProjectDirectory,
@@ -8,7 +7,6 @@ import {
   parseProjectString,
 } from "../parse-values"
 
-const projectUpdateBodySchema = OpenCodeProject.UpdatePayload
 const PROJECT_NOT_FOUND_ERROR_PREFIX = "Project not found:"
 const INVALID_PROJECT_UPDATE_ERROR = "Invalid project update"
 const DIRECTORY_REQUIRED_ERROR = "Directory is required"
@@ -30,7 +28,7 @@ export type TOpenProjectFromPayloadResult =
 export type TUpdateProjectFromPayloadResult =
   | {
       ok: true
-      project: Awaited<ReturnType<typeof OpenCodeProject.update>>
+      project: ReturnType<typeof toBuddyProject>
     }
   | {
       ok: false
@@ -43,7 +41,7 @@ export function readOpenProjectDirectory<TValue>(payload: TValue): string | unde
 }
 
 export function parseProjectUpdateBody<TValue>(payload: TValue) {
-  return safeDecodeSchema(projectUpdateBodySchema, payload)
+  return projectUpdateSchema.safeParse(payload)
 }
 
 export function projectUpdateErrorMessage<TValue>(error: TValue) {
@@ -73,7 +71,7 @@ function projectErrorMessage<TValue>(payload: TValue, depth = 0): string | undef
  */
 function isProjectNotFoundError<TValue>(error: TValue): boolean {
   const payload = parseProjectErrorPayload(error)
-  if (payload?.name === NOT_FOUND_ERROR_NAME) return true
+  if (payload?.name === NOT_FOUND_ERROR_NAME || payload?.name === "Project.NotFoundError" || payload?.name === "ProjectNotFoundError") return true
 
   const message =
     (error instanceof Error ? projectErrorMessage(error.cause) : undefined) ??
@@ -104,7 +102,7 @@ export async function openProjectFromPayload<TValue>(
       }
     }
 
-    await OpenCodeProject.fromDirectory(directory)
+    await (await getOpenCodeClient()).location.get({ location: { directory } })
     return {
       ok: true,
       directory,
@@ -132,20 +130,20 @@ export async function updateProjectFromPayload<TPayload>(input: {
   }
 
   try {
-    const project = await OpenCodeProject.update({
+    const project = await (await getOpenCodeClient()).project.update({
       ...body.data,
-      projectID: ProjectID.make(input.projectID),
+      projectID: input.projectID,
     })
     return {
       ok: true,
-      project,
+      project: toBuddyProject(project),
     }
   } catch (error) {
-    const message = projectUpdateErrorMessage(error)
+    const missing = isProjectNotFoundError(error)
     return {
       ok: false,
-      status: isProjectNotFoundError(error) ? 404 : 400,
-      error: message,
+      status: missing ? 404 : 400,
+      error: missing ? `Project not found: ${input.projectID}` : projectUpdateErrorMessage(error),
     }
   }
 }

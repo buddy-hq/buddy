@@ -3,7 +3,7 @@ import path from "node:path"
 import type {
   ToolPresentationResolutionContext,
   ToolSilentOutcome,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import z from "zod"
 import { inAppBrowserFallbackTitle } from "@buddy/browser-contract"

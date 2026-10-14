@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   buildConfigFromDraft,
+  buildDraft,
   emptyDraft,
   mcpNeedsAuth,
   mcpNeedsClientRegistration,
@@ -74,3 +75,26 @@ describe("MCP config map parsing", () => {
     expect(result.fieldError.field).toBe("environment")
   })
 })
+
+test("MCP editors preserve redacted secrets on save and support replacement and clearing", () => {
+  const remote = buildDraft("remote", { type: "remote", url: "https://example.test/mcp", oauth: { clientSecret: "[REDACTED]" } })
+  expect(buildConfigFromDraft(remote)).toMatchObject({ config: { oauth: { clientSecret: "[REDACTED]" } } })
+  expect(buildConfigFromDraft({ ...remote, clientSecret: "new-secret" })).toMatchObject({ config: { oauth: { clientSecret: "new-secret" } } })
+  expect(buildConfigFromDraft({ ...remote, clientSecret: "" })).toMatchObject({ config: { oauth: {} } })
+  const headers = buildDraft("headers", { type: "remote", url: "https://example.test/mcp", oauth: false, headers: { Authorization: "[REDACTED]" } })
+  expect(buildConfigFromDraft(headers)).toMatchObject({ config: { headers: { Authorization: "[REDACTED]" } } })
+  const local = buildDraft("local", { type: "local", command: ["fixture"], environment: { TOKEN: "[REDACTED]" } })
+  expect(buildConfigFromDraft(local)).toMatchObject({ config: { environment: { TOKEN: "[REDACTED]" } } })
+  const cleared = buildConfigFromDraft({ ...local, environmentText: "" })
+  expect(cleared).toEqual({ name: "local", config: { type: "local", command: ["fixture"], enabled: true } })
+})
+
+for (const url of ["{env:MCP_ENDPOINT}", "{file:./mcp-endpoint.txt}", "{env:MCP_SCHEME}://example.test/mcp"]) {
+  test(`MCP editors retain the unresolved URL ${url} when saving another field`, () => {
+    const config = parseMcpConfigMap({ mcp: { fixture: { type: "remote", url, enabled: false, oauth: false } } }).fixture
+    if (!config) throw new Error("MCP config was not parsed")
+    const draft = buildDraft("fixture", config)
+    expect(draft.url).toBe(url)
+    expect(buildConfigFromDraft({ ...draft, timeout: "5000" })).toEqual({ name: "fixture", config: { type: "remote", url, enabled: false, oauth: false, timeout: 5000 } })
+  })
+}

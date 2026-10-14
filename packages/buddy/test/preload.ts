@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto"
 import { afterAll } from "bun:test"
 import { TEST_SANDBOX } from "../../../script/test-preload"
 import {
+  OPENCODE_TEST_HOME_ENVIRONMENT_KEY,
   POSIX_HOME_ENVIRONMENT_KEY,
   WINDOWS_HOME_ENVIRONMENT_KEY,
 } from "../../../script/test-sandbox"
@@ -37,6 +38,7 @@ process.env[BUDDY_ENV.TEST_HOME] = testHome
 process.env[BUDDY_ENV.TEST_XDG_ROOT] = runRoot
 process.env[POSIX_HOME_ENVIRONMENT_KEY] = testHome
 process.env[WINDOWS_HOME_ENVIRONMENT_KEY] = testHome
+process.env[OPENCODE_TEST_HOME_ENVIRONMENT_KEY] = testHome
 process.env[BUDDY_ENV.DISABLE_SKILL_ARTIFACT_FETCH] = "1"
 process.env[OPENCODE_ENV.DISABLE_DEFAULT_PLUGINS] = "1"
 process.env[OPENCODE_ENV.DISABLE_MODELS_FETCH] = "1"

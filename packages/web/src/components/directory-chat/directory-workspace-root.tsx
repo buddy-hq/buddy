@@ -98,7 +98,8 @@ import {
   subscribeActiveChatLayoutMotion,
 } from "@/lib/active-chat-transition-state"
 import { openOwnedSubagentBench } from "@/lib/subagent-bench-target"
-import { useOpenSubagentBench } from "@/lib/use-open-subagent-bench"
+import { loadSubagentBenchSession, useOpenSubagentBench } from "@/lib/use-open-subagent-bench"
+import { RunningSubagentsMenu } from "@/components/chat/tools/render/task/running-subagents-menu"
 import { browserWindow, hasFunctionValue } from "@/state/parse-external"
 import { createInAppBrowserBenchTarget, createNotesBenchTarget } from "@/lib/bench-targets"
 import {
@@ -834,6 +835,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         activeSessionID,
         selectSession: controller.leftSidebarProps.onSelectSession,
         openSubagentBench,
+        loadSession: loadSubagentBenchSession,
       })
       if (subagentOpened !== undefined) return subagentOpened
       return controller.leftSidebarProps.onSelectSession(currentDirectory, nextSessionID)
@@ -870,6 +872,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           activeSessionID,
           selectSession: controller.leftSidebarProps.onSelectSession,
           openSubagentBench,
+          loadSession: loadSubagentBenchSession,
         })
         if (subagentOpened !== undefined) return subagentOpened
       }
@@ -1246,14 +1249,23 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                 : undefined
             }
             conversation={
-              <DirectoryChatBenchConversationPane
-                {...controller.mainPaneProps}
-                onOpenSession={handleOpenSubagentSession}
-                compactPromptComposer={effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
-                showThreadBrowser={false}
-                onNewSession={handleNewSession}
-                onSelectSession={handleSelectSession}
-              />
+              <div className="flex h-full min-h-0 flex-col">
+                <RunningSubagentsMenu
+                  directory={currentDirectory}
+                  ownerSessionID={activeSessionID}
+                  onOpenSession={handleOpenSubagentSession}
+                />
+                <div className="min-h-0 flex-1">
+                  <DirectoryChatBenchConversationPane
+                    {...controller.mainPaneProps}
+                    onOpenSession={handleOpenSubagentSession}
+                    compactPromptComposer={effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
+                    showThreadBrowser={false}
+                    onNewSession={handleNewSession}
+                    onSelectSession={handleSelectSession}
+                  />
+                </div>
+              </div>
             }
           />
         }

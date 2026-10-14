@@ -1,7 +1,7 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { ZodError } from "zod"
+import { getOpenCodeClient } from "../../opencode-runtime/client"
 import { personaCatalogEntries } from "../../learning/personas/wiring/persona-metadata"
 import { Config } from "../config.js"
 import {
@@ -10,6 +10,7 @@ import {
   readProjectConfig,
   syncOpenCodeProjectConfig,
 } from "../runtime/opencode-sync.js"
+import { renderOpenCodeHostConfig, syncOpenCodeHostConfig } from "../runtime/opencode-host-config.js"
 import { resolveProjectConfigContext, resolveProjectConfigFile } from "../store/config-paths.js"
 import { InvalidError } from "../contract/errors.js"
 import {
@@ -40,18 +41,16 @@ export async function listProjectAgents(directory: string) {
     )
   })
 
-  const agents = await OpenCodeInstance.provide({
-    directory,
-    fn: () => OpenCodeAgent.list(),
-  })
+  const { data: agents } = await (await getOpenCodeClient()).agent.list({ location: { directory } })
+  const config = await readProjectConfig(directory)
 
   return agents.map((agent) => ({
-    name: agent.name,
+    name: agent.id,
     description: agent.description,
     mode: agent.mode,
     hidden: agent.hidden,
-    model: agent.model,
-    variant: agent.variant,
+    model: agent.model && { providerID: agent.model.providerID, modelID: agent.model.id },
+    variant: agent.model?.variant ?? config.agent?.[agent.id]?.variant,
   }))
 }
 
@@ -122,11 +121,14 @@ async function applyAndSyncProjectConfigChange(input: {
 }) {
   return withProjectConfigChangeLock(input.directory, async () => {
     const snapshot = await captureProjectConfigSnapshot(input.directory)
+    let applied = false
 
     try {
       await input.apply()
+      applied = true
       await syncOpenCodeProjectConfig(input.directory)
     } catch (error) {
+      if (!applied && (isConfigValidationError(error) || error instanceof ZodError)) throw error
       let recovered = true
 
       try {
@@ -170,13 +172,21 @@ export async function patchProjectConfig<TPayload>(input: {
 }
 
 export async function patchGlobalConfig<TPayload>(payload: TPayload) {
-  return Config.mutateGlobal((current) =>
-    mergeAndValidateConfigPatch({
+  let previousHostConfig: string | undefined
+  const next = await Config.mutateGlobal((current) => {
+    previousHostConfig = renderOpenCodeHostConfig(current)
+    return mergeAndValidateConfigPatch({
       current,
       patch: requireConfigPatchObject(payload),
       parse: (value) => Config.Info.parse(value),
-    }),
-  )
+    })
+  })
+  if (previousHostConfig !== renderOpenCodeHostConfig(next)) {
+    await syncOpenCodeHostConfig().catch((error) => {
+      console.warn("Failed to apply global compaction settings to the running OpenCode host:", error)
+    })
+  }
+  return next
 }
 
 const DELETE_PATCH_SENTINEL = Symbol("delete_patch_value")

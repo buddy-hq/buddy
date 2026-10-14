@@ -2,8 +2,6 @@ import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import {
   buildPresentedMediaObjectOutput,
   PresentedMediaValidationError,
@@ -11,12 +9,12 @@ import {
 } from "../../src/learning/features/media-presentations/service/file-media"
 import { resolveBuddyHomeDirectory } from "../../src/storage/constants"
 import {
-  createToolContext,
-  ensureBuddyPluginTools,
+  createBuddyToolContext,
   requireTool,
-  TEST_TOOL_MODEL,
+  listBuddyTools,
 } from "../helpers/tools"
 import { temporaryDirectory } from "../helpers/temporary-directory"
+import { BuddyObjectResultSchema } from "../../src/objects"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("present media", () => {
@@ -26,20 +24,16 @@ describe("present media", () => {
     await fs.writeFile(path.join(project.path, "generated", "a.png"), "image-a")
     await fs.writeFile(path.join(project.path, "generated", "b.png"), "image-b")
 
-    const output = await OpenCodeInstance.provide({
+    const output = await buildPresentedMediaObjectOutput({
       directory: project.path,
-      fn: async () =>
-        buildPresentedMediaObjectOutput({
-          directory: project.path,
-          items: [
-            {
-              path: "generated/a.png",
-            },
-            {
-              path: "generated/b.png",
-            },
-          ],
-        }),
+      items: [
+        {
+          path: "generated/a.png",
+        },
+        {
+          path: "generated/b.png",
+        },
+      ],
     })
 
     expect(output.output.layout).toBe("grid")
@@ -67,17 +61,13 @@ describe("present media", () => {
     const localPath = path.join(localDir.path, "outside.png")
     await fs.writeFile(localPath, "local-image")
 
-    const output = await OpenCodeInstance.provide({
+    const output = await buildPresentedMediaObjectOutput({
       directory: project.path,
-      fn: async () =>
-        buildPresentedMediaObjectOutput({
-          directory: project.path,
-          items: [
-            {
-              path: localPath,
-            },
-          ],
-        }),
+      items: [
+        {
+          path: localPath,
+        },
+      ],
     })
 
     expect(output.output.items[0]?.displayPath).toBe(await fs.realpath(localPath))
@@ -96,44 +86,36 @@ describe("present media", () => {
     expect(output.inlineData.items[0]?.modifiedAt).toBeTruthy()
   })
 
-  test("registers present_media and returns structured metadata", async () => {
+  test("returns structured metadata for a presented PDF", async () => {
     await using project = await tmpdir({ git: true })
     await fs.mkdir(path.join(project.path, "generated"), { recursive: true })
     await fs.writeFile(path.join(project.path, "generated", "notes.pdf"), "pdf-content")
-    await ensureBuddyPluginTools(project.path)
 
-    const result = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const presentMedia = requireTool(tools, "present_media")
-
-        return presentMedia.execute(
+    const tools = await listBuddyTools()
+    const presentMedia = requireTool(tools, "present_media")
+    const result = await presentMedia.run(
+      {
+        items: [
           {
-            items: [
-              {
-                path: "generated/notes.pdf",
-              },
-            ],
+            path: "generated/notes.pdf",
           },
-          createToolContext({
-            sessionID: "ses_media",
-            messageID: "msg_media",
-            agent: "buddy",
-          }),
-        )
+        ],
       },
-    })
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: "ses_media",
+        messageID: "msg_media",
+        agent: "buddy",
+      }),
+    )
 
+    const objectResult = BuddyObjectResultSchema.parse(result.metadata.buddyObjectResult)
     expect(result.output).toContain("Presented 1 media item")
-    expect(result.metadata?.buddyObjectResult?.primaryRef.kind).toBe("media-presentation")
-    expect(result.metadata?.buddyObjectResult?.primaryRef.objectID).toBeTruthy()
-    expect(result.metadata?.buddyObjectResult?.presentations[0]?.data.items[0]?.mediaType).toBe(
-      "pdf",
-    )
-    expect(result.metadata?.buddyObjectResult?.presentations[0]?.data.items[0]?.mimeType).toBe(
-      "application/pdf",
-    )
+    expect(objectResult.primaryRef?.kind).toBe("media-presentation")
+    expect(objectResult.primaryRef?.objectID).toBeTruthy()
+    expect(objectResult.presentations[0]?.data).toMatchObject({
+      items: [expect.objectContaining({ mediaType: "pdf", mimeType: "application/pdf" })],
+    })
   })
 
   test("accepts a file url path", async () => {
@@ -144,17 +126,13 @@ describe("present media", () => {
     const localPath = path.join(localDir.path, "outside.png")
     await fs.writeFile(localPath, "local-image")
 
-    const output = await OpenCodeInstance.provide({
+    const output = await buildPresentedMediaObjectOutput({
       directory: project.path,
-      fn: async () =>
-        buildPresentedMediaObjectOutput({
-          directory: project.path,
-          items: [
-            {
-              path: pathToFileURL(localPath).toString(),
-            },
-          ],
-        }),
+      items: [
+        {
+          path: pathToFileURL(localPath).toString(),
+        },
+      ],
     })
 
     expect(output.output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
@@ -171,17 +149,13 @@ describe("present media", () => {
     const homeRelativePath = `~/${path.relative(testHome, localPath).split(path.sep).join("/")}`
     await fs.writeFile(localPath, "local-image")
 
-    const output = await OpenCodeInstance.provide({
+    const output = await buildPresentedMediaObjectOutput({
       directory: project.path,
-      fn: async () =>
-        buildPresentedMediaObjectOutput({
-          directory: project.path,
-          items: [
-            {
-              path: homeRelativePath,
-            },
-          ],
-        }),
+      items: [
+        {
+          path: homeRelativePath,
+        },
+      ],
     })
 
     expect(output.output.items[0]?.absolutePath).toBe(await fs.realpath(localPath))
@@ -194,9 +168,7 @@ describe("present media", () => {
     })
 
     await expect(
-      OpenCodeInstance.provide({
-        directory: project.path,
-        fn: async () =>
+      (async () =>
           buildPresentedMediaObjectOutput({
             directory: project.path,
             items: [
@@ -204,8 +176,7 @@ describe("present media", () => {
                 path: path.join(missingRoot.path, "does-not-exist.png"),
               },
             ],
-          }),
-      }),
+          }))(),
     ).rejects.toBeInstanceOf(PresentedMediaValidationError)
   })
 

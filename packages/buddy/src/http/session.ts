@@ -1,6 +1,9 @@
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { Schema } from "effect"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 import { resolveDirectory } from "../project"
 import { parseTJsonObject, parseTString } from "./parse"
+
+const LocationNotFound = Schema.Struct({ _tag: Schema.Literal("LocationNotFoundError") })
 
 type TSessionProjectScope = {
   projectID?: string
@@ -24,7 +27,7 @@ export async function isSessionInRequestedProject<TSession>(
   session: TSession,
 ): Promise<boolean> {
   const payload = parseTSessionProjectScope(session)
-  if (payload === undefined) return true
+  if (payload === undefined) return false
 
   const sessionDirectory =
     payload.directory !== undefined ? resolveDirectory(payload.directory) : undefined
@@ -33,21 +36,15 @@ export async function isSessionInRequestedProject<TSession>(
     return true
   }
 
-  const requestedProjectID = await OpenCodeInstance.provide({
-    directory,
-    fn: () => OpenCodeInstance.project.id,
-  })
-
-  const sessionProjectID =
-    payload.projectID !== undefined
-      ? payload.projectID
-      : payload.directory !== undefined
-        ? await OpenCodeInstance.provide({
-            directory: payload.directory,
-            fn: () => OpenCodeInstance.project.id,
-          })
-        : undefined
-
-  if (!sessionProjectID) return true
-  return sessionProjectID === requestedProjectID
+  const client = await getOpenCodeClient()
+  if (!sessionDirectory) return false
+  const [requestedLocation, owningLocation] = await Promise.all([
+    client.location.get({ location: { directory: requestedDirectory } }),
+    client.location.get({ location: { directory: sessionDirectory } }).catch((cause: unknown) => {
+      if (Schema.is(LocationNotFound)(cause)) return undefined
+      throw cause
+    }),
+  ])
+  if (!owningLocation) return false
+  return resolveDirectory(requestedLocation.project.canonical) === resolveDirectory(owningLocation.project.canonical)
 }

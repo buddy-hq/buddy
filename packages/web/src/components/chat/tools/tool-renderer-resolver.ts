@@ -1,4 +1,7 @@
-import type { ToolActionIcon, ToolRendererToken } from "@buddy/opencode-adapter/tool-presentation"
+import type {
+  ToolActionIcon,
+  ToolRendererToken,
+} from "@buddy/transcript-contract/tool-presentation"
 
 import { toolIconsByToken, toolRenderersByToken } from "./built-in-tool-renderers"
 import type { ToolIconRenderer, ToolRenderer } from "./tool-registry-types"

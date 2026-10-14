@@ -2,8 +2,6 @@ import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
 import z from "zod"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
 import { createIdempotencyKeyDigest } from "../../src/http/idempotency"
 import {
@@ -36,10 +34,9 @@ import type { FlashcardDeck } from "../../src/learning/features/flashcards/types
 import type { SaveFlashcardDeckInput } from "../../src/learning/features/flashcards/tools/save-flashcard-deck"
 import { tmpdir } from "../helpers/tmpdir"
 import {
-  createToolContext,
-  ensureBuddyPluginTools,
+  createBuddyToolContext,
   requireTool,
-  TEST_TOOL_MODEL,
+  listBuddyTools,
 } from "../helpers/tools"
 
 const OPEN_PROJECT_REGISTRY_FILE = path.join(Global.Path.state, "desktop-notebooks.json")
@@ -229,23 +226,17 @@ async function saveFlashcardDeckWithTool(
   ref: BuddyObjectRef
   revisionID: string
 }> {
-  await ensureBuddyPluginTools(directory)
-  const result = await OpenCodeInstance.provide({
-    directory,
-    async fn() {
-      const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-      const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
-
-      return saveFlashcardDeck.execute(
-        sampleFlashcardDeckInput(),
-        createToolContext({
-          sessionID,
-          messageID: `msg_${sessionID}`,
-          agent: "flashcard-author",
-        }),
-      )
-    },
-  })
+  const tools = await listBuddyTools()
+  const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
+  const result = await saveFlashcardDeck.run(
+    sampleFlashcardDeckInput(),
+    createBuddyToolContext({
+      directory,
+      sessionID,
+      messageID: `msg_${sessionID}`,
+      agent: "flashcard-author",
+    }),
+  )
   const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
   const ref = requireFlashcardRef(objectResult)
   const revisionID = requireRevisionID(ref)
@@ -828,16 +819,13 @@ describe("flashcard tools and routes", () => {
 
   test("rejects malformed cloze notes that contain no cloze markers", async () => {
     await using project = await tmpdir({ git: true })
-    await ensureBuddyPluginTools(project.path)
 
     await expect(
-      OpenCodeInstance.provide({
-        directory: project.path,
-        async fn() {
-          const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+      (async () => {
+          const tools = await listBuddyTools()
           const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
 
-          await saveFlashcardDeck.execute(
+          await saveFlashcardDeck.run(
             {
               title: "Broken deck",
               notes: [
@@ -850,48 +838,42 @@ describe("flashcard tools and routes", () => {
                 },
               ],
             },
-            createToolContext({
+            createBuddyToolContext({
+              directory: project.path,
               sessionID: "ses_flashcard_author",
               messageID: "msg_flashcard_author",
               agent: "flashcard-author",
             }),
           )
-        },
-      }),
+        })(),
     ).rejects.toThrow("must contain at least one")
   })
 
   test("preserves non-contiguous cloze ordinals in generated cards", async () => {
     await using project = await tmpdir({ git: true })
-    await ensureBuddyPluginTools(project.path)
 
-    const result = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
-
-        return saveFlashcardDeck.execute(
+    const tools = await listBuddyTools()
+    const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
+    const result = await saveFlashcardDeck.run(
+      {
+        title: "Non-contiguous cloze deck",
+        notes: [
           {
-            title: "Non-contiguous cloze deck",
-            notes: [
-              {
-                type: "cloze",
-                fields: {
-                  text: "The {{c2::nucleus}} stores the {{c4::genetic material}}.",
-                },
-                tags: [],
-              },
-            ],
+            type: "cloze",
+            fields: {
+              text: "The {{c2::nucleus}} stores the {{c4::genetic material}}.",
+            },
+            tags: [],
           },
-          createToolContext({
-            sessionID: "ses_flashcard_author",
-            messageID: "msg_flashcard_author",
-            agent: "flashcard-author",
-          }),
-        )
+        ],
       },
-    })
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: "ses_flashcard_author",
+        messageID: "msg_flashcard_author",
+        agent: "flashcard-author",
+      }),
+    )
     const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
     const ref = requireFlashcardRef(objectResult)
 

@@ -32,6 +32,7 @@ import {
   LOOPBACK_HOSTNAME,
   resolveAppId,
   resolveAppName,
+  resolveUserDataPath,
   UPDATER_ENABLED,
 } from "./constants"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
@@ -146,7 +147,7 @@ app.setName(resolveAppName(app.isPackaged))
 if (process.platform === "win32") {
   app.setAppUserModelId(resolveAppId(app.isPackaged))
 }
-app.setPath("userData", join(app.getPath("appData"), resolveAppId(app.isPackaged)))
+app.setPath("userData", resolveUserDataPath(app.isPackaged, app.getPath("appData")))
 
 const logger = initLogging()
 const initEmitter = new EventEmitter()

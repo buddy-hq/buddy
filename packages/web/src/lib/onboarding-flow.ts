@@ -1,4 +1,4 @@
-import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
+import type { ProviderOauthAuthorizeResponse } from "@buddy/sdk/types"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
 import { language } from "@/context/language"
 import type { ActiveChatTransitionResult } from "@/lib/active-chat-transition-coordinator"
@@ -17,29 +17,29 @@ const PREFERRED_CHATGPT_ONBOARDING_VARIANT = "high"
 const FALLBACK_CHATGPT_ONBOARDING_MODEL_ID = "gpt-5.6-luna"
 const FALLBACK_CHATGPT_ONBOARDING_VARIANT = "xhigh"
 
-type ProviderOAuthRequest = {
-  providerID: string
-  methodIndex: number
-}
+type ProviderOAuthRequest = { providerID: string; methodIndex: number }
+type ProviderOAuthCompletion = { providerID: string; methodID: string; attemptID: string }
+type ProviderOAuthCancellation = { providerID: string; attemptID: string }
 
 function createSignInCancelledError() {
   return new Error(language.t("routes.onboarding.signInCancelled"))
 }
 
 async function cancelPendingProviderOAuth(input: {
-  cancelProviderOAuth: (request: { providerID: string }) => Promise<void>
+  request: ProviderOAuthCancellation
+  cancelProviderOAuth: (request: ProviderOAuthCancellation) => Promise<void>
 }) {
   try {
-    await input.cancelProviderOAuth({ providerID: OPENAI_PROVIDER_ID })
+    await input.cancelProviderOAuth({ providerID: input.request.providerID, attemptID: input.request.attemptID })
   } catch {
     // Cancellation is best-effort because the callback may have settled first.
   }
 }
 
 async function completeProviderOAuthUntilAborted(input: {
-  completeProviderOAuth: (request: ProviderOAuthRequest) => Promise<void>
-  cancelProviderOAuth: (request: { providerID: string }) => Promise<void>
-  request: ProviderOAuthRequest
+  completeProviderOAuth: (request: ProviderOAuthCompletion) => Promise<void>
+  cancelProviderOAuth: (request: ProviderOAuthCancellation) => Promise<void>
+  request: ProviderOAuthCompletion
   signal?: AbortSignal
 }) {
   if (!input.signal) {
@@ -203,9 +203,9 @@ export async function connectChatGptPlusForOnboarding(input: {
   loadProviderCatalogSnapshot: () => Promise<ProviderCatalogState>
   authorizeProviderOAuth: (
     request: ProviderOAuthRequest,
-  ) => Promise<ProviderAuthAuthorization | undefined>
-  completeProviderOAuth: (request: ProviderOAuthRequest) => Promise<void>
-  cancelProviderOAuth: (request: { providerID: string }) => Promise<void>
+  ) => Promise<ProviderOauthAuthorizeResponse | undefined>
+  completeProviderOAuth: (request: ProviderOAuthCompletion) => Promise<void>
+  cancelProviderOAuth: (request: ProviderOAuthCancellation) => Promise<void>
   reloadProviderRuntime: () => Promise<void>
   forceReconnect?: boolean
   onAuthenticated?: () => void
@@ -243,7 +243,12 @@ export async function connectChatGptPlusForOnboarding(input: {
   })
 
   if (input.signal?.aborted) {
-    await cancelPendingProviderOAuth(input)
+    if (authorization) {
+      await cancelPendingProviderOAuth({
+        cancelProviderOAuth: input.cancelProviderOAuth,
+        request: { providerID: OPENAI_PROVIDER_ID, attemptID: authorization.attemptID },
+      })
+    }
     throw createSignInCancelledError()
   }
 
@@ -259,7 +264,8 @@ export async function connectChatGptPlusForOnboarding(input: {
       cancelProviderOAuth: input.cancelProviderOAuth,
       request: {
         providerID: OPENAI_PROVIDER_ID,
-        methodIndex,
+        methodID: authorization.methodID,
+        attemptID: authorization.attemptID,
       },
       signal: input.signal,
     })

@@ -1,7 +1,11 @@
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { writeFileSync } from "node:fs"
 import path from "node:path"
-import { app } from "../../src/index.ts"
+import { Hono } from "hono"
+import { McpRoutes } from "../../src/routes/mcp"
+import { closeOpenCodeHost } from "../../src/opencode-runtime/runtime"
+const app = new Hono().route("/api/mcp", McpRoutes)
+afterEach(closeOpenCodeHost)
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("mcp routes", () => {
@@ -49,7 +53,7 @@ describe("mcp routes", () => {
             raw_opencode_test: {
               type: "local",
               command: ["bun", "--version"],
-              enabled: false,
+              disabled: true,
             },
           },
         },
@@ -66,5 +70,18 @@ describe("mcp routes", () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({})
+  })
+  test("persists added MCP definitions and discovers them after a host restart", async () => {
+    await using project = await tmpdir({ git: true })
+    const response = await app.request("/api/mcp", {
+      method: "POST", headers: { "x-buddy-directory": project.path, "content-type": "application/json" },
+      body: JSON.stringify({ name: "persisted", config: { type: "local", command: ["bun", "--version"], enabled: false } }),
+    })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ persisted: { status: "disabled" } })
+    await closeOpenCodeHost()
+    const status = await app.request("/api/mcp", { headers: { "x-buddy-directory": project.path } })
+    expect(status.status).toBe(200)
+    expect(await status.json()).toEqual({ persisted: { status: "disabled" } })
   })
 })

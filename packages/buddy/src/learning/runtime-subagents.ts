@@ -54,6 +54,7 @@ function createRegisteredBuddySubagent(definition: BuddySubagentDefinition): Reg
   const { key, kind, prompt, description, permission } = definition
 
   const agentInput = {
+    hidden: !definition.delegatable,
     prompt,
     description,
     permission: mergeOwnedToolPermissions(permission, subagentToolPermissions(definition)),
@@ -64,7 +65,7 @@ function createRegisteredBuddySubagent(definition: BuddySubagentDefinition): Reg
     key,
     agent:
       kind === "build"
-        ? createBuildAgent(agentInput, dynamicToolPermission)
+        ? createBuildAgent({ ...agentInput, mode: "subagent" }, dynamicToolPermission)
         : createSubagent(agentInput, dynamicToolPermission),
   })
 }

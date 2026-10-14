@@ -3,7 +3,7 @@ import { isRecord, parseFiniteNumber } from "./chat-types"
 import {
   decodeToolPresentationSnapshot,
   interruptToolPresentationSnapshot,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 import {
   TOOL_PART_TYPE,
   TOOL_STATE_PENDING_STATUS,

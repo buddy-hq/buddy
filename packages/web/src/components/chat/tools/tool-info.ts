@@ -1,5 +1,5 @@
 import { basename, dirname } from "../utils/path"
-import type { ToolPresentationSnapshot } from "@buddy/opencode-adapter/tool-presentation"
+import type { ToolPresentationSnapshot } from "@buddy/transcript-contract/tool-presentation"
 import type { MessagePart } from "@/state/chat-types"
 import { language } from "@/context/language"
 import { formatHtmlWidgetViewport, resolveHtmlWidgetViewport } from "@/lib/html-widgets"
@@ -165,7 +165,7 @@ export function getToolInfo(
   const url = parseTString(input.url)
   const query = parseTString(input.query)
   const description = parseTString(input.description)
-  const subagent = parseTString(input.subagent_type)
+  const subagent = parseTString(input.agent)
   const alt = parseTString(input.alt)
   const caption = parseTString(input.caption)
   const code = parseTString(input.code)
@@ -342,6 +342,7 @@ export function getToolInfo(
       )
     }
     case "task":
+    case "subagent":
       return withMetadataTitle(
         {
           title: subagent

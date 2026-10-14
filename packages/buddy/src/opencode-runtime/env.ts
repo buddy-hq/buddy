@@ -1,25 +1,20 @@
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import { configureOpenCodeGlobalPaths } from "@buddy/opencode-adapter/host"
 import {
   BUDDY_APP_NAME,
   BUDDY_ENV,
   BUDDY_HOME_DIRECTORY_NAME,
   BUDDY_OPENCODE_DB_FILENAME,
   BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
-  OPENCODE_ENV,
   RUNTIME_ROOT_SEGMENTS,
   XDG_DEFAULT_SEGMENTS,
   XDG_ENV,
   resolveConfiguredPath,
 } from "../storage/constants"
 
-const DEFAULT_OPENCODE_CLIENT = "web"
-const OPENCODE_ENABLE_FLAG = "1"
 const MIGRATION_DIRECTORY_RELATIVE_PATH = "packages/buddy/migration"
-const OPENCODE_BINARY_DIRECTORY_NAME = "bin"
-const OPENCODE_LOG_DIRECTORY_NAME = "log"
-const OPENCODE_REPOSITORIES_DIRECTORY_NAME = "repos"
 
 export type OpenCodeEnvironmentPlanInput = {
   environment: Readonly<Record<string, string | undefined>>
@@ -34,9 +29,7 @@ export type OpenCodeRuntimePaths = {
   config: string
   state: string
   tmp: string
-  bin: string
-  log: string
-  repos: string
+  database: string
 }
 
 export type OpenCodeEnvironmentPlan = {
@@ -58,11 +51,6 @@ export type OpenCodeEnvironmentPlan = {
   openCode: OpenCodeRuntimePaths
   defaults: {
     configDirectory: string
-    database: string
-    disableExternalSkills: string
-    client: string
-    enableQuestionTool: string
-    enableExa: string
   }
 }
 
@@ -90,18 +78,14 @@ function openCodeRuntimePathsForPlan(
   configDirectory: string,
 ): OpenCodeRuntimePaths {
   const data = path.join(buddyDataDirectory, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME)
-  const cache = path.join(buddyCacheDirectory, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME)
-  const state = path.join(buddyStateDirectory, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME)
 
   return {
     data,
-    cache,
+    cache: path.join(buddyCacheDirectory, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
     config: configDirectory,
-    state,
+    state: path.join(buddyStateDirectory, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
     tmp: temporaryDirectory,
-    bin: path.join(cache, OPENCODE_BINARY_DIRECTORY_NAME),
-    log: path.join(data, OPENCODE_LOG_DIRECTORY_NAME),
-    repos: path.join(data, OPENCODE_REPOSITORIES_DIRECTORY_NAME),
+    database: path.join(data, BUDDY_OPENCODE_DB_FILENAME),
   }
 }
 
@@ -190,11 +174,6 @@ export function resolveOpenCodeEnvironmentPlan(
     openCode,
     defaults: {
       configDirectory: buddy.defaultGlobalConfig,
-      database: BUDDY_OPENCODE_DB_FILENAME,
-      disableExternalSkills: OPENCODE_ENABLE_FLAG,
-      client: DEFAULT_OPENCODE_CLIENT,
-      enableQuestionTool: OPENCODE_ENABLE_FLAG,
-      enableExa: OPENCODE_ENABLE_FLAG,
     },
   }
 }
@@ -205,19 +184,7 @@ const environmentPlan = resolveOpenCodeEnvironmentPlan({
   temporaryDirectory: os.tmpdir(),
   workingDirectory: process.cwd(),
 })
-const runtimeRootPath = environmentPlan.runtimeRoot
-const BUDDY_XDG_DATA_HOME = environmentPlan.xdg.data
-const BUDDY_XDG_CACHE_HOME = environmentPlan.xdg.cache
-const BUDDY_XDG_CONFIG_HOME = environmentPlan.xdg.config
-const BUDDY_XDG_STATE_HOME = environmentPlan.xdg.state
-const BUDDY_TMP_PARENT_DIR = environmentPlan.buddy.tmpParent
 export const BUDDY_TMP_DIR = environmentPlan.buddy.tmp
-export const BUDDY_DEFAULT_GLOBAL_CONFIG_DIR = environmentPlan.defaults.configDirectory
-const BUDDY_DATA_DIR = environmentPlan.buddy.data
-const BUDDY_CACHE_DIR = environmentPlan.buddy.cache
-const BUDDY_STATE_DIR = environmentPlan.buddy.state
-
-let openCodeGlobal: typeof import("@buddy/opencode-adapter/global").Global | undefined
 
 function findRepoPath(relativePath: string): string | undefined {
   const searchRoots = [process.cwd(), path.dirname(process.execPath)]
@@ -257,105 +224,45 @@ function applyOptionalPathEnv(name: string, resolvedPath: string | undefined) {
   delete process.env[name]
 }
 
-function openCodeRuntimePaths(configDirectory: string): OpenCodeRuntimePaths {
-  return openCodeRuntimePathsForPlan(
-    BUDDY_DATA_DIR,
-    BUDDY_CACHE_DIR,
-    BUDDY_STATE_DIR,
-    BUDDY_TMP_DIR,
-    configDirectory,
+function resolveBuddyGlobalConfigDirectory() {
+  return (
+    resolveConfiguredPath(process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR]) ??
+    environmentPlan.defaults.configDirectory
   )
 }
 
-function configureOpenCodeGlobalPaths(configDirectory: string) {
-  const runtimePaths = openCodeRuntimePaths(configDirectory)
+export function openCodeRuntimePaths(): OpenCodeRuntimePaths {
+  return openCodeRuntimePathsForPlan(
+    environmentPlan.buddy.data,
+    environmentPlan.buddy.cache,
+    environmentPlan.buddy.state,
+    environmentPlan.buddy.tmp,
+    resolveBuddyGlobalConfigDirectory(),
+  )
+}
+
+export function configureOpenCodeEnvironment() {
+  if (environmentPlan.runtimeRoot) {
+    process.env[XDG_ENV.DATA_HOME] = environmentPlan.xdg.data
+    process.env[XDG_ENV.CACHE_HOME] = environmentPlan.xdg.cache
+    process.env[XDG_ENV.CONFIG_HOME] = environmentPlan.xdg.config
+    process.env[XDG_ENV.STATE_HOME] = environmentPlan.xdg.state
+  }
+  process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR] = resolveBuddyGlobalConfigDirectory()
+  applyOptionalPathEnv(BUDDY_ENV.MIGRATION_DIR, findRepoPath(MIGRATION_DIRECTORY_RELATIVE_PATH))
+
+  const runtimePaths = openCodeRuntimePaths()
   for (const directory of [
     runtimePaths.data,
     runtimePaths.cache,
     runtimePaths.config,
     runtimePaths.state,
     runtimePaths.tmp,
-    runtimePaths.bin,
-    runtimePaths.log,
-    runtimePaths.repos,
   ]) {
     fs.mkdirSync(directory, { recursive: true })
   }
-
-  if (openCodeGlobal) {
-    openCodeGlobal.Path.data = runtimePaths.data
-    openCodeGlobal.Path.cache = runtimePaths.cache
-    openCodeGlobal.Path.config = runtimePaths.config
-    openCodeGlobal.Path.state = runtimePaths.state
-    openCodeGlobal.Path.tmp = runtimePaths.tmp
-    openCodeGlobal.Path.bin = runtimePaths.bin
-    openCodeGlobal.Path.log = runtimePaths.log
-    openCodeGlobal.Path.repos = runtimePaths.repos
-  }
+  configureOpenCodeGlobalPaths(runtimePaths)
+  return runtimePaths
 }
 
-export function configureOpenCodeEnvironment() {
-  const buddyConfigDir =
-    resolveConfiguredPath(process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR]) ??
-    environmentPlan.defaults.configDirectory
-
-  if (runtimeRootPath) {
-    process.env[XDG_ENV.DATA_HOME] = BUDDY_XDG_DATA_HOME
-    process.env[XDG_ENV.CACHE_HOME] = BUDDY_XDG_CACHE_HOME
-    process.env[XDG_ENV.CONFIG_HOME] = BUDDY_XDG_CONFIG_HOME
-    process.env[XDG_ENV.STATE_HOME] = BUDDY_XDG_STATE_HOME
-  }
-  process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR] = buddyConfigDir
-  process.env[OPENCODE_ENV.CONFIG_DIR] = buddyConfigDir
-  process.env[OPENCODE_ENV.DB] = environmentPlan.defaults.database
-  process.env[OPENCODE_ENV.DISABLE_EXTERNAL_SKILLS] ||=
-    environmentPlan.defaults.disableExternalSkills
-  process.env[OPENCODE_ENV.CLIENT] ||= environmentPlan.defaults.client
-  process.env[OPENCODE_ENV.ENABLE_QUESTION_TOOL] ||= environmentPlan.defaults.enableQuestionTool
-  process.env[OPENCODE_ENV.ENABLE_EXA] ||= environmentPlan.defaults.enableExa
-  applyOptionalPathEnv(BUDDY_ENV.MIGRATION_DIR, findRepoPath(MIGRATION_DIRECTORY_RELATIVE_PATH))
-  configureOpenCodeGlobalPaths(buddyConfigDir)
-}
-
-function applyTemporaryEnvironment(environment: Record<string, string>): () => void {
-  const previous = new Map<string, string | undefined>()
-
-  for (const [name, value] of Object.entries(environment)) {
-    previous.set(name, process.env[name])
-    process.env[name] = value
-  }
-
-  return () => {
-    for (const [name, value] of previous) {
-      if (value === undefined) {
-        delete process.env[name]
-        continue
-      }
-
-      process.env[name] = value
-    }
-  }
-}
-
-function openCodeImportEnvironment() {
-  return {
-    [XDG_ENV.DATA_HOME]: BUDDY_DATA_DIR,
-    [XDG_ENV.CACHE_HOME]: BUDDY_CACHE_DIR,
-    [XDG_ENV.CONFIG_HOME]: BUDDY_TMP_PARENT_DIR,
-    [XDG_ENV.STATE_HOME]: BUDDY_STATE_DIR,
-    TMPDIR: BUDDY_TMP_PARENT_DIR,
-    TMP: BUDDY_TMP_PARENT_DIR,
-    TEMP: BUDDY_TMP_PARENT_DIR,
-  }
-}
-
-configureOpenCodeEnvironment()
-
-const restoreOpenCodeImportEnvironment = applyTemporaryEnvironment(openCodeImportEnvironment())
-try {
-  const { Global } = await import("@buddy/opencode-adapter/global")
-  openCodeGlobal = Global
-} finally {
-  restoreOpenCodeImportEnvironment()
-}
 configureOpenCodeEnvironment()

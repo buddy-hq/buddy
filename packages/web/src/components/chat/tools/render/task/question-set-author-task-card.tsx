@@ -12,13 +12,11 @@ import {
 } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import type { ObjectQuestionSetReadQuestionsResponse } from "@buddy/sdk/types"
 import { ToolOutputPanel } from "../../tool-output-panel"
-import type { ToolPartProps } from "../../registry"
-import { readString } from "../../types"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import { TASK_CARD_ENTER_ANIMATE, TASK_CARD_TRANSITION, taskCardEnterInitial } from "../task-motion"
-import { useSubagentCardData } from "./task-card-header"
+import { useSubagentCardData, type SubagentCardInput } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
-import { parseTaskResultOutput } from "./task-utils"
+import { useRefetchObjectsOnWorkerFinish } from "./use-subagent-objects"
 
 function questionCountLabel(count: number): string {
   return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
@@ -65,25 +63,25 @@ function questionSetDetailQuery(directory: string, objectID: string, enabled: bo
 }
 
 export function QuestionSetAuthorTaskCard({
+  subagent,
   state,
   onOpenSession,
   directory,
-}: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
-  const { taskTitle, openChildSession, activityLine, activityContent, status } =
-    useSubagentCardData({ state, onOpenSession, directory })
+}: SubagentCardInput) {
+  const { taskTitle, openChildSession, activityLine, activityContent, status, childSessionID, workerFinished, result } =
+    useSubagentCardData({ subagent, state, onOpenSession, directory })
   const reducedMotion = useReducedMotion() === true
   const openBenchRoute = useOpenBench()
-  const output = state.output || (state.error ?? "")
-  const taskResultOutput = parseTaskResultOutput(output)
+  const taskResultOutput = result ?? ""
+  useRefetchObjectsOnWorkerFinish(directory, workerFinished)
 
-  const childSessionID = readString(state.metadata.sessionId)
   const objectsQuery = useQuery({
     ...workspaceQuestionSetObjectsQueryOptions(directory ?? ""),
-    enabled: state.status === "completed" && !!directory && !!childSessionID,
+    enabled: workerFinished && !!directory && !!childSessionID,
   })
 
   const objectStubs = selectQuestionSetObjects(objectsQuery)
-  const shouldLoadObjects = state.status === "completed" && !!directory && !!childSessionID
+  const shouldLoadObjects = workerFinished && !!directory && !!childSessionID
   const objectDetailQueries = useQueries({
     queries: objectStubs.map((object) =>
       questionSetDetailQuery(directory ?? "", object.objectID, shouldLoadObjects),
@@ -101,10 +99,10 @@ export function QuestionSetAuthorTaskCard({
     : []
   const detailPending = objectDetailQueries.some((query) => query.isPending)
   const detailError = objectDetailQueries.find((query) => query.error)?.error
-  const loadingObjects = objectsQuery.isPending || detailPending
+  const loadingObjects = shouldLoadObjects && (objectsQuery.isPending || detailPending)
   const objectError = objectsQuery.error ?? detailError
   const shouldShowOutputFallback =
-    !loadingObjects && items.length === 0 && taskResultOutput.length > 0
+    status === "completed" && !loadingObjects && items.length === 0 && taskResultOutput.length > 0
   const shouldShowObjectError = objectError !== null && objectError !== undefined
 
   function handleOpenObject(object: ObjectQuestionSetReadQuestionsResponse) {
@@ -117,8 +115,8 @@ export function QuestionSetAuthorTaskCard({
     })
   }
 
-  const error = state.status === "error" ? taskResultOutput || undefined : undefined
-  const showCompletedBody = state.status === "completed"
+  const error = status === "error" ? taskResultOutput || undefined : undefined
+  const showCompletedBody = workerFinished
 
   return (
     <SubagentCard

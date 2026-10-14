@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs"
 import { Database } from "#sqlite"
-import { DatabasePath as OpenCodeDatabasePath } from "@buddy/opencode-adapter/storage-db"
 import z from "zod"
 
 const DRIZZLE_MIGRATIONS_TABLE = "__drizzle_migrations" as const
@@ -159,9 +158,8 @@ export function repairLegacyMigrationJournal(db: TSqliteDatabase): string[] {
   return repairedMigrations
 }
 
-export async function repairLegacyOpenCodeMigrations() {
-  const databasePath = OpenCodeDatabasePath()
-  if (databasePath === ":memory:" || !existsSync(databasePath)) {
+export async function repairLegacyOpenCodeMigrations(databasePath: string) {
+  if (!existsSync(databasePath)) {
     return []
   }
 

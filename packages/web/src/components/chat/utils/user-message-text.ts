@@ -1,5 +1,5 @@
 import type { MessagePart } from "@/state/chat-types"
-import { isVisibleToUserTextPartInfo } from "@buddy/opencode-adapter/message-visibility"
+import { isVisibleToUserTextPartInfo } from "@buddy/transcript-contract/message-visibility"
 
 import { isChatTextPart, type ChatTextPart } from "./part-guards"
 

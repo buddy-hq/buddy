@@ -1,6 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { canonicalizeRuntimeConfigDirectory, resolveNotebookWorktree } from "./directories"
 import { BUDDY_HOME_DIRECTORY_NAME, Global } from "../../storage"
 
 type PathApi = Pick<typeof path, "parse" | "resolve">
@@ -18,19 +18,12 @@ export function isFilesystemRootDirectory(directory: string, pathApi: PathApi = 
 export async function resolveProjectConfigContext(
   directory: string,
 ): Promise<ProjectConfigContext> {
-  const normalized = path.resolve(directory)
-  return OpenCodeInstance.provide({
-    directory: normalized,
-    fn: () => {
-      const scopedDirectory = path.resolve(OpenCodeInstance.directory)
-      const worktree = path.resolve(OpenCodeInstance.worktree)
-      const configDirectory = isFilesystemRootDirectory(worktree) ? scopedDirectory : worktree
-      return {
-        directory: scopedDirectory,
-        configDirectory,
-      }
-    },
-  })
+  const scopedDirectory = canonicalizeRuntimeConfigDirectory(directory)
+  const worktree = await resolveNotebookWorktree(scopedDirectory)
+  return {
+    directory: scopedDirectory,
+    configDirectory: isFilesystemRootDirectory(worktree) ? scopedDirectory : worktree,
+  }
 }
 
 export function resolveProjectConfigFile(directory: string): string {

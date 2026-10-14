@@ -1,16 +1,7 @@
 import z from "zod"
-import { Auth } from "@buddy/opencode-adapter/auth"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { OpenCodeVersion } from "@buddy/opencode-adapter/installation"
+import { OPENCODE_VERSION, type OpenCodeHost } from "@buddy/opencode-adapter/host"
 import packageJson from "../../../package.json"
-import {
-  OpenAICodexTokenRefreshError,
-  isOpenAICodexStoredAuth,
-  OPENAI_CODEX_AUTH_ISSUER,
-  OPENAI_PROVIDER_ID,
-  resolveOpenAICodexAuth,
-  type OpenAICodexStoredAuth,
-} from "./openai-codex-credentials"
+import { OpenAICodexAuthenticationError, type OpenAICodexStoredAuth } from "./openai-codex-credentials"
 
 const CHATGPT_CODEX_MODELS_ENDPOINT = "https://chatgpt.com/backend-api/codex/models"
 const CHATGPT_USAGE_ENDPOINT = "https://chatgpt.com/backend-api/wham/usage"
@@ -169,8 +160,8 @@ type FetchInit = Parameters<typeof fetch>[1]
 type AccountServiceDependencies = {
   fetch: (input: FetchInput, init?: FetchInit) => Promise<Response>
   now: () => number
-  getAuth: (directory: string) => Promise<Auth.Info | undefined>
-  setAuth: (directory: string, auth: OpenAICodexStoredAuth) => Promise<void>
+  getAuth: (directory: string) => Promise<OpenAICodexStoredAuth | undefined>
+  onRejected?: (auth: OpenAICodexStoredAuth) => Promise<void>
 }
 
 type ModelCache = {
@@ -215,7 +206,7 @@ class OpenAIAccountRequestError extends Error {
 }
 
 function resolveAccountFailureStatus(error: Error): OpenAIAccountFailureStatus {
-  if (error instanceof OpenAICodexTokenRefreshError && error.reconnectRequired) {
+  if (error instanceof OpenAICodexAuthenticationError && error.reconnectRequired) {
     return OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS
   }
   if (error instanceof OpenAIAccountRequestError && error.status === HTTP_STATUS_UNAUTHORIZED) {
@@ -265,7 +256,7 @@ function normalizeCreditBalance(value: string | number | null | undefined) {
 }
 
 function resolveAccountKey(auth: OpenAICodexStoredAuth) {
-  return auth.accountId ?? auth.refresh
+  return auth.credentialID ?? auth.accountId ?? auth.refresh
 }
 
 export function createOpenAICodexAccountService(dependencies: AccountServiceDependencies) {
@@ -277,8 +268,9 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
   let usageRefresh: AccountRefresh<OpenAIUsageResponse> | undefined
   const rejectedAccessTokens = new Set<string>()
 
-  function markAuthenticationRejected(auth: OpenAICodexStoredAuth) {
+  async function markAuthenticationRejected(auth: OpenAICodexStoredAuth) {
     rejectedAccessTokens.add(auth.access)
+    await dependencies.onRejected?.(auth)
   }
 
   function isAuthenticationRejected(auth: OpenAICodexStoredAuth) {
@@ -286,11 +278,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
   }
 
   async function resolveAuth(directory: string) {
-    return resolveOpenAICodexAuth({
-      getAuth: () => dependencies.getAuth(directory),
-      setAuth: (auth) => dependencies.setAuth(directory, auth),
-      issuer: OPENAI_CODEX_AUTH_ISSUER,
-    })
+    return dependencies.getAuth(directory)
   }
 
   async function readIdentity(directory: string): Promise<OpenAIAccountIdentityResponse> {
@@ -310,7 +298,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
       if (!result.success) return { status: "unavailable" }
 
       const currentAuth = await dependencies.getAuth(directory)
-      if (!isOpenAICodexStoredAuth(currentAuth) || currentAuth.refresh !== auth.refresh) {
+      if (!currentAuth || resolveAccountKey(currentAuth) !== resolveAccountKey(auth) || currentAuth.access !== auth.access) {
         return { status: "unavailable" }
       }
 
@@ -324,7 +312,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     const accountKey = resolveAccountKey(auth)
     const currentCache = modelCache?.accountKey === accountKey ? modelCache : undefined
     const url = new URL(CHATGPT_CODEX_MODELS_ENDPOINT)
-    url.searchParams.set("client_version", OpenCodeVersion)
+    url.searchParams.set("client_version", OPENCODE_VERSION)
     const headers = new Headers(accountHeaders(auth))
     if (currentCache?.etag) {
       headers.set("if-none-match", currentCache.etag)
@@ -340,7 +328,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     }
     if (!response.ok) {
       if (response.status === HTTP_STATUS_UNAUTHORIZED) {
-        markAuthenticationRejected(auth)
+        await markAuthenticationRejected(auth)
       }
       throw new OpenAIAccountRequestError("OpenAI model availability request", response.status)
     }
@@ -429,7 +417,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
       auth = await resolveAuth(directory)
       if (!auth) return undefined
       const currentAuth = await dependencies.getAuth(directory)
-      if (!isOpenAICodexStoredAuth(currentAuth) || currentAuth.refresh !== auth.refresh) {
+      if (!currentAuth || resolveAccountKey(currentAuth) !== resolveAccountKey(auth) || currentAuth.access !== auth.access) {
         return undefined
       }
       auth = currentAuth
@@ -541,7 +529,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     })
     if (!response.ok) {
       if (response.status === HTTP_STATUS_UNAUTHORIZED) {
-        markAuthenticationRejected(auth)
+        await markAuthenticationRejected(auth)
       }
       throw new OpenAIAccountRequestError("OpenAI usage request", response.status)
     }
@@ -667,17 +655,33 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
   }
 }
 
-export const openAICodexAccountService = createOpenAICodexAccountService({
-  fetch: (input, init) => fetch(input, init),
-  now: () => Date.now(),
-  getAuth: async (directory) =>
-    await OpenCodeInstance.provide({
-      directory,
-      fn: () => Auth.get(OPENAI_PROVIDER_ID),
-    }),
-  setAuth: async (directory, auth) =>
-    await OpenCodeInstance.provide({
-      directory,
-      fn: () => Auth.set(OPENAI_PROVIDER_ID, auth),
-    }),
+export function createOpenAICodexAccountClient(getClient: () => Promise<Pick<OpenCodeHost, "rpc">>) {
+  return {
+    async readIdentity(directory: string) {
+      const client = await getClient()
+      const result = await client.rpc.call({ location: { directory }, rpcID: "buddy.codex", method: "identity", input: {} })
+      return openAIAccountIdentityResponseSchema.parse(result.output)
+    },
+    async readModelAvailability(directory: string) {
+      const client = await getClient()
+      const result = await client.rpc.call({ location: { directory }, rpcID: "buddy.codex", method: "models", input: { refresh: false } })
+      return openAIModelAvailabilityResponseSchema.parse(result.output)
+    },
+    async refreshModelAvailability(directory: string) {
+      const client = await getClient()
+      const result = await client.rpc.call({ location: { directory }, rpcID: "buddy.codex", method: "models", input: { refresh: true } })
+      return openAIModelAvailabilityResponseSchema.parse(result.output)
+    },
+    async readUsage(directory: string, refresh = false) {
+      const client = await getClient()
+      const result = await client.rpc.call({ location: { directory }, rpcID: "buddy.codex", method: "usage", input: { refresh } })
+      return openAIUsageResponseSchema.parse(result.output)
+    },
+  }
+
+}
+
+export const openAICodexAccountService = createOpenAICodexAccountClient(async () => {
+  const { getOpenCodeClient } = await import("../client")
+  return getOpenCodeClient()
 })

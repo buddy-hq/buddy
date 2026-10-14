@@ -1,7 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src"
 import { FreeformFigureRenderError } from "../../src/learning/features/figure-rendering/freeform/service/render"
 import { renderFreeformFigure } from "../../src/learning/features/figure-rendering/freeform/service/render"
@@ -16,10 +14,9 @@ import {
 } from "../../src/objects"
 import { tmpdir } from "../helpers/tmpdir"
 import {
-  createToolContext,
-  ensureBuddyPluginTools,
+  createBuddyToolContext,
   requireTool,
-  TEST_TOOL_MODEL,
+  listBuddyTools,
 } from "../helpers/tools"
 
 const FREEFORM_FIGURE_SVG_FILE_NAME = "figure.svg"
@@ -98,24 +95,18 @@ function baseFreeformFigureInput(): RenderFreeformFigureInput {
 describe("freeform figure tools", () => {
   test("renders valid unrestricted SVG into a stable object", async () => {
     await using project = await tmpdir({ git: true })
-    await ensureBuddyPluginTools(project.path)
 
-    const result = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const renderFreeformFigure = requireTool(tools, "render_freeform_figure")
-
-        return renderFreeformFigure.execute(
-          baseFreeformFigureInput(),
-          createToolContext({
-            sessionID: "ses_math",
-            messageID: "msg_math",
-            agent: "buddy",
-          }),
-        )
-      },
-    })
+    const tools = await listBuddyTools()
+    const renderFreeformFigure = requireTool(tools, "render_freeform_figure")
+    const result = await renderFreeformFigure.run(
+      baseFreeformFigureInput(),
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: "ses_math",
+        messageID: "msg_math",
+        agent: "buddy",
+      }),
+    )
 
     const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
     const objectRef = requireFreeformFigureRef(objectResult)
@@ -188,24 +179,18 @@ describe("freeform figure tools", () => {
 
   test("tool metadata references only the rendered freeform figure object", async () => {
     await using project = await tmpdir({ git: true })
-    await ensureBuddyPluginTools(project.path)
 
-    const result = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const renderFreeformFigure = requireTool(tools, "render_freeform_figure")
-
-        return renderFreeformFigure.execute(
-          baseFreeformFigureInput(),
-          createToolContext({
-            sessionID: "ses_math",
-            messageID: "msg_math",
-            agent: "buddy",
-          }),
-        )
-      },
-    })
+    const tools = await listBuddyTools()
+    const renderFreeformFigure = requireTool(tools, "render_freeform_figure")
+    const result = await renderFreeformFigure.run(
+      baseFreeformFigureInput(),
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: "ses_math",
+        messageID: "msg_math",
+        agent: "buddy",
+      }),
+    )
 
     const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
     const ref = requireFreeformFigureRef(objectResult)

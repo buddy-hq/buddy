@@ -1,57 +1,19 @@
-import { afterEach, describe, expect, test } from "bun:test"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { syncOpenCodeProjectConfig } from "../src/config/runtime/opencode-sync"
-import { fetchInProcessOpenCode, loadOpenCodeApp } from "../src/opencode-runtime"
+import { describe, expect, test } from "bun:test"
 import { tmpdir } from "./helpers/tmpdir"
+import { ensureBuddyPluginTools } from "./helpers/tools"
 
-const SESSION_STATUS_PATH = "/session/status"
-const BUDDY_FEATURE_TOOL_IDS = [
-  "goal_lint",
-  "goal_commit",
-  "prepare_resource",
-  "ingest_full_text",
-] as const
+const BUDDY_FEATURE_TOOL_IDS = ["goal_lint", "goal_commit", "prepare_resource", "ingest_full_text"]
 
-async function ensureBuddyPluginTools(directory: string) {
-  await loadOpenCodeApp()
-  await syncOpenCodeProjectConfig(directory)
-}
-
-async function listRegisteredToolIDs(directory: string): Promise<string[]> {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: () => ToolRegistry.ids(),
-  })
-}
-
-afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
-})
-
-describe("proxy registration", () => {
-  test("does not unregister Buddy feature tools when a proxied request omits registrations", async () => {
+describe("runtime registration", () => {
+  test("retains Buddy feature tools after a host request and notebook config resync", async () => {
     await using project = await tmpdir({ git: true })
-
-    await ensureBuddyPluginTools(project.path)
-
-    const beforeToolIDs = await listRegisteredToolIDs(project.path)
-    for (const toolID of BUDDY_FEATURE_TOOL_IDS) {
-      expect(beforeToolIDs).toContain(toolID)
-    }
-
-    await fetchInProcessOpenCode({
-      directory: project.path,
-      method: "GET",
-      path: SESSION_STATUS_PATH,
-      headers: new Headers(),
-    })
-
-    await ensureBuddyPluginTools(project.path)
-
-    const afterToolIDs = await listRegisteredToolIDs(project.path)
-    for (const toolID of BUDDY_FEATURE_TOOL_IDS) {
-      expect(afterToolIDs).toContain(toolID)
-    }
-  }, 30_000)
+    await using runtime = await ensureBuddyPluginTools(project.path)
+    const before = (await runtime.listTools()).map((tool) => tool.name)
+    for (const id of BUDDY_FEATURE_TOOL_IDS) expect(before).toContain(id)
+    await runtime.host.session.active()
+    const { syncNotebookRuntimeConfig } = await import("../src/config/runtime/opencode-sync")
+    await syncNotebookRuntimeConfig(runtime.host, project.path)
+    const after = (await runtime.listTools()).map((tool) => tool.name)
+    for (const id of BUDDY_FEATURE_TOOL_IDS) expect(after).toContain(id)
+  })
 })

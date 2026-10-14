@@ -14,7 +14,6 @@ import {
   type CitationPromptPart,
   type CitationProviderLocation,
 } from "@buddy/citation-contract"
-import { Agent } from "@buddy/opencode-adapter/agent"
 import {
   BUDDY_OBJECT_KINDS,
   BuddyObjectIDSchema,
@@ -23,11 +22,10 @@ import {
   type BuddyObjectKind,
 } from "../../objects"
 import { chatMentionPointer } from "../features/bench/chat-transcripts"
-import { SessionTransformValidationError } from "../../session"
+import { SessionTransformValidationError } from "../../session/orchestration/errors"
 import { resolveResourceReference } from "../../resources/resource-registry-service"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
 import { syncOpenCodeProjectConfig } from "../../config/runtime"
-import { extractSdkErrorMessage } from "../../http/sdk-response"
 import {
   isNativeResourceAttachmentPart,
   nativeResourceAttachmentPromptPart,
@@ -44,6 +42,8 @@ import {
   parseNonEmptyPromptString,
   parsePromptString,
   parsePromptStringList,
+  parsePromptBoolean,
+  parsePromptFiniteNumber,
   type TJsonObject,
   type TJsonValue,
   type TPromptPart,
@@ -306,15 +306,9 @@ async function expandOpenCodeReferencePart(input: {
 }
 
 async function findOpenCodeReference(input: { directory: string; part: OpenCodeReferencePart }) {
-  const client = await getOpenCodeClient(input.directory)
-  const result = await client.v2.reference.list()
-  if (result.error !== undefined) {
-    throw new SessionTransformValidationError(
-      extractSdkErrorMessage(result.error) ?? "Failed to resolve workspace reference",
-    )
-  }
-
-  return result.data?.data.find(
+  const client = await getOpenCodeClient()
+  const result = await client.reference.list({ location: { directory: input.directory } })
+  return result.data.find(
     (candidate) =>
       candidate.name === input.part.name &&
       candidate.path === input.part.path &&
@@ -341,41 +335,20 @@ async function expandPromptTextPart(input: {
     return [normalizePromptTextPart(input.part, text)]
   }
 
-  const pieces: TPromptPart[] = []
-  let cursor = 0
-
+  const pieces: TPromptPart[] = [normalizePromptTextPart(input.part, text)]
   for (const match of text.matchAll(PROMPT_WORKSPACE_FILE_REFERENCE_REGEX)) {
-    const token = match[0] ?? ""
+    const token = match[0]
     const rawReference = (match[1] ?? match[2] ?? match[3] ?? "").trim()
-    const tokenStart = match.index ?? 0
-
-    if (tokenStart > cursor) {
-      const leadingText = text.slice(cursor, tokenStart)
-      if (leadingText.length > 0) {
-        pieces.push(normalizePromptTextPart(input.part, leadingText))
-      }
-    }
-
+    const tokenStart = match.index
     const resolvedParts = await resolveWorkspaceReference({
       directory: input.directory,
       rawPath: rawReference,
       source: "raw",
     })
-    if (resolvedParts.length > 0) {
-      pieces.push(...resolvedParts)
-    } else {
-      pieces.push(normalizePromptTextPart(input.part, token))
-    }
-    cursor = tokenStart + token.length
-  }
-
-  if (cursor < text.length) {
-    const trailingText = text.slice(cursor)
-    if (trailingText.length > 0) {
-      pieces.push(normalizePromptTextPart(input.part, trailingText))
+    for (const part of resolvedParts) {
+      pieces.push({ ...part, source: { text: { value: token, start: tokenStart, end: tokenStart + token.length } } })
     }
   }
-
   return pieces
 }
 
@@ -449,7 +422,7 @@ async function resolveWorkspaceReference(input: {
         `workspace-file-reference path must be workspace-relative: ${input.rawPath}`,
       )
     }
-    const agentName = await resolveAgentReferenceName(input.rawPath)
+    const agentName = await resolveAgentReferenceName(input.directory, input.rawPath)
     if (agentName) {
       return [createVendorAgentPart(agentName)]
     }
@@ -459,7 +432,7 @@ async function resolveWorkspaceReference(input: {
   const stat = await fs.stat(resolvedPath).catch(() => undefined)
   if (!stat) {
     if (input.source === "raw") {
-      const agentName = await resolveAgentReferenceName(input.rawPath)
+      const agentName = await resolveAgentReferenceName(input.directory, input.rawPath)
       if (agentName) {
         return [createVendorAgentPart(agentName)]
       }
@@ -932,6 +905,59 @@ export function flattenPromptPartsForRuntime<T>(
   })
 }
 
+export function runtimePromptFromParts(input: {
+  parts: readonly TPromptPart[]
+  metadata?: TJsonObject
+  system?: string
+}): TJsonObject {
+  let text = ""
+  let segmentStart = 0
+  const segments: TJsonObject[] = []
+  const files: TJsonObject[] = []
+  const agents: TJsonObject[] = []
+  for (const part of input.parts) {
+    const partText = parsePromptString(part.text)
+    if (part.type === "text" && partText !== undefined) {
+      segmentStart = text.length
+      text += partText
+      const segment: TJsonObject = { start: segmentStart, end: text.length }
+      const synthetic = parsePromptBoolean(part.synthetic)
+      const ignored = parsePromptBoolean(part.ignored)
+      const metadata = parseJsonObject(part.metadata)
+      if (synthetic !== undefined) segment.synthetic = synthetic
+      if (ignored !== undefined) segment.ignored = ignored
+      if (metadata !== undefined) segment.metadata = metadata
+      segments.push(segment)
+      continue
+    }
+    const source = parseJsonObject(part.source)
+    const range = parseJsonObject(source?.text) ?? source
+    const start = parsePromptFiniteNumber(range?.start)
+    const end = parsePromptFiniteNumber(range?.end)
+    const value = parsePromptString(range?.value)
+    const mention = start !== undefined && end !== undefined && value !== undefined
+      ? { text: value, start: segmentStart + start, end: segmentStart + end }
+      : undefined
+    const uri = parsePromptString(part.url)
+    if (part.type === "file" && uri !== undefined) {
+      const file: TJsonObject = { uri }
+      const name = parsePromptString(part.filename)
+      if (name !== undefined) file.name = name
+      if (mention !== undefined) file.mention = mention
+      files.push(file)
+    }
+    const name = parsePromptString(part.name)
+    if (part.type === "agent" && name !== undefined) {
+      const agent: TJsonObject = { name }
+      if (mention !== undefined) agent.mention = mention
+      agents.push(agent)
+    }
+  }
+  const prompt: TJsonObject = { segments }
+  if (input.system) prompt.system = input.system
+  return { text, files, agents, metadata: { ...input.metadata, buddy: { ...parseJsonObject(input.metadata?.buddy), prompt } } }
+}
+
 function isWorkspaceRelativePath(filepath: string) {
   if (path.isAbsolute(filepath)) return false
   if (filepath.startsWith("~/")) return false
@@ -946,10 +972,11 @@ function isPathInsideWorkspace(directory: string, filepath: string) {
   return relpath.length === 0 || (!relpath.startsWith("..") && !path.isAbsolute(relpath))
 }
 
-async function resolveAgentReferenceName(rawName: string): Promise<string | undefined> {
+async function resolveAgentReferenceName(directory: string, rawName: string): Promise<string | undefined> {
   try {
-    const agent = await Agent.get(rawName)
-    return agent?.name
+    const client = await getOpenCodeClient()
+    const result = await client.agent.list({ location: { directory } })
+    return result.data.find((agent) => agent.id === rawName || agent.name === rawName)?.id
   } catch {
     return undefined
   }

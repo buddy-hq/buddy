@@ -1,35 +1,29 @@
-import { clearConfigOverlay, setConfigOverlay } from "@buddy/opencode-adapter/config"
-import { RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS } from "@buddy/opencode-adapter/config-overlay"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Config } from "@buddy/backend/config"
-import { buildOpenCodeConfigOverlay } from "../../src/index"
+import path from "node:path"
+import fsp from "node:fs/promises"
+import { createOpenCodeHost, type OpenCodeHost } from "@buddy/opencode-adapter/host"
+import { Plugin } from "@buddy/opencode-adapter/plugin"
+import { temporaryDirectory } from "./temporary-directory"
+import { registerNotebookConfig } from "../../src/config/runtime/notebook-config-plugin"
+import { readOpenCodeHostConfig } from "../../src/config/runtime/notebook-runtime-plan"
+import { syncNotebookRuntimeConfig } from "../../src/config/runtime/opencode-sync"
 
-async function disposeInstance(directory: string) {
-  await OpenCodeInstance.provide({
-    directory,
-    fn: () => OpenCodeInstance.dispose(),
-  })
+export async function createNotebookTestHost(options?: { plugins?: readonly Plugin.Plugin[]; project?: boolean }) {
+  const root = await temporaryDirectory({ prefix: "buddy-notebook-host-" })
+  const paths = { data: path.join(root.path, "data"), cache: path.join(root.path, "cache"),
+    config: path.join(root.path, "config"), state: path.join(root.path, "state"), tmp: path.join(root.path, "tmp") }
+  try {
+    await Promise.all(Object.values(paths).map((directory) => fsp.mkdir(directory, { recursive: true })))
+    const host = await createOpenCodeHost({ clientName: "buddy-notebook-test", paths,
+      databasePath: path.join(paths.data, "opencode.db"), fetchModels: false, fs: { filewatcher: false, fff: false },
+      config: { ...await readOpenCodeHostConfig(), project: options?.project },
+      plugins: [Plugin.define({ id: "buddy.notebook-test", setup: registerNotebookConfig }), ...(options?.plugins ?? [])],
+    })
+    return { host, root: root.path, [Symbol.asyncDispose]: async () => { await host.close(); await root[Symbol.asyncDispose]() } }
+  } catch (cause) { await root[Symbol.asyncDispose](); throw cause }
 }
 
-export async function withSyncedOpenCodeConfig<T>(directory: string, fn: () => Promise<T> | T) {
-  const config = await Config.getProject(directory)
-  const overlay = await buildOpenCodeConfigOverlay({
-    config,
-    directory,
-  })
-
-  setConfigOverlay(directory, overlay, {
-    authoritativeKeys: [RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS.mcp],
-  })
-  await disposeInstance(directory)
-
-  try {
-    return await OpenCodeInstance.provide({
-      directory,
-      fn,
-    })
-  } finally {
-    clearConfigOverlay(directory)
-    await disposeInstance(directory)
-  }
+export async function withSyncedOpenCodeConfig<T>(directory: string, fn: (host: OpenCodeHost) => Promise<T> | T) {
+  await using runtime = await createNotebookTestHost()
+  await syncNotebookRuntimeConfig(runtime.host, directory)
+  return await fn(runtime.host)
 }

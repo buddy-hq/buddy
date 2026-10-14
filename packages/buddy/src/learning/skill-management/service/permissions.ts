@@ -1,5 +1,4 @@
-import { PermissionNext, type PermissionAction } from "@buddy/opencode-adapter/permission"
-import { Wildcard } from "@buddy/opencode-adapter/wildcard"
+import { matchPermissionRule, permissionRulesFromConfig, type PermissionAction } from "@buddy/transcript-contract/permission-rules"
 import { Config } from "@buddy/backend/config"
 import type {
   PermissionRule,
@@ -30,18 +29,6 @@ const SKILL_PERMISSION_SOURCE = {
   inherited: "inherited",
 } as const satisfies Record<string, SkillPermissionSource>
 
-function matchSkillRule(name: string, ruleset: PermissionRuleset) {
-  for (let index = ruleset.length - 1; index >= 0; index -= 1) {
-    const rule = ruleset[index]
-    if (!rule) continue
-    if (!Wildcard.match(SKILL_RULE_DEFAULTS.permission, rule.permission)) continue
-    if (!Wildcard.match(name, rule.pattern)) continue
-    return rule
-  }
-
-  return undefined
-}
-
 function normalizeSkillAction(action: PermissionAction): SkillRuleAction {
   return action === SKILL_RULE_DEFAULTS.deniedAction
     ? SKILL_RULE_DEFAULTS.deniedAction
@@ -54,7 +41,7 @@ function normalizeExistingSkillAction<TValue>(action: TValue): SkillRuleAction {
 }
 
 export function resolveSkillPermission(name: string, ruleset: PermissionRuleset) {
-  const matchedRule = matchSkillRule(name, ruleset)
+  const matchedRule = matchPermissionRule("skill", name, ruleset, process.platform === "win32" ? "win32" : "posix")
   if (!matchedRule) {
     return {
       explicit: false,
@@ -77,7 +64,7 @@ export function resolveSkillPermission(name: string, ruleset: PermissionRuleset)
 
 export function skillRuleset(config: Config.Info): PermissionRuleset {
   if (!config.permission) return []
-  return PermissionNext.fromConfig(config.permission)
+  return permissionRulesFromConfig(config.permission)
 }
 
 export function enabledAction(action: SkillRuleAction) {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { publishGlobalEvent } from "@buddy/opencode-adapter/global-event"
+import { publishGlobalEvent } from "@buddy/backend/events/buddy-event-bus"
 import { app } from "../../src/index"
 import {
   readSvgAutoRepairRequest,
@@ -109,7 +109,7 @@ describe("SVG auto-repair route", () => {
   test("observes completion only for the matching hidden assistant turn", async () => {
     const messages: string[] = []
     const repairRequestID = "msg_buddy_svg_auto_repair_test"
-    const unsubscribe = subscribeSvgAutoRepairTurnSettlement({
+    const unsubscribe = await subscribeSvgAutoRepairTurnSettlement({
       directory: "/workspace",
       sessionID: SESSION_ID,
       repairRequestID,

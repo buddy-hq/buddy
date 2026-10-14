@@ -1,25 +1,32 @@
 import type { Context } from "hono"
-import { ensureAllowedDirectory } from "../../http"
-import { respondWithSdkResult } from "../../http/sdk-response"
+import { backgroundSession, interruptSession } from "@buddy/opencode-adapter/gateway/session"
+import { ensureAllowedDirectory } from "../../http/directory"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
-import { toSessionSdkResult } from "./sdk-session"
+import { ensureRuntimeSessionExists, runtimeSessionLookupErrorResponse } from "./lookup"
 
 export async function abortSessionRun(c: Context): Promise<Response> {
-  const directoryResult = ensureAllowedDirectory(c)
-  if (!directoryResult.ok) return directoryResult.response
-
+  const allowed = ensureAllowedDirectory(c)
+  if (!allowed.ok) return allowed.response
   const sessionID = c.req.param("sessionID")
-  const client = await getOpenCodeClient(directoryResult.directory)
-  const result = toSessionSdkResult(
-    await client.session.abort({
-      sessionID,
-      directory: directoryResult.directory,
-    }),
-  )
-
-  if (result.error) {
-    return respondWithSdkResult(c, result)
+  const missing = await ensureRuntimeSessionExists(allowed.directory, sessionID)
+  if (missing) return missing
+  try {
+    return c.json(await interruptSession(await getOpenCodeClient(), sessionID))
+  } catch (error) {
+    return runtimeSessionLookupErrorResponse(error)
   }
+}
 
-  return c.json(true)
+export async function backgroundSessionRun(c: Context): Promise<Response> {
+  const allowed = ensureAllowedDirectory(c)
+  if (!allowed.ok) return allowed.response
+  const sessionID = c.req.param("sessionID")
+  const missing = await ensureRuntimeSessionExists(allowed.directory, sessionID)
+  if (missing) return missing
+  try {
+    await backgroundSession(await getOpenCodeClient(), sessionID)
+    return c.body(null, 204)
+  } catch (error) {
+    return runtimeSessionLookupErrorResponse(error)
+  }
 }

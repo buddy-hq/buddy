@@ -2,8 +2,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { BUDDY_ENV } from "../../storage/constants"
 
-type OpenAIAuthTraceValue = boolean | number | string | undefined
-type OpenAIAuthTraceDetails = Record<string, OpenAIAuthTraceValue>
+type OpenAIAuthTraceDetails = { status?: number; ok?: boolean }
 
 let pendingWrite = Promise.resolve()
 
@@ -13,7 +12,7 @@ export function getOpenAIAuthTraceFile() {
 }
 
 export async function traceOpenAIAuth(
-  event: string,
+  event: "credential_switched",
   details: OpenAIAuthTraceDetails = {},
 ): Promise<void> {
   const traceFile = getOpenAIAuthTraceFile()

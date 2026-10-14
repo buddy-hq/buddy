@@ -9,14 +9,13 @@ const LEARNER_MEMORY_CONSOLIDATOR_AGENT = defineBuddySubagent({
   description: "Consolidates learner-memory extraction outputs into durable memory decisions.",
   prompt: LEARNER_MEMORY_CONSOLIDATOR_PROMPT,
   permission: {
-    task: "deny",
-    todoread: "deny",
-    todowrite: "deny",
+    "*": "deny",
+    subagent: "deny",
     read: "allow",
     glob: "allow",
     list: "deny",
     grep: "allow",
-    bash: "deny",
+    shell: "deny",
     webfetch: "deny",
     websearch: "deny",
     codesearch: "deny",
@@ -24,8 +23,6 @@ const LEARNER_MEMORY_CONSOLIDATOR_AGENT = defineBuddySubagent({
     lsp: "deny",
     batch: "deny",
     edit: "allow",
-    write: "allow",
-    apply_patch: "deny",
   },
 })
 

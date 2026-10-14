@@ -3,7 +3,7 @@ import type {
   ToolCollectionToken,
   ToolLayoutRole,
   ToolRendererToken,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 import { buildTurns, groupAssistantParts } from "./utils/message-utils"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./utils/part-guards"
 import { visibleUserTextLength } from "./utils/user-message-text"

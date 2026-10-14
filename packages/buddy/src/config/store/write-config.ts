@@ -1,13 +1,13 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
 import { mergeDeep } from "remeda"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import {
   loadConfigText,
   loadProjectConfigText,
   removeConfigDocumentValue,
   updateKnownConfigDocument,
 } from "../contract/document.js"
+import { preserveConfigSecrets } from "../contract/web-safe"
 import { JsonError } from "../contract/errors.js"
 import { parseNodeErrorCode } from "../parse-values.js"
 import { resetGlobalConfigCache } from "./global-cache.js"
@@ -44,7 +44,7 @@ async function writeConfigDocument<TConfig>(input: {
   load: ConfigDocumentLoader<TConfig>
 }): Promise<void> {
   const current = await input.load(input.before, input.filepath)
-  let updated = updateKnownConfigDocument(input.before, current, input.next, input.filepath)
+  let updated = updateKnownConfigDocument(input.before, current, preserveConfigSecrets(input.next, current), input.filepath)
 
   updated = removeConfigDocumentValue(updated, input.filepath, [
     ...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH,
@@ -126,7 +126,7 @@ export async function setProjectMcpConfig(
   let updated = removeConfigDocumentValue(before, filepath, [
     ...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH,
   ])
-  updated = updateKnownConfigDocument(updated, current, next, filepath)
+  updated = updateKnownConfigDocument(updated, current, preserveConfigSecrets(next, current), filepath)
   await loadProjectConfigDocument(updated, filepath)
   await fsp.writeFile(filepath, updated, "utf8")
 }
@@ -156,7 +156,8 @@ export async function mutateGlobalConfig(mutation: GlobalConfigMutation): Promis
     })
 
     resetGlobalConfigCache()
-    await OpenCodeInstance.disposeAll()
+    const { refreshActiveNotebookConfigs } = await import("../runtime/opencode-sync")
+    await refreshActiveNotebookConfigs()
 
     return next
   })

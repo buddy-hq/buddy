@@ -8,6 +8,11 @@ import {
 const CHONKIE_WASM_RELATIVE_PATH = ["pkg", "chonkiejs_chunk_bg.wasm"] as const
 const ENGLISH_TESSDATA_RELATIVE_PATH = ["resources", "tessdata", "eng.traineddata"] as const
 const PHOTON_WASM_PATTERN = /^photon_rs_bg(?:-[a-z0-9]+)?\.wasm$/i
+const SHELL_PARSER_WASM_PATTERNS = [
+  /^tree-sitter(?:-[a-z0-9]+)?\.wasm$/i,
+  /^tree-sitter-bash(?:-[a-z0-9]+)?\.wasm$/i,
+  /^tree-sitter-powershell(?:-[a-z0-9]+)?\.wasm$/i,
+] as const
 const DIRECTORY_NODE_MODULES = "node_modules" as const
 export const LITEPARSE_PACKAGE_NAME = "@llamaindex/liteparse" as const
 export const KEYRING_PACKAGE_NAME = "@napi-rs/keyring" as const
@@ -98,8 +103,15 @@ export function assertBackendNodeArtifactRuntimeFiles(input: { artifactDir: stri
     throw new Error(`Buddy Node artifact is missing Chonkie WASM at ${chonkieWasmPath}`)
   }
 
-  if (!readdirSync(input.artifactDir).some((name) => PHOTON_WASM_PATTERN.test(name))) {
+  const artifactFiles = readdirSync(input.artifactDir)
+  if (!artifactFiles.some((name) => PHOTON_WASM_PATTERN.test(name))) {
     throw new Error(`Buddy Node artifact is missing Photon WASM in ${input.artifactDir}`)
+  }
+
+  for (const pattern of SHELL_PARSER_WASM_PATTERNS) {
+    if (!artifactFiles.some((name) => pattern.test(name))) {
+      throw new Error(`Buddy Node artifact is missing shell parser WASM ${pattern} in ${input.artifactDir}`)
+    }
   }
 
   const englishTessdataPath = path.join(input.artifactDir, ...ENGLISH_TESSDATA_RELATIVE_PATH)

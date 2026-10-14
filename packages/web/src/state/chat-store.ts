@@ -6,12 +6,13 @@ import { createPlatformJsonStorage } from "../context/platform"
 import type {
   DirectoryChatState,
   McpStatusMap,
-  PermissionRequest,
   QuestionRequest,
   ProviderCatalogState,
   SessionStatusInfo,
   SessionInfo,
 } from "./chat-types"
+import type { PermissionRequest } from "./permission-types"
+import { sessionFamilyIDs } from "@/lib/session-family"
 import { isRecord, parseString } from "./chat-types"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
 import { canonicalProjectDirectory } from "@/lib/project-directory"
@@ -485,7 +486,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionStatusByID: nextSessionStatusByID,
             pendingPermissions: switchedSession
               ? current.pendingPermissions.filter(
-                  (request: PermissionRequest) => request.sessionID === activeSessionID,
+                  (request: PermissionRequest) => activeSessionID !== undefined && sessionFamilyIDs(nextSessions, activeSessionID).includes(request.sessionID),
                 )
               : current.pendingPermissions,
             pendingQuestions: current.pendingQuestions,
@@ -586,7 +587,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionTitle: activeInfo?.title ?? current.sessionTitle,
             pendingPermissions: switchedSession
               ? current.pendingPermissions.filter(
-                  (request: PermissionRequest) => request.sessionID === sessionID,
+                  (request: PermissionRequest) => sessionID !== undefined && sessionFamilyIDs(current.sessions, sessionID).includes(request.sessionID),
                 )
               : current.pendingPermissions,
             pendingQuestions: current.pendingQuestions,
@@ -666,7 +667,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionTitle: nextActiveInfo?.title ?? DEFAULT_TITLE,
             pendingPermissions: switchedActiveSession
               ? current.pendingPermissions.filter(
-                  (request: PermissionRequest) => request.sessionID === nextSessionID,
+                  (request: PermissionRequest) => nextSessionID !== undefined && sessionFamilyIDs(current.sessions, nextSessionID).includes(request.sessionID),
                 )
               : current.pendingPermissions,
             pendingQuestions: current.pendingQuestions,

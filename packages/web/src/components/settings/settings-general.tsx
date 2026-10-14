@@ -12,6 +12,7 @@ import {
   toast,
 } from "@buddy/ui"
 import { useForm } from "@tanstack/react-form"
+import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { language } from "@/context/language"
 import { parseTString } from "@/components/chat/tools/types"
 import { pickProjectDirectory } from "@/lib/directory-picker"
@@ -73,6 +74,44 @@ function isGamePromptPreference(value: string): value is TGamePromptPreference {
     value === GAME_PROMPT_PREFERENCE_STANDARD ||
     value === GAME_PROMPT_PREFERENCE_REDUCED ||
     value === GAME_PROMPT_PREFERENCE_DISABLED
+  )
+}
+
+function RememberedApprovals() {
+  const directory = useChatStore((state) => state.activeDirectory)
+  const queryClient = useQueryClient()
+  const [removing, setRemoving] = useState<string>()
+  const queryKey = ["remembered-approvals", directory]
+  const approvals = useQuery({
+    queryKey,
+    enabled: directory !== undefined && directory !== "/",
+    queryFn: async () => directory === undefined ? [] : requireBuddyData(await getBuddyClient(directory).permission.saved.list()),
+  })
+  if (directory === undefined || directory === "/") return null
+
+  async function removeApproval(id: string) {
+    if (directory === undefined) return
+    setRemoving(id)
+    try {
+      requireBuddyData(await getBuddyClient(directory).permission.saved.remove({ id }))
+      await queryClient.invalidateQueries({ queryKey })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove approval")
+    } finally {
+      setRemoving(undefined)
+    }
+  }
+
+  return (
+    <SettingsSection title="Remembered approvals">
+      <SettingsRow title="This notebook's project" description="Approvals saved with Always allow apply to every chat in this project." control={null} />
+      {approvals.isPending ? <SettingsRow title="Loading approvals…" control={null} /> : null}
+      {approvals.isError ? <SettingsRow title="Could not load approvals" control={<Button variant="outline" size="sm" onClick={() => void approvals.refetch()}>Retry</Button>} /> : null}
+      {approvals.data?.length === 0 ? <SettingsRow title="No remembered approvals" control={null} /> : null}
+      {approvals.data?.map((approval) => (
+        <SettingsRow key={approval.id} title={approval.action.replaceAll("_", " ")} description={approval.resource} control={<Button variant="outline" size="sm" disabled={removing !== undefined} onClick={() => void removeApproval(approval.id)}>Remove</Button>} />
+      ))}
+    </SettingsSection>
   )
 }
 
@@ -498,6 +537,7 @@ export function GeneralSettings() {
           onPrimaryUseChange={() => void savePersonalization()}
         />
       </div>
+      <RememberedApprovals />
     </SettingsContent>
   )
 }

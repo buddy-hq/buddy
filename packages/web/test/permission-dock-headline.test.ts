@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test"
-import { getPermissionDockHeadline } from "../src/lib/permission-dock-headline"
+import { getPermissionDockHeadline } from "../src/components/directory-chat/permission-dock-title"
 
 describe("permission dock headline", () => {
   test("describes external directory access in the title", () => {
     const headline = getPermissionDockHeadline({
       id: "per_external",
       sessionID: "ses_external",
-      permission: "external_directory",
-      patterns: ["/Users/example/Desktop/*"],
-      always: ["/Users/example/Desktop/*"],
+      action: "external_directory",
+      resources: ["/Users/example/Desktop/*"],
+      save: ["/Users/example/Desktop/*"],
       metadata: {
         parentDir: "/Users/example/Desktop",
       },
@@ -22,9 +22,9 @@ describe("permission dock headline", () => {
     const headline = getPermissionDockHeadline({
       id: "per_read",
       sessionID: "ses_read",
-      permission: "read",
-      patterns: ["README.md"],
-      always: [],
+      action: "read",
+      resources: ["README.md"],
+      save: [],
       metadata: {},
     })
 
@@ -36,9 +36,9 @@ describe("permission dock headline", () => {
     const headline = getPermissionDockHeadline({
       id: "per_edit",
       sessionID: "ses_edit",
-      permission: "edit",
-      patterns: ["notes.md"],
-      always: [],
+      action: "edit",
+      resources: ["notes.md"],
+      save: [],
       metadata: {},
     })
 
@@ -50,9 +50,9 @@ describe("permission dock headline", () => {
     const headline = getPermissionDockHeadline({
       id: "per_patch",
       sessionID: "ses_patch",
-      permission: "apply_patch",
-      patterns: ["src/app.tsx"],
-      always: [],
+      action: "edit",
+      resources: ["src/app.tsx"],
+      save: [],
       metadata: {},
     })
 
@@ -64,9 +64,9 @@ describe("permission dock headline", () => {
     const headline = getPermissionDockHeadline({
       id: "per_bash",
       sessionID: "ses_bash",
-      permission: "bash",
-      patterns: ["ls"],
-      always: [],
+      action: "shell",
+      resources: ["ls"],
+      save: [],
       metadata: { command: "ls" },
     })
 
@@ -78,13 +78,13 @@ describe("permission dock headline", () => {
     const headline = getPermissionDockHeadline({
       id: "per_grep",
       sessionID: "ses_grep",
-      permission: "grep",
-      patterns: ["src/**"],
-      always: [],
+      action: "grep",
+      resources: ["src/**"],
+      save: [],
       metadata: {},
     })
 
-    expect(headline.title).toBe("Permission needed")
-    expect(headline.icon).toBe("shield")
+    expect(headline.title).toBe("Permission needed: Search file contents")
+    expect(headline.icon).toBe("read")
   })
 })

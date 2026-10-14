@@ -2,9 +2,9 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import {
+  createConfigSyncMiddleware,
   directoryQuerySchema,
   ensureAllowedDirectory,
-  respondWithSdkResult,
   routeErrors,
   runSdkRoute,
 } from "../http"
@@ -41,12 +41,13 @@ const referenceListResponseSchema = z.object({
     project: z.object({
       id: z.string(),
       directory: z.string(),
+      canonical: z.string(),
     }),
   }),
   data: z.array(referenceInfoSchema),
 })
 
-export const ReferenceRoutes = new Hono().get(
+export const ReferenceRoutes = new Hono().use("*", createConfigSyncMiddleware("reference request")).get(
   "/",
   describeRoute({
     operationId: "reference.list",
@@ -69,8 +70,9 @@ export const ReferenceRoutes = new Hono().get(
       const directoryResult = ensureAllowedDirectory(c)
       if (!directoryResult.ok) return directoryResult.response
 
-      const client = await getOpenCodeClient(directoryResult.directory)
-      const result = await client.v2.reference.list()
-      return respondWithSdkResult(c, result)
+      const client = await getOpenCodeClient()
+      const location = { directory: directoryResult.directory }
+      const [result, info] = await Promise.all([client.reference.list({ location }), client.location.get({ location })])
+      return c.json({ location: info, data: result.data })
     }),
 )

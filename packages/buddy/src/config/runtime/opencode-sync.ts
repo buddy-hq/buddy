@@ -1,136 +1,79 @@
-import { setConfigOverlay } from "@buddy/opencode-adapter/config"
-import {
-  canonicalizeRuntimeConfigDirectory,
-  RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS,
-} from "@buddy/opencode-adapter/config-overlay"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Config } from "../config.js"
-import { reconcileWithdrawnLibrarySkills } from "../../learning/skill-management/service/library.js"
-import { configErrorMessage, isConfigValidationError } from "../contract/errors.js"
-import { readInstalledSystemSkillsFingerprint } from "../../learning/skill-management/service/system-installer.js"
-import {
-  buildOpenCodeConfigOverlay,
-  fingerprintOpenCodeConfig,
-  mergeBuddyAndConfiguredAgents,
-  parseConfiguredModel,
-  resolveConfiguredAgentKey,
-} from "../opencode/overlay-builder.js"
-import { readProjectConfig, readProjectConfigFile } from "./project-config.js"
+import type { OpenCodeHost } from "@buddy/opencode-adapter/host"
+import { getOpenCodeClient } from "../../opencode-runtime/client"
+import { reconcileWithdrawnLibrarySkills } from "../../learning/skill-management/service/library"
+import { configErrorMessage, isConfigValidationError } from "../contract/errors"
+import { canonicalizeRuntimeConfigDirectory } from "../store/directories"
+import { resolveProjectConfigContext } from "../store/config-paths"
+import { resetGlobalConfigCache } from "../store/global-cache"
+import { buildNotebookRuntimePlan } from "./notebook-runtime-plan"
+import { activeNotebookConfigLocations, NOTEBOOK_CONFIG_RPC, publishNotebookRuntimeSnapshot } from "./notebook-config-plugin"
+import { readProjectConfig, readProjectConfigFile } from "./project-config"
 
-const OPENCODE_SYNC_STATE_KEY = Symbol.for("buddy.opencodeSyncState")
-const OPENCODE_CONFIG_POLICY_FINGERPRINT = "runtime-policy:mcp-authoritative-v1"
+export { buildOpenCodeConfigOverlay, mergeBuddyAndConfiguredAgents, parseConfiguredModel, resolveConfiguredAgentKey } from "../opencode/overlay-builder"
+export { configErrorMessage, isConfigValidationError, readProjectConfig, readProjectConfigFile }
+export { registerNotebookConfig } from "./notebook-config-plugin"
+export { readOpenCodeHostConfig } from "./notebook-runtime-plan"
 
-type TOpenCodeSyncState = {
-  configFingerprintByDirectory: Map<string, string>
-  configSyncTaskByDirectory: Map<string, Promise<void>>
+const tasks = new Map<string, Promise<void>>()
+const preparing = new Set<string>()
+let reconciliation: Promise<void> | undefined
+
+async function withNotebookConfigLock(directory: string, operation: () => Promise<void>): Promise<void> {
+  const previous = tasks.get(directory) ?? Promise.resolve()
+  const task = previous.catch(() => undefined).then(operation)
+  tasks.set(directory, task)
+  try { await task } finally { if (tasks.get(directory) === task) tasks.delete(directory) }
 }
 
-function parseOpenCodeSyncState<TValue>(value: TValue): TOpenCodeSyncState | undefined {
-  if (value === null || value === undefined) return undefined
-  if (Array.isArray(value)) return undefined
-  if (!(value instanceof Object)) return undefined
-  if (!("configFingerprintByDirectory" in value) || !("configSyncTaskByDirectory" in value)) {
-    return undefined
-  }
-
-  const fingerprints = value.configFingerprintByDirectory
-  const tasks = value.configSyncTaskByDirectory
-  if (!(fingerprints instanceof Map) || !(tasks instanceof Map)) return undefined
-
-  return {
-    configFingerprintByDirectory: fingerprints,
-    configSyncTaskByDirectory: tasks,
-  }
+async function refreshNotebookConfig(directory: string, force = false, requestedDirectory?: string): Promise<string> {
+  preparing.add(directory)
+  try {
+    const plan = await buildNotebookRuntimePlan({ config: await readProjectConfig(directory), directory })
+    const { revision } = publishNotebookRuntimeSnapshot(directory, plan)
+    for (const location of activeNotebookConfigLocations().filter((entry) => entry.directory === directory)) {
+      if (location.location.directory === requestedDirectory && location.location.workspaceID === undefined) continue
+      await location.sync(revision, force)
+    }
+    return revision
+  } finally { preparing.delete(directory) }
 }
 
-function getOpenCodeSyncState(): TOpenCodeSyncState {
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis, OPENCODE_SYNC_STATE_KEY)
-  const existing = parseOpenCodeSyncState(descriptor?.value)
-  if (existing) return existing
-
-  const created: TOpenCodeSyncState = {
-    configFingerprintByDirectory: new Map<string, string>(),
-    configSyncTaskByDirectory: new Map<string, Promise<void>>(),
-  }
-  Object.defineProperty(globalThis, OPENCODE_SYNC_STATE_KEY, {
-    value: created,
-    configurable: true,
-    writable: true,
+export async function syncNotebookRuntimeConfig(client: Pick<OpenCodeHost, "rpc">, directory: string, force = false): Promise<void> {
+  const key = canonicalizeRuntimeConfigDirectory(directory)
+  resetGlobalConfigCache()
+  reconciliation ??= reconcileWithdrawnLibrarySkills(undefined, { refreshSkillRuntime: async () => undefined })
+    .finally(() => { reconciliation = undefined })
+  await reconciliation
+  await withNotebookConfigLock(key, async () => {
+    const revision = await refreshNotebookConfig(key, force, directory)
+    await client.rpc.call({ rpcID: NOTEBOOK_CONFIG_RPC.id, method: "sync", input: { revision, force }, location: { directory } })
   })
-  return created
-}
-
-export {
-  buildOpenCodeConfigOverlay,
-  configErrorMessage,
-  isConfigValidationError,
-  mergeBuddyAndConfiguredAgents,
-  parseConfiguredModel,
-  readProjectConfig,
-  readProjectConfigFile,
-  resolveConfiguredAgentKey,
-}
-
-async function buildAndApplyProjectOverlay(directory: string) {
-  await reconcileWithdrawnLibrarySkills()
-  const config = await readProjectConfig(directory)
-  const overlay = await buildOpenCodeConfigOverlay({
-    config,
-    directory,
-  })
-  setConfigOverlay(directory, overlay, {
-    authoritativeKeys: [RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS.mcp],
-  })
-  return {
-    config,
-    overlay,
+  const { configDirectory } = await resolveProjectConfigContext(key)
+  const siblings = new Set(activeNotebookConfigLocations().map((entry) => entry.directory))
+  for (const sibling of siblings) {
+    if (sibling === key || preparing.has(sibling)) continue
+    if ((await resolveProjectConfigContext(sibling)).configDirectory !== configDirectory) continue
+    await withNotebookConfigLock(sibling, async () => { await refreshNotebookConfig(sibling, force) })
   }
-}
-
-async function resolveProjectConfigFingerprint<TOverlay>(config: Config.Info, overlay: TOverlay) {
-  const installedSystemSkillsFingerprint = await readInstalledSystemSkillsFingerprint().catch(
-    () => undefined,
-  )
-  return [
-    fingerprintOpenCodeConfig(config, overlay),
-    installedSystemSkillsFingerprint ?? "none",
-    OPENCODE_CONFIG_POLICY_FINGERPRINT,
-  ].join("|")
-}
-
-export async function ensureOpenCodeProjectOverlay(directory: string): Promise<void> {
-  await buildAndApplyProjectOverlay(directory)
 }
 
 export async function syncOpenCodeProjectConfig(directory: string, force = false): Promise<void> {
-  const { configFingerprintByDirectory, configSyncTaskByDirectory } = getOpenCodeSyncState()
-  const directoryKey = canonicalizeRuntimeConfigDirectory(directory)
-  const existingTask = configSyncTaskByDirectory.get(directoryKey)
-  if (existingTask) return existingTask
+  await syncNotebookRuntimeConfig(await getOpenCodeClient(), directory, force)
+}
 
-  const task = (async () => {
-    const { config, overlay } = await buildAndApplyProjectOverlay(directory)
-    const nextFingerprint = await resolveProjectConfigFingerprint(config, overlay)
-    const previousFingerprint = configFingerprintByDirectory.get(directoryKey)
-    if (!force && previousFingerprint === nextFingerprint) {
-      return
-    }
+export async function ensureOpenCodeProjectOverlay(directory: string): Promise<void> {
+  await syncOpenCodeProjectConfig(directory)
+}
 
-    // Dispose the OpenCode instance so it re-bootstraps fresh on next request.
-    // We do NOT call PATCH /config on the vendored OpenCode because that triggers
-    // Config.update which writes config.json to the project root (config pollution).
-    await OpenCodeInstance.provide({
-      directory,
-      fn: async () => {
-        await OpenCodeInstance.dispose()
-      },
-    })
+export async function refreshActiveNotebookConfigs(): Promise<void> {
+  resetGlobalConfigCache()
+  const directories = new Set(activeNotebookConfigLocations().map((entry) => entry.directory))
+  for (const directory of directories) {
+    if (preparing.has(directory)) continue
+    await withNotebookConfigLock(directory, async () => { await refreshNotebookConfig(directory) })
+  }
+}
 
-    configFingerprintByDirectory.set(directoryKey, nextFingerprint)
-  })().finally(() => {
-    configSyncTaskByDirectory.delete(directoryKey)
-  })
-
-  configSyncTaskByDirectory.set(directoryKey, task)
-  return task
+export async function refreshActiveNotebookSkillCatalogs(): Promise<void> {
+  await refreshActiveNotebookConfigs()
 }

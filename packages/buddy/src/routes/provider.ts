@@ -1,53 +1,26 @@
 import { Hono } from "hono"
+import type { OpenCodeHost } from "@buddy/opencode-adapter/host"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { Schema } from "effect"
 import z from "zod"
-import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
-import { ProviderAuth as OpenCodeProviderAuth } from "@buddy/opencode-adapter/provider-auth"
-import { toOpenApiSchema } from "../http/effect-schema"
+import { listProviderCatalog, providerListSchema } from "@buddy/opencode-adapter/gateway/provider"
+import { listProviderAuth, startProviderOAuth, completeProviderOAuth, cancelProviderOAuth, providerAuthSchema, providerAuthorizationSchema, providerOAuthStartSchema, providerOAuthAttemptSchema, providerErrorResponse } from "@buddy/opencode-adapter/gateway/integration"
 import {
   routeErrors,
   directoryQuerySchema,
   ProviderIDParamSchema,
   resolveOptionalDirectoryRequestContext,
-  respondWithSdkResult,
-  runSdkRoute,
-  openCodeDirectoryParams,
+  runRouteTask,
 } from "../http"
+import { syncNotebookRuntimeConfig } from "../config/runtime/opencode-sync"
+import { mapConfigRouteError } from "../config/orchestration/route-errors"
 import { getOpenCodeClient } from "../opencode-runtime/client"
 import {
-  cancelOpenAICodexAuthorization,
-  OPENAI_PROVIDER_ID,
-} from "../opencode-runtime/plugins/openai-codex-auth"
-import {
-  openAICodexAccountService,
+  createOpenAICodexAccountClient,
   openAIAccountIdentityResponseSchema,
   openAIModelAvailabilityResponseSchema,
   openAIUsageResponseSchema,
 } from "../opencode-runtime/plugins/openai-codex-account"
-import { ensureGlobalBootstrapWorkspaceDirectory } from "../project"
-import { traceOpenAIAuth } from "../opencode-runtime/plugins/openai-auth-trace"
-
-const oauthMethodRequestSchema = z.object({
-  method: z.number().int(),
-})
-
-const oauthCallbackRequestSchema = z.object({
-  method: z.number().int(),
-  code: z.string().optional(),
-})
-
-const providerListResponseSchema = toOpenApiSchema(
-  Schema.Struct({
-    all: Schema.Array(OpenCodeProvider.Info),
-    default: Schema.Record(Schema.String, Schema.String),
-    connected: Schema.Array(Schema.String),
-  }),
-)
-
-const providerAuthResponseSchema = toOpenApiSchema(
-  Schema.Record(Schema.String, Schema.Array(OpenCodeProviderAuth.Method)),
-)
+import { ensureGlobalBootstrapWorkspaceDirectory } from "../project/directory"
 
 function resolveBootstrapDirectory(
   c: Parameters<typeof resolveOptionalDirectoryRequestContext>[0],
@@ -61,303 +34,292 @@ function resolveBootstrapDirectory(
   }
 }
 
-export const ProviderRoutes = new Hono()
-  .get(
-    "/",
-    describeRoute({
-      operationId: "provider.list",
-      summary: "List providers",
-      responses: {
-        200: {
-          description: "OpenCode provider list payload",
-          content: {
-            "application/json": { schema: resolver(providerListResponseSchema) },
-          },
-        },
-        ...routeErrors(403),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    async (c) =>
-      runSdkRoute(c, async () => {
-        const directoryResult = resolveBootstrapDirectory(c)
-        if (!directoryResult.ok) return directoryResult.response
+function runProviderRoute(task: () => Promise<Response>) {
+  return runRouteTask({ task, mapError: (error) => mapConfigRouteError(error) ?? providerErrorResponse(error) })
+}
 
-        const client = await getOpenCodeClient(directoryResult.directory)
-        const result = await client.provider.list(
-          openCodeDirectoryParams(directoryResult.directory),
-        )
-        return respondWithSdkResult(c, result)
-      }),
-  )
-  .get(
-    "/auth",
-    describeRoute({
-      operationId: "provider.auth",
-      summary: "List provider auth methods",
-      responses: {
-        200: {
-          description: "OpenCode provider auth method payload",
-          content: {
-            "application/json": { schema: resolver(providerAuthResponseSchema) },
-          },
-        },
-        ...routeErrors(403),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    async (c) =>
-      runSdkRoute(c, async () => {
-        const directoryResult = resolveBootstrapDirectory(c)
-        if (!directoryResult.ok) return directoryResult.response
-
-        const client = await getOpenCodeClient(directoryResult.directory)
-        const result = await client.provider.auth(
-          openCodeDirectoryParams(directoryResult.directory),
-        )
-        return respondWithSdkResult(c, result)
-      }),
-  )
-  .get(
-    "/openai/account",
-    describeRoute({
-      operationId: "provider.openai.account.get",
-      summary: "Read the signed-in ChatGPT account email",
-      responses: {
-        200: {
-          description: "Current ChatGPT account identity",
-          content: {
-            "application/json": { schema: resolver(openAIAccountIdentityResponseSchema) },
-          },
-        },
-        ...routeErrors(403),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    async (c) =>
-      runSdkRoute(c, async () => {
-        const directoryResult = resolveBootstrapDirectory(c)
-        if (!directoryResult.ok) return directoryResult.response
-
-        return c.json(await openAICodexAccountService.readIdentity(directoryResult.directory))
-      }),
-  )
-  .get(
-    "/openai/models",
-    describeRoute({
-      operationId: "provider.openai.modelAvailability.get",
-      summary: "Read ChatGPT OAuth model availability",
-      responses: {
-        200: {
-          description: "Current account-scoped ChatGPT model availability",
-          content: {
-            "application/json": { schema: resolver(openAIModelAvailabilityResponseSchema) },
-          },
-        },
-        ...routeErrors(403),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    async (c) =>
-      runSdkRoute(c, async () => {
-        const directoryResult = resolveBootstrapDirectory(c)
-        if (!directoryResult.ok) return directoryResult.response
-
-        return c.json(
-          await openAICodexAccountService.readModelAvailability(directoryResult.directory),
-        )
-      }),
-  )
-  .post(
-    "/openai/models/refresh",
-    describeRoute({
-      operationId: "provider.openai.modelAvailability.refresh",
-      summary: "Refresh ChatGPT OAuth model availability",
-      responses: {
-        200: {
-          description: "Refreshed account-scoped ChatGPT model availability",
-          content: {
-            "application/json": { schema: resolver(openAIModelAvailabilityResponseSchema) },
-          },
-        },
-        ...routeErrors(403),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    async (c) =>
-      runSdkRoute(c, async () => {
-        const directoryResult = resolveBootstrapDirectory(c)
-        if (!directoryResult.ok) return directoryResult.response
-
-        return c.json(
-          await openAICodexAccountService.refreshModelAvailability(directoryResult.directory),
-        )
-      }),
-  )
-  .get(
-    "/openai/usage",
-    describeRoute({
-      operationId: "provider.openai.usage.get",
-      summary: "Read ChatGPT OAuth usage limits",
-      responses: {
-        200: {
-          description: "Current ChatGPT plan and usage limits",
-          content: {
-            "application/json": { schema: resolver(openAIUsageResponseSchema) },
-          },
-        },
-        ...routeErrors(403),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    async (c) =>
-      runSdkRoute(c, async () => {
-        const directoryResult = resolveBootstrapDirectory(c)
-        if (!directoryResult.ok) return directoryResult.response
-
-        return c.json(await openAICodexAccountService.readUsage(directoryResult.directory))
-      }),
-  )
-  .post(
-    "/openai/usage/refresh",
-    describeRoute({
-      operationId: "provider.openai.usage.refresh",
-      summary: "Refresh ChatGPT OAuth usage limits",
-      responses: {
-        200: {
-          description: "Refreshed ChatGPT plan and usage limits",
-          content: {
-            "application/json": { schema: resolver(openAIUsageResponseSchema) },
-          },
-        },
-        ...routeErrors(403),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    async (c) =>
-      runSdkRoute(c, async () => {
-        const directoryResult = resolveBootstrapDirectory(c)
-        if (!directoryResult.ok) return directoryResult.response
-
-        return c.json(await openAICodexAccountService.readUsage(directoryResult.directory, true))
-      }),
-  )
-  .post(
-    "/:providerID/oauth/authorize",
-    describeRoute({
-      operationId: "provider.oauth.authorize",
-      summary: "Start provider OAuth",
-      responses: {
-        200: {
-          description: "Provider auth initiation payload",
-          content: {
-            "application/json": {
-              schema: resolver(
-                toOpenApiSchema(Schema.optional(OpenCodeProviderAuth.Authorization)),
-              ),
+export function createProviderRoutes(input: { getClient: () => Promise<OpenCodeHost> } = { getClient: getOpenCodeClient }) {
+  async function getSyncedClient(directory: string) {
+    const client = await input.getClient()
+    await syncNotebookRuntimeConfig(client, directory)
+    return client
+  }
+  return new Hono()
+    .get(
+      "/",
+      describeRoute({
+        operationId: "provider.list",
+        summary: "List providers",
+        responses: {
+          200: {
+            description: "OpenCode provider list payload",
+            content: {
+              "application/json": { schema: resolver(providerListSchema) },
             },
           },
+          ...routeErrors(400, 403),
         },
-        ...routeErrors(400, 403),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    validator("param", ProviderIDParamSchema),
-    validator("json", oauthMethodRequestSchema),
-    async (c) =>
-      runSdkRoute(c, async () => {
-        const directoryResult = resolveBootstrapDirectory(c)
-        if (!directoryResult.ok) return directoryResult.response
-
-        const providerID = c.req.valid("param").providerID
-        const body = c.req.valid("json")
-        if (providerID === OPENAI_PROVIDER_ID) {
-          await traceOpenAIAuth("authorize_route_started", { methodIndex: body.method })
-        }
-        const client = await getOpenCodeClient(directoryResult.directory)
-        const result = await client.provider.oauth.authorize({
-          providerID,
-          method: body.method,
-          ...openCodeDirectoryParams(directoryResult.directory),
-        })
-        if (providerID === OPENAI_PROVIDER_ID) {
-          await traceOpenAIAuth("authorize_route_completed", {
-            methodIndex: body.method,
-            ok: result.error === undefined,
-            status: result.response?.status,
-          })
-        }
-        return respondWithSdkResult(c, result)
       }),
-  )
-  .post(
-    "/:providerID/oauth/callback",
-    describeRoute({
-      operationId: "provider.oauth.callback",
-      summary: "Complete provider OAuth callback",
-      responses: {
-        200: {
-          description: "Provider auth callback payload",
-          content: {
-            "application/json": { schema: resolver(z.boolean()) },
+      validator("query", directoryQuerySchema),
+      async (c) =>
+        runProviderRoute(async () => {
+          const directoryResult = resolveBootstrapDirectory(c)
+          if (!directoryResult.ok) return directoryResult.response
+
+          const client = await getSyncedClient(directoryResult.directory)
+          return c.json(await listProviderCatalog(client, directoryResult.directory))
+        }),
+    )
+    .get(
+      "/auth",
+      describeRoute({
+        operationId: "provider.auth",
+        summary: "List provider auth methods",
+        responses: {
+          200: {
+            description: "OpenCode provider auth method payload",
+            content: {
+              "application/json": { schema: resolver(providerAuthSchema) },
+            },
           },
+          ...routeErrors(400, 403),
         },
-        ...routeErrors(400, 403),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    validator("param", ProviderIDParamSchema),
-    validator("json", oauthCallbackRequestSchema),
-    async (c) =>
-      runSdkRoute(c, async () => {
-        const directoryResult = resolveBootstrapDirectory(c)
-        if (!directoryResult.ok) return directoryResult.response
-
-        const providerID = c.req.valid("param").providerID
-        const body = c.req.valid("json")
-        if (providerID === OPENAI_PROVIDER_ID) {
-          await traceOpenAIAuth("callback_route_started", { methodIndex: body.method })
-        }
-        const client = await getOpenCodeClient(directoryResult.directory)
-        const result = await client.provider.oauth.callback({
-          providerID,
-          method: body.method,
-          code: body.code,
-          ...openCodeDirectoryParams(directoryResult.directory),
-        })
-        if (providerID === OPENAI_PROVIDER_ID) {
-          await traceOpenAIAuth("callback_route_completed", {
-            methodIndex: body.method,
-            ok: result.error === undefined,
-            status: result.response?.status,
-          })
-        }
-        return respondWithSdkResult(c, result)
       }),
-  )
-  .post(
-    "/:providerID/oauth/cancel",
-    describeRoute({
-      operationId: "provider.oauth.cancel",
-      summary: "Cancel provider OAuth",
-      responses: {
-        200: {
-          description: "Provider auth cancellation payload",
-          content: {
-            "application/json": { schema: resolver(z.boolean()) },
+      validator("query", directoryQuerySchema),
+      async (c) =>
+        runProviderRoute(async () => {
+          const directoryResult = resolveBootstrapDirectory(c)
+          if (!directoryResult.ok) return directoryResult.response
+
+          const client = await getSyncedClient(directoryResult.directory)
+          return c.json(await listProviderAuth(client, directoryResult.directory))
+        }),
+    )
+    .get(
+      "/openai/account",
+      describeRoute({
+        operationId: "provider.openai.account.get",
+        summary: "Read the signed-in ChatGPT account email",
+        responses: {
+          200: {
+            description: "Current ChatGPT account identity",
+            content: {
+              "application/json": { schema: resolver(openAIAccountIdentityResponseSchema) },
+            },
           },
+          ...routeErrors(400, 403),
         },
-        ...routeErrors(403),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    validator("param", ProviderIDParamSchema),
-    async (c) =>
-      runSdkRoute(c, async () => {
-        const directoryResult = resolveBootstrapDirectory(c)
-        if (!directoryResult.ok) return directoryResult.response
-
-        const providerID = c.req.valid("param").providerID
-        return c.json(providerID === OPENAI_PROVIDER_ID ? cancelOpenAICodexAuthorization() : false)
       }),
-  )
+      validator("query", directoryQuerySchema),
+      async (c) =>
+        runProviderRoute(async () => {
+          const directoryResult = resolveBootstrapDirectory(c)
+          if (!directoryResult.ok) return directoryResult.response
+
+          const client = await getSyncedClient(directoryResult.directory)
+          const openAICodexAccountService = createOpenAICodexAccountClient(async () => client)
+          return c.json(await openAICodexAccountService.readIdentity(directoryResult.directory))
+        }),
+    )
+    .get(
+      "/openai/models",
+      describeRoute({
+        operationId: "provider.openai.modelAvailability.get",
+        summary: "Read ChatGPT OAuth model availability",
+        responses: {
+          200: {
+            description: "Current account-scoped ChatGPT model availability",
+            content: {
+              "application/json": { schema: resolver(openAIModelAvailabilityResponseSchema) },
+            },
+          },
+          ...routeErrors(400, 403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      async (c) =>
+        runProviderRoute(async () => {
+          const directoryResult = resolveBootstrapDirectory(c)
+          if (!directoryResult.ok) return directoryResult.response
+
+          const client = await getSyncedClient(directoryResult.directory)
+          const openAICodexAccountService = createOpenAICodexAccountClient(async () => client)
+          return c.json(
+            await openAICodexAccountService.readModelAvailability(directoryResult.directory),
+          )
+        }),
+    )
+    .post(
+      "/openai/models/refresh",
+      describeRoute({
+        operationId: "provider.openai.modelAvailability.refresh",
+        summary: "Refresh ChatGPT OAuth model availability",
+        responses: {
+          200: {
+            description: "Refreshed account-scoped ChatGPT model availability",
+            content: {
+              "application/json": { schema: resolver(openAIModelAvailabilityResponseSchema) },
+            },
+          },
+          ...routeErrors(400, 403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      async (c) =>
+        runProviderRoute(async () => {
+          const directoryResult = resolveBootstrapDirectory(c)
+          if (!directoryResult.ok) return directoryResult.response
+
+          const client = await getSyncedClient(directoryResult.directory)
+          const openAICodexAccountService = createOpenAICodexAccountClient(async () => client)
+          return c.json(
+            await openAICodexAccountService.refreshModelAvailability(directoryResult.directory),
+          )
+        }),
+    )
+    .get(
+      "/openai/usage",
+      describeRoute({
+        operationId: "provider.openai.usage.get",
+        summary: "Read ChatGPT OAuth usage limits",
+        responses: {
+          200: {
+            description: "Current ChatGPT plan and usage limits",
+            content: {
+              "application/json": { schema: resolver(openAIUsageResponseSchema) },
+            },
+          },
+          ...routeErrors(400, 403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      async (c) =>
+        runProviderRoute(async () => {
+          const directoryResult = resolveBootstrapDirectory(c)
+          if (!directoryResult.ok) return directoryResult.response
+
+          const client = await getSyncedClient(directoryResult.directory)
+          const openAICodexAccountService = createOpenAICodexAccountClient(async () => client)
+          return c.json(await openAICodexAccountService.readUsage(directoryResult.directory))
+        }),
+    )
+    .post(
+      "/openai/usage/refresh",
+      describeRoute({
+        operationId: "provider.openai.usage.refresh",
+        summary: "Refresh ChatGPT OAuth usage limits",
+        responses: {
+          200: {
+            description: "Refreshed ChatGPT plan and usage limits",
+            content: {
+              "application/json": { schema: resolver(openAIUsageResponseSchema) },
+            },
+          },
+          ...routeErrors(400, 403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      async (c) =>
+        runProviderRoute(async () => {
+          const directoryResult = resolveBootstrapDirectory(c)
+          if (!directoryResult.ok) return directoryResult.response
+
+          const client = await getSyncedClient(directoryResult.directory)
+          const openAICodexAccountService = createOpenAICodexAccountClient(async () => client)
+          return c.json(await openAICodexAccountService.readUsage(directoryResult.directory, true))
+        }),
+    )
+    .post(
+      "/:providerID/oauth/authorize",
+      describeRoute({
+        operationId: "provider.oauth.authorize",
+        summary: "Start provider OAuth",
+        responses: {
+          200: {
+            description: "Provider auth initiation payload",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  providerAuthorizationSchema,
+                ),
+              },
+            },
+          },
+          ...routeErrors(400, 403, 404),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", ProviderIDParamSchema),
+      validator("json", providerOAuthStartSchema),
+      async (c) =>
+        runProviderRoute(async () => {
+          const directoryResult = resolveBootstrapDirectory(c)
+          if (!directoryResult.ok) return directoryResult.response
+
+          const providerID = c.req.valid("param").providerID
+          const body = c.req.valid("json")
+          const client = await getSyncedClient(directoryResult.directory)
+          return c.json(await startProviderOAuth(client, directoryResult.directory, providerID, body))
+        }),
+    )
+    .post(
+      "/:providerID/oauth/callback",
+      describeRoute({
+        operationId: "provider.oauth.callback",
+        summary: "Complete provider OAuth callback",
+        responses: {
+          200: {
+            description: "Provider auth callback payload",
+            content: {
+              "application/json": { schema: resolver(z.boolean()) },
+            },
+          },
+          ...routeErrors(400, 403, 404),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", ProviderIDParamSchema),
+      validator("json", providerOAuthAttemptSchema),
+      async (c) =>
+        runProviderRoute(async () => {
+          const directoryResult = resolveBootstrapDirectory(c)
+          if (!directoryResult.ok) return directoryResult.response
+
+          const providerID = c.req.valid("param").providerID
+          const body = c.req.valid("json")
+          const client = await getSyncedClient(directoryResult.directory)
+          return c.json(await completeProviderOAuth(client, directoryResult.directory, providerID, body, c.req.raw.signal))
+        }),
+    )
+    .post(
+      "/:providerID/oauth/cancel",
+      describeRoute({
+        operationId: "provider.oauth.cancel",
+        summary: "Cancel provider OAuth",
+        responses: {
+          200: {
+            description: "Provider auth cancellation payload",
+            content: {
+              "application/json": { schema: resolver(z.boolean()) },
+            },
+          },
+          ...routeErrors(400, 403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", ProviderIDParamSchema),
+      validator("json", providerOAuthAttemptSchema),
+      async (c) =>
+        runProviderRoute(async () => {
+          const directoryResult = resolveBootstrapDirectory(c)
+          if (!directoryResult.ok) return directoryResult.response
+
+          const providerID = c.req.valid("param").providerID
+          const client = await getSyncedClient(directoryResult.directory)
+          return c.json(await cancelProviderOAuth(client, directoryResult.directory, providerID, c.req.valid("json").attemptID))
+        }),
+    )
+
+}
+
+export const ProviderRoutes = createProviderRoutes()

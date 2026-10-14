@@ -1,8 +1,7 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { Schema } from "effect"
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
-import { toOpenApiSchema } from "../http/effect-schema"
+import { projectSchema, projectUpdateSchema, toBuddyProject } from "../project/contract"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 import {
   directoryQuerySchema,
   ProjectIDParamSchema,
@@ -11,8 +10,6 @@ import {
   withDirectoryRoute,
 } from "../http"
 import { updateProjectFromPayload } from "../project"
-
-const projectUpdateBodySchema = toOpenApiSchema(OpenCodeProject.UpdatePayload)
 
 export const ProjectRoutes = new Hono()
   .get(
@@ -25,13 +22,13 @@ export const ProjectRoutes = new Hono()
           description: "OpenCode project list",
           content: {
             "application/json": {
-              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeProject.Info))),
+              schema: resolver(projectSchema.array()),
             },
           },
         },
       },
     }),
-    async (c) => c.json(await OpenCodeProject.list()),
+    async (c) => runSdkRoute(c, async () => c.json((await (await getOpenCodeClient()).project.list()).map(toBuddyProject))),
   )
   .get(
     "/current",
@@ -42,7 +39,7 @@ export const ProjectRoutes = new Hono()
         200: {
           description: "Current project",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeProject.Info)) },
+            "application/json": { schema: resolver(projectSchema) },
           },
         },
         ...routeErrors(403),
@@ -52,8 +49,11 @@ export const ProjectRoutes = new Hono()
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runSdkRoute(c, async () => {
-          const { project } = await OpenCodeProject.fromDirectory(context.directory)
-          return c.json(project)
+          const client = await getOpenCodeClient()
+          const location = await client.location.get({ location: { directory: context.directory } })
+          const project = (await client.project.list()).find((entry) => entry.id === location.project.id)
+          if (!project) return c.json({ error: "Project not found" }, 404)
+          return c.json({ ...toBuddyProject(project), worktree: location.project.canonical })
         }),
       ),
   )
@@ -66,14 +66,14 @@ export const ProjectRoutes = new Hono()
         200: {
           description: "Updated project",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeProject.Info)) },
+            "application/json": { schema: resolver(projectSchema) },
           },
         },
         ...routeErrors(400, 404),
       },
     }),
     validator("param", ProjectIDParamSchema),
-    validator("json", projectUpdateBodySchema),
+    validator("json", projectUpdateSchema),
     async (c) => {
       const updateResult = await updateProjectFromPayload({
         projectID: c.req.valid("param").projectID,

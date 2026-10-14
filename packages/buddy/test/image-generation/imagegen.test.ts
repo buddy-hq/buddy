@@ -1,10 +1,8 @@
 import { createHash } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { afterEach, describe, expect, test } from "bun:test"
-import type { MessageV2 } from "@buddy/opencode-adapter/message"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { MessageID, ModelID, PartID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
+import { describe, expect, test } from "bun:test"
+import type { MessageWithParts } from "@buddy/transcript-contract/message"
 import { imageGenerationFeature } from "../../src/learning/features/image-generation/feature"
 import { createCodexImagesClient } from "../../src/learning/features/image-generation/service/codex-images"
 import {
@@ -29,21 +27,17 @@ import {
 import { tmpdir } from "../helpers/tmpdir"
 import { requireString } from "../helpers/parse"
 
-const SESSION_ID = SessionID.make("ses_imagegen")
-const OTHER_SESSION_ID = SessionID.make("ses_imagegen_other")
-const SYMLINK_SESSION_ID = SessionID.make("ses_imagegen_symlink")
-const AGGREGATE_SESSION_ID = SessionID.make("ses_imagegen_aggregate")
-const USER_MESSAGE_ID = MessageID.make("msg_imagegen_user")
-const ASSISTANT_MESSAGE_ID = MessageID.make("msg_imagegen_assistant")
+const SESSION_ID = "ses_imagegen"
+const OTHER_SESSION_ID = "ses_imagegen_other"
+const SYMLINK_SESSION_ID = "ses_imagegen_symlink"
+const AGGREGATE_SESSION_ID = "ses_imagegen_aggregate"
+const USER_MESSAGE_ID = "msg_imagegen_user"
+const ASSISTANT_MESSAGE_ID = "msg_imagegen_assistant"
 const IMAGE_A = "data:image/png;base64,QUFB"
 const IMAGE_B = "data:image/png;base64,QkJC"
 const GENERATED_BASE64 = "R0VORVJBVEVE"
 
-afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
-})
-
-function userMessageWithImage(sessionID: SessionID = SESSION_ID): MessageV2.WithParts {
+function userMessageWithImage(sessionID: string = SESSION_ID): MessageWithParts {
   return {
     info: {
       id: USER_MESSAGE_ID,
@@ -52,13 +46,13 @@ function userMessageWithImage(sessionID: SessionID = SESSION_ID): MessageV2.With
       time: { created: 1 },
       agent: "buddy",
       model: {
-        providerID: ProviderID.openai,
-        modelID: ModelID.make("gpt-5.5"),
+        providerID: "openai",
+        modelID: "gpt-5.5",
       },
     },
     parts: [
       {
-        id: PartID.make("prt_imagegen_user_file"),
+        id: "prt_imagegen_user_file",
         sessionID,
         messageID: USER_MESSAGE_ID,
         type: "file",
@@ -69,7 +63,7 @@ function userMessageWithImage(sessionID: SessionID = SESSION_ID): MessageV2.With
   }
 }
 
-function assistantMessageWithGeneratedImage(): MessageV2.WithParts {
+function assistantMessageWithGeneratedImage(): MessageWithParts {
   return {
     info: {
       id: ASSISTANT_MESSAGE_ID,
@@ -77,8 +71,8 @@ function assistantMessageWithGeneratedImage(): MessageV2.WithParts {
       role: "assistant",
       time: { created: 2, completed: 3 },
       parentID: USER_MESSAGE_ID,
-      modelID: ModelID.make("gpt-5.5"),
-      providerID: ProviderID.openai,
+      modelID: "gpt-5.5",
+      providerID: "openai",
       mode: "build",
       agent: "buddy",
       path: { cwd: "/tmp", root: "/tmp" },
@@ -92,7 +86,7 @@ function assistantMessageWithGeneratedImage(): MessageV2.WithParts {
     },
     parts: [
       {
-        id: PartID.make("prt_imagegen_tool"),
+        id: "prt_imagegen_tool",
         sessionID: SESSION_ID,
         messageID: ASSISTANT_MESSAGE_ID,
         type: "tool",
@@ -107,7 +101,7 @@ function assistantMessageWithGeneratedImage(): MessageV2.WithParts {
           time: { start: 2, end: 3 },
           attachments: [
             {
-              id: PartID.make("prt_imagegen_tool_file"),
+              id: "prt_imagegen_tool_file",
               sessionID: SESSION_ID,
               messageID: ASSISTANT_MESSAGE_ID,
               type: "file",
@@ -126,11 +120,11 @@ function assistantMessageWithSavedImage(input: {
   partID: string
   savedPath: string
   created: number
-  sessionID?: SessionID
+  sessionID?: string
   callID?: string
   provenance?: GeneratedImageProvenance
-}): MessageV2.WithParts {
-  const messageID = MessageID.make(input.messageID)
+}): MessageWithParts {
+  const messageID = input.messageID
   const sessionID = input.sessionID ?? SESSION_ID
   const callID = input.callID ?? `call_${input.partID}`
   return {
@@ -140,8 +134,8 @@ function assistantMessageWithSavedImage(input: {
       role: "assistant",
       time: { created: input.created, completed: input.created + 1 },
       parentID: USER_MESSAGE_ID,
-      modelID: ModelID.make("gpt-5.5"),
-      providerID: ProviderID.openai,
+      modelID: "gpt-5.5",
+      providerID: "openai",
       mode: "build",
       agent: "buddy",
       path: { cwd: "/tmp", root: "/tmp" },
@@ -155,7 +149,7 @@ function assistantMessageWithSavedImage(input: {
     },
     parts: [
       {
-        id: PartID.make(input.partID),
+        id: input.partID,
         sessionID,
         messageID,
         type: "tool",
@@ -179,7 +173,7 @@ function assistantMessageWithSavedImage(input: {
 }
 
 async function completedGeneratedImageFixture(input: {
-  sessionID: SessionID
+  sessionID: string
   callID: string
   label: string
   bytes?: string
@@ -262,18 +256,14 @@ describe("imagegen feature tool", () => {
     const lexicalExternalImagePath = path.resolve(externalImagePath)
     const lexicalExternalDirectory = path.dirname(lexicalExternalImagePath)
 
-    const authorizedPaths = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () =>
-        authorizeReferencedImagePaths([workspaceImagePath, externalImagePath], {
+    const authorizedPaths = await authorizeReferencedImagePaths([workspaceImagePath, externalImagePath], {
           directory: project.path,
           messages: [],
           sessionID: SESSION_ID,
           ask: async (input) => {
             permissionRequests.push(input)
           },
-        }),
-    })
+        })
 
     expect(authorizedPaths).toEqual([
       await fs.realpath(workspaceImagePath),
@@ -314,18 +304,14 @@ describe("imagegen feature tool", () => {
     })
     const permissionRequests: unknown[] = []
 
-    const authorizedPaths = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () =>
-        authorizeReferencedImagePaths([generated.image.path], {
+    const authorizedPaths = await authorizeReferencedImagePaths([generated.image.path], {
           directory: project.path,
           messages: [generated.message],
           sessionID: SESSION_ID,
           ask: async (input) => {
             permissionRequests.push(input)
           },
-        }),
-    })
+        })
 
     expect(authorizedPaths).toEqual([await fs.realpath(generated.image.path)])
     expect(permissionRequests).toEqual([])
@@ -342,18 +328,14 @@ describe("imagegen feature tool", () => {
     const permissionRequests: Array<{ permission: string }> = []
     await Bun.write(unrecordedPath, "unrecorded")
 
-    await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () =>
-        authorizeReferencedImagePaths([unrecordedPath], {
+    await authorizeReferencedImagePaths([unrecordedPath], {
           directory: project.path,
           messages: [generated.message],
           sessionID: SESSION_ID,
           ask: async (input) => {
             permissionRequests.push(input)
           },
-        }),
-    })
+        })
 
     expectOnlyExternalDirectoryRequests(permissionRequests)
   })
@@ -367,18 +349,14 @@ describe("imagegen feature tool", () => {
     })
     const permissionRequests: Array<{ permission: string }> = []
 
-    await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () =>
-        authorizeReferencedImagePaths([generated.image.path], {
+    await authorizeReferencedImagePaths([generated.image.path], {
           directory: project.path,
           messages: [generated.message],
           sessionID: SESSION_ID,
           ask: async (input) => {
             permissionRequests.push(input)
           },
-        }),
-    })
+        })
 
     expectOnlyExternalDirectoryRequests(permissionRequests)
   })
@@ -409,18 +387,14 @@ describe("imagegen feature tool", () => {
     })
     const permissionRequests: Array<{ permission: string }> = []
 
-    await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () =>
-        authorizeReferencedImagePaths([forgedPath], {
+    await authorizeReferencedImagePaths([forgedPath], {
           directory: project.path,
           messages: [forgedMessage],
           sessionID: SESSION_ID,
           ask: async (input) => {
             permissionRequests.push(input)
           },
-        }),
-    })
+        })
 
     expectOnlyExternalDirectoryRequests(permissionRequests)
   })
@@ -447,18 +421,14 @@ describe("imagegen feature tool", () => {
     )
     const permissionRequests: Array<{ permission: string }> = []
 
-    await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () =>
-        authorizeReferencedImagePaths([generated.image.path], {
+    await authorizeReferencedImagePaths([generated.image.path], {
           directory: project.path,
           messages: [generated.message],
           sessionID: SYMLINK_SESSION_ID,
           ask: async (input) => {
             permissionRequests.push(input)
           },
-        }),
-    })
+        })
 
     expect(permissionRequests.map((request) => request.permission)).toEqual([
       "external_directory",

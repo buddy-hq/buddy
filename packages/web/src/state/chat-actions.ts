@@ -26,7 +26,6 @@ import type {
   MessagePart,
   MessageWithParts,
   McpStatusMap,
-  PermissionRequest,
   QuestionRequest,
   ProviderCatalogState,
   ProviderInfo,
@@ -72,7 +71,7 @@ import {
   isSessionStatusActive,
   normalizeSessionStatusValue,
 } from "./session-status"
-import type { PermissionReply } from "./permission-types"
+import { permissionReplyInput, type PermissionReply, type PermissionRequest } from "./permission-types"
 import { appQueryClient } from "./query-client"
 import {
   invalidateObsidianFileCaches,
@@ -1310,17 +1309,24 @@ export async function prefetchSessionMessages(directory: string, sessionID: stri
   return loadTranscriptMessages(directory, sessionID)
 }
 
+const permissionLoadsByDirectory = new Map<string, number>()
+
 export async function loadPermissions(directory: string): Promise<PermissionRequest[]> {
   const store = useChatStore.getState()
+  const generation = (permissionLoadsByDirectory.get(directory) ?? 0) + 1
+  permissionLoadsByDirectory.set(directory, generation)
   try {
-    const requests: PermissionRequest[] = requireBuddyData(
-      await getBuddyClient(directory).permission.list(),
+    const sessionID = store.directories[directory]?.sessionID
+    const requests: PermissionRequest[] = sessionID === undefined ? [] : requireBuddyData(
+      await getBuddyClient(directory).permission.list({ sessionID }),
     )
+    if (permissionLoadsByDirectory.get(directory) !== generation || useChatStore.getState().directories[directory]?.sessionID !== sessionID) return useChatStore.getState().directories[directory]?.pendingPermissions ?? []
     store.setPendingPermissions(directory, requests)
     syncPendingInputProtection(directory)
     store.setDirectoryError(directory, undefined)
     return requests
   } catch (error) {
+    if (permissionLoadsByDirectory.get(directory) !== generation) return useChatStore.getState().directories[directory]?.pendingPermissions ?? []
     store.setDirectoryError(directory, stringifyError(error))
     throw error
   }
@@ -1918,23 +1924,27 @@ export async function sendCommand(
       input?.variant ? { variant: input.variant } : undefined,
     )
 
-    const postCommand = async (targetSessionID: string): Promise<SessionMutationResponse> =>
-      readSessionMutationResponse(
-        requireBuddyData(
-          await getBuddyClient(directory).session.command({
-            sessionID: targetSessionID,
-            body: commandBody,
-          }),
-        ),
+    const runCommand = async (targetSessionID: string) => {
+      const response = requireBuddyData(
+        await getBuddyClient(directory).session.command({
+          sessionID: targetSessionID,
+          body: commandBody,
+        }),
       )
+      if ("info" in response) {
+        promoteSessionMutation({
+          directory,
+          sessionID: targetSessionID,
+          response: readSessionMutationResponse(response),
+        })
+        return
+      }
+      store.applySessionUpdated(directory, response)
+      store.applySessionStatus(directory, targetSessionID, IDLE_SESSION_STATUS)
+    }
 
     try {
-      const response = await postCommand(resolvedSessionID)
-      promoteSessionMutation({
-        directory,
-        sessionID: resolvedSessionID,
-        response,
-      })
+      await runCommand(resolvedSessionID)
     } catch (error) {
       const shouldRecover = await shouldRecoverMissingSession(
         directory,
@@ -1950,12 +1960,7 @@ export async function sendCommand(
       const recoveredSessionID = await resolveSessionForSend(directory)
       sessionID = recoveredSessionID
       store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
-      const response = await postCommand(recoveredSessionID)
-      promoteSessionMutation({
-        directory,
-        sessionID: recoveredSessionID,
-        response,
-      })
+      await runCommand(recoveredSessionID)
       void loadSessions(directory).catch(() => undefined)
     }
 
@@ -2404,15 +2409,17 @@ export async function replyPermission(input: {
   reply: PermissionReply
   message?: string
 }) {
+  const owner = useChatStore.getState().directories[input.directory]?.pendingPermissions.find((request) => request.id === input.requestID)?.sessionID
   const result = requireBuddyData(
     await getBuddyClient(input.directory).permission.reply({
       requestID: input.requestID,
-      reply: input.reply,
-      message: input.message,
+      sessionID: owner,
+      ...permissionReplyInput(input.reply, input.message),
     }),
   )
   if (result) {
     useChatStore.getState().applyPermissionReplied(input.directory, input.requestID)
+    await loadPermissions(input.directory)
   }
   return result
 }

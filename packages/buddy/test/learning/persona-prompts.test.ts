@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { OPEN_CODE_GPT_SYSTEM_PROMPT } from "@buddy/opencode-adapter/system-prompt"
+import OPEN_CODE_GPT_SYSTEM_PROMPT from "../../src/learning/personas/prompts/code-system.p.md"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { BUDDY } from "../../src/learning/personas/buddy"
 import { CODE } from "../../src/learning/personas/code"

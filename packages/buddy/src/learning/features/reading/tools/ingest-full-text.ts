@@ -3,9 +3,9 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 import matter from "gray-matter"
 import z from "zod"
-import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
-import type { MessageV2 } from "@buddy/opencode-adapter/message"
-import { Provider } from "@buddy/opencode-adapter/provider"
+import type { MessageWithParts, Part, AssistantMessage } from "@buddy/transcript-contract/message"
+import { getOpenCodeClient } from "../../../../opencode-runtime/client"
+
 import { readProjectConfig } from "../../../../config/runtime/project-config.js"
 import { RESOURCE_PACK_STATUS_READY, estimateTokenCountFromText } from "../../../../resource-packs"
 import {
@@ -26,6 +26,7 @@ import { resolveConciseResponses } from "../../../shared/concise-responses"
 // smaller input window than context, and some publish very large output limits;
 // output limit is a generation ceiling, not the amount of post-ingest prompt
 // space Buddy needs to reserve for continued reading work.
+
 const POST_FULL_TEXT_INGEST_RESERVE_RATIO = 0.25
 
 // This is a tool-local safety ceiling. It bounds how much model capacity a
@@ -126,7 +127,7 @@ function resourceSourceBasenames(resource: ResourceObjectResolved): Set<string> 
   )
 }
 
-function nativePdfSourcePathFromMessagePart(part: MessageV2.Part): string | undefined {
+function nativePdfSourcePathFromMessagePart(part: Part): string | undefined {
   if (part.type !== "text") return undefined
   const metadataContainer = parseTJsonObject(part.metadata)
   if (metadataContainer === undefined) return undefined
@@ -146,7 +147,7 @@ function nativePdfSourcePathFromMessagePart(part: MessageV2.Part): string | unde
 function findNativePdfDelivery(input: {
   directory: string
   resource: ResourceObjectResolved
-  messages: MessageV2.WithParts[]
+  messages: MessageWithParts[]
 }): { sourcePath: string } | undefined {
   if (input.resource.format !== "pdf") return undefined
 
@@ -207,7 +208,7 @@ function normalizeActiveModel<TValue>(
   }
 }
 
-function assistantTokenTotal(message: MessageV2.Assistant) {
+function assistantTokenTotal(message: AssistantMessage) {
   return (
     message.tokens.total ??
     message.tokens.input +
@@ -218,7 +219,7 @@ function assistantTokenTotal(message: MessageV2.Assistant) {
   )
 }
 
-function lastAssistantTokenTotal(messages: MessageV2.WithParts[]) {
+function lastAssistantTokenTotal(messages: MessageWithParts[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
     if (message.info.role !== "assistant") continue
@@ -230,7 +231,7 @@ function lastAssistantTokenTotal(messages: MessageV2.WithParts[]) {
   return 0
 }
 
-function extractMessageText(message: MessageV2.WithParts) {
+function extractMessageText(message: MessageWithParts) {
   const segments: string[] = []
 
   if (message.info.role === "user") {
@@ -252,17 +253,16 @@ function extractMessageText(message: MessageV2.WithParts) {
           segments.push(JSON.stringify(part.state.input))
         }
         break
-      case "subtask":
-        segments.push(part.prompt)
-        segments.push(part.description)
-        break
-      case "agent":
+            case "agent":
         segments.push(part.name)
         if (part.source?.value) segments.push(part.source.value)
         break
       case "file":
         if (part.filename) segments.push(part.filename)
-        if (part.source?.text?.value) segments.push(part.source.text.value)
+        const source = parseTJsonObject(part.source)
+        const sourceText = source ? parseTJsonObject(source.text) : undefined
+        const sourceValue = sourceText ? parseTString(sourceText.value) : undefined
+        if (sourceValue) segments.push(sourceValue)
         break
       default:
         break
@@ -272,7 +272,7 @@ function extractMessageText(message: MessageV2.WithParts) {
   return segments.join("\n")
 }
 
-function estimateMessageHistoryTokens(messages: MessageV2.WithParts[]) {
+function estimateMessageHistoryTokens(messages: MessageWithParts[]) {
   const serialized = messages.map((message) => extractMessageText(message)).join("\n\n")
   return estimateTokenCountFromText(serialized)
 }
@@ -284,23 +284,24 @@ function clampPostFullTextIngestReserve(value: number) {
   )
 }
 
-async function resolveActiveModel<TExtra>(messages: MessageV2.WithParts[], extra: TExtra) {
+async function resolveActiveModel<TExtra>(directory: string, messages: MessageWithParts[], extra: TExtra) {
   const fromExtra = normalizeActiveModel(extra)
   if (fromExtra) {
     return fromExtra
   }
 
+  const models = await (await getOpenCodeClient())
+    .model.list({ location: { directory } })
+    .then((result) => result.data)
+    .catch(() => [])
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
     if (message.info.role !== "user") continue
-
-    const model = await Provider.getModel(
-      ProviderID.make(message.info.model.providerID),
-      ModelID.make(message.info.model.modelID),
-    ).catch(() => undefined)
-    if (model) {
-      return normalizeActiveModel(model)
-    }
+    const modelRef = message.info.model
+    const model = models.find((candidate) =>
+      candidate.providerID === modelRef.providerID && candidate.id === modelRef.modelID,
+    )
+    if (model) return normalizeActiveModel(model)
   }
 
   return undefined
@@ -308,7 +309,7 @@ async function resolveActiveModel<TExtra>(messages: MessageV2.WithParts[], extra
 
 function resolveContextBudget(input: {
   model: z.infer<typeof ActiveModelSchema>
-  messages: MessageV2.WithParts[]
+  messages: MessageWithParts[]
 }) {
   const inputWindow = Math.min(
     input.model.limit.input ?? input.model.limit.context,
@@ -474,7 +475,7 @@ export const ingestFullTextTool = createBuddyTool({
       }
     }
 
-    const model = await resolveActiveModel(ctx.messages, ctx.extra?.model)
+    const model = await resolveActiveModel(ctx.directory, ctx.messages, ctx.extra?.model)
     if (!model) {
       throw new Error("Could not resolve the active model for full-text ingestion.")
     }

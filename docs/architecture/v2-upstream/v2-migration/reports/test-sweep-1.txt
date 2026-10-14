@@ -1,0 +1,462 @@
+bun test v1.3.13 (bf2e2cec)
+
+test/learning/concise-response-chat-state.test.ts:
+2274 |   readonly data?: { readonly message?: string }
+2275 | }
+2276 | 
+2277 | /** Throw declared error bodies as Errors. The body's fields stay on the error, so narrowing on `_tag` or `name` still works. */
+2278 | function declared(body: DeclaredErrorBody) {
+2279 |   const error = Object.assign(new Error(body.message ?? body.data?.message), body)
+                                         ^
+AgentNotFoundError: Agent not found: buddy
+    _tag: "AgentNotFoundError",
+ agentID: "buddy",
+
+      at declared (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/client/src/promise/generated/client.ts:2279:35)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/client/src/promise/generated/client.ts:342:13)
+[opencode] failed to load plugin {
+  "plugin.id": "buddy.catalog",
+} {
+  _id: "Cause",
+  failures: [
+    {
+      _tag: "Die",
+      defect: ENOENT: no such file or directory, realpath '/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-test-hHXe77'
+    path: "/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-test-hHXe77",
+ syscall: "realpath",
+   errno: -2,
+    code: "ENOENT"
+
+      at canonicalizeRuntimeConfigDirectory (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/config/store/directories.ts:7:37)
+      at registerNotebookConfig (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/config/runtime/notebook-config-plugin.ts:42:21)
+      at setup (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/opencode-runtime/plugins/buddy-runtime-plugin.ts:79:43)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/plugin/src/promise/adapter.ts:607:55)
+      at ~effect/Utils/internal (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/Utils.js:85:16)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:742:3)
+      at ~effect/Effect/evaluate (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:777:22)
+      at runLoop (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:462:98)
+      at evaluate (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:422:23)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:781:15)
+,
+    }
+  ],
+}
+(fail) concise response chat state > preserves a flexible chat across an accepted command [539.24ms]
+2274 |   readonly data?: { readonly message?: string }
+2275 | }
+2276 | 
+2277 | /** Throw declared error bodies as Errors. The body's fields stay on the error, so narrowing on `_tag` or `name` still works. */
+2278 | function declared(body: DeclaredErrorBody) {
+2279 |   const error = Object.assign(new Error(body.message ?? body.data?.message), body)
+                                         ^
+AgentNotFoundError: Agent not found: buddy
+    _tag: "AgentNotFoundError",
+ agentID: "buddy",
+
+      at declared (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/client/src/promise/generated/client.ts:2279:35)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/client/src/promise/generated/client.ts:342:13)
+(fail) concise response chat state > advances the applied setting only after the prompt is accepted [405.89ms]
+
+test/learning/learner-routes.test.ts:
+<-- GET /api/learner/memory/digest?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-test-ARp4V4
+--> GET /api/learner/memory/digest?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-test-ARp4V4 [32m200[0m 2ms
+<-- GET /api/learner/memory/mem_01M4D1HA3CG1R7J3SRJCH628Q2/sources?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-test-cIZy9q
+--> GET /api/learner/memory/mem_01M4D1HA3CG1R7J3SRJCH628Q2/sources?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-test-cIZy9q [32m200[0m 2ms
+<-- POST /api/learner/memory/index/rebuild?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-test-X9gf4t
+--> POST /api/learner/memory/index/rebuild?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-test-X9gf4t [32m200[0m 3ms
+<-- GET /api/learner/memory/pipeline/diagnostics?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-test-QiNYVj
+--> GET /api/learner/memory/pipeline/diagnostics?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-test-QiNYVj [32m200[0m 5ms
+
+test/learning/bench-routes.test.ts:
+<-- POST /api/bench/client-actions/oversized-capture/complete
+--> POST /api/bench/client-actions/oversized-capture/complete [33m413[0m 7ms
+
+test/learning/ingest-full-text-plugin.test.ts:
+[opencode] failed to capture snapshot {
+  _tag: "Snapshot.Error",
+  operation: "capture",
+  message: "Location is outside the project",
+}
+[opencode] failed to capture snapshot {
+  _tag: "Snapshot.Error",
+  operation: "capture",
+  message: "Location is outside the project",
+}
+[opencode] failed to capture snapshot {
+  _tag: "Snapshot.Error",
+  operation: "capture",
+  message: "Location is outside the project",
+}
+[opencode] failed to capture snapshot {
+  _tag: "Snapshot.Error",
+  operation: "capture",
+  message: "Location is outside the project",
+}
+
+test/learning/prompt-resource-references.test.ts:
+[opencode] failed to load plugin {
+  "plugin.id": "buddy.catalog",
+} {
+  _id: "Cause",
+  failures: [
+    {
+      _tag: "Die",
+      defect: ENOENT: no such file or directory, realpath '/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-test-kPtHRT'
+    path: "/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-test-kPtHRT",
+ syscall: "realpath",
+   errno: -2,
+    code: "ENOENT"
+
+      at canonicalizeRuntimeConfigDirectory (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/config/store/directories.ts:7:37)
+      at registerNotebookConfig (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/config/runtime/notebook-config-plugin.ts:42:21)
+      at setup (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/opencode-runtime/plugins/buddy-runtime-plugin.ts:79:43)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/plugin/src/promise/adapter.ts:607:55)
+      at ~effect/Utils/internal (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/Utils.js:85:16)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:742:3)
+      at ~effect/Effect/evaluate (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:777:22)
+      at runLoop (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:462:98)
+      at evaluate (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:422:23)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:781:15)
+,
+    }
+  ],
+}
+[opencode] failed to load plugin {
+  "plugin.id": "buddy.catalog",
+} {
+  _id: "Cause",
+  failures: [
+    {
+      _tag: "Die",
+      defect: ENOENT: no such file or directory, realpath '/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-test-uWtTSk'
+    path: "/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-test-uWtTSk",
+ syscall: "realpath",
+   errno: -2,
+    code: "ENOENT"
+
+      at canonicalizeRuntimeConfigDirectory (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/config/store/directories.ts:7:37)
+      at registerNotebookConfig (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/config/runtime/notebook-config-plugin.ts:42:21)
+      at setup (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/opencode-runtime/plugins/buddy-runtime-plugin.ts:79:43)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/plugin/src/promise/adapter.ts:607:55)
+      at ~effect/Utils/internal (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/Utils.js:85:16)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:742:3)
+      at ~effect/Effect/evaluate (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:777:22)
+      at runLoop (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:462:98)
+      at evaluate (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:422:23)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:781:15)
+,
+    }
+  ],
+}
+
+test/learning/experimental-feature-gating.test.ts:
+157 |     )
+158 |     expect(sessionRuntime.access.subagents[LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY]).toBeUndefined()
+159 |     expect(
+160 |       PermissionNext.evaluate("task", LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY, sessionPermission)
+161 |         .action,
+162 |     ).toBe("deny")
+            ^
+error: expect(received).toBe(expected)
+
+Expected: "deny"
+Received: "ask"
+
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/test/learning/experimental-feature-gating.test.ts:162:7)
+(fail) experimental feature gating > memory consolidation stays internal when memory is enabled [1.82ms]
+<-- GET /api/learner/memory/settings
+--> GET /api/learner/memory/settings [33m403[0m 0ms
+<-- PUT /api/global/experimental-features/learner_memory
+--> PUT /api/global/experimental-features/learner_memory [32m200[0m 1ms
+<-- GET /api/learner/memory/settings
+--> GET /api/learner/memory/settings [32m200[0m 1ms
+<-- PUT /api/global/experimental-features/learner_memory
+--> PUT /api/global/experimental-features/learner_memory [32m200[0m 0ms
+<-- GET /api/learner/memory/settings
+--> GET /api/learner/memory/settings [33m403[0m 0ms
+<-- PUT /api/global/experimental-features/learner_memory
+--> PUT /api/global/experimental-features/learner_memory [32m200[0m 0ms
+
+test/learning/model-runtime-context.test.ts:
+[opencode] failed to load plugin {
+  "plugin.id": "buddy.catalog",
+} {
+  _id: "Cause",
+  failures: [
+    {
+      _tag: "Die",
+      defect: ENOENT: no such file or directory, realpath '/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-test-0z2K0F'
+    path: "/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-test-0z2K0F",
+ syscall: "realpath",
+   errno: -2,
+    code: "ENOENT"
+
+      at canonicalizeRuntimeConfigDirectory (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/config/store/directories.ts:7:37)
+      at registerNotebookConfig (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/config/runtime/notebook-config-plugin.ts:42:21)
+      at setup (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/opencode-runtime/plugins/buddy-runtime-plugin.ts:79:43)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/plugin/src/promise/adapter.ts:607:55)
+      at ~effect/Utils/internal (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/Utils.js:85:16)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:742:3)
+      at ~effect/Effect/evaluate (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:777:22)
+      at runLoop (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:462:98)
+      at evaluate (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:422:23)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:781:15)
+,
+    }
+  ],
+}
+
+test/learning/python-calculator-runtime.test.ts:
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":60,"progressMessage":"Removing installed runtime files..."}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":85,"progressMessage":"Clearing cached runtime assets..."}
+[advanced-math-runtime] install-start {"bundleName":"buddy-advanced-math-vtest-011608d4-5982-49ef-8d9e-fbc27a74b6de-aarch64-apple-darwin.zip","checksumName":"buddy-advanced-math-vtest-011608d4-5982-49ef-8d9e-fbc27a74b6de-aarch64-apple-darwin.zip.sha256","installRoot":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-011608d4-5982-49ef-8d9e-fbc27a74b6de/aarch64-apple-darwin","localAssetRoot":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-advanced-math-local-assets-Lrc95r","source":"local"}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":15,"progressMessage":"Reading local runtime bundle..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":30,"progressMessage":"Loading runtime checksum..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":45,"progressMessage":"Validating runtime bundle..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":65,"progressMessage":"Extracting runtime files..."}
+[advanced-math-runtime] install-extracting {"bundlePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/cache/buddy/advanced-math/buddy-advanced-math-vtest-011608d4-5982-49ef-8d9e-fbc27a74b6de-aarch64-apple-darwin.zip","destinationDir":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-011608d4-5982-49ef-8d9e-fbc27a74b6de/aarch64-apple-darwin.tmp-64597-1791439197138"}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":85,"progressMessage":"Verifying runtime..."}
+[advanced-math-runtime] install-running-self-check {"executablePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-011608d4-5982-49ef-8d9e-fbc27a74b6de/aarch64-apple-darwin.tmp-64597-1791439197138/buddy-advanced-math/buddy-advanced-math"}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":95,"progressMessage":"Finalizing installation..."}
+[advanced-math-runtime] install-finished {"executablePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-011608d4-5982-49ef-8d9e-fbc27a74b6de/aarch64-apple-darwin/buddy-advanced-math/buddy-advanced-math","checksum":"5e777a32a14416c7e8af3d21fce8ea5a782e603765b877d6f170720e633a1415"}
+[advanced-math-runtime] install-start {"bundleName":"buddy-advanced-math-vtest-011608d4-5982-49ef-8d9e-fbc27a74b6de-aarch64-apple-darwin.zip","checksumName":"buddy-advanced-math-vtest-011608d4-5982-49ef-8d9e-fbc27a74b6de-aarch64-apple-darwin.zip.sha256","installRoot":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-011608d4-5982-49ef-8d9e-fbc27a74b6de/aarch64-apple-darwin","localAssetRoot":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-advanced-math-local-assets-Lrc95r","source":"local"}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":15,"progressMessage":"Reading local runtime bundle..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":30,"progressMessage":"Loading runtime checksum..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":45,"progressMessage":"Validating runtime bundle..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":65,"progressMessage":"Extracting runtime files..."}
+[advanced-math-runtime] install-extracting {"bundlePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/cache/buddy/advanced-math/buddy-advanced-math-vtest-011608d4-5982-49ef-8d9e-fbc27a74b6de-aarch64-apple-darwin.zip","destinationDir":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-011608d4-5982-49ef-8d9e-fbc27a74b6de/aarch64-apple-darwin.tmp-64597-1791439197721"}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":85,"progressMessage":"Verifying runtime..."}
+[advanced-math-runtime] install-running-self-check {"executablePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-011608d4-5982-49ef-8d9e-fbc27a74b6de/aarch64-apple-darwin.tmp-64597-1791439197721/buddy-advanced-math/buddy-advanced-math"}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":95,"progressMessage":"Finalizing installation..."}
+[advanced-math-runtime] install-finished {"executablePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-011608d4-5982-49ef-8d9e-fbc27a74b6de/aarch64-apple-darwin/buddy-advanced-math/buddy-advanced-math","checksum":"cfbf9dc12b8f1e6a5ba9ddaab311a8d38404b559cfab7d313d14c49964c30837"}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":60,"progressMessage":"Removing installed runtime files..."}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":85,"progressMessage":"Clearing cached runtime assets..."}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":60,"progressMessage":"Removing installed runtime files..."}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":85,"progressMessage":"Clearing cached runtime assets..."}
+[advanced-math-runtime] install-start {"bundleName":"buddy-advanced-math-vtest-8080ee8d-38c3-4e5f-81a7-fcf87062fa3d-aarch64-apple-darwin.zip","checksumName":"buddy-advanced-math-vtest-8080ee8d-38c3-4e5f-81a7-fcf87062fa3d-aarch64-apple-darwin.zip.sha256","installRoot":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-8080ee8d-38c3-4e5f-81a7-fcf87062fa3d/aarch64-apple-darwin","localAssetRoot":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-advanced-math-local-assets-xbVq02","source":"local"}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":15,"progressMessage":"Reading local runtime bundle..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":30,"progressMessage":"Loading runtime checksum..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":45,"progressMessage":"Validating runtime bundle..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":65,"progressMessage":"Extracting runtime files..."}
+[advanced-math-runtime] install-extracting {"bundlePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/cache/buddy/advanced-math/buddy-advanced-math-vtest-8080ee8d-38c3-4e5f-81a7-fcf87062fa3d-aarch64-apple-darwin.zip","destinationDir":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-8080ee8d-38c3-4e5f-81a7-fcf87062fa3d/aarch64-apple-darwin.tmp-64597-1791439198310"}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":85,"progressMessage":"Verifying runtime..."}
+[advanced-math-runtime] install-running-self-check {"executablePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-8080ee8d-38c3-4e5f-81a7-fcf87062fa3d/aarch64-apple-darwin.tmp-64597-1791439198310/buddy-advanced-math/buddy-advanced-math"}
+[advanced-math-runtime] install-failed {"error":"Advanced math runtime self-check failed: timed out after 50ms"}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":60,"progressMessage":"Removing installed runtime files..."}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":85,"progressMessage":"Clearing cached runtime assets..."}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":60,"progressMessage":"Removing installed runtime files..."}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":85,"progressMessage":"Clearing cached runtime assets..."}
+[advanced-math-runtime] install-start {"bundleName":"buddy-advanced-math-vtest-3f9bc1fd-d931-4d49-bbcc-05417fabb9df-aarch64-apple-darwin.zip","checksumName":"buddy-advanced-math-vtest-3f9bc1fd-d931-4d49-bbcc-05417fabb9df-aarch64-apple-darwin.zip.sha256","installRoot":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-3f9bc1fd-d931-4d49-bbcc-05417fabb9df/aarch64-apple-darwin","localAssetRoot":"/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/dist/advanced-math-runtime","source":"remote"}
+[advanced-math-runtime] runtime-progress {"state":"downloading","progressPercent":15,"progressMessage":"Downloading runtime bundle..."}
+[advanced-math-runtime] runtime-progress {"state":"downloading","progressPercent":30,"progressMessage":"Downloading runtime checksum..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":45,"progressMessage":"Validating runtime bundle..."}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":65,"progressMessage":"Extracting runtime files..."}
+[advanced-math-runtime] install-extracting {"bundlePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/cache/buddy/advanced-math/buddy-advanced-math-vtest-3f9bc1fd-d931-4d49-bbcc-05417fabb9df-aarch64-apple-darwin.zip","destinationDir":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-3f9bc1fd-d931-4d49-bbcc-05417fabb9df/aarch64-apple-darwin.tmp-64597-1791439198385"}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":85,"progressMessage":"Verifying runtime..."}
+[advanced-math-runtime] install-running-self-check {"executablePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-3f9bc1fd-d931-4d49-bbcc-05417fabb9df/aarch64-apple-darwin.tmp-64597-1791439198385/buddy-advanced-math/buddy-advanced-math"}
+[advanced-math-runtime] runtime-progress {"state":"installing","progressPercent":95,"progressMessage":"Finalizing installation..."}
+[advanced-math-runtime] install-finished {"executablePath":"/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/xdg/test-runs/615bd8c4-7865-44fb-ba9f-0eb4a5276508/data/buddy/advanced-math/test-3f9bc1fd-d931-4d49-bbcc-05417fabb9df/aarch64-apple-darwin/buddy-advanced-math/buddy-advanced-math","checksum":"3c1b28535e3a80022afc8e0078ec44c36c9884e6b439af8b7144c4c05e069cd2"}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":60,"progressMessage":"Removing installed runtime files..."}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":85,"progressMessage":"Clearing cached runtime assets..."}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":60,"progressMessage":"Removing installed runtime files..."}
+[advanced-math-runtime] runtime-progress {"state":"removing","progressPercent":85,"progressMessage":"Clearing cached runtime assets..."}
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+To /var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-public-skill-repository-PrCJwi/remote.git
+ * [new branch]      main -> main
+
+test/session/session-api-parity.test.ts:
+<-- DELETE /api/session/ses_ee5e690a0ffeOTEsWkMYBaSbFh
+--> DELETE /api/session/ses_ee5e690a0ffeOTEsWkMYBaSbFh [32m200[0m 7ms
+<-- POST /api/session/ses_ee5e68fd0ffcwB0t11kAc8HsKZ/fork
+--> POST /api/session/ses_ee5e68fd0ffcwB0t11kAc8HsKZ/fork [32m200[0m 438ms
+<-- POST /api/session/ses_ee5e68dcfffeXI49fggUBlH48P/fork
+--> POST /api/session/ses_ee5e68dcfffeXI49fggUBlH48P/fork [32m200[0m 87ms
+<-- POST /api/session/ses_ee5e68d14ffe1WHGzOrIIdsqUj/fork
+--> POST /api/session/ses_ee5e68d14ffe1WHGzOrIIdsqUj/fork [32m200[0m 418ms
+<-- POST /api/session/ses_ee5e68aa2ffedC0rCMhND4RxnP/revert
+--> POST /api/session/ses_ee5e68aa2ffedC0rCMhND4RxnP/revert [33m400[0m 242ms
+<-- POST /api/session/ses_ee5e68927ffcnIjCVIsPdZygOd/revert
+[opencode] failed to capture snapshot {
+  _tag: "Snapshot.Error",
+  operation: "capture",
+  message: "Location is outside the project",
+}
+--> POST /api/session/ses_ee5e68927ffcnIjCVIsPdZygOd/revert [32m200[0m 436ms
+<-- POST /api/session/ses_ee5e68927ffcnIjCVIsPdZygOd/revert
+[opencode] failed to capture snapshot {
+  _tag: "Snapshot.Error",
+  operation: "capture",
+  message: "Location is outside the project",
+}
+--> POST /api/session/ses_ee5e68927ffcnIjCVIsPdZygOd/revert [32m200[0m 79ms
+<-- POST /api/session/ses_ee5e68927ffcnIjCVIsPdZygOd/revert
+[opencode] failed to capture snapshot {
+  _tag: "Snapshot.Error",
+  operation: "capture",
+  message: "Location is outside the project",
+}
+--> POST /api/session/ses_ee5e68927ffcnIjCVIsPdZygOd/revert [32m200[0m 35ms
+<-- POST /api/session/ses_ee5e68927ffcnIjCVIsPdZygOd/unrevert
+--> POST /api/session/ses_ee5e68927ffcnIjCVIsPdZygOd/unrevert [32m200[0m 31ms
+
+test/session/message-route.test.ts:
+<-- GET /api/session/ses_70afd57f-f0d2-4a74-9061-756e7acbc40e/message
+--> GET /api/session/ses_70afd57f-f0d2-4a74-9061-756e7acbc40e/message [32m200[0m 10ms
+<-- GET /api/session/ses_c01a4cc5-984f-426e-ae84-d0823c76f64d/message
+--> GET /api/session/ses_c01a4cc5-984f-426e-ae84-d0823c76f64d/message [32m200[0m 11ms
+<-- GET /api/session/ses_7e8c6bce-a2ce-408f-8c6c-14e405eb5bb6/message?limit=2
+--> GET /api/session/ses_7e8c6bce-a2ce-408f-8c6c-14e405eb5bb6/message?limit=2 [32m200[0m 11ms
+<-- GET /api/session/ses_7e8c6bce-a2ce-408f-8c6c-14e405eb5bb6/message?limit=2&before=eyJpZCI6Im1zZ181YWRiYjUzYy05ZDhhLTRiOTItYWNkNS03NDM4MWE5MjZmMTYiLCJvcmRlciI6ImRlc2MiLCJkaXJlY3Rpb24iOiJuZXh0In0
+--> GET /api/session/ses_7e8c6bce-a2ce-408f-8c6c-14e405eb5bb6/message?limit=2&before=eyJpZCI6Im1zZ181YWRiYjUzYy05ZDhhLTRiOTItYWNkNS03NDM4MWE5MjZmMTYiLCJvcmRlciI6ImRlc2MiLCJkaXJlY3Rpb24iOiJuZXh0In0 [32m200[0m 1ms
+<-- GET /api/session/ses_95ddd844-7926-4f49-87c4-c6ef25ca5d2a/message?before=malformed-cursor
+--> GET /api/session/ses_95ddd844-7926-4f49-87c4-c6ef25ca5d2a/message?before=malformed-cursor [33m400[0m 2ms
+<-- GET /api/session/ses_missing_message_route/message?limit=2
+--> GET /api/session/ses_missing_message_route/message?limit=2 [33m404[0m 10ms
+
+test/session/teaching-routes.test.ts:
+<-- POST /api/teaching/session/session_1/workspace
+--> POST /api/teaching/session/session_1/workspace [33m400[0m 16ms
+<-- POST /api/teaching/session/session_conflict_files/file
+--> POST /api/teaching/session/session_conflict_files/file [32m200[0m 3ms
+<-- PUT /api/teaching/session/session_conflict_files/workspace
+--> PUT /api/teaching/session/session_conflict_files/workspace [33m409[0m 1ms
+
+test/session/sse-event-compatibility.test.ts:
+<-- GET /api/event?directory=%2F
+--> GET /api/event?directory=%2F [33m403[0m 1ms
+<-- GET /api/event
+--> GET /api/event [32m200[0m 8ms
+
+test/session/v2-transcript-route.test.ts:
+331 |   const execute = async (descriptor: RequestDescriptor, requestOptions?: RequestOptions) => {
+332 |     try {
+333 |       const prepared = prepare(descriptor, requestOptions)
+334 |       return await fetch(prepared.url, prepared.init)
+335 |     } catch (cause) {
+336 |       throw new ClientError("Transport", { cause })
+                  ^
+ClientError: Transport: The operation timed out.
+ reason: "Transport",
+
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/client/src/promise/generated/client.ts:336:13)
+      at async <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/client/src/promise/generated/client.ts:350:28)
+      at async <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/test/session/v2-transcript-route.test.ts:19:25)
+(fail) v2 Buddy transcript route > reads a synthetic completion from the real host through Buddy's session route [10123.58ms]
+
+test/session/prompt-preflight-regression.test.ts:
+<-- POST /api/session
+--> POST /api/session [32m200[0m 412ms
+<-- POST /api/session/ses_ee5e64bebffeUYsWgY9B6fO4wu/message
+--> POST /api/session/ses_ee5e64bebffeUYsWgY9B6fO4wu/message [33m400[0m 276ms
+
+test/session/project-scoped-routes.test.ts:
+<-- POST /api/session
+--> POST /api/session [33m403[0m 1ms
+<-- POST /api/session
+--> POST /api/session [32m200[0m 300ms
+<-- GET /api/session/ses_ee5e6493affejR9OTxnrb8IrV9
+--> GET /api/session/ses_ee5e6493affejR9OTxnrb8IrV9 [32m200[0m 46ms
+<-- GET /api/session/ses_ee5e6493affejR9OTxnrb8IrV9/message
+--> GET /api/session/ses_ee5e6493affejR9OTxnrb8IrV9/message [32m200[0m 2ms
+<-- GET /api/session/ses_ee5e6493affejR9OTxnrb8IrV9
+--> GET /api/session/ses_ee5e6493affejR9OTxnrb8IrV9 [33m404[0m 127ms
+<-- DELETE /api/session/ses_ee5e6493affejR9OTxnrb8IrV9
+--> DELETE /api/session/ses_ee5e6493affejR9OTxnrb8IrV9 [33m404[0m 1ms
+<-- GET /api/session/ses_ee5e6493affejR9OTxnrb8IrV9
+--> GET /api/session/ses_ee5e6493affejR9OTxnrb8IrV9 [32m200[0m 1ms
+<-- POST /api/session?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-route-query-priority-JbSIH3
+--> POST /api/session?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-route-query-priority-JbSIH3 [33m400[0m 1ms
+<-- POST /api/session?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-route-query-priority-JbSIH3
+[opencode] failed to load plugin {
+  "plugin.id": "buddy.catalog",
+} {
+  _id: "Cause",
+  failures: [
+    {
+      _tag: "Die",
+      defect: ENOENT: no such file or directory, realpath '/private/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-route-project-b-RcERRP'
+    path: "/private/var/folders/6b/_tpzqtks48d18kr7zb8w4t800000gn/T/buddy-test-process-brruwz/tmp/buddy-route-project-b-RcERRP",
+ syscall: "realpath",
+   errno: -2,
+    code: "ENOENT"
+
+      at canonicalizeRuntimeConfigDirectory (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/config/store/directories.ts:7:37)
+      at registerNotebookConfig (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/config/runtime/notebook-config-plugin.ts:42:21)
+      at setup (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/src/opencode-runtime/plugins/buddy-runtime-plugin.ts:79:43)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/vendor/opencode/packages/plugin/src/promise/adapter.ts:607:55)
+      at ~effect/Utils/internal (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/Utils.js:85:16)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:742:3)
+      at ~effect/Effect/evaluate (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:777:22)
+      at runLoop (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:462:98)
+      at evaluate (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:422:23)
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/node_modules/.bun/effect@4.0.0-rc.112/node_modules/effect/dist/internal/effect.js:781:15)
+,
+    }
+  ],
+}
+--> POST /api/session?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-route-query-priority-JbSIH3 [32m200[0m 337ms
+<-- POST /api/session
+--> POST /api/session [32m200[0m 279ms
+<-- POST /api/session
+--> POST /api/session [32m200[0m 360ms
+<-- POST /api/session
+--> POST /api/session [32m200[0m 279ms
+<-- GET /api/session
+--> GET /api/session [32m200[0m 2ms
+<-- GET /api/session?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-route-list-project-scope-zsGDTm
+--> GET /api/session?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-route-list-project-scope-zsGDTm [32m200[0m 2ms
+<-- GET /api/session?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-route-list-project-scope-zsGDTm%2Fworkspace
+--> GET /api/session?directory=%2Fvar%2Ffolders%2F6b%2F_tpzqtks48d18kr7zb8w4t800000gn%2FT%2Fbuddy-test-process-brruwz%2Ftmp%2Fbuddy-route-list-project-scope-zsGDTm%2Fworkspace [32m200[0m 1ms
+
+test/session/route-regressions.test.ts:
+<-- POST /api/session/ses_malformed/message
+--> POST /api/session/ses_malformed/message [33m400[0m 1ms
+<-- POST /api/session/ses_malformed/command
+--> POST /api/session/ses_malformed/command [33m400[0m 0ms
+<-- POST /api/session/ses_malformed/prompt_async
+--> POST /api/session/ses_malformed/prompt_async [33m400[0m 1ms
+<-- POST /api/session/ses_missing/message
+--> POST /api/session/ses_missing/message [33m404[0m 256ms
+<-- POST /api/session/ses_missing_new/message
+--> POST /api/session/ses_missing_new/message [33m404[0m 245ms
+<-- POST /api/session/ses_missing_cmd/command
+--> POST /api/session/ses_missing_cmd/command [33m404[0m 263ms
+<-- POST /api/session/ses_missing_async/prompt_async
+--> POST /api/session/ses_missing_async/prompt_async [33m404[0m 298ms
+<-- POST /api/session/ses_missing/abort
+--> POST /api/session/ses_missing/abort [33m404[0m 2ms
+169 |       headers: {
+170 |         "x-buddy-directory": project.path,
+171 |       },
+172 |     })
+173 | 
+174 |     expect(response.status).toBe(200)
+                                  ^
+error: expect(received).toBe(expected)
+
+Expected: 200
+Received: 404
+
+      at <anonymous> (/Users/prashantbhudwal/Code/buddies/v2-upgrade/packages/buddy/test/session/route-regressions.test.ts:174:29)
+(fail) session route regressions > forwards abort even when no active status is cached [50.46ms]
+<-- GET /api/session/status
+--> GET /api/session/status [32m200[0m 2ms
+<-- PUT /api/bench/session/ses_deleted/context
+--> PUT /api/bench/session/ses_deleted/context [33m404[0m 2ms
+
+ 531 pass
+ 5 fail
+ 2061 expect() calls
+Ran 536 tests across 101 files. [90.97s]

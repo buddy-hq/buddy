@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { TOOL_LAYOUT_ROLES } from "@buddy/opencode-adapter/tool-presentation"
+import { TOOL_LAYOUT_ROLES } from "@buddy/transcript-contract/tool-presentation"
 
 import {
   estimateUserRowSize,

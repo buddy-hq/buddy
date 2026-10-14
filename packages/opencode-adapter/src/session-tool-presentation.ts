@@ -1,119 +1,47 @@
-import type { MessageV2 } from "./message"
-import { getRuntimeToolPresentationDescriptor } from "./core-tool-presentations"
-import { isJsonObject, parseStringValue, type TJsonObject } from "./parse-external"
-import { ToolRegistry } from "./registry"
+import type { Part, ToolPart, MessageWithParts } from "@buddy/transcript-contract/message"
+import {
+  getCoreToolPresentationDescriptor,
+  getRuntimeToolPresentationDescriptor,
+} from "@buddy/transcript-contract/core-tool-presentations"
+import { parseJsonObject } from "@buddy/transcript-contract/parse-external"
 import {
   resolveToolPresentationSnapshot,
-  type ToolPresentationResolutionContext,
-  type ToolPresentationSnapshot,
-} from "./tool-presentation"
-import { stripBuddyToolPresentation } from "./tool-presentation-strip"
+  type ToolPresentationDescriptor,
+} from "@buddy/transcript-contract/tool-presentation"
+import { stripBuddyToolPresentation } from "@buddy/transcript-contract/tool-presentation-strip"
 
-type ToolPart = MessageV2.ToolPart
-type ToolState = ToolPart["state"]
+export type ToolPresentationLookup = (toolID: string) => ToolPresentationDescriptor | undefined
 
-function isToolPart<TValue>(value: TValue): value is TValue & ToolPart {
-  if (!isJsonObject(value)) return false
-  if (value.type !== "tool") return false
-  if (parseStringValue(value.callID) === undefined) return false
-  if (parseStringValue(value.tool) === undefined) return false
-  if (!isJsonObject(value.state)) return false
-  return parseStringValue(value.state.status) !== undefined
-}
-
-function presentationContext(part: ToolPart): ToolPresentationResolutionContext {
-  const state = part.state
-  const metadata = state.status === "pending" || !isJsonObject(state.metadata) ? {} : state.metadata
-
-  return Object.assign(
-    {
-      toolID: part.tool,
-      phase: state.status,
-      input: state.input,
-      metadata,
-    },
-    state.status === "running" || state.status === "completed" ? { title: state.title } : undefined,
-    state.status === "completed" ? { output: state.output } : undefined,
-    state.status === "error" ? { error: state.error } : undefined,
-  )
-}
-
-function metadataWithPresentation(
-  metadata: TJsonObject | undefined,
-  presentation: ToolPresentationSnapshot,
-) {
-  const stripped = stripBuddyToolPresentation(metadata)
-  return {
-    ...stripped,
-    buddy: Object.assign({}, isJsonObject(stripped?.buddy) ? stripped.buddy : undefined, {
-      presentation,
-    }),
-  }
-}
-
-function stripPresentationFromState(state: ToolState): ToolState {
-  if (state.status === "pending") return state
-
-  const metadata = stripBuddyToolPresentation(
-    isJsonObject(state.metadata) ? state.metadata : undefined,
-  )
-  if (state.status === "completed") {
-    return {
-      ...state,
-      metadata: metadata ?? {},
-    }
-  }
-
-  return Object.assign({ ...state }, metadata ? { metadata } : undefined)
-}
-
-export function withToolPresentationOnPart<T extends MessageV2.Part>(
-  part: T,
-  directory?: string,
-): T {
+export function withToolPresentationOnPart<T extends Part>(part: T, lookup?: ToolPresentationLookup): T {
   if (part.type !== "tool") return part
-
-  const descriptor =
-    ToolRegistry.getToolPresentationDescriptor(part.tool, directory) ??
-    getRuntimeToolPresentationDescriptor()
-  const state = stripPresentationFromState(part.state)
-
-  const presentation = resolveToolPresentationSnapshot(descriptor, presentationContext(part))
+  const state = part.state
+  const descriptor = lookup?.(part.tool) ?? getCoreToolPresentationDescriptor(part.tool) ?? getRuntimeToolPresentationDescriptor()
+  const stateMetadata = stripBuddyToolPresentation(parseJsonObject(state.metadata)) ?? (state.status === "running" || state.status === "completed" ? {} : undefined)
+  const metadata = stripBuddyToolPresentation(parseJsonObject(part.metadata))
+  const presentation = resolveToolPresentationSnapshot(descriptor, {
+    toolID: part.tool,
+    phase: state.status,
+    input: parseJsonObject(state.input) ?? {},
+    metadata: stateMetadata ?? {},
+    title: "title" in state ? state.title : undefined,
+    output: "output" in state ? state.output : undefined,
+    error: "error" in state ? state.error : undefined,
+    errorType: "errorType" in state ? state.errorType : undefined,
+  })
   return {
     ...part,
-    metadata: metadataWithPresentation(
-      isJsonObject(part.metadata) ? part.metadata : undefined,
-      presentation,
-    ),
-    state,
+    state: { ...state, metadata: stateMetadata },
+    metadata: { ...metadata, buddy: { ...parseJsonObject(metadata?.buddy), presentation } },
   }
 }
 
-export function withToolPresentationOnUnknownPart<TPart>(part: TPart, directory?: string): TPart {
-  return isToolPart(part) ? withToolPresentationOnPart(part, directory) : part
+export function withToolPresentationOnMessage(message: MessageWithParts, lookup?: ToolPresentationLookup): MessageWithParts {
+  return { ...message, parts: message.parts.map((part) => withToolPresentationOnPart(part, lookup)) }
 }
 
-export function withToolPresentationOnMessage<T extends MessageV2.WithParts>(
-  message: T,
-  directory?: string,
-): T {
-  return {
-    ...message,
-    parts: message.parts.map((part) => withToolPresentationOnPart(part, directory)),
-  }
+export function withToolPresentationOnMessages(messages: readonly MessageWithParts[], lookup?: ToolPresentationLookup): MessageWithParts[] {
+  return messages.map((message) => withToolPresentationOnMessage(message, lookup))
 }
 
-export function withToolPresentationOnMessages(
-  messages: ReadonlyArray<MessageV2.WithParts>,
-  directory?: string,
-): MessageV2.WithParts[] {
-  return messages.map((message) => withToolPresentationOnMessage(message, directory))
-}
-
-// Preserved as a no-op so bootstrap call sites can retain their sequencing while
-// presentation is resolved only at Buddy-owned history and SSE boundaries.
-export async function ensureSessionToolPresentationPatched() {
-  return undefined
-}
-
-export { stripBuddyToolPresentation } from "./tool-presentation-strip"
+export type { ToolPart }
+export { stripBuddyToolPresentation } from "@buddy/transcript-contract/tool-presentation-strip"

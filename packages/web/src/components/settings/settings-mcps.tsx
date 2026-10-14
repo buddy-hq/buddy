@@ -5,6 +5,7 @@ import { language } from "@/context/language"
 import {
   formatMcpError,
   getMcpStatusLabel,
+  mcpIsPending,
   mcpNeedsAuth,
   mcpNeedsClientRegistration,
   parseMcpConfigMap,
@@ -317,6 +318,7 @@ export function McpsSettings() {
                 const connectionTargetReady =
                   activeProjectConfigQuery.isSuccess && !notebookDefinitionShadowsGlobal
                 const status = connectionTargetReady ? activeMcpStatusByName[name] : undefined
+                const startingUp = mcpIsPending(status)
                 const connecting = pendingConnect.has(name)
                 const updatingEnabled = pendingEnabled.has(name)
                 const rowBusy = removing || connecting || updatingEnabled
@@ -364,9 +366,9 @@ export function McpsSettings() {
                             onClick={() => {
                               void connectConfig(name)
                             }}
-                            disabled={rowBusy}
+                            disabled={rowBusy || startingUp}
                           >
-                            {getConnectButtonLabel({ pending: connecting, status })}
+                            {getConnectButtonLabel({ pending: connecting || startingUp, status })}
                           </Button>
                         ) : null}
                         <Button

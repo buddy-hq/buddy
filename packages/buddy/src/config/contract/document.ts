@@ -41,17 +41,12 @@ const JSONC_FORMATTING = {
 } as const
 
 function formatParseErrors(text: string, errors: JsoncParseError[]) {
-  const lines = text.split("\n")
   return errors
     .map((item) => {
       const beforeOffset = text.substring(0, item.offset).split("\n")
       const line = beforeOffset.length
       const column = beforeOffset[beforeOffset.length - 1].length + 1
-      const problemLine = lines[line - 1]
-      const error = `${printParseErrorCode(item.error)} at line ${line}, column ${column}`
-
-      if (!problemLine) return error
-      return `${error}\n   Line ${line}: ${problemLine}\n${"".padStart(column + 9)}^`
+      return `${printParseErrorCode(item.error)} at line ${line}, column ${column}`
     })
     .join("\n")
 }
@@ -65,6 +60,7 @@ async function loadConfigFileWithSchema<T extends TConfigDocument>(
   filepath: string,
   schema: ZodType<T>,
   parseOptions: TPersistedConfigParseOptions,
+  options: { resolveSubstitutions?: boolean } = {},
 ): Promise<T> {
   const text = await fsp.readFile(filepath, "utf8").catch((error) => {
     if (parseNodeErrorCode(error) === "ENOENT") return undefined
@@ -72,7 +68,7 @@ async function loadConfigFileWithSchema<T extends TConfigDocument>(
   })
 
   if (!text) return schema.parse({})
-  return loadConfigTextWithSchema(text, { path: filepath }, schema, parseOptions)
+  return loadConfigTextWithSchema(text, { path: filepath }, schema, parseOptions, options)
 }
 
 async function loadConfigTextWithSchema<T extends TConfigDocument>(
@@ -80,40 +76,41 @@ async function loadConfigTextWithSchema<T extends TConfigDocument>(
   options: { path: string } | { dir: string; source: string },
   schema: ZodType<T>,
   parseOptions: TPersistedConfigParseOptions,
+  loadOptions: { resolveSubstitutions?: boolean } = {},
 ): Promise<T> {
-  const original = text
   const configDir = "path" in options ? path.dirname(options.path) : options.dir
   const source = "path" in options ? options.path : options.source
-  const isFile = "path" in options
 
-  text = text.replace(/\{env:([^}]+)\}/g, (_, varName: string) => process.env[varName] ?? "")
+  if (loadOptions.resolveSubstitutions !== false) {
+    text = text.replace(/\{env:([^}]+)\}/g, (_, varName: string) => process.env[varName] ?? "")
 
-  const fileMatches = text.match(/\{file:[^}]+\}/g)
-  if (fileMatches) {
-    const lines = text.split("\n")
+    const fileMatches = text.match(/\{file:[^}]+\}/g)
+    if (fileMatches) {
+      const lines = text.split("\n")
 
-    for (const match of fileMatches) {
-      const lineIndex = lines.findIndex((line) => line.includes(match))
-      if (lineIndex !== -1 && lines[lineIndex].trim().startsWith("//")) continue
+      for (const match of fileMatches) {
+        const lineIndex = lines.findIndex((line) => line.includes(match))
+        if (lineIndex !== -1 && lines[lineIndex].trim().startsWith("//")) continue
 
-      let filePath = match.replace(/^\{file:/, "").replace(/\}$/, "")
-      if (filePath.startsWith("~/")) {
-        filePath = path.join(os.homedir(), filePath.slice(2))
-      }
-
-      const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
-      const content = await fsp.readFile(resolvedPath, "utf8").catch((error) => {
-        const base = `bad file reference: "${match}"`
-        if (parseNodeErrorCode(error) === "ENOENT") {
-          throw new InvalidError(
-            { path: source, message: `${base} ${resolvedPath} does not exist` },
-            { cause: error },
-          )
+        let filePath = match.replace(/^\{file:/, "").replace(/\}$/, "")
+        if (filePath.startsWith("~/")) {
+          filePath = path.join(os.homedir(), filePath.slice(2))
         }
-        throw new InvalidError({ path: source, message: base }, { cause: error })
-      })
 
-      text = text.replace(match, () => JSON.stringify(content.trim()).slice(1, -1))
+        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
+        const content = await fsp.readFile(resolvedPath, "utf8").catch((error) => {
+          const base = `bad file reference: "${match}"`
+          if (parseNodeErrorCode(error) === "ENOENT") {
+            throw new InvalidError(
+              { path: source, message: `${base} ${resolvedPath} does not exist` },
+              { cause: error },
+            )
+          }
+          throw new InvalidError({ path: source, message: base }, { cause: error })
+        })
+
+        text = text.replace(match, () => JSON.stringify(content.trim()).slice(1, -1))
+      }
     }
   }
 
@@ -122,7 +119,7 @@ async function loadConfigTextWithSchema<T extends TConfigDocument>(
   if (errors.length > 0) {
     throw new JsonError({
       path: source,
-      message: `\n--- JSONC Input ---\n${text}\n--- Errors ---\n${formatParseErrors(text, errors)}\n--- End ---`,
+      message: `Invalid JSONC in ${source}: ${formatParseErrors(text, errors)}`,
     })
   }
 
@@ -134,28 +131,25 @@ async function loadConfigTextWithSchema<T extends TConfigDocument>(
   }
 
   const output = parsed.data
-  if (!output.$schema && isFile) {
-    output.$schema = BUDDY_CONFIG_SCHEMA_URL
-    const updated = original.replace(/^\s*\{/, `{\n  "$schema": "${BUDDY_CONFIG_SCHEMA_URL}",`)
-    await fsp.writeFile(options.path, updated, "utf8").catch(() => undefined)
-  }
+  output.$schema ??= BUDDY_CONFIG_SCHEMA_URL
 
   return output
 }
 
-export function loadConfigFile(filepath: string): Promise<ConfigSchema.Info> {
-  return loadConfigFileWithSchema(filepath, ConfigSchema.Info, GLOBAL_CONFIG_PARSE_OPTIONS)
+export function loadConfigFile(filepath: string, options?: { resolveSubstitutions?: boolean }): Promise<ConfigSchema.Info> {
+  return loadConfigFileWithSchema(filepath, ConfigSchema.Info, GLOBAL_CONFIG_PARSE_OPTIONS, options)
 }
 
-export function loadProjectConfigFile(filepath: string): Promise<ConfigSchema.ProjectInfo> {
-  return loadConfigFileWithSchema(filepath, ConfigSchema.ProjectInfo, PROJECT_CONFIG_PARSE_OPTIONS)
+export function loadProjectConfigFile(filepath: string, options?: { resolveSubstitutions?: boolean }): Promise<ConfigSchema.ProjectInfo> {
+  return loadConfigFileWithSchema(filepath, ConfigSchema.ProjectInfo, PROJECT_CONFIG_PARSE_OPTIONS, options)
 }
 
 export function loadConfigText(
   text: string,
   options: { path: string } | { dir: string; source: string },
+  loadOptions?: { resolveSubstitutions?: boolean },
 ): Promise<ConfigSchema.Info> {
-  return loadConfigTextWithSchema(text, options, ConfigSchema.Info, GLOBAL_CONFIG_PARSE_OPTIONS)
+  return loadConfigTextWithSchema(text, options, ConfigSchema.Info, GLOBAL_CONFIG_PARSE_OPTIONS, loadOptions)
 }
 
 export function loadProjectConfigText(

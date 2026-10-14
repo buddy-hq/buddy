@@ -441,7 +441,7 @@ export function startChatSync(handlers: SyncHandlers) {
               },
               signal: currentAbort.signal,
               sseMaxRetryAttempts: 0,
-              onSseError(error) {
+              onSseError<TError>(error: TError) {
                 if (currentAbort.signal.aborted || isAbortError(error)) return
                 streamError = parseFailure(error)
                 logStreamError(error)

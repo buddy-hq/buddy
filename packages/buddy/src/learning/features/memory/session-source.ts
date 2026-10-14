@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto"
-import { DateTime } from "effect"
 import z from "zod"
-import type { SessionV2 } from "@buddy/opencode-adapter/session-v2"
+import type { OpenCodeTypes, SessionMessageInfo } from "@buddy/opencode-adapter/host"
 import type { LearnerEvent } from "./types"
 import { redactSecrets } from "./redaction"
 import { truncateHeadTail, type TruncatedText } from "./text-budget"
@@ -43,7 +42,7 @@ function isScaffoldText(value: string): boolean {
   )
 }
 
-type AssistantToolContent = Extract<SessionV2.Assistant["content"][number], { type: "tool" }>
+type AssistantToolContent = Extract<OpenCodeTypes.SessionMessageAssistant["content"][number], { type: "tool" }>
 type ToolOutputContent = Extract<
   AssistantToolContent["state"],
   { status: "completed" }
@@ -67,25 +66,23 @@ function toolOutputContentText(content: ToolOutputContent): string {
 
 function toolStateText(state: AssistantToolContent["state"]): string | undefined {
   switch (state.status) {
-    case "pending":
+    case "streaming":
       return state.input
     case "running":
+      return jsonText(state.input)
     case "completed":
-      return [...state.content.map(toolOutputContentText), jsonText(state.structured)]
-        .filter(Boolean)
-        .join("\n")
+      return state.content.map(toolOutputContentText).join("\n")
     case "error":
       return [
         state.error.message,
-        ...state.content.map(toolOutputContentText),
-        jsonText(state.structured),
+        ...(state.content ?? []).map(toolOutputContentText),
       ]
         .filter(Boolean)
         .join("\n")
   }
 }
 
-function assistantContentText(content: SessionV2.Assistant["content"][number]): string | undefined {
+function assistantContentText(content: OpenCodeTypes.SessionMessageAssistant["content"][number]): string | undefined {
   switch (content.type) {
     case "text":
       return content.text
@@ -96,39 +93,39 @@ function assistantContentText(content: SessionV2.Assistant["content"][number]): 
   }
 }
 
-function userMessageText(message: SessionV2.User): string {
+function userMessageText(message: OpenCodeTypes.SessionMessageUser): string {
   return [
     isScaffoldText(message.text) ? undefined : message.text,
     ...(message.files ?? []).map((file) =>
-      [file.name, file.mime, file.uri, file.source?.text].filter(Boolean).join("\n"),
+      [file.name, file.mime, file.source.type === "uri" ? file.source.uri : undefined, file.mention?.text].filter(Boolean).join("\n"),
     ),
     ...(message.agents ?? []).map((agent) =>
-      [agent.name, agent.source?.text].filter(Boolean).join("\n"),
+      [agent.name, agent.mention?.text].filter(Boolean).join("\n"),
     ),
   ]
     .filter(Boolean)
     .join("\n")
 }
 
-function assistantMessageText(message: SessionV2.Assistant): string {
+function assistantMessageText(message: OpenCodeTypes.SessionMessageAssistant): string {
   return message.content.flatMap((content) => assistantContentText(content) ?? []).join("\n")
 }
 
-function messageToolNames(message: SessionV2.Message): string[] {
+function messageToolNames(message: SessionMessageInfo): string[] {
   if (message.type !== "assistant") return []
   return message.content.flatMap((content) => (content.type === "tool" ? [content.name] : []))
 }
 
-function assistantOutputTokens(message: SessionV2.Assistant): number | undefined {
+function assistantOutputTokens(message: OpenCodeTypes.SessionMessageAssistant): number | undefined {
   if (!message.tokens) return undefined
   return message.tokens.output + message.tokens.reasoning
 }
 
-function messageCreatedAt(message: SessionV2.Message): string {
-  return new Date(DateTime.toEpochMillis(message.time.created)).toISOString()
+function messageCreatedAt(message: SessionMessageInfo): string {
+  return new Date(message.time.created).toISOString()
 }
 
-function filteredMessage(message: SessionV2.Message): FilteredSessionMessage | undefined {
+function filteredMessage(message: SessionMessageInfo): FilteredSessionMessage | undefined {
   if (message.type !== "user" && message.type !== "assistant") return undefined
   const rawText = message.type === "user" ? userMessageText(message) : assistantMessageText(message)
   const text = redactSecrets(rawText.trim())
@@ -206,7 +203,7 @@ function renderStructuredSource(input: {
 }
 
 function buildFilteredSessionSource(input: {
-  messages: readonly SessionV2.Message[]
+  messages: readonly SessionMessageInfo[]
   learningEvents: readonly LearnerEvent[]
 }): FilteredSessionSource {
   const messages = input.messages.flatMap((message) => {

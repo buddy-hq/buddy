@@ -1,7 +1,7 @@
-import * as OpenCodeWildcard from "opencode/util/wildcard"
+import { matchPermissionPattern } from "@buddy/transcript-contract/permission-rules"
 
-export namespace Wildcard {
-  export const match = OpenCodeWildcard.match
-  export const all = OpenCodeWildcard.all
-  export const allStructured = OpenCodeWildcard.allStructured
+export const Wildcard = {
+  match(input: string, pattern: string) {
+    return matchPermissionPattern(input, pattern, process.platform === "win32" ? "win32" : "posix")
+  },
 }

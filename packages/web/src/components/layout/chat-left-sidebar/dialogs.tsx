@@ -31,6 +31,7 @@ import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import {
   formatMcpError,
   getMcpStatusLabel,
+  mcpIsPending,
   mcpNeedsAuth,
   mcpNeedsClientRegistration,
   parseMcpConfigMap,
@@ -667,6 +668,7 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
                         )
                         const status = enabled ? mcpStatusByName[name] : undefined
                         const pending = pendingKey === `mcp:${name}`
+                        const startingUp = mcpIsPending(status)
                         const statusLabel = !enabled
                           ? language.t("mcp.statusLabels.disabled")
                           : status
@@ -714,13 +716,13 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
                                     type="button"
                                     size="xs"
                                     variant="outline"
-                                    disabled={pending}
+                                    disabled={pending || startingUp}
                                     onClick={() => {
                                       void onRepairNotebookMcp(name)
                                     }}
                                     className="h-7 text-xs px-2.5 active:scale-[0.97] transition-transform"
                                   >
-                                    {getMcpRepairButtonLabel({ pending, status })}
+                                    {getMcpRepairButtonLabel({ pending: pending || startingUp, status })}
                                   </Button>
                                 ) : null}
                                 <Switch

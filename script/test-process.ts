@@ -1,4 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process"
+import type { EventEmitter } from "node:events"
 import { parseTErrorCode } from "./parse-values"
 
 const TERMINATION_GRACE_PERIOD_MILLISECONDS = 5_000
@@ -149,8 +150,9 @@ export async function runSupervisedTestProcess(
       signal,
     }
   } finally {
+    const processEvents: EventEmitter = process
     for (const [signal, handler] of signalHandlers) {
-      process.off(signal, handler)
+      processEvents.off(signal, handler)
     }
     input.abortSignal?.removeEventListener("abort", abortHandler)
   }

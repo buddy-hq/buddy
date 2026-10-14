@@ -1,6 +1,6 @@
 import path from "node:path"
-import z from "zod"
-import { publishGlobalEvent, subscribeGlobalEvent } from "@buddy/opencode-adapter/global-event"
+import { publishGlobalEvent } from "@buddy/backend/events/buddy-event-bus"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 import { writeTextFileAtomic } from "../storage/atomic-file"
 import { withFileLocks } from "../storage/file-lock"
 import { textFileWriteLockPath } from "../storage/locked-atomic-file"
@@ -20,13 +20,6 @@ import { withNotesMutationLock } from "./mutation-lock"
 
 export const NOTES_LIBRARY_UPDATED_EVENT_TYPE = "notes.library.updated" as const
 const QUEUED_TITLE_SESSION_LIMIT = 256
-
-const SessionTitleEvent = z.object({
-  type: z.literal("session.updated"),
-  properties: z.object({
-    info: z.object({ id: z.string(), title: z.string(), time: z.object({ created: z.number() }) }),
-  }),
-})
 
 function errorMessage<TError>(error: TError): string {
   return error instanceof Error ? error.message : String(error)
@@ -108,41 +101,32 @@ export async function synchronizeSessionNoteTitle(input: {
 export function startSessionNoteTitleSync(): () => void {
   let pending = Promise.resolve()
   const queuedTitleBySessionID = new Map<string, string>()
-  return subscribeGlobalEvent((event) => {
-    const parsed = SessionTitleEvent.safeParse(event.payload)
-    if (!parsed.success) return
-    const session = parsed.data.properties.info
-    const directory = event.directory
-    if (queuedTitleBySessionID.get(session.id) === session.title) return
-    queuedTitleBySessionID.delete(session.id)
-    queuedTitleBySessionID.set(session.id, session.title)
-    const oldestSessionID = queuedTitleBySessionID.keys().next().value
-    if (queuedTitleBySessionID.size > QUEUED_TITLE_SESSION_LIMIT && oldestSessionID) {
-      queuedTitleBySessionID.delete(oldestSessionID)
+  const controller = new AbortController()
+  const subscribe = async () => {
+    const client = await getOpenCodeClient()
+    if (controller.signal.aborted) return
+    for await (const event of client.event.subscribe({ signal: controller.signal })) {
+      if (event.type !== "session.renamed") continue
+      const { sessionID, title } = event.data
+      const directory = event.location?.directory
+      if (queuedTitleBySessionID.get(sessionID) === title) continue
+      queuedTitleBySessionID.delete(sessionID)
+      queuedTitleBySessionID.set(sessionID, title)
+      const oldestSessionID = queuedTitleBySessionID.keys().next().value
+      if (queuedTitleBySessionID.size > QUEUED_TITLE_SESSION_LIMIT && oldestSessionID) queuedTitleBySessionID.delete(oldestSessionID)
+      pending = pending.then(async () => {
+        if (controller.signal.aborted) return
+        const session = await client.session.get({ sessionID })
+        const renamed = await synchronizeSessionNoteTitle({ sessionID, title: session.title ?? title, createdAt: session.time.created })
+        if (renamed && directory) publishGlobalEvent({ directory, payload: { type: NOTES_LIBRARY_UPDATED_EVENT_TYPE, properties: {} } })
+      }).catch((error) => {
+        if (queuedTitleBySessionID.get(sessionID) === title) queuedTitleBySessionID.delete(sessionID)
+        console.error("Could not update the chat note title", { sessionID, error: errorMessage(error) })
+      })
     }
-    pending = pending
-      .then(() =>
-        synchronizeSessionNoteTitle({
-          sessionID: session.id,
-          title: session.title,
-          createdAt: session.time.created,
-        }),
-      )
-      .then((renamed) => {
-        if (!renamed || !directory) return
-        publishGlobalEvent({
-          directory,
-          payload: { type: NOTES_LIBRARY_UPDATED_EVENT_TYPE, properties: {} },
-        })
-      })
-      .catch((error) => {
-        if (queuedTitleBySessionID.get(session.id) === session.title) {
-          queuedTitleBySessionID.delete(session.id)
-        }
-        console.error("Could not update the chat note title", {
-          sessionID: session.id,
-          error: errorMessage(error),
-        })
-      })
+  }
+  void subscribe().catch((error) => {
+    if (!controller.signal.aborted) console.error("Chat note title subscription failed", { error: errorMessage(error) })
   })
+  return () => controller.abort()
 }

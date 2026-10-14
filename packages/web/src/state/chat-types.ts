@@ -1,17 +1,13 @@
 import { z } from "zod"
 import type {
   McpStatus as SdkMcpStatus,
-  Message as SdkMessage,
-  OutputFormat as SdkOutputFormat,
-  Part as SdkPart,
-  PermissionRequest as SdkPermissionRequest,
   Provider as SdkProvider,
   ProviderAuthMethod as SdkProviderAuthMethod,
   ProviderOpenaiModelAvailabilityGetResponses,
-  Session as SdkSession,
-  SessionStatus as SdkSessionStatus,
-  TextPart as SdkTextPart,
 } from "@buddy/sdk"
+import type { Message as SdkMessage, OutputFormat as SdkOutputFormat, Part as SdkPart, TextPart as SdkTextPart } from "@buddy/transcript-contract/message"
+import type { PermissionRequest as SdkPermissionRequest } from "@buddy/transcript-contract/permission"
+import type { Session as SdkSession, SessionStatus as SdkSessionStatus } from "@buddy/transcript-contract/session"
 import {
   parseBooleanValue,
   parseFiniteNumber as parseFiniteNumberValue,

@@ -1,15 +1,11 @@
 import type { Context } from "hono"
-import { MessageID, PartID, SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import type { MessageV2 } from "@buddy/opencode-adapter/message"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { SessionStatus as OpenCodeSessionStatus } from "@buddy/opencode-adapter/session-status"
-import { SessionV2 as OpenCodeSessionV2 } from "@buddy/opencode-adapter/session-v2"
-import { subscribeGlobalEvent, type BuddyGlobalEvent } from "@buddy/opencode-adapter/global-event"
+import type { MessageWithParts } from "@buddy/transcript-contract/message"
+import { listMessages } from "@buddy/opencode-adapter/gateway/message"
+import { observeSessionExecution } from "@buddy/opencode-adapter/gateway/execution"
+import { admitSessionPrompt, promptSession, commandSession } from "@buddy/opencode-adapter/gateway/write"
 import { withConfigSync } from "../../http"
 import {
   extractSdkErrorMessage,
-  respondWithStreamSdkResult,
   sdkErrorResponse,
   type SdkResult,
 } from "../../http/sdk-response"
@@ -37,16 +33,15 @@ import { mapSessionTransformError } from "./errors"
 import {
   prepareRuntimeCommandBody,
   buildSessionSdkParameters,
+  buildSessionCommandParameters,
   prepareRuntimePromptBody,
   readValidatedJsonObject,
-  toSessionSdkResult,
 } from "./sdk-session"
 import {
   MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS,
   type MermaidAutoRepairState,
 } from "../../learning/features/diagrams/service/types"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
-import { persistCommandInvocationDisplay, withCommandInvocationDisplay } from "./command-transcript"
 import {
   parseTSessionInteger,
   parseTSessionJsonObject,
@@ -77,8 +72,6 @@ const MERMAID_AUTO_REPAIR_COMPLETED_WITHOUT_REPLACEMENT_MESSAGE =
 const MERMAID_AUTO_REPAIR_ENABLED = false
 const MERMAID_AUTO_REPAIR_DISABLED_MESSAGE = "Automatic Mermaid repair is temporarily disabled."
 const MERMAID_AUTO_REPAIR_IDLE_EXHAUST_GRACE_MS = MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS * 2
-const OPENCODE_MESSAGE_UPDATED_EVENT_TYPE = "message.updated"
-const OPENCODE_SESSION_ERROR_EVENT_TYPE = "session.error"
 const SVG_AUTO_REPAIR_COMPLETED_WITHOUT_VALIDATION_MESSAGE =
   "Automatic SVG repair completed without producing a validated SVG."
 const SVG_AUTO_REPAIR_TURN_FAILED_MESSAGE =
@@ -87,7 +80,7 @@ const REPORTED_FENCE_OPENING_PATTERN = /^( {0,3})(`{3,}|~{3,})(.*)$/u
 const REPORTED_FENCE_CLOSING_PATTERN = /^( {0,3})(`{3,}|~{3,})[ \t]*$/u
 const COMMONMARK_TAB_WIDTH = 4
 
-type RuntimeSessionMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
+type RuntimeSessionMessage = MessageWithParts
 
 type TSessionPromptAsyncTransport = (input: {
   directory: string
@@ -135,7 +128,7 @@ type TSessionInteractionRuntime = {
   }) => Promise<boolean>
   isMermaidRepairSessionIdle: (input: { directory: string; sessionID: string }) => Promise<boolean>
   resolveSvgAutoRepairOrigin: TSvgAutoRepairOriginResolver
-  subscribeSvgAutoRepairTurnSettlement: typeof subscribeSvgAutoRepairTurnSettlement
+  subscribeSvgAutoRepairTurnSettlement: (input: Parameters<typeof subscribeSvgAutoRepairTurnSettlement>[0]) => (() => void) | Promise<() => void>
 }
 
 async function sendSessionPromptAsyncToOpenCode(input: {
@@ -143,16 +136,8 @@ async function sendSessionPromptAsyncToOpenCode(input: {
   sessionID: string
   body: TSessionJsonObject
 }): Promise<SdkResult<unknown>> {
-  const client = await getOpenCodeClient(input.directory)
-  return toSessionSdkResult(
-    await client.session.promptAsync(
-      buildSessionSdkParameters({
-        sessionID: input.sessionID,
-        directory: input.directory,
-        body: input.body,
-      }),
-    ),
-  )
+  const result = await admitSessionPrompt(await getOpenCodeClient(), buildSessionSdkParameters(input))
+  return result.ok ? { data: result.value } : { error: result.error.message, response: new Response(null, { status: result.error.status }) }
 }
 
 let sessionInteractionRuntime: TSessionInteractionRuntime = {
@@ -179,64 +164,28 @@ export function setSessionInteractionRuntimeOverrides(
   }
 }
 
-function svgAutoRepairTurnSettlementMessage(
-  event: BuddyGlobalEvent,
-  input: { directory: string; sessionID: string; repairRequestID: string },
-): string | undefined {
-  if (event.directory !== input.directory) return undefined
-  const payload = parseTSessionJsonObject(event.payload)
-  const properties = parseTSessionJsonObject(payload?.properties)
-  if (
-    payload === undefined ||
-    properties === undefined ||
-    properties.sessionID !== input.sessionID
-  ) {
-    return undefined
-  }
-
-  if (payload.type === OPENCODE_SESSION_ERROR_EVENT_TYPE) {
-    return SVG_AUTO_REPAIR_TURN_FAILED_MESSAGE
-  }
-  if (payload.type !== OPENCODE_MESSAGE_UPDATED_EVENT_TYPE) return undefined
-
-  const info = parseTSessionJsonObject(properties.info)
-  if (info === undefined || info.role !== "assistant" || info.parentID !== input.repairRequestID) {
-    return undefined
-  }
-  if (info.error !== undefined) return SVG_AUTO_REPAIR_TURN_FAILED_MESSAGE
-  const completed = parseTSessionNumber(parseTSessionJsonObject(info.time)?.completed)
-  if (completed === undefined || !Number.isFinite(completed)) {
-    return undefined
-  }
-  return SVG_AUTO_REPAIR_COMPLETED_WITHOUT_VALIDATION_MESSAGE
-}
-
 function noop(): void {}
 
-export function subscribeSvgAutoRepairTurnSettlement(input: {
+export async function subscribeSvgAutoRepairTurnSettlement(input: {
   directory: string
   sessionID: string
   repairRequestID: string
   settle(errorMessage: string): Promise<void>
-}): () => void {
-  let unsubscribe = noop
-  unsubscribe = subscribeGlobalEvent((event) => {
-    const settlementMessage = svgAutoRepairTurnSettlementMessage(event, input)
-    if (!settlementMessage) return
-    unsubscribe()
-    void input.settle(settlementMessage).catch((cause: unknown) => {
-      console.warn("Failed to settle an SVG auto-repair turn:", cause)
-    })
-  })
-  return unsubscribe
-}
-
-function isUserMessageWithParts<TValue>(value: TValue): value is TValue & MessageV2.WithParts {
-  const record = parseTSessionJsonObject(value)
-  if (record === undefined) return false
-  if (!Array.isArray(record.parts)) return false
-  const info = parseTSessionJsonObject(record.info)
-  return info !== undefined && info.role === "user"
+}): Promise<() => void> {
+  const wait = observeSessionExecution(await getOpenCodeClient(), { sessionID: input.sessionID, promptID: input.repairRequestID })
+  const ready = await wait.ready
+  if (ready && !ready.ok) {
+    await wait.close()
+    throw ready.error
+  }
+  let cancelled = false
+  void wait.result.then(async (result) => {
+    if (cancelled) return
+    await input.settle(result.ok && result.value.type === "succeeded"
+      ? SVG_AUTO_REPAIR_COMPLETED_WITHOUT_VALIDATION_MESSAGE
+      : SVG_AUTO_REPAIR_TURN_FAILED_MESSAGE)
+  }).catch((cause: unknown) => { console.warn("Failed to settle an SVG auto-repair turn:", cause) })
+  return () => { cancelled = true; void wait.close() }
 }
 
 async function resolveSvgAutoRepairOriginFromOpenCode(input: {
@@ -246,37 +195,15 @@ async function resolveSvgAutoRepairOriginFromOpenCode(input: {
   rawFence: string
   sessionID: string
 }): Promise<TSvgAutoRepairOrigin | undefined> {
-  return OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => {
-      const messages = await OpenCodeSession.messages({
-        sessionID: SessionID.make(input.sessionID),
-      })
-      const message = messages.find((entry) => entry.info.id === input.assistantMessageID)
-      if (
-        !message ||
-        message.info.role !== "assistant" ||
-        parseTSessionNumber(message.info.time.completed) === undefined ||
-        isSvgAutoRepairMessageID(String(message.info.parentID))
-      ) {
-        return undefined
-      }
-      const part = message.parts.find((entry) => entry.id === input.partID && entry.type === "text")
-      if (part?.type !== "text" || !containsStandaloneReportedSvgFence(part.text, input.rawFence)) {
-        return undefined
-      }
-      return Object.assign(
-        {
-          agent: message.info.agent,
-          model: {
-            providerID: message.info.providerID,
-            modelID: message.info.modelID,
-          },
-        },
-        message.info.variant ? { variant: message.info.variant } : undefined,
-      )
-    },
-  })
+  const { items } = await listMessages(await getOpenCodeClient(), { directory: input.directory, sessionID: input.sessionID })
+  const message = items.find((entry) => entry.info.id === input.assistantMessageID)
+  if (!message || message.info.role !== "assistant" || message.info.time.completed === undefined || isSvgAutoRepairMessageID(message.info.parentID)) return undefined
+  const part = message.parts.find((entry) => entry.id === input.partID && entry.type === "text")
+  if (part?.type !== "text" || !containsStandaloneReportedSvgFence(part.text, input.rawFence)) return undefined
+  return Object.assign({
+    agent: message.info.agent,
+    model: { providerID: message.info.providerID, modelID: message.info.modelID },
+  }, message.info.variant ? { variant: message.info.variant } : undefined)
 }
 
 function svgAutoRepairPrompt(input: {
@@ -539,33 +466,16 @@ async function hasCompletedMermaidRepairAssistantMessageFromOpenCode(input: {
   sessionID: string
   repairRequestID: string
 }): Promise<boolean> {
-  return OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => {
-      const messages = await OpenCodeSession.messages({
-        sessionID: SessionID.make(input.sessionID),
-      })
-      return messages.some((message) =>
-        isCompletedMermaidRepairAssistantMessage({
-          message,
-          repairRequestID: input.repairRequestID,
-        }),
-      )
-    },
-  })
+  const { items } = await listMessages(await getOpenCodeClient(), { directory: input.directory, sessionID: input.sessionID })
+  return items.some((message) => isCompletedMermaidRepairAssistantMessage({ message, repairRequestID: input.repairRequestID }))
 }
 
 async function isMermaidRepairSessionIdleFromOpenCode(input: {
   directory: string
   sessionID: string
 }): Promise<boolean> {
-  return OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => {
-      const status = await OpenCodeSessionStatus.get(SessionID.make(input.sessionID))
-      return status.type === "idle"
-    },
-  })
+  const active = await (await getOpenCodeClient()).session.active()
+  return active[input.sessionID] === undefined
 }
 
 function isMermaidRepairPastIdleGrace(input: { createdAt: string }): boolean {
@@ -674,45 +584,9 @@ async function resolveMermaidRepairPromptRuntimeFromOpenCode(input: {
 }): Promise<TMermaidRepairPromptRuntime | undefined> {
   const origin = mermaidSessionOrigin(input.object)
   if (!origin) return undefined
-  return OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => {
-      const v2Messages = await OpenCodeSessionV2.messages({
-        sessionID: OpenCodeSessionV2.ID.make(origin.sessionID),
-        order: "asc",
-      })
-      const v2Message = v2Messages.find((entry) => entry.id === origin.messageID)
-      if (v2Message?.type === "assistant") {
-        return Object.assign(
-          {
-            agent: v2Message.agent,
-            model: {
-              providerID: v2Message.model.providerID,
-              modelID: v2Message.model.id,
-            },
-          },
-          v2Message.model.variant ? { variant: v2Message.model.variant } : undefined,
-        )
-      }
-
-      const priorMessages = await OpenCodeSession.messages({
-        sessionID: SessionID.make(origin.sessionID),
-      })
-      const priorMessage = priorMessages.find((entry) => entry.info.id === origin.messageID)
-      if (!priorMessage || priorMessage.info.role !== "assistant") return undefined
-
-      return Object.assign(
-        {
-          agent: priorMessage.info.agent,
-          model: {
-            providerID: priorMessage.info.providerID,
-            modelID: priorMessage.info.modelID,
-          },
-        },
-        priorMessage.info.variant ? { variant: priorMessage.info.variant } : undefined,
-      )
-    },
-  })
+  const message = await (await getOpenCodeClient()).session.message.get({ sessionID: origin.sessionID, messageID: origin.messageID })
+  if (message.type !== "assistant") return undefined
+  return Object.assign({ agent: message.agent, model: { providerID: message.model.providerID, modelID: message.model.id } }, message.model.variant ? { variant: message.model.variant } : undefined)
 }
 
 export async function postSessionPrompt(c: Context): Promise<Response> {
@@ -727,6 +601,7 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
   const sessionID = c.req.param("sessionID")
   const directory = syncResult.value.directory
   let promptTransform: SessionTransform | undefined
+  let admitted = false
 
   try {
     await assertSessionExistsInDirectory({
@@ -744,30 +619,18 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
       { directory, sessionID },
     )
 
-    const client = await getOpenCodeClient(directory)
-    const result = toSessionSdkResult(
-      await client.session.prompt(
-        buildSessionSdkParameters({
-          sessionID,
-          directory,
-          body: runtimeSafeBody,
-        }),
-        { parseAs: "stream" },
-      ),
-    )
-
-    if (result.error) {
-      promptTransform.rollbackState?.()
-      return respondWithStreamSdkResult(c, result, { forceBusyAs409: true })
-    }
-
-    await promptTransform.onAccepted?.().catch((cause: unknown) => {
-      console.warn("Failed to record state after accepted prompt:", cause)
+    const result = await promptSession(await getOpenCodeClient(), buildSessionSdkParameters({ sessionID, directory, body: runtimeSafeBody }), { directory }, c.req.raw.signal, async () => {
+      admitted = true
+      await promptTransform?.onAccepted?.().catch((cause: unknown) => { console.warn("Failed to record state after accepted prompt:", cause) })
     })
+    if (!result.ok) {
+      if (!admitted) promptTransform.rollbackState?.()
+      return Response.json({ error: result.error.message }, { status: result.error.status })
+    }
+    return Response.json(result.value)
 
-    return respondWithStreamSdkResult(c, result, { forceBusyAs409: true })
   } catch (error) {
-    promptTransform?.rollbackState?.()
+    if (!admitted) promptTransform?.rollbackState?.()
     const response = mapSessionTransformError(c, error)
     if (response) return response
     throw error
@@ -817,6 +680,7 @@ export async function postSessionCommand(c: Context): Promise<Response> {
   const sessionID = c.req.param("sessionID")
   const directory = syncResult.value.directory
   let commandTransform: SessionTransform | undefined
+  let admitted = false
 
   try {
     await assertSessionExistsInDirectory({
@@ -825,67 +689,27 @@ export async function postSessionCommand(c: Context): Promise<Response> {
       request: c.req.raw,
     })
 
-    const commandMessageText = parseTSessionString(body.messageID)
-    const commandMessageID =
-      commandMessageText === undefined ? MessageID.ascending() : MessageID.make(commandMessageText)
-    const commandBody = {
-      ...body,
-      messageID: commandMessageID,
-    }
-
     commandTransform = createSessionCommandTransform({
       context: { directory, sessionID, request: c.req.raw },
     })
-    const transformed = await commandTransform.onTransform(commandBody)
+    const transformed = await commandTransform.onTransform(body)
     const runtimeSafeBody = await prepareRuntimeCommandBody(
       parseTSessionJsonObject(transformed) ?? {},
       { directory, sessionID },
     )
 
-    const client = await getOpenCodeClient(directory)
-    const result = toSessionSdkResult(
-      await client.session.command(
-        buildSessionSdkParameters({
-          sessionID,
-          directory,
-          body: runtimeSafeBody,
-        }),
-      ),
-    )
-
-    if (result.error) {
-      commandTransform.rollbackState?.()
-      return sdkErrorResponse(result, { forceBusyAs409: true })
-    }
-
-    await commandTransform.onAccepted?.().catch((cause: unknown) => {
-      console.warn("Failed to record state after accepted command:", cause)
+    const result = await commandSession(await getOpenCodeClient(), buildSessionCommandParameters({ sessionID, directory, body: runtimeSafeBody }), { directory }, c.req.raw.signal, async () => {
+      admitted = true
+      await commandTransform?.onAccepted?.().catch((cause: unknown) => { console.warn("Failed to record state after accepted command:", cause) })
     })
-
-    const commandDisplay = {
-      command: parseTSessionString(runtimeSafeBody.command) ?? "",
-      argumentsText: parseTSessionString(runtimeSafeBody.arguments) ?? "",
-      contextPartID: PartID.ascending(),
+    if (!result.ok) {
+      if (!admitted) commandTransform.rollbackState?.()
+      return Response.json({ error: result.error.message }, { status: result.error.status })
     }
-    const rawResponseData: unknown = result.data
-    const responseData = isUserMessageWithParts(rawResponseData)
-      ? withCommandInvocationDisplay(rawResponseData, commandDisplay)
-      : result.data
+    return Response.json(result.value)
 
-    try {
-      await persistCommandInvocationDisplay({
-        directory,
-        sessionID,
-        messageID: commandMessageID,
-        ...commandDisplay,
-      })
-    } catch {
-      // The command has already executed; display compaction must not convert it into a failed send.
-    }
-
-    return Response.json(responseData)
   } catch (error) {
-    commandTransform?.rollbackState?.()
+    if (!admitted) commandTransform?.rollbackState?.()
     const response = mapSessionTransformError(c, error)
     if (response) return response
     throw error
@@ -1145,7 +969,7 @@ export async function postSessionSvgRepairAsync(c: Context): Promise<Response> {
     let cancelTurnSettlement = noop
     let response: Response
     try {
-      cancelTurnSettlement = sessionInteractionRuntime.subscribeSvgAutoRepairTurnSettlement({
+      cancelTurnSettlement = await sessionInteractionRuntime.subscribeSvgAutoRepairTurnSettlement({
         directory,
         sessionID,
         repairRequestID: created.request.repairRequestID,

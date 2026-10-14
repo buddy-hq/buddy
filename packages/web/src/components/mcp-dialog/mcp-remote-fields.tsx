@@ -155,6 +155,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
                 </FieldLabel>
                 <Input
                   id="mcp-client-secret"
+                  type="password"
                   value={props.draft.clientSecret}
                   onChange={(event) => {
                     props.setDraft((current) => ({

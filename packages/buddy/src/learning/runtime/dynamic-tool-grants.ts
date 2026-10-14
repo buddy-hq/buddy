@@ -1,38 +1,25 @@
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { SessionID } from "@buddy/opencode-adapter/id"
-import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/permission"
-import { Session } from "@buddy/opencode-adapter/session"
+import { withDynamicToolPermissionGrants, resetDynamicToolPermissionGrants, evaluatePermission, constrainPermissionGrants, type PermissionRuleset } from "@buddy/transcript-contract/permission-rules"
+import { readSessionPermissions, updateSessionPermissions } from "@buddy/opencode-adapter/gateway/permission"
+import { readAuthoredPermissionRules } from "../agent-execution/permissions/authored-permissions"
 import type { BuddyTool } from "./create-buddy-tool"
 import {
   allDynamicLearningToolCatalogEntries,
+  allDynamicLearningToolIds,
   isDynamicLearningToolID,
 } from "./dynamic-tool-catalog"
 import {
-  dynamicLearningToolDefaultDenyRules,
   isExactDynamicLearningToolAllowRule,
-  removeDynamicLearningToolSessionRules,
 } from "./dynamic-tool-permissions"
-import { isSessionNotFoundError } from "../../session"
 
 type DynamicGrantKey = string
 type DynamicSessionSearchCandidates = {
   toolIDs: Set<string>
 }
 
-const ANY_PATTERN = "*" as const
-const ALLOW_ACTION = "allow" as const
 const searchCandidatesBySession = new Map<DynamicGrantKey, DynamicSessionSearchCandidates>()
 
 function grantKey(directory: string, sessionID: string): DynamicGrantKey {
   return `${directory}\0${sessionID}`
-}
-
-function exactAllowRule(toolID: string): PermissionRule {
-  return {
-    permission: toolID,
-    pattern: ANY_PATTERN,
-    action: ALLOW_ACTION,
-  }
 }
 
 function exactDynamicAllowToolIDs(permission: PermissionRuleset | undefined): string[] {
@@ -43,35 +30,7 @@ function withDynamicLearningToolAllows(input: {
   existing: PermissionRuleset | undefined
   toolIDs: readonly string[]
 }): PermissionRuleset {
-  const exactAllowRules = exactDynamicAllowRules(input.existing)
-  const grantedToolIDs = new Set([
-    ...exactAllowRules.map((rule) => rule.permission),
-    ...input.toolIDs,
-  ])
-  const withoutDynamicAllowRules = (input.existing ?? []).filter(
-    (rule) => !isExactDynamicLearningToolAllowRule(rule),
-  )
-
-  return [...withoutDynamicAllowRules, ...Array.from(grantedToolIDs).map(exactAllowRule)]
-}
-
-async function withSessionInfo<Result>(input: {
-  directory: string
-  sessionID: string
-  handle: (session: Session.Info) => Promise<Result>
-}): Promise<Result | undefined> {
-  const sessionID = SessionID.make(input.sessionID)
-  return OpenCodeInstance.provide({
-    directory: input.directory,
-    async fn() {
-      const session = await Session.get(sessionID).catch((error) => {
-        if (isSessionNotFoundError(error)) return undefined
-        throw error
-      })
-      if (!session) return undefined
-      return input.handle(session)
-    },
-  })
+  return withDynamicToolPermissionGrants({ existing: input.existing ?? [], toolIDs: input.toolIDs, managedToolIDs: allDynamicLearningToolIds() })
 }
 
 async function updateSessionPermission(input: {
@@ -79,19 +38,13 @@ async function updateSessionPermission(input: {
   sessionID: string
   update: (permission: PermissionRuleset | undefined) => PermissionRuleset
 }): Promise<boolean> {
-  const sessionID = SessionID.make(input.sessionID)
-  const updated = await withSessionInfo({
-    directory: input.directory,
-    sessionID: input.sessionID,
-    async handle(session) {
-      await Session.setPermission({
-        sessionID,
-        permission: input.update(session.permission),
-      })
-      return true
-    },
-  })
-  return updated ?? false
+  const { getOpenCodeClient } = await import("../../opencode-runtime/client")
+  const client = await getOpenCodeClient()
+  const session = await readSessionPermissions(client, input.sessionID)
+  if (session === undefined) return false
+  const configured = await readAuthoredPermissionRules(input.directory, session.agent)
+  const result = await updateSessionPermissions(client, input.sessionID, (existing) => constrainPermissionGrants(input.update(existing), configured, allDynamicLearningToolIds(), process.platform === "win32" ? "win32" : "posix"))
+  return result !== "missing"
 }
 
 function recordDynamicLearningToolSearchCandidates(input: {
@@ -117,15 +70,10 @@ async function grantedDynamicLearningToolIDsForSession(input: {
   directory: string
   sessionID: string
 }): Promise<string[]> {
-  return (
-    (await withSessionInfo({
-      directory: input.directory,
-      sessionID: input.sessionID,
-      async handle(session) {
-        return exactDynamicAllowToolIDs(session.permission)
-      },
-    })) ?? []
-  )
+  const { getOpenCodeClient } = await import("../../opencode-runtime/client")
+  const client = await getOpenCodeClient()
+  const session = await readSessionPermissions(client, input.sessionID)
+  return exactDynamicAllowToolIDs(session?.permissions)
 }
 
 function grantedDynamicLearningTools(toolIDs: readonly string[]): BuddyTool[] {
@@ -151,10 +99,7 @@ async function releaseDynamicLearningToolsForSession(
       directory: input.directory,
       sessionID: input.sessionID,
       update(permission) {
-        return [
-          ...removeDynamicLearningToolSessionRules(permission),
-          ...dynamicLearningToolDefaultDenyRules(),
-        ]
+        return resetDynamicToolPermissionGrants(permission ?? [], allDynamicLearningToolIds())
       },
     })
   }
@@ -217,7 +162,7 @@ function clearDynamicLearningToolsForDeletedSessions(input: {
 }
 
 function exactDynamicAllowRules(rules: PermissionRuleset | undefined): PermissionRuleset {
-  return (rules ?? []).filter(isExactDynamicLearningToolAllowRule)
+  return (rules ?? []).filter((rule) => isExactDynamicLearningToolAllowRule(rule) && evaluatePermission(rule.permission, "*", rules ?? [], process.platform === "win32" ? "win32" : "posix").action === "allow")
 }
 
 async function ensureDynamicLearningToolsRegisteredForSession(input: {

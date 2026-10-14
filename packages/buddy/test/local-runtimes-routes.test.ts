@@ -3,8 +3,8 @@ import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, test } from "bun:test"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { getOpenCodeClient } from "../src/opencode-runtime/client"
+import { closeOpenCodeHost } from "../src/opencode-runtime/runtime"
 import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
   KNOWLEDGE_GRAPH_DB_ENV,
@@ -20,11 +20,9 @@ import { getBuddyPersona } from "../src/learning/personas/wiring/persona-profile
 import { app } from "../src/index.ts"
 import { AdvancedMathRuntimeService } from "../src/local-runtimes/advanced-math/service"
 import { StandardsRuntimeService } from "../src/local-runtimes/standards/service"
-import { loadOpenCodeApp } from "../src/opencode-runtime"
 import { Global } from "../src/storage/global"
 import { syncOpenCodeProjectConfig } from "../src/config/runtime/opencode-sync"
-import { PermissionNext } from "@buddy/opencode-adapter/permission"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { evaluatePermission } from "@buddy/transcript-contract/permission-rules"
 import {
   withLocalMockAdvancedMathRuntimeAssets,
   withMockAdvancedMathRuntimeAssets,
@@ -45,17 +43,12 @@ const MISSING_PROCESS_ID = 999_999_999
 
 afterEach(async () => {
   clearAllTeachingSessionState()
-  await OpenCodeInstance.disposeAll()
+  await closeOpenCodeHost()
 })
 
 async function createSession(directory: string) {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: async () => {
-      const session = await OpenCodeSession.create()
-      return session.id
-    },
-  })
+  const session = await (await getOpenCodeClient()).session.create({ location: { directory } })
+  return session.id
 }
 
 async function seedBuddyPersonaRuntime(directory: string, sessionID: string) {
@@ -97,12 +90,8 @@ async function readPermissionAction(input: {
   permission: string
   sessionID: string
 }) {
-  const session = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: () => OpenCodeSession.get(SessionID.make(input.sessionID)),
-  })
-
-  return PermissionNext.evaluate(input.permission, "*", session.permission ?? []).action
+  const session = await (await getOpenCodeClient()).session.get({ sessionID: input.sessionID })
+  return evaluatePermission(input.permission, "*", (session.permissions ?? []).map((rule) => ({ permission: rule.action, pattern: rule.resource, action: rule.effect }))).action
 }
 
 describe("local runtime routes", () => {
@@ -210,7 +199,7 @@ describe("local runtime routes", () => {
     await withMockStandardsRuntimeAssets(async () => {
       await using project = await tmpdir({ git: true })
       await syncOpenCodeProjectConfig(project.path)
-      await loadOpenCodeApp()
+      await getOpenCodeClient()
 
       const sessionID = await createSession(project.path)
       await seedBuddyPersonaRuntime(project.path, sessionID)

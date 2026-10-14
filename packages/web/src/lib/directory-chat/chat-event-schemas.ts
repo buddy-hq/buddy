@@ -3,7 +3,6 @@ import {
   messageErrorDataSchema,
   type MessageInfo,
   type MessagePart,
-  type PermissionRequest,
   type QuestionRequest,
   type SessionInfo,
 } from "@/state/chat-types"
@@ -42,10 +41,11 @@ const OutputFormatSchema = z.union([
   }),
 ])
 
-const UserMessageInfoSchema = z.object({
+const UserMessageInfoSchema = z.looseObject({
   id: z.string(),
   sessionID: z.string(),
   role: z.literal("user"),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   time: MessageTimeSchema,
   format: OutputFormatSchema.nullable().optional(),
   summary: z
@@ -73,10 +73,13 @@ const TokenUsageSchema = z.object({
   }),
 })
 
-const AssistantMessageInfoSchema = z.object({
+const AssistantMessageInfoSchema = z.looseObject({
   id: z.string(),
   sessionID: z.string(),
   role: z.literal("assistant"),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  kind: z.enum(["synthetic", "skill", "shell", "compaction"]).optional(),
+  description: z.string().optional(),
   time: MessageTimeSchema,
   error: MessageErrorSchema.nullable().optional(),
   parentID: z.string(),
@@ -101,7 +104,7 @@ export const MessageInfoEventSchema = z.union([
 /** A finished tool call that can create, move, or delete notebook files. */
 export const FileChangingToolCompletionSchema = z.looseObject({
   type: z.literal("tool"),
-  tool: z.enum(["write", "edit", "apply_patch", "bash"]),
+  tool: z.enum(["write", "edit", "patch", "shell", "apply_patch", "bash"]),
   state: z.looseObject({
     status: z.literal("completed"),
     // Compaction re-saves old finished calls with this stamp; they change no files.
@@ -136,22 +139,6 @@ export const SessionInfoEventSchema = z.object({
     .optional(),
 }) satisfies z.ZodType<SessionInfo>
 
-export const PermissionRequestEventSchema = z.object({
-  id: z.string(),
-  sessionID: z.string(),
-  permission: z.string(),
-  patterns: z.array(z.string()),
-  metadata: z.record(z.string(), z.unknown()),
-  always: z.array(z.string()),
-  tool: z
-    .object({
-      messageID: z.string(),
-      callID: z.string(),
-    })
-    .nullable()
-    .optional(),
-}) satisfies z.ZodType<PermissionRequest>
-
 export const QuestionRequestEventSchema = z.object({
   id: z.string(),
   sessionID: z.string(),
@@ -169,7 +156,7 @@ export const QuestionRequestEventSchema = z.object({
       custom: z.boolean().optional(),
     }),
   ),
-  // Nullable to match the sibling permission schema above. Origin cast this payload
+  // Nullable because origin cast this payload
   // (`properties as QuestionRequest`) without validating, so a `tool: null` still reached the
   // question dock; a bare `.optional()` rejects it and use-chat-sync drops the whole ask.
   tool: z

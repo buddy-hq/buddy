@@ -14,9 +14,19 @@ import {
 import { sha256Text } from "../../src/learning/features/svg-rendering/service/render-source"
 import { renderSvgTool } from "../../src/learning/features/svg-rendering/tools/render-svg"
 import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
-import { resolveDirectory } from "../../src/project"
+import { resolveDirectory } from "../../src/project/directory"
 import { tmpdir } from "../helpers/tmpdir"
-import { createBuddyToolContext } from "../helpers/tools"
+function createBuddyToolContext(input: { directory: string; agent: string; sessionID?: string; messageID?: string }): BuddyToolContext {
+  return {
+    ...input,
+    sessionID: input.sessionID ?? "ses_svg_test",
+    messageID: input.messageID ?? "msg_svg_test",
+    abort: new AbortController().signal,
+    messages: [],
+    async metadata() {},
+    async ask() {},
+  }
+}
 
 const SOURCE = "CCO"
 const SOURCE_HASH = createHash("sha256").update(SOURCE).digest("hex")

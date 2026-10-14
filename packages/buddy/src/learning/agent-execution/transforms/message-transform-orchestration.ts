@@ -1,8 +1,4 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { ingestLearnerContextDelivery } from "../../features/memory/ingestion"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
@@ -26,11 +22,6 @@ export async function orchestrateSessionMessageTransform(input: {
   context: SessionTransformContext
   body: TJsonObject
 }): Promise<SessionMessageTransformOrchestrationResult> {
-  await OpenCodeInstance.provide({
-    directory: input.context.directory,
-    fn: () => ToolRegistry.prime(),
-  })
-
   const projectConfig = await readProjectConfig(input.context.directory)
   const previousState = readTeachingSessionState(input.context.directory, input.context.sessionID)
   const conciseResponseSnapshot = previousState
@@ -196,17 +187,6 @@ export async function orchestrateSessionMessageTransform(input: {
     sessionID: input.context.sessionID,
     sessionRuntime: pipelineResult.sessionRuntimeForPermissions,
   })
-
-  if (pipelineResult.subagentSessionPermission) {
-    await OpenCodeInstance.provide({
-      directory: input.context.directory,
-      fn: () =>
-        OpenCodeSession.setPermission({
-          sessionID: SessionID.make(input.context.sessionID),
-          permission: pipelineResult.subagentSessionPermission!,
-        }),
-    })
-  }
 
   const learnerContextDelivery = pipelineResult.learnerContextDelivery
   writeLastLlmOutbound({

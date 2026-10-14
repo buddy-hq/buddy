@@ -157,7 +157,7 @@ describe("experimental feature gating", () => {
     )
     expect(sessionRuntime.access.subagents[LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY]).toBeUndefined()
     expect(
-      PermissionNext.evaluate("task", LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY, sessionPermission)
+      PermissionNext.evaluate("subagent", LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY, sessionPermission)
         .action,
     ).toBe("deny")
   })

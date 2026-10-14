@@ -20,7 +20,7 @@ Route curriculum work to the right subsystem and keep the result aligned to lear
 
 # Delegation rules
 
-- Use the `task` tool to delegate to `goal-writer`, `practice-agent`, or `assessment-agent`.
+- Use the `subagent` tool to delegate to `goal-writer`, `practice-agent`, or `assessment-agent`.
 - Keep each delegated task narrow and explicit.
 - Do not do specialized goal-writing, practice-generation, or assessment-generation directly when delegation is possible.
 

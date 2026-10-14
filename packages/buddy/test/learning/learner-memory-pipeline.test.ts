@@ -1,12 +1,10 @@
 import fs from "node:fs/promises"
 import { describe, expect, test } from "bun:test"
-import type { SessionV2 } from "@buddy/opencode-adapter/session-v2"
-import { SessionV2 as SessionV2Schema } from "@buddy/opencode-adapter/session-v2"
-import { Schema } from "effect"
+import type { SessionMessageInfo } from "@buddy/opencode-adapter/host"
+import { createLearnerEvent } from "../../src/learning/features/memory/storage"
+import { decideLearnerMemoryAttention } from "../../src/learning/features/memory/attention-gate"
+import { LearnerMemoryPath } from "../../src/learning/features/memory/paths"
 import {
-  createLearnerEvent,
-  decideLearnerMemoryAttention,
-  LearnerMemoryPath,
   markLearnerMemoryPhaseTwoJobSucceeded,
   listLearnerMemoryStageOneOutputs,
   markLearnerMemoryStageOneJobFailed,
@@ -17,7 +15,8 @@ import {
   tryClaimLearnerMemoryExtractionBudget,
   tryClaimLearnerMemoryPhaseTwoJob,
   tryClaimLearnerMemoryStageOneJob,
-} from "../../src/learning/features/memory"
+} from "../../src/learning/features/memory/stage-one-store"
+
 import {
   parseLearnerMemoryRegistry,
   renderRegistryMarkdown,
@@ -29,7 +28,7 @@ import { tmpdir } from "../helpers/tmpdir"
 
 describe("learner memory Codex-aligned pipeline mechanics", () => {
   test("preserves file and agent attachment source text in extraction source text", () => {
-    const userMessage = Schema.decodeUnknownSync(SessionV2Schema.Message)({
+    const userMessage = {
       id: "msg_user",
       type: "user",
       text: "Use the attached learning materials.",
@@ -37,8 +36,9 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
         {
           name: "worked-example.md",
           mime: "text/markdown",
-          uri: "file:///worked-example.md",
-          source: {
+          data: "",
+          source: { type: "uri", uri: "file:///worked-example.md" },
+          mention: {
             start: 0,
             end: 42,
             text: "The learner benefits from fully worked examples.",
@@ -48,7 +48,7 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
       agents: [
         {
           name: "teaching-assistant",
-          source: {
+          mention: {
             start: 43,
             end: 84,
             text: "Focus on concrete explanations before abstraction.",
@@ -58,7 +58,7 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
       time: {
         created: 1_777_777_777_000,
       },
-    }) satisfies SessionV2.Message
+    } satisfies SessionMessageInfo
 
     const source = buildFilteredSessionSource({
       messages: [userMessage],
@@ -70,7 +70,7 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
   })
 
   test("excludes assistant reasoning from extraction source text", () => {
-    const assistantMessage = Schema.decodeUnknownSync(SessionV2Schema.Message)({
+    const assistantMessage = {
       id: "msg_assistant",
       type: "assistant",
       agent: "buddy",
@@ -80,12 +80,10 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
       },
       content: [
         {
-          id: "reasoning_1",
           type: "reasoning",
           text: "private reasoning should not become learner memory evidence",
         },
         {
-          id: "text_1",
           type: "text",
           text: "The learner prefers concrete worked examples.",
         },
@@ -102,7 +100,7 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
       time: {
         created: 1_777_777_777_000,
       },
-    }) satisfies SessionV2.Message
+    } satisfies SessionMessageInfo
 
     const source = buildFilteredSessionSource({
       messages: [assistantMessage],

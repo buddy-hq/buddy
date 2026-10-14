@@ -8,7 +8,7 @@ import {
   readBuddyReleaseChannel,
   resolveOpenCodeChannelForBuddyChannel,
 } from "@buddy/script/channel"
-import { OpenCodeVersion } from "@buddy/opencode-adapter/installation"
+import { OPENCODE_VERSION } from "@buddy/opencode-adapter/host"
 import {
   CHEMFIG_CHILD_FILENAME,
   CHEMFIG_RUNTIME_DIRECTORY_NAME,
@@ -63,6 +63,9 @@ const firstStageExternals = [
   LITEPARSE_PACKAGE_NAME,
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,
 ] as const
+// OpenCode's Node variants resolve these wasm assets from node_modules at runtime. The Bun
+// variants import them as files, so the bundle emits them next to node.js.
+const OPENCODE_FILE_ASSET_IMPORT_PATTERN = /^#(?:photon-wasm|shell-parser-wasm)$/u
 const JSDOM_XML_HTTP_REQUEST_IMPLEMENTATION_PATTERN =
   /[\\/]jsdom[\\/]living[\\/]xhr[\\/]XMLHttpRequest-impl\.js$/u
 const JSDOM_SYNC_WORKER_RESOLUTION =
@@ -109,14 +112,21 @@ const result = await Bun.build({
     ".md": "text",
     ".wasm": "file",
   },
-  files: {
-    "opencode-web-ui.gen.ts": "",
-  },
+  plugins: [
+    {
+      name: "buddy:opencode-file-asset-imports",
+      setup(build) {
+        build.onResolve({ filter: OPENCODE_FILE_ASSET_IMPORT_PATTERN }, (args) => ({
+          path: Bun.resolveSync(args.path, args.importer),
+        }))
+      },
+    },
+  ],
   define: {
     [BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE]: JSON.stringify(
       bundledAdvancedMathRuntimeVersion,
     ),
-    [OPENCODE_VERSION_DEFINE]: JSON.stringify(OpenCodeVersion),
+    [OPENCODE_VERSION_DEFINE]: JSON.stringify(OPENCODE_VERSION),
     [OPENCODE_CHANNEL_DEFINE]: JSON.stringify(
       resolveOpenCodeChannelForBuddyChannel(readBuddyReleaseChannel()),
     ),

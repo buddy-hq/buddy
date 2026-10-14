@@ -115,6 +115,7 @@ function createRawProviderModel(input: {
     headers: {},
     release_date: "2026-01-01",
     variants: {},
+    enabled: true,
   }
 }
 
@@ -165,7 +166,7 @@ function createRawProviderCatalog(): ProviderListResponse {
 
 function createProviderAuthMethods(): ProviderAuthResponse {
   return {
-    [OPENCODE_PROVIDER_ID]: [{ type: "oauth", label: "Sign in" }],
+    [OPENCODE_PROVIDER_ID]: [{ id: "opencode-oauth", type: "oauth", label: "Sign in" }],
   }
 }
 

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { renderToStaticMarkup } from "react-dom/server"
-import { getCoreToolPresentationDescriptor } from "@buddy/opencode-adapter/core-tool-presentations"
+import { getCoreToolPresentationDescriptor } from "@buddy/transcript-contract/core-tool-presentations"
 import {
   resolveToolPresentationSnapshot,
   type ToolPresentationPhase,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 
 import {
   activityEntryLabel,

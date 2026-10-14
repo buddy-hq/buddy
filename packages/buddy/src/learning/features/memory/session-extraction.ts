@@ -1,6 +1,6 @@
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { SessionV2 as OpenCodeSessionV2 } from "@buddy/opencode-adapter/session-v2"
-import { readProjectConfig } from "../../../config/runtime"
+import { getOpenCodeClient } from "../../../opencode-runtime/client"
+import { readSessionInDirectory, readSessionMessages } from "../../../project/session-history"
+import { readProjectConfig } from "../../../config/runtime/project-config"
 import { decideLearnerMemoryAttention } from "./attention-gate"
 import { runLearnerMemoryConsolidation } from "./consolidation"
 import { listLearnerEventRecords } from "./evidence"
@@ -57,20 +57,6 @@ function safeExtractionSessionId(sessionID: string): string {
   return sessionID.replace(SESSION_ID_SAFE_CHARACTER_PATTERN, "_")
 }
 
-async function loadSessionMessages(input: {
-  directory: string
-  sessionID: string
-}): Promise<OpenCodeSessionV2.Message[]> {
-  return OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () =>
-      OpenCodeSessionV2.messages({
-        sessionID: OpenCodeSessionV2.ID.make(input.sessionID),
-        order: "asc",
-      }),
-  })
-}
-
 function toEvaluationMessagesFromFilteredSource(
   source: ReturnType<typeof buildFilteredSessionSource>,
 ): EvaluationMessage[] {
@@ -95,7 +81,7 @@ async function buildSessionExtractionSource(input: {
   fixture: EvaluationFixture
   source: ReturnType<typeof buildFilteredSessionSource>
 }> {
-  const messages = await loadSessionMessages(input)
+  const messages = await readSessionMessages(await getOpenCodeClient(), input.directory, input.sessionID)
   const learningEvents = (await listLearnerEventRecords(input.directory))
     .filter(
       (record) =>
@@ -141,10 +127,7 @@ async function extractLearnerMemoryFromSession(input: {
       skippedReason: "learner_memory_disabled",
     }
   }
-  const sessionInfo = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => OpenCodeSessionV2.get(OpenCodeSessionV2.ID.make(input.sessionID)),
-  }).catch(() => undefined)
+  const sessionInfo = await readSessionInDirectory(await getOpenCodeClient(), input.directory, input.sessionID).catch(() => undefined)
   if (
     !input.force &&
     internalLearnerMemorySession({
@@ -269,10 +252,7 @@ async function extractLearnerMemoryFromSession(input: {
 
   const safeSessionID = safeExtractionSessionId(input.sessionID)
   try {
-    const extractionModel = await OpenCodeInstance.provide({
-      directory: input.directory,
-      fn: async () => resolveLearnerMemoryExtractionModel(input.directory, input.force === true),
-    })
+    const extractionModel = await resolveLearnerMemoryExtractionModel(input.directory, input.force === true)
     if (!extractionModel) {
       await releaseLearnerMemoryStageOneJobSkipped({
         directory: input.directory,

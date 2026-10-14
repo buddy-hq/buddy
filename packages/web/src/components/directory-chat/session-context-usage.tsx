@@ -168,9 +168,8 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
         loadProviderCatalogSnapshot: () => loadProviderCatalogSnapshot(),
         authorizeProviderOAuth: ({ providerID, methodIndex }) =>
           authorizeProviderOAuth({ providerID, methodIndex }),
-        cancelProviderOAuth: ({ providerID }) => cancelProviderOAuth({ providerID }),
-        completeProviderOAuth: ({ providerID, methodIndex }) =>
-          completeProviderOAuth({ providerID, methodIndex }),
+        cancelProviderOAuth: (request) => cancelProviderOAuth(request),
+        completeProviderOAuth: (request) => completeProviderOAuth(request),
         reloadProviderRuntime,
         forceReconnect: true,
         onAuthenticated: () => {

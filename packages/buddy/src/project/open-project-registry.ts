@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import fsSync from "node:fs"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 import { parse as parseJsonc, type ParseError as JsoncParseError } from "jsonc-parser"
 import { resolveGlobalConfigFile } from "../config/store/config-paths"
 import { writeJsonFileAtomic, writeJsonFileAtomicSync } from "../storage/atomic-file"
@@ -471,7 +471,7 @@ export async function openProjectRegistryEntry(rawDirectory: string) {
   const directory = requireRegistryDirectory(rawDirectory)
 
   try {
-    await OpenCodeProject.fromDirectory(directory)
+    await (await getOpenCodeClient()).location.get({ location: { directory } })
   } catch (error) {
     throw new OpenProjectRegistryError(400, projectUpdateErrorMessage(error))
   }
@@ -506,7 +506,7 @@ export async function setOpenProjectRegistryEntries(rawDirectories: string[]) {
   const directories = normalizeRegistryDirectories(rawDirectories)
   for (const directory of directories) {
     try {
-      await OpenCodeProject.fromDirectory(directory)
+      await (await getOpenCodeClient()).location.get({ location: { directory } })
     } catch (error) {
       throw new OpenProjectRegistryError(400, projectUpdateErrorMessage(error))
     }

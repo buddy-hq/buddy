@@ -20,7 +20,6 @@ type WorkspacePackage = {
 
 const BACKEND_WORKSPACE_PACKAGE_NAME = "@buddy/backend"
 const WORKSPACE_PACKAGE_PARENT_DIRECTORIES = ["packages", "vendor/opencode/packages"] as const
-const NESTED_WORKSPACE_PACKAGE_DIRECTORIES = ["vendor/opencode/packages/sdk/js"] as const
 const BACKEND_DEVELOPMENT_ADDITIONAL_WATCH_ROOTS = [
   "packages/buddy/script",
   "packages/script/src",
@@ -49,11 +48,6 @@ function workspacePackageManifestPaths(repositoryRoot: string): string[] {
       const manifest = path.join(parent, entry.name, "package.json")
       if (existsSync(manifest)) manifests.push(manifest)
     }
-  }
-
-  for (const relativeDirectory of NESTED_WORKSPACE_PACKAGE_DIRECTORIES) {
-    const manifest = path.resolve(repositoryRoot, relativeDirectory, "package.json")
-    if (existsSync(manifest)) manifests.push(manifest)
   }
 
   return manifests

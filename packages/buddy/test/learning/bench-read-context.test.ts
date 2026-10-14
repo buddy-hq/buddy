@@ -14,7 +14,6 @@ import {
   type BenchClientAction,
 } from "../../src/learning/features/bench/client-actions"
 import { cleanupBenchCapturesForSession } from "../../src/learning/features/bench/captures"
-import { benchReadContextTool } from "../../src/learning/features/bench/tools/read-context"
 import {
   BENCH_READ_CONTEXT_TAB_LIMIT,
   benchTargetAbsolutePath,
@@ -30,6 +29,8 @@ import {
   requireString,
   type TJsonObject,
 } from "../helpers/parse"
+
+const { benchReadContextTool } = await import("../../src/learning/features/bench/tools/read-context")
 
 const SESSION_ID = "session-bench-read-context"
 const ONE_PIXEL_PNG_BASE64 =
@@ -274,7 +275,7 @@ describe("bench_read_context", () => {
     ])
     const chatTabs = requireJsonObject(output.chatTabs)
     expect(path.isAbsolute(requireString(chatTabs.databasePath))).toBe(true)
-    expect(requireString(chatTabs.howToRead)).toContain("message(session_id, data JSON)")
+    expect(requireString(chatTabs.howToRead)).toContain("session_message(id, session_id, type, seq, time_created, data JSON)")
 
     await expect(
       benchReadContextTool.run({ responseFormat: "bench_screenshot_only" }, toolContext),

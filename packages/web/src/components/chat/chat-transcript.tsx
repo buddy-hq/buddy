@@ -20,7 +20,7 @@ import type {
   ToolCollectionToken,
   ToolLayoutRole,
   ToolRendererToken,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 import { useShallow } from "zustand/react/shallow"
 
 import "@/components/chat/tools/text-shimmer.css"

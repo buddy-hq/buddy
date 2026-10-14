@@ -9,6 +9,7 @@ export const TEST_TEMP_DIRECTORY_NAME = "tmp"
 export const TEST_HOME_DIRECTORY_NAME = "home"
 export const WINDOWS_HOME_ENVIRONMENT_KEY = "USERPROFILE"
 export const POSIX_HOME_ENVIRONMENT_KEY = "HOME"
+export const OPENCODE_TEST_HOME_ENVIRONMENT_KEY = "OPENCODE_TEST_HOME"
 export const TEMP_ENVIRONMENT_KEYS = ["TMPDIR", "TMP", "TEMP"] as const
 const TEST_SANDBOX_REMOVE_MAX_RETRIES = 5
 const TEST_SANDBOX_REMOVE_RETRY_DELAY_MILLISECONDS = 100
@@ -39,6 +40,7 @@ export function configureTestSandbox(root: string): TestSandbox {
   }
   process.env[POSIX_HOME_ENVIRONMENT_KEY] = home
   process.env[WINDOWS_HOME_ENVIRONMENT_KEY] = home
+  process.env[OPENCODE_TEST_HOME_ENVIRONMENT_KEY] = home
 
   return { home, originalHome, root: resolvedRoot, temp }
 }

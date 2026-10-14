@@ -1,10 +1,13 @@
+import { parsePermissionRequest, parsePermissionReplied } from "@buddy/transcript-contract/permission"
+import type { PermissionRequest } from "@/state/permission-types"
+import { sessionFamilyIDs } from "@/lib/session-family"
 import { z } from "zod"
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   readWorkspaceFileWatcherUpdatePayload,
   type WorkspaceFileWatcherEventKind,
-} from "@buddy/opencode-adapter/file-watcher"
+} from "@buddy/transcript-contract/file-watcher"
 import { isChatTextPart } from "@/components/chat/utils/part-guards"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
@@ -15,13 +18,14 @@ import {
   type BenchClientActionV2,
 } from "@/lib/directory-workspace-client-actions"
 import type { BenchClientLease } from "@/lib/directory-workspace-lifecycle"
-import { resyncDirectory, resyncDirectoryAfterReconnect } from "@/state/chat-actions"
+import { loadPermissions, resyncDirectory, resyncDirectoryAfterReconnect } from "@/state/chat-actions"
 import { isAbortLikeError } from "@/state/chat-error"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
 import {
   addTranscriptPendingInput,
   getTranscriptMessages,
+  loadTranscriptMessages,
   markTranscriptSessionOptimistic,
   markTranscriptSessionRunning,
   removeTranscriptPendingInput,
@@ -55,7 +59,6 @@ import type {
   GlobalEvent,
   MessageInfo,
   MessagePart,
-  PermissionRequest,
   QuestionRequest,
   SessionStatusInfo,
   SessionInfo,
@@ -67,7 +70,6 @@ import {
   MessageInfoEventSchema,
   FileChangingToolCompletionSchema,
   MessagePartEventSchema,
-  PermissionRequestEventSchema,
   QuestionRequestEventSchema,
   SessionInfoEventSchema,
 } from "./chat-event-schemas"
@@ -368,11 +370,15 @@ export function useChatSync(props: UseChatSyncProps) {
           })
           return
         }
+        if (payload.type === "server.connected") {
+          void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
+          return
+        }
         if (!("properties" in payload)) {
           return
         }
 
-        if (payload.type === "server.connected" || payload.type === "server.heartbeat") {
+        if (payload.type === "server.heartbeat") {
           return
         }
 
@@ -387,6 +393,19 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         const properties = payload.properties
+
+        if (payload.type === "session.resync") {
+          const sessionID = parseTNonEmptyString(properties.sessionID)
+          const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
+          if (sessionID && (sessionID === activeSessionID || getTranscriptMessages(directory, sessionID).length > 0)) {
+            void loadTranscriptMessages(directory, sessionID, { force: true }).catch(() => undefined)
+          }
+          return
+        }
+        if (payload.type === "session.deleted") {
+          void resyncQueryBackedDirectory(directory)
+          return
+        }
 
         if (payload.type === "session.created" || payload.type === "session.updated") {
           const sessionResult = SessionInfoEventSchema.safeParse(properties.info)
@@ -473,7 +492,7 @@ export function useChatSync(props: UseChatSyncProps) {
             markTranscriptSessionOptimistic(directory, info.sessionID, false)
           }
           applyMessageUpdated(directory, info)
-          if (info.role === "user" && info.sessionID) {
+          if (info.role === "user" && info.sessionID && info.agent && info.model.providerID && info.model.modelID) {
             useModelSelectionStore
               .getState()
               .restoreSessionSelection(getModelSelectionScopeKey(directory, info.sessionID), {
@@ -515,7 +534,7 @@ export function useChatSync(props: UseChatSyncProps) {
           if (fileChange.success) {
             // Only shell commands can add, move, or delete PDF and EPUB sources.
             void notifyNotebookFilesChanged(queryClient, directory, {
-              resources: fileChange.data.tool === "bash",
+              resources: fileChange.data.tool === "shell" || fileChange.data.tool === "bash",
             })
           }
           return
@@ -542,15 +561,21 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "permission.asked") {
-          const permissionResult = PermissionRequestEventSchema.safeParse(properties)
-          if (!permissionResult.success) return
-          const permissionRequest = permissionResult.data
+          const permissionRequest = parsePermissionRequest(properties)
+          if (permissionRequest === undefined) return
+          const current = useChatStore.getState().directories[directory]
+          const family = current?.sessionID ? sessionFamilyIDs(current.sessions, current.sessionID) : []
+          if (!family.includes(permissionRequest.sessionID)) {
+            void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
+            return
+          }
           addTranscriptPendingInput(directory, {
             requestID: permissionRequest.id,
             sessionID: permissionRequest.sessionID,
           })
           applyPermissionAsked(directory, permissionRequest)
           upsertDirectoryPermissionQueryData(queryClient, directory, permissionRequest)
+          void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
           const notificationPreferences = useNotificationPreferences.getState().preferences
           if (notificationPreferences.permissions) {
             const sessionID = permissionRequest.sessionID
@@ -570,10 +595,13 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "permission.replied") {
-          const requestID = String(properties.requestID ?? "")
+          const replyResult = parsePermissionReplied(properties)
+          if (replyResult === undefined) return
+          const requestID = replyResult.requestID
           removeTranscriptPendingInput(directory, requestID)
           applyPermissionReplied(directory, requestID)
           removeDirectoryPermissionQueryData(queryClient, directory, requestID)
+          void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
           return
         }
 

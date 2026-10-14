@@ -1,12 +1,21 @@
 import { describe, expect, test } from "bun:test"
-import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { PermissionNext } from "@buddy/opencode-adapter/permission"
+import type { OpenCodeHost } from "@buddy/opencode-adapter/host"
+import { evaluatePermission } from "@buddy/transcript-contract/permission-rules"
+import { toBuddyPermissionRules } from "@buddy/opencode-adapter/gateway/permission"
 import { BUDDY } from "../../src/learning/personas/buddy"
 import { TEACHING_BUDDY } from "../../src/learning/personas/teaching-buddy"
 import { writeProjectConfig } from "../helpers/project-config"
 import { withSyncedOpenCodeConfig } from "../helpers/opencode"
 import { parsePromptFiniteNumber, requireParsed } from "../helpers/parse"
 import { withRepo } from "./helpers"
+
+async function readAgent(host: OpenCodeHost, directory: string, id: string) {
+  return (await host.agent.get({ agentID: id, location: { directory } })).data
+}
+
+function evaluate(action: string, resource: string, permissions: Parameters<typeof toBuddyPermissionRules>[0]) {
+  return evaluatePermission(action, resource, toBuddyPermissionRules(permissions))
+}
 
 describe("parity.agent", () => {
   test("preserves Buddy agent defaults when applying partial overrides", async () => {
@@ -23,7 +32,7 @@ describe("parity.agent", () => {
       )
 
       const teachingBuddyAgent = requireParsed(
-        await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("teaching-buddy")),
+        await withSyncedOpenCodeConfig(directory, (host) => readAgent(host, directory, "teaching-buddy")),
         "teaching-buddy agent",
       )
 
@@ -33,21 +42,21 @@ describe("parity.agent", () => {
       if (steps !== undefined) {
         expect(steps).toBe(8)
       }
-      const teachingBuddyPrompt = requireParsed(teachingBuddyAgent.prompt, "teaching-buddy prompt")
+      const teachingBuddyPrompt = requireParsed(teachingBuddyAgent.system, "teaching-buddy prompt")
       expect(teachingBuddyPrompt.length).toBeGreaterThan(0)
     })
   })
 
   test("preserves distinct learner and teaching prompts through runtime overlays", async () => {
     await withRepo(async (directory) => {
-      const result = await withSyncedOpenCodeConfig(directory, async () => ({
-        buddyAgent: await OpenCodeAgent.get("buddy"),
-        teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
+      const result = await withSyncedOpenCodeConfig(directory, async (host) => ({
+        buddyAgent: await readAgent(host, directory, "buddy"),
+        teachingBuddyAgent: await readAgent(host, directory, "teaching-buddy"),
       }))
 
-      const buddyPrompt = requireParsed(result.buddyAgent?.prompt, "buddy prompt")
+      const buddyPrompt = requireParsed(result.buddyAgent?.system, "buddy prompt")
       const teachingBuddyPrompt = requireParsed(
-        result.teachingBuddyAgent?.prompt,
+        result.teachingBuddyAgent?.system,
         "teaching-buddy prompt",
       )
 
@@ -73,8 +82,8 @@ describe("parity.agent", () => {
       )
 
       const curriculumAgent = requireParsed(
-        await withSyncedOpenCodeConfig(directory, () =>
-          OpenCodeAgent.get("curriculum-orchestrator"),
+        await withSyncedOpenCodeConfig(directory, (host) =>
+          readAgent(host, directory, "curriculum-orchestrator"),
         ),
         "curriculum-orchestrator agent",
       )
@@ -86,11 +95,11 @@ describe("parity.agent", () => {
         expect(curriculumSteps).toBe(8)
       }
       const curriculumPrompt = requireParsed(
-        curriculumAgent.prompt,
+        curriculumAgent.system,
         "curriculum-orchestrator prompt",
       )
       expect(curriculumPrompt.length).toBeGreaterThan(0)
-      expect(PermissionNext.evaluate("task", "general", curriculumAgent.permission).action).toBe(
+      expect(evaluate("subagent", "general", curriculumAgent.permissions).action).toBe(
         "allow",
       )
     })
@@ -114,75 +123,75 @@ describe("parity.agent", () => {
       )
 
       const teachingBuddyAgent = requireParsed(
-        await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("teaching-buddy")),
+        await withSyncedOpenCodeConfig(directory, (host) => readAgent(host, directory, "teaching-buddy")),
         "teaching-buddy agent",
       )
 
       expect(
-        PermissionNext.evaluate("task", "notes/lesson.md", teachingBuddyAgent.permission).action,
+        evaluate("subagent", "notes/lesson.md", teachingBuddyAgent.permissions).action,
       ).toBe("allow")
       expect(
-        PermissionNext.evaluate("task", "tmp/scratch.md", teachingBuddyAgent.permission).action,
+        evaluate("subagent", "tmp/scratch.md", teachingBuddyAgent.permissions).action,
       ).toBe("deny")
     })
   })
 
   test("derives persona task permissions from the persona catalog defaults", async () => {
     await withRepo(async (directory) => {
-      const result = await withSyncedOpenCodeConfig(directory, async () => ({
-        buddyAgent: await OpenCodeAgent.get("buddy"),
-        teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
+      const result = await withSyncedOpenCodeConfig(directory, async (host) => ({
+        buddyAgent: await readAgent(host, directory, "buddy"),
+        teachingBuddyAgent: await readAgent(host, directory, "teaching-buddy"),
       }))
 
       const buddyAgent = requireParsed(result.buddyAgent, "buddy agent")
       const teachingBuddyAgent = requireParsed(result.teachingBuddyAgent, "teaching-buddy agent")
 
       expect(
-        PermissionNext.evaluate("task", "curriculum-orchestrator", buddyAgent.permission).action,
+        evaluate("subagent", "curriculum-orchestrator", buddyAgent.permissions).action,
       ).toBe("deny")
-      expect(PermissionNext.evaluate("task", "general", buddyAgent.permission).action).toBe("allow")
-      expect(PermissionNext.evaluate("task", "practice-agent", buddyAgent.permission).action).toBe(
+      expect(evaluate("subagent", "general", buddyAgent.permissions).action).toBe("allow")
+      expect(evaluate("subagent", "practice-agent", buddyAgent.permissions).action).toBe(
         "deny",
       )
       expect(
-        PermissionNext.evaluate("task", "question-set-author", buddyAgent.permission).action,
+        evaluate("subagent", "question-set-author", buddyAgent.permissions).action,
       ).toBe("allow")
       expect(
-        PermissionNext.evaluate("task", "flashcard-author", buddyAgent.permission).action,
+        evaluate("subagent", "flashcard-author", buddyAgent.permissions).action,
       ).toBe("allow")
       expect(
-        PermissionNext.evaluate("task", "learner-memory-consolidator", buddyAgent.permission)
+        evaluate("subagent", "learner-memory-consolidator", buddyAgent.permissions)
           .action,
       ).toBe("deny")
 
       expect(
-        PermissionNext.evaluate("task", "curriculum-orchestrator", teachingBuddyAgent.permission)
+        evaluate("subagent", "curriculum-orchestrator", teachingBuddyAgent.permissions)
           .action,
       ).toBe("deny")
       expect(
-        PermissionNext.evaluate("task", "practice-agent", teachingBuddyAgent.permission).action,
+        evaluate("subagent", "practice-agent", teachingBuddyAgent.permissions).action,
       ).toBe("deny")
       expect(
-        PermissionNext.evaluate("task", "assessment-agent", teachingBuddyAgent.permission).action,
+        evaluate("subagent", "assessment-agent", teachingBuddyAgent.permissions).action,
       ).toBe("deny")
       expect(
-        PermissionNext.evaluate("task", "question-set-author", teachingBuddyAgent.permission)
+        evaluate("subagent", "question-set-author", teachingBuddyAgent.permissions)
           .action,
       ).toBe("allow")
-      expect(PermissionNext.evaluate("task", "general", teachingBuddyAgent.permission).action).toBe(
+      expect(evaluate("subagent", "general", teachingBuddyAgent.permissions).action).toBe(
         "allow",
       )
-      expect(PermissionNext.evaluate("task", "explore", teachingBuddyAgent.permission).action).toBe(
+      expect(evaluate("subagent", "explore", teachingBuddyAgent.permissions).action).toBe(
         "deny",
       )
       expect(
-        PermissionNext.evaluate("task", "flashcard-author", teachingBuddyAgent.permission).action,
+        evaluate("subagent", "flashcard-author", teachingBuddyAgent.permissions).action,
       ).toBe("allow")
       expect(
-        PermissionNext.evaluate(
-          "task",
+        evaluate(
+          "subagent",
           "learner-memory-consolidator",
-          teachingBuddyAgent.permission,
+          teachingBuddyAgent.permissions,
         ).action,
       ).toBe("deny")
     })
@@ -190,41 +199,41 @@ describe("parity.agent", () => {
 
   test("derives persona learning-tool permissions from canonical Buddy capability policy", async () => {
     await withRepo(async (directory) => {
-      const result = await withSyncedOpenCodeConfig(directory, async () => ({
-        buddyAgent: await OpenCodeAgent.get("buddy"),
-        teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
+      const result = await withSyncedOpenCodeConfig(directory, async (host) => ({
+        buddyAgent: await readAgent(host, directory, "buddy"),
+        teachingBuddyAgent: await readAgent(host, directory, "teaching-buddy"),
       }))
 
       const buddyAgent = requireParsed(result.buddyAgent, "buddy agent")
       const teachingBuddyAgent = requireParsed(result.teachingBuddyAgent, "teaching-buddy agent")
 
-      expect(PermissionNext.evaluate("search_standards", "*", buddyAgent.permission).action).toBe(
+      expect(evaluate("search_standards", "*", buddyAgent.permissions).action).toBe(
         "allow",
       )
-      expect(PermissionNext.evaluate("render_figure", "*", buddyAgent.permission).action).toBe(
+      expect(evaluate("render_figure", "*", buddyAgent.permissions).action).toBe(
         "allow",
       )
-      expect(PermissionNext.evaluate("python_calculator", "*", buddyAgent.permission).action).toBe(
+      expect(evaluate("python_calculator", "*", buddyAgent.permissions).action).toBe(
         "allow",
       )
       expect(
-        PermissionNext.evaluate(
+        evaluate(
           "teaching_start_lesson",
           "teaching/lesson.ts",
-          buddyAgent.permission,
+          buddyAgent.permissions,
         ).action,
       ).toBe("deny")
       expect(
-        PermissionNext.evaluate("python_calculator", "*", teachingBuddyAgent.permission).action,
+        evaluate("python_calculator", "*", teachingBuddyAgent.permissions).action,
       ).toBe("allow")
     })
   })
 
   test("does not leak persona subagent config into provider-facing agent options", async () => {
     await withRepo(async (directory) => {
-      const result = await withSyncedOpenCodeConfig(directory, async () => ({
-        buddyAgent: await OpenCodeAgent.get("buddy"),
-        teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
+      const result = await withSyncedOpenCodeConfig(directory, async (host) => ({
+        buddyAgent: await readAgent(host, directory, "buddy"),
+        teachingBuddyAgent: await readAgent(host, directory, "teaching-buddy"),
       }))
 
       const agents = [
@@ -233,7 +242,7 @@ describe("parity.agent", () => {
       ]
 
       for (const agent of agents) {
-        expect(agent.options?.subagents).toBeUndefined()
+        expect(agent.request.body.subagents).toBeUndefined()
       }
     })
   })

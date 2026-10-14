@@ -1,4 +1,4 @@
-import type { PermissionAction } from "@buddy/opencode-adapter/permission"
+export type { PermissionRule, PermissionRuleset } from "@buddy/transcript-contract/permission-rules"
 
 export type SkillSource = "custom" | "library" | "system" | "external"
 export type SkillScope = "global" | "workspace"
@@ -83,14 +83,6 @@ export class SkillServiceError extends Error {
     this.name = "SkillServiceError"
   }
 }
-
-export type PermissionRule = {
-  permission: string
-  pattern: string
-  action: PermissionAction
-}
-
-export type PermissionRuleset = PermissionRule[]
 
 export type OpenCodeSkill = {
   name: string

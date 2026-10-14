@@ -1,380 +1,135 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
+import { expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { APICallError } from "ai"
-import { BUDDY_ENV } from "../../src/storage/constants"
-import {
-  buildBuddyCodexErrorHtml,
-  buildBuddyCodexSuccessHtml,
-  cancelOpenAICodexAuthorization,
-  createBuddyCodexLoader,
-  createOpenAICodexAuthHook,
-} from "../../src/opencode-runtime/plugins/openai-codex-auth"
-import {
-  resolveOpenAICodexAuth,
-  type OpenAICodexStoredAuth,
-} from "../../src/opencode-runtime/plugins/openai-codex-credentials"
-import { traceOpenAIAuth } from "../../src/opencode-runtime/plugins/openai-auth-trace"
-import { temporaryDirectory } from "../helpers/temporary-directory"
+import { Plugin, type PluginContext } from "@buddy/opencode-adapter/plugin"
+import { Credential, Integration, startProviderOAuth, completeProviderOAuth, cancelProviderOAuth, listProviderAuth, setProviderKey, removeProviderCredentials, resolveIntegrationCredential } from "@buddy/opencode-adapter/gateway/integration"
+import { Provider, createProviderCatalogPlugin } from "@buddy/opencode-adapter/gateway/provider"
+import { createOpenAICodexCredentialResolver } from "../../src/opencode-runtime/plugins/openai-codex-credentials"
+import { createV2TestHost } from "../helpers/v2-host"
 
-const originalFetch = globalThis.fetch
-const originalDesktopCallbackUrl = process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]
-const originalOpenAIAuthTraceFile = process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE]
-
-function restoreEnvironmentVariable(name: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[name]
-    return
-  }
-
-  process.env[name] = value
+function deferred<T>() {
+  let resolve: ((value: T) => void) | undefined
+  const promise = new Promise<T>((done) => { resolve = done })
+  return { promise, resolve(value: T) { if (!resolve) throw new Error("Deferred is uninitialized"); resolve(value) } }
 }
 
-beforeEach(() => {
-  delete process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]
-  delete process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE]
+function oauthValue(access: string) {
+  return Credential.OAuth.make({ type: "oauth", methodID: Integration.MethodID.make("fixture-auto"), access, refresh: "refresh", expires: Date.now() + 3_600_000 })
+}
+
+test("independent OAuth attempt IDs target the correct completion and cancellation", async () => {
+  await using runtime = await createV2TestHost()
+  await runtime.host.plugin(createProviderCatalogPlugin())
+  const attempts: ReturnType<typeof deferred<Credential.OAuth>>[] = []
+  await runtime.host.plugin(Plugin.define({ id: "buddy.test.oauth", setup: async (ctx) => {
+    await ctx.integration.transform((editor) => editor.method.update({ integrationID: "openai", method: { id: "fixture-auto", type: "oauth", label: "Fixture OAuth", form: [{ type: "string", key: "deployment", title: "Deployment", required: true, options: [{ label: "Public", value: "public" }] }] }, authorize: async (answers) => {
+      expect(answers.deployment).toBe("public")
+      const result = deferred<Credential.OAuth>()
+      attempts.push(result)
+      return { mode: "auto", url: "https://example.test/oauth", instructions: "Sign in", callback: result.promise }
+    } }))
+  } }))
+  const methods = await listProviderAuth(runtime.host, runtime.path)
+  expect(methods.openai?.some((method) => method.id === "chatgpt-browser")).toBe(true)
+  expect(methods.openai?.find((method) => method.id === "fixture-auto")?.prompts).toEqual([{ type: "select", key: "deployment", message: "Deployment", required: true, options: [{ label: "Public", value: "public" }] }])
+  const first = await startProviderOAuth(runtime.host, runtime.path, "openai", { methodID: "fixture-auto", answers: { deployment: "public" } })
+  const second = await startProviderOAuth(runtime.host, runtime.path, "openai", { methodID: "fixture-auto", answers: { deployment: "public" } })
+  expect(first.attemptID).not.toBe(second.attemptID)
+  expect(first.methodID).toBe("fixture-auto")
+  await cancelProviderOAuth(runtime.host, runtime.path, "openai", first.attemptID)
+  const remaining = await runtime.host.integration.oauth.status({ location: { directory: runtime.path }, integrationID: "openai", attemptID: second.attemptID })
+  expect(remaining.data.status).toBe("pending")
+  attempts[1]?.resolve(oauthValue("second-access"))
+  expect(await completeProviderOAuth(runtime.host, runtime.path, "openai", second)).toBe(true)
+  const credentials = await runtime.host.credential.list()
+  expect(credentials.some((entry) => entry.integrationID === "openai" && entry.value.type === "oauth" && entry.value.access === "second-access")).toBe(true)
 })
 
-afterEach(() => {
-  // Cancelling traces the attempt, so drop the scoped trace file first: its
-  // directory is already disposed and tracing would recreate it.
-  restoreEnvironmentVariable(BUDDY_ENV.OPENAI_AUTH_TRACE_FILE, originalOpenAIAuthTraceFile)
-  cancelOpenAICodexAuthorization()
-  restoreEnvironmentVariable(BUDDY_ENV.DESKTOP_CALLBACK_URL, originalDesktopCallbackUrl)
-  globalThis.fetch = originalFetch
+test("disconnect removes all stored credentials while method lists never expose their values", async () => {
+  await using runtime = await createV2TestHost()
+  await runtime.host.plugin(createProviderCatalogPlugin())
+  await setProviderKey(runtime.host, runtime.path, "openai", "first-secret")
+  await setProviderKey(runtime.host, runtime.path, "openai", "second-secret")
+  const methods = await listProviderAuth(runtime.host, runtime.path)
+  expect(JSON.stringify(methods)).not.toContain("secret")
+  await removeProviderCredentials(runtime.host, runtime.path, "openai")
+  expect((await runtime.host.credential.list()).filter((entry) => entry.integrationID === "openai")).toEqual([])
 })
 
-function readRequestUrl(input: RequestInfo | URL) {
-  if (input instanceof URL) return input.toString()
-  if (input instanceof Request) return input.url
-  return input
-}
+test("a disconnected provider alias resolves its integration for key set and removal", async () => {
+  await using runtime = await createV2TestHost()
+  await runtime.host.plugin(Plugin.define({ id: "buddy.test.provider-alias", setup: async (ctx) => {
+    await ctx.provider.transform((editor) => editor.add({ info: { ...Provider.Info.empty(Provider.ID.make("anthropic-alias")), name: "Anthropic alias", integrationID: Integration.ID.make("anthropic") }, models: [] }))
+  } }))
+  await runtime.host.plugin(createProviderCatalogPlugin())
+  const methods = await listProviderAuth(runtime.host, runtime.path)
+  expect(methods["anthropic-alias"]).toEqual(methods.anthropic)
+  await setProviderKey(runtime.host, runtime.path, "anthropic-alias", "alias-secret")
+  const connected = await runtime.host.integration.get({ location: { directory: runtime.path }, integrationID: "anthropic" })
+  expect(connected.data?.connections.some((connection) => connection.type === "credential")).toBe(true)
+  await removeProviderCredentials(runtime.host, runtime.path, "anthropic-alias")
+  expect((await runtime.host.credential.list()).filter((entry) => entry.integrationID === "anthropic")).toEqual([])
+})
 
-function createDeferredResponse() {
-  let resolveResponse: ((response: Response) => void) | undefined
-  const promise = new Promise<Response>((resolve) => {
-    resolveResponse = resolve
-  })
+test("Buddy credential resolution shares one refresh across concurrent notebook consumers", async () => {
+  await using runtime = await createV2TestHost()
+  await runtime.host.plugin(createProviderCatalogPlugin())
+  const refreshed = deferred<Credential.OAuth>()
+  const started = deferred<void>()
+  let calls = 0
+  let context: PluginContext | undefined
+  await runtime.host.plugin(Plugin.define({ id: "buddy.test.refresh", setup: async (ctx) => {
+    context = ctx
+    await ctx.integration.transform((editor) => editor.method.update({ integrationID: "anthropic", method: { id: "fixture-auto", type: "oauth", label: "Fixture OAuth" }, authorize: async () => ({ mode: "auto", url: "https://example.test", instructions: "Sign in", callback: Promise.resolve(oauthValue("access")) }), refresh: async () => { calls += 1; started.resolve(); return refreshed.promise } }))
+  } }))
+  await runtime.host.integration.list({ location: { directory: runtime.path } })
+  await runtime.host.credential.create({ integrationID: "anthropic", value: { type: "oauth", methodID: "fixture-auto", access: "expired", refresh: "refresh", expires: 0 } })
+  if (!context) throw new Error("Plugin did not activate")
+  const firstContext = context
+  const connection = await context.integration.connection.active("anthropic")
+  if (!connection) throw new Error("Connection is missing")
+  const secondDirectory = path.join(runtime.path, "second-notebook")
+  await fs.mkdir(secondDirectory)
+  await runtime.host.integration.list({ location: { directory: secondDirectory } })
+  expect(context).not.toBe(firstContext)
+  const first = resolveIntegrationCredential(firstContext, connection)
+  await started.promise
+  const second = resolveIntegrationCredential(context, connection)
+  refreshed.resolve(oauthValue("refreshed"))
+  expect((await first)?.type).toBe("oauth")
+  expect((await second)?.type).toBe("oauth")
+  expect(calls).toBe(1)
+})
 
-  return {
-    promise,
-    resolve(response: Response) {
-      if (!resolveResponse) throw new Error("Deferred response is not initialized")
-      resolveResponse(response)
-    },
-  }
-}
-
-describe("OpenAI Codex auth hook", () => {
-  test("keeps the newest callback listener alive when an older authorization settles", async () => {
-    const method = createOpenAICodexAuthHook().methods.find(
-      (candidate) => candidate.type === "oauth" && candidate.label.includes("browser"),
-    )
-    if (!method || method.type !== "oauth") {
-      throw new Error("Browser OAuth method is unavailable")
-    }
-
-    const firstAuthorization = await method.authorize()
-    if (firstAuthorization.method !== "auto") {
-      throw new Error("Browser OAuth method did not use an automatic callback")
-    }
-    const firstState = new URL(firstAuthorization.url).searchParams.get("state")
-    if (!firstState) throw new Error("First OAuth state is missing")
-    const firstCompletion = firstAuthorization.callback().then(
-      () => undefined,
-      (cause) => cause,
-    )
-
-    const secondAuthorization = await method.authorize()
-    if (secondAuthorization.method !== "auto") {
-      throw new Error("Browser OAuth method did not use an automatic callback")
-    }
-    const secondCompletion = secondAuthorization.callback().then(
-      () => undefined,
-      (cause) => cause,
-    )
-
-    await expect(firstCompletion).resolves.toEqual(
-      expect.objectContaining({ message: "Superseded by a newer authorization request" }),
-    )
-
-    const staleCallback = await fetch(
-      `http://localhost:1455/auth/callback?code=stale-code&state=${encodeURIComponent(firstState)}`,
-    )
-    expect(staleCallback.status).toBe(400)
-    expect(await staleCallback.text()).toContain("Invalid state - potential CSRF attack")
-
-    const cancelResponse = await fetch("http://localhost:1455/cancel")
-    expect(cancelResponse.status).toBe(200)
-    await expect(secondCompletion).resolves.toEqual(
-      expect.objectContaining({ message: "Authorization cancelled" }),
-    )
-  })
-
-  test("writes structured auth diagnostics when the dev trace file is configured", async () => {
-    await using directory = await temporaryDirectory({ prefix: "buddy-openai-auth-trace-" })
-    const traceFile = path.join(directory.path, "auth.jsonl")
-    process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE] = traceFile
-
-    await traceOpenAIAuth("test_event", { status: 200, ok: true })
-    const entry: unknown = JSON.parse((await fs.readFile(traceFile, "utf8")).trim())
-
-    expect(entry).toMatchObject({ event: "test_event", status: 200, ok: true })
-  })
-
-  test("brands the success callback page for Buddy", () => {
-    process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL] = "buddy://auth/callback"
-    const html = buildBuddyCodexSuccessHtml()
-
-    expect(html).toContain("Buddy - Codex Authorization Successful")
-    expect(html).toContain("Returning you to the app")
-    expect(html).not.toContain("return to OpenCode")
-    expect(html).toContain('href="buddy://auth/callback"')
-  })
-
-  test("does not launch the generic Electron protocol handler in source development", () => {
-    const html = buildBuddyCodexSuccessHtml()
-
-    expect(html).toContain("You can go back to the Buddy app")
-    expect(html).not.toContain("buddy://")
-  })
-
-  test("escapes untrusted error text in the callback page", () => {
-    const html = buildBuddyCodexErrorHtml(`<script>alert("xss")</script>`)
-
-    expect(html).toContain("&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;")
-    expect(html).not.toContain(`<script>alert("xss")</script>`)
-  })
-
-  test("rewrites Codex model requests and injects oauth headers", async () => {
-    const fetchMock = mock(async (_input: RequestInfo | URL, _init?: RequestInit) => {
-      return new Response(null, { status: 200 })
-    })
-    const fetchStub = Object.assign(
-      async (input: RequestInfo | URL, init?: Parameters<typeof fetch>[1]) =>
-        fetchMock(input, init),
-      {
-        preconnect: originalFetch.preconnect,
-      },
-    )
-    globalThis.fetch = fetchStub
-
-    const loader = createBuddyCodexLoader({
-      getAuth: async () => ({
-        type: "oauth",
-        access: "access-token",
-        refresh: "refresh-token",
-        expires: Date.now() + 60_000,
-        accountId: "acct_123",
-      }),
-      setAuth: async () => undefined,
-    })
-
-    await loader.fetch("https://api.openai.com/v1/responses", {
-      headers: {
-        authorization: "Bearer old-token",
-        "x-test": "1",
-      },
-    })
-
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [requestInput, init] = fetchMock.mock.calls[0] ?? []
-    expect(readRequestUrl(requestInput)).toBe("https://chatgpt.com/backend-api/codex/responses")
-
-    const headers = new Headers(init?.headers)
-    expect(headers.get("authorization")).toBe("Bearer access-token")
-    expect(headers.get("ChatGPT-Account-Id")).toBe("acct_123")
-    expect(headers.get("x-test")).toBe("1")
-  })
-
-  test("reports rejected model credentials to account health", async () => {
-    const rejectedAuth = mock((_auth: OpenAICodexStoredAuth) => undefined)
-    const fetchStub = Object.assign(async () => Response.json({}, { status: 401 }), {
-      preconnect: originalFetch.preconnect,
-    })
-    globalThis.fetch = fetchStub
-
-    const loader = createBuddyCodexLoader({
-      getAuth: async () => ({
-        type: "oauth",
-        access: "invalidated-access-token",
-        refresh: "refresh-token",
-        expires: Date.now() + 60_000,
-      }),
-      setAuth: async () => undefined,
-      onAuthenticationRejected: rejectedAuth,
-    })
-
-    await loader.fetch("https://api.openai.com/v1/responses")
-
-    expect(rejectedAuth).toHaveBeenCalledTimes(1)
-    expect(rejectedAuth).toHaveBeenCalledWith(
-      expect.objectContaining({ access: "invalidated-access-token" }),
-    )
-  })
-
-  test("marks ChatGPT subscription usage limits as non-retryable", async () => {
-    const responseBody = JSON.stringify({
-      error: {
-        type: "usage_limit_reached",
-        message: "The usage limit has been reached",
-        plan_type: "plus",
-        resets_at: 1_787_087_426,
-        eligible_promo: null,
-        resets_in_seconds: 539_958,
-      },
-    })
-    const fetchStub = Object.assign(
-      async () =>
-        new Response(responseBody, {
-          status: 429,
-          headers: {
-            "content-type": "application/json",
-            "x-codex-primary-used-percent": "100.0",
-          },
-        }),
-      { preconnect: originalFetch.preconnect },
-    )
-    globalThis.fetch = fetchStub
-
-    const loader = createBuddyCodexLoader({
-      getAuth: async () => ({
-        type: "oauth",
-        access: "access-token",
-        refresh: "refresh-token",
-        expires: Date.now() + 60_000,
-      }),
-      setAuth: async () => undefined,
-    })
-
-    const result = await loader.fetch("https://api.openai.com/v1/responses").catch((cause) => cause)
-
-    expect(APICallError.isInstance(result)).toBe(true)
-    if (!APICallError.isInstance(result)) throw new Error("Expected an API call error")
-    expect(result.message).toBe("The usage limit has been reached")
-    expect(result.statusCode).toBe(429)
-    expect(result.isRetryable).toBe(false)
-    expect(result.responseBody).toBe(responseBody)
-    expect(result.responseHeaders?.["x-codex-primary-used-percent"]).toBe("100.0")
-  })
-
-  test("leaves transient OpenAI rate limits retryable", async () => {
-    const responseBody = JSON.stringify({
-      error: {
-        type: "rate_limit_error",
-        message: "Too many requests",
-      },
-    })
-    const fetchStub = Object.assign(async () => new Response(responseBody, { status: 429 }), {
-      preconnect: originalFetch.preconnect,
-    })
-    globalThis.fetch = fetchStub
-
-    const loader = createBuddyCodexLoader({
-      getAuth: async () => ({
-        type: "oauth",
-        access: "access-token",
-        refresh: "refresh-token",
-        expires: Date.now() + 60_000,
-      }),
-      setAuth: async () => undefined,
-    })
-
-    const response = await loader.fetch("https://api.openai.com/v1/responses")
-
-    expect(response.status).toBe(429)
-    expect(await response.text()).toBe(responseBody)
-  })
-
-  test("accepts refresh responses without rotated refresh or ID tokens", async () => {
-    const fetchMock = mock(async (input: RequestInfo | URL, _init?: RequestInit) => {
-      const url = readRequestUrl(input)
-      if (url === "https://auth.openai.com/oauth/token") {
-        return Response.json({
-          access_token: "refreshed-access-token",
-          expires_in: 3_600,
-        })
-      }
-      return new Response(null, { status: 200 })
-    })
-    const fetchStub = Object.assign(
-      async (input: RequestInfo | URL, init?: Parameters<typeof fetch>[1]) =>
-        fetchMock(input, init),
-      {
-        preconnect: originalFetch.preconnect,
-      },
-    )
-    globalThis.fetch = fetchStub
-
-    let auth: OpenAICodexStoredAuth = {
-      type: "oauth",
-      access: "expired-access-token",
-      refresh: "existing-refresh-token",
-      expires: 0,
-      accountId: "acct_123",
-    }
-    const loader = createBuddyCodexLoader({
-      getAuth: async () => auth,
-      setAuth: async (nextAuth) => {
-        auth = nextAuth
-      },
-    })
-
-    await loader.fetch("https://api.openai.com/v1/responses")
-
-    expect(auth.access).toBe("refreshed-access-token")
-    expect(auth.refresh).toBe("existing-refresh-token")
-    expect(auth.accountId).toBe("acct_123")
-  })
-
-  test("does not persist a completed refresh after the active account changes", async () => {
-    const tokenResponse = createDeferredResponse()
-    const fetchMock = mock(
-      async (_input: RequestInfo | URL, _init?: RequestInit) => tokenResponse.promise,
-    )
-    const fetchStub = Object.assign(
-      async (input: RequestInfo | URL, init?: Parameters<typeof fetch>[1]) =>
-        fetchMock(input, init),
-      {
-        preconnect: originalFetch.preconnect,
-      },
-    )
-    globalThis.fetch = fetchStub
-
-    let auth: OpenAICodexStoredAuth = {
-      type: "oauth",
-      access: "expired-account-a",
-      refresh: "refresh-account-a",
-      expires: 0,
-      accountId: "account-a",
-    }
-    const setAuth = mock(async (_nextAuth: OpenAICodexStoredAuth) => undefined)
-    const refresh = resolveOpenAICodexAuth({
-      getAuth: async () => auth,
-      setAuth,
-      issuer: "https://auth.openai.com",
-    })
-    await Bun.sleep(0)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-
-    auth = {
-      type: "oauth",
-      access: "account-b",
-      refresh: "refresh-account-b",
-      expires: Date.now() + 60_000,
-      accountId: "account-b",
-    }
-    tokenResponse.resolve(
-      Response.json({
-        access_token: "refreshed-account-a",
-        refresh_token: "rotated-account-a",
-      }),
-    )
-
-    expect(await refresh).toMatchObject({
-      access: "refreshed-account-a",
-      refresh: "rotated-account-a",
-    })
-    expect(setAuth).not.toHaveBeenCalled()
-  })
+test("a failed older credential resolution cannot mark a successfully refreshed Codex connection as needing auth", async () => {
+  await using runtime = await createV2TestHost()
+  const started = deferred<void>()
+  const failed = deferred<void>()
+  let refreshToNew = false
+  let context: PluginContext | undefined
+  await runtime.host.plugin(Plugin.define({ id: "buddy.test.codex-refresh-rejection", async setup(ctx) {
+    context = ctx
+    await ctx.integration.transform((editor) => editor.method.update({ integrationID: "openai", method: { id: "chatgpt-browser", type: "oauth", label: "Fixture OAuth" }, authorize: async () => { throw new Error("Unexpected authorization") }, refresh: async (credential) => refreshToNew ? Credential.OAuth.make({ ...credential, access: "new-access", refresh: "new-refresh", expires: Number.MAX_SAFE_INTEGER }) : credential }))
+  } }))
+  await runtime.host.integration.list({ location: { directory: runtime.path } })
+  const saved = await runtime.host.credential.create({ integrationID: "openai", value: { type: "oauth", methodID: "chatgpt-browser", access: "old-access", refresh: "old-refresh", expires: 0 } })
+  if (!context) throw new Error("Plugin did not activate")
+  const activeContext = context
+  const oldResolver = createOpenAICodexCredentialResolver({ ...activeContext, integration: { ...activeContext.integration, connection: { ...activeContext.integration.connection, resolve: async (connection) => {
+    expect(await activeContext.integration.connection.resolve(connection)).toMatchObject({ access: "old-access" })
+    started.resolve()
+    await failed.promise
+    throw new Error("Request failed: 401")
+  } } } })
+  const oldRefresh = oldResolver().then(() => "unexpected-success", () => "rejected")
+  await started.promise
+  const connection = await context.integration.connection.active("openai")
+  if (!connection || connection.type !== "credential") throw new Error("Connection is missing")
+  expect(connection.id).toBe(saved.id)
+  refreshToNew = true
+  expect(await context.integration.connection.resolve(connection)).toMatchObject({ access: "new-access" })
+  failed.resolve()
+  expect(await oldRefresh).toBe("rejected")
+  expect((await context.integration.get({ integrationID: "openai" })).data.connections.some((entry) => entry.status?.status === "needs_auth")).toBe(false)
+  expect(await createOpenAICodexCredentialResolver(context)()).toMatchObject({ access: "new-access" })
 })

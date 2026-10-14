@@ -12,9 +12,6 @@ type Finding = {
 const REPO_ROOT = path.resolve(import.meta.dir, "..")
 const DESKTOP_PACKAGE_MANIFEST = "packages/desktop-electron/package.json"
 const WORKSPACE_VERSION_PREFIX = "workspace:"
-const OPENCODE_RUNTIME_SOURCE = "packages/buddy/src/opencode-runtime/runtime.ts"
-const TOOL_INPUT_DELTA_BRIDGE_CALL = "await ensureToolInputDeltaBridgePatched()"
-const OPENCODE_SERVER_STARTUP = "const built = await Server.Default()"
 const ACTIVE_CHAT_ENTRYPOINTS = [
   "packages/web/src/app.tsx",
   "packages/web/src/routes/chat.tsx",
@@ -135,25 +132,6 @@ function checkSubagentBenchWiring(findings: Finding[]) {
   }
 }
 
-function checkToolInputDeltaBridgeStartup(findings: Finding[]) {
-  const content = readFileSync(path.join(REPO_ROOT, OPENCODE_RUNTIME_SOURCE), "utf8")
-  const bridgeInstallIndex = content.indexOf(TOOL_INPUT_DELTA_BRIDGE_CALL)
-  const serverStartupIndex = content.indexOf(OPENCODE_SERVER_STARTUP)
-
-  if (
-    bridgeInstallIndex >= 0 &&
-    serverStartupIndex >= 0 &&
-    bridgeInstallIndex < serverStartupIndex
-  ) {
-    return
-  }
-
-  findings.push({
-    file: OPENCODE_RUNTIME_SOURCE,
-    message: "The tool-input-delta bridge must be installed before OpenCode server startup.",
-  })
-}
-
 async function scanFiles(pattern: string): Promise<string[]> {
   const matches: string[] = []
   for await (const value of new Bun.Glob(pattern).scan({
@@ -269,7 +247,7 @@ function checkCrossPackageSrcImport(findings: Finding[], importerFile: string, s
   const importerPackage = getPackageNameFromAbsolutePath(importerFile)
   if (!importerPackage) return
 
-  if (specifier.startsWith("@buddy/") || specifier.startsWith("@opencode-ai/")) {
+  if (specifier.startsWith("@buddy/") || specifier.startsWith("@opencode/")) {
     findings.push({
       file: toRepoPath(importerFile),
       message: `Cross-package import "${specifier}" targets another package's src directly.`,
@@ -306,6 +284,66 @@ async function checkCrossPackageSrcImports(findings: Finding[]) {
   }
 }
 
+async function checkOpenCodeImportBoundary(findings: Finding[]) {
+  const codeFiles = await scanFiles("packages/**/*.{ts,tsx,js,mjs,cjs}")
+  for (const file of codeFiles) {
+    const relativePath = toRepoPath(file)
+    if (
+      relativePath.startsWith("packages/opencode-adapter/") ||
+      relativePath.startsWith("vendor/")
+    ) {
+      continue
+    }
+
+    const content = readFileSync(file, "utf8")
+    for (const specifier of getImportSpecifiers(content)) {
+      const isOpenCodePackage =
+        specifier.startsWith("@opencode/") ||
+        specifier.startsWith("@opencode-ai/") ||
+        specifier === "opencode" ||
+        specifier.startsWith("opencode/")
+      const resolvedPath =
+        specifier.startsWith(".") || path.isAbsolute(specifier)
+          ? toRepoPath(resolveRelativeSpecifier(file, specifier))
+          : undefined
+      const isVendoredOpenCodePath =
+        resolvedPath === "vendor/opencode" || resolvedPath?.startsWith("vendor/opencode/")
+      if (!isOpenCodePackage && !isVendoredOpenCodePath) continue
+
+      findings.push({
+        file: relativePath,
+        message: `OpenCode import "${specifier}" is only allowed in "packages/opencode-adapter/". Use the adapter's public exports instead.`,
+      })
+    }
+  }
+}
+
+async function checkWebOpenCodeAdapterBoundary(findings: Finding[]) {
+  const webFiles = await scanFiles("packages/web/src/**/*.{ts,tsx,js,mjs,cjs}")
+  for (const file of webFiles) {
+    const content = readFileSync(file, "utf8")
+    for (const specifier of getImportSpecifiers(content)) {
+      if (
+        specifier !== "@buddy/opencode-adapter" &&
+        !specifier.startsWith("@buddy/opencode-adapter/")
+      ) {
+        continue
+      }
+      if (
+        specifier === "@buddy/opencode-adapter/theme" ||
+        specifier === "@buddy/opencode-adapter/provider-icon"
+      ) {
+        continue
+      }
+
+      findings.push({
+        file: toRepoPath(file),
+        message: `Web source imports "${specifier}". Only "@buddy/opencode-adapter/theme" and "@buddy/opencode-adapter/provider-icon" are allowed.`,
+      })
+    }
+  }
+}
+
 function printFindingsAndExit(findings: Finding[]): never {
   const uniqueFindings = [
     ...new Map(findings.map((finding) => [`${finding.file}:${finding.message}`, finding])).values(),
@@ -325,10 +363,11 @@ async function main() {
   checkActiveChatTransitionEntrypoints(findings)
   checkBenchNavigationBoundary(findings)
   checkSubagentBenchWiring(findings)
-  checkToolInputDeltaBridgeStartup(findings)
   await checkUiAliasImports(findings)
   await checkWebUiBoundary(findings)
   await checkCrossPackageSrcImports(findings)
+  await checkOpenCodeImportBoundary(findings)
+  await checkWebOpenCodeAdapterBoundary(findings)
 
   if (findings.length > 0) {
     printFindingsAndExit(findings)

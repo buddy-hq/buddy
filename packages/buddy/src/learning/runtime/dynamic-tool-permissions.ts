@@ -1,4 +1,4 @@
-import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/permission"
+import type { PermissionRule, PermissionRuleset } from "@buddy/transcript-contract/permission-rules"
 import { allDynamicLearningToolIds } from "./dynamic-tool-catalog"
 
 const ANY_PATTERN = "*" as const

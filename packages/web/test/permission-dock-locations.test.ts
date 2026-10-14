@@ -7,9 +7,9 @@ describe("permission dock body", () => {
       getPermissionDockBody({
         id: "per_location",
         sessionID: "ses_location",
-        permission: "external_directory",
-        patterns: ["/Users/example/Desktop/*"],
-        always: ["/Users/example/Desktop/*"],
+        action: "external_directory",
+        resources: ["/Users/example/Desktop/*"],
+        save: ["/Users/example/Desktop/*"],
         metadata: { parentDir: "/Users/example/Desktop" },
       }),
     ).toEqual({
@@ -25,9 +25,9 @@ describe("permission dock body", () => {
       getPermissionDockBody({
         id: "per_file",
         sessionID: "ses_file",
-        permission: "external_directory",
-        patterns: ["/Users/example/Desktop/*"],
-        always: ["/Users/example/Desktop/*"],
+        action: "external_directory",
+        resources: ["/Users/example/Desktop/*"],
+        save: ["/Users/example/Desktop/*"],
         metadata: {
           filepath: "/Users/example/Desktop/buddy-permission-test.md",
           parentDir: "/Users/example/Desktop",
@@ -46,9 +46,9 @@ describe("permission dock body", () => {
       getPermissionDockBody({
         id: "per_shell",
         sessionID: "ses_shell",
-        permission: "external_directory",
-        patterns: ["/Users/example/Desktop/*"],
-        always: ["/Users/example/Desktop/*"],
+        action: "external_directory",
+        resources: ["/Users/example/Desktop/*"],
+        save: ["/Users/example/Desktop/*"],
         metadata: {
           command: "cat /Users/example/Desktop/*.md",
           directories: ["/Users/example/Desktop"],
@@ -62,17 +62,17 @@ describe("permission dock body", () => {
     })
   })
 
-  test("hides detail lines when the headline already names the file", () => {
+  test("shows every requested file even when the headline names it", () => {
     expect(
       getPermissionDockBody({
         id: "per_read",
         sessionID: "ses_read",
-        permission: "read",
-        patterns: ["README.md"],
-        always: [],
+        action: "read",
+        resources: ["README.md"],
+        save: [],
         metadata: {},
       }),
-    ).toEqual({ kind: "none" })
+    ).toEqual({ kind: "detail", lines: ["README.md"] })
   })
 
   test("shows command body for bash permissions", () => {
@@ -80,9 +80,9 @@ describe("permission dock body", () => {
       getPermissionDockBody({
         id: "per_bash",
         sessionID: "ses_bash",
-        permission: "bash",
-        patterns: ["cat /Users/example/Desktop/buddy-permission-test.md"],
-        always: [],
+        action: "shell",
+        resources: ["cat /Users/example/Desktop/buddy-permission-test.md"],
+        save: [],
         metadata: { command: "cat /Users/example/Desktop/buddy-permission-test.md" },
       }),
     ).toEqual({
@@ -96,9 +96,9 @@ describe("permission dock body", () => {
       getPermissionDockBody({
         id: "per_read_external",
         sessionID: "ses_read_external",
-        permission: "read",
-        patterns: ["../resources/notes.md"],
-        always: ["*"],
+        action: "read",
+        resources: ["../resources/notes.md"],
+        save: ["*"],
         metadata: {},
       }),
     ).toEqual({

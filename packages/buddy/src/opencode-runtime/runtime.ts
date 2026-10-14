@@ -1,37 +1,22 @@
 import fs from "node:fs/promises"
-import { Schema } from "effect"
+import {
+  createOpenCodeHost,
+  type OpenCodeHost,
+  type OpenCodeLogEntry,
+} from "@buddy/opencode-adapter/host"
 import { BUDDY_TMP_DIR, configureOpenCodeEnvironment } from "./env"
-import { XDG_ENV } from "../storage/constants"
-import {
-  ensurePluginServicePatched,
-  registerRuntimePluginFactory,
-} from "@buddy/opencode-adapter/plugin-live"
-import { ensureConfigServicePatched } from "@buddy/opencode-adapter/config"
-import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
-import {
-  ensureProviderServicePatched,
-  registerProviderResolver,
-} from "@buddy/opencode-adapter/provider-live"
-import { ensureMcpOAuthBrandingPatched } from "@buddy/opencode-adapter/mcp-oauth-branding"
-import { ensureSessionServicePatched } from "@buddy/opencode-adapter/session-live"
-import { ensureToolInputDeltaBridgePatched } from "@buddy/opencode-adapter/tool-input-delta-live"
-import { Server } from "@buddy/opencode-adapter/server"
+import { OPENCODE_ENV, XDG_ENV } from "../storage/constants"
 import { repairLegacyOpenCodeMigrations } from "./legacy-migration-repair"
-import { ensureSubagentForwardingPatched } from "./subagent-forwarding"
-import { ensureSkillServicePatched } from "./skill-filtering"
-import { createBuddyRuntimeHooks } from "./plugins/buddy-runtime-plugin"
-import {
-  applyOpenAICodexAccountModels,
-  resolveOpenAICodexAccountModels,
-} from "./plugins/openai-codex-provider"
-import { OPENAI_PROVIDER_ID } from "./plugins/openai-codex-credentials"
+import { createBuddyOpenCodePlugins, createBuddyOpenCodeInstances } from "./plugins"
+import { withBuddyToolPermissionReplies } from "./tool-permission"
+import { withBuddyCommandDisplay } from "./command-display"
 import { initializeBenchCaptureStorage } from "../learning/features/bench/captures"
+import { readOpenCodeHostConfig } from "../config/runtime/notebook-runtime-plan"
 
-let appPromise: Promise<{ fetch(request: Request): Response | Promise<Response> }> | undefined
-let buddyRuntimePluginRegistered = false
-let openAIProviderResolverRegistered = false
+const BUDDY_OPENCODE_CLIENT_NAME = "buddy"
 
-configureOpenCodeEnvironment()
+let hostPromise: Promise<OpenCodeHost> | undefined
+let closingPromise: Promise<void> | undefined
 
 export async function ensureRuntimeDirectories() {
   const directories = [
@@ -45,58 +30,67 @@ export async function ensureRuntimeDirectories() {
   await Promise.all(directories.map((directory) => fs.mkdir(directory, { recursive: true })))
 }
 
-export async function loadOpenCodeApp() {
-  if (!appPromise) {
-    appPromise = (async () => {
-      await ensureRuntimeDirectories()
-      await initializeBenchCaptureStorage()
-      try {
-        const repairedMigrations = await repairLegacyOpenCodeMigrations()
-        if (repairedMigrations.length > 0) {
-          console.warn("Repaired legacy OpenCode migration journal entries:", repairedMigrations)
-        }
-      } catch (error) {
-        console.warn("Skipping legacy OpenCode migration repair:", error)
-      }
-      ensureMcpOAuthBrandingPatched()
-      if (!buddyRuntimePluginRegistered) {
-        registerRuntimePluginFactory(({ directory, worktree }) =>
-          createBuddyRuntimeHooks({
-            directory,
-            worktree,
-          }),
-        )
-        buddyRuntimePluginRegistered = true
-      }
-      if (!openAIProviderResolverRegistered) {
-        registerProviderResolver(OPENAI_PROVIDER_ID, async ({ directory, provider }) => {
-          const accountModels = await resolveOpenAICodexAccountModels({ directory })
-          if (!accountModels) return undefined
-          const parsed = Schema.decodeUnknownSync(OpenCodeProvider.Info)({
-            ...provider,
-            models: applyOpenAICodexAccountModels(provider.models, accountModels),
-          })
-          // SAFETY: The runtime provider schema parsed this complete provider; its readonly
-          // TypeScript projection does not reflect the mutable OpenCode service interface.
-          return parsed as OpenCodeProvider.Info
-        })
-        openAIProviderResolverRegistered = true
-      }
-      await ensureConfigServicePatched()
-      await ensureSessionServicePatched()
-      await ensurePluginServicePatched()
-      await ensureProviderServicePatched()
-      await ensureToolInputDeltaBridgePatched()
-      await ensureSubagentForwardingPatched()
-      await ensureSkillServicePatched()
-      const built = await Server.Default()
-      return {
-        fetch(request: Request) {
-          return built.app.fetch(request)
-        },
-      }
-    })()
-  }
+function isEnabledFlag(value: string | undefined) {
+  const normalized = value?.trim().toLowerCase()
+  return normalized === "1" || normalized === "true"
+}
 
-  return appPromise
+function forwardOpenCodeLog(entry: OpenCodeLogEntry) {
+  const details = [entry.attributes, entry.cause].filter((value) => value !== undefined)
+  if (entry.level === "error" || entry.level === "fatal") {
+    console.error("[opencode]", entry.message, ...details)
+    return
+  }
+  console.warn("[opencode]", entry.message, ...details)
+}
+
+async function repairLegacyMigrations(databasePath: string) {
+  try {
+    const repaired = await repairLegacyOpenCodeMigrations(databasePath)
+    if (repaired.length > 0) {
+      console.warn("Repaired legacy OpenCode migration journal entries:", repaired)
+    }
+  } catch (error) {
+    console.warn("Skipping legacy OpenCode migration repair:", error)
+  }
+}
+
+async function startOpenCodeHost(): Promise<OpenCodeHost> {
+  const paths = configureOpenCodeEnvironment()
+  await ensureRuntimeDirectories()
+  await initializeBenchCaptureStorage()
+  await repairLegacyMigrations(paths.database)
+  const host = await createOpenCodeHost({
+    clientName: BUDDY_OPENCODE_CLIENT_NAME,
+    paths,
+    databasePath: paths.database,
+    config: await readOpenCodeHostConfig(),
+    plugins: createBuddyOpenCodePlugins({ getClient: getOpenCodeHost }),
+    instances: createBuddyOpenCodeInstances({ getClient: getOpenCodeHost }),
+    log: { level: "warn", emit: forwardOpenCodeLog },
+    fetchModels: !isEnabledFlag(process.env[OPENCODE_ENV.DISABLE_MODELS_FETCH]),
+  })
+  return withBuddyToolPermissionReplies(withBuddyCommandDisplay(host))
+}
+
+export function getOpenCodeHost(): Promise<OpenCodeHost> {
+  if (closingPromise) return closingPromise.then(getOpenCodeHost)
+  hostPromise ??= startOpenCodeHost().catch((cause) => {
+    hostPromise = undefined
+    throw cause
+  })
+  return hostPromise
+}
+
+export function closeOpenCodeHost(): Promise<void> {
+  if (closingPromise) return closingPromise
+  const current = hostPromise
+  closingPromise = (async () => {
+    const host = await current?.catch(() => undefined)
+    await host?.close()
+  })().finally(() => {
+    if (hostPromise === current) hostPromise = undefined
+    closingPromise = undefined
+  })
+  return closingPromise
 }

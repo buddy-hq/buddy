@@ -1,297 +1,105 @@
-import { afterEach, describe, expect, test } from "bun:test"
-import type { EventMessagePartUpdated } from "@opencode-ai/sdk/v2"
-import type { BuddyGlobalEvent } from "@buddy/opencode-adapter/global-event"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { defineToolPresentation } from "@buddy/opencode-adapter/tool-presentation"
-import {
-  buildOpenCodeEventStreamRequestHeaders,
-  transformOpenCodeEventStreamResponse,
-} from "../../src/http/opencode-event-stream"
-import {
-  parseJsonObject,
-  parseJsonObjectText,
-  parsePromptString,
-  requireJsonObject,
-  type TJsonValue,
-} from "../helpers/parse"
+import { describe, expect, test } from "bun:test"
+import type { EventClient, OpenCodeEvent } from "@buddy/opencode-adapter/gateway/client"
+import { createBuddyEventStreamResponse, normalizeBuddyStreamEvent } from "../../src/http/opencode-event-stream"
+import { publishGlobalEvent, subscribeGlobalEvent } from "../../src/events/buddy-event-bus"
 
-const BACKPRESSURE_UPSTREAM_CHUNK_COUNT = 64
-const BACKPRESSURE_OBSERVATION_DELAY_MS = 10
-
-describe("buildOpenCodeEventStreamRequestHeaders", () => {
-  test("forwards inbound SSE headers and normalizes accept", () => {
-    const inbound = new Headers({
-      accept: "application/json",
-      "last-event-id": "evt_resume_123",
-      "cache-control": "no-cache",
-    })
-
-    const headers = buildOpenCodeEventStreamRequestHeaders(inbound)
-
-    expect(headers.get("accept")).toBe("text/event-stream")
-    expect(headers.get("last-event-id")).toBe("evt_resume_123")
-    expect(headers.get("cache-control")).toBe("no-cache")
-  })
-})
-
-afterEach(() => {
-  ToolRegistry.unregisterToolPresentations("/tmp/buddy-event-stream", ["tool_demo"])
-})
-
-const DEMO_PRESENTATION = defineToolPresentation({
-  archetype: "activity",
-  icon: "tool",
-  renderer: "generic",
-  layoutRole: "activity",
-  phases: {
-    pending: { action: "Preparing demo" },
-    running: { action: "Running demo" },
-    completed: { action: "Ran demo" },
-    error: { action: "Failed to run demo" },
-  },
-  summary: {
-    category: "demo",
-    pending: "Preparing demo",
-    running: "Running demo",
-    completed: "Ran demo",
-    error: "Failed to run demo",
-  },
-})
-
-function sseResponse(body: string) {
-  const encoder = new TextEncoder()
-  return new Response(
-    new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(encoder.encode(body))
-        controller.close()
-      },
-    }),
-    {
-      headers: {
-        "content-type": "text/event-stream",
-      },
-    },
-  )
+function client(events: readonly OpenCodeEvent[]): EventClient {
+  return {
+    event: { async *subscribe() { yield* events } },
+    session: { async get() { throw new Error("Unexpected session read") }, message: { async get() { throw new Error("Unexpected message read") } } },
+    message: { async list() { throw new Error("Unexpected history read") } },
+  }
 }
 
-function eventFrame(payload: TJsonValue) {
-  return ["id: evt_watcher", `data: ${JSON.stringify(payload)}`, ""].join("\n")
+function watcher(directory: string, file: string) {
+  return { directory, payload: { type: "file.watcher.updated", properties: { file, event: "change" } } }
 }
 
-describe("transformOpenCodeEventStreamResponse", () => {
-  test("adds the resolved Buddy presentation snapshot to tool-part frames", async () => {
-    ToolRegistry.registerToolPresentationCatalog("/tmp/buddy-event-stream", [
-      {
-        id: "tool_demo",
-        presentation: DEMO_PRESENTATION,
-      },
-    ])
-
-    const response = transformOpenCodeEventStreamResponse({
-      directory: "/tmp/buddy-event-stream",
-      response: sseResponse(
-        eventFrame({
-          directory: "/tmp/buddy-event-stream",
-          payload: {
-            id: "evt_1",
-            type: "message.part.updated",
-            properties: {
-              sessionID: "ses_1",
-              part: {
-                id: "prt_1",
-                sessionID: "ses_1",
-                messageID: "msg_1",
-                type: "tool",
-                callID: "call_1",
-                tool: "tool_demo",
-                state: { status: "pending", input: {}, raw: "{}" },
-              },
-              time: 1,
-            },
-          },
-        } satisfies BuddyGlobalEvent & {
-          directory: string
-          payload: EventMessagePartUpdated
-        }),
-      ),
+describe("v2 transcript HTTP stream", () => {
+  test("multiplexes the real Buddy event bus with host SSE and removes its listener on cancellation", async () => {
+    const pendingClient: EventClient = {
+      ...client([]),
+      event: { async *subscribe(options) {
+        yield { id: "evt_connected", type: "server.connected", data: {} }
+        await new Promise<void>((resolve) => options?.signal?.addEventListener("abort", () => resolve(), { once: true }))
+      } },
+    }
+    let delivered = 0
+    const response = createBuddyEventStreamResponse({
+      client: pendingClient, directory: "/workspace",
+      globalEvents: { subscribe(listener) { return subscribeGlobalEvent((event) => { delivered += 1; listener(event) }) } },
     })
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error("Expected stream body")
+    const decode = new TextDecoder()
+    expect(decode.decode((await reader.read()).value)).toContain('"type":"server.connected"')
+    publishGlobalEvent({ directory: "/elsewhere", payload: { type: "notes.library.updated", properties: { private: true } } })
+    publishGlobalEvent({ directory: "/workspace", payload: { type: "notes.library.updated", properties: { revision: 1 } } })
+    const frame = decode.decode((await reader.read()).value)
+    expect(frame).toContain('"type":"notes.library.updated"')
+    expect(frame).toContain('"revision":1')
+    expect(frame).not.toContain("private")
+    expect(delivered).toBe(2)
+    await reader.cancel()
+    publishGlobalEvent({ directory: "/workspace", payload: { type: "notes.library.updated", properties: {} } })
+    expect(delivered).toBe(2)
+  })
 
+  test("keeps POSIX, Windows drive and UNC paths relative and drops paths outside the workspace", () => {
+    expect(normalizeBuddyStreamEvent(watcher("/workspace", "/workspace/notes/a.md"), "/workspace")?.payload.properties.relativePath).toBe("notes/a.md")
+    expect(normalizeBuddyStreamEvent(watcher("C:\\workspace", "C:\\workspace\\notes\\a.md"), "C:\\workspace")?.payload.properties.relativePath).toBe("notes/a.md")
+    expect(normalizeBuddyStreamEvent(watcher("\\\\server\\share\\workspace", "\\\\server\\share\\workspace\\notes\\a.md"), "\\\\server\\share\\workspace")?.payload.properties.relativePath).toBe("notes/a.md")
+    expect(normalizeBuddyStreamEvent(watcher("/workspace", "/elsewhere/a.md"), "/workspace")).toBeUndefined()
+    expect(normalizeBuddyStreamEvent(watcher("C:\\workspace", "D:\\elsewhere\\a.md"), "C:\\workspace")).toBeUndefined()
+  })
+
+  test("composes translated v2 events with Buddy notices and disposes subscriptions", async () => {
+    let released = false
+    const response = createBuddyEventStreamResponse({
+      client: client([
+        { id: "evt_connected", type: "server.connected", data: {} },
+        { id: "evt_notice", created: 2, location: { directory: "/workspace" }, durable: { aggregateID: "ses_notice", seq: 1, version: 1 }, type: "session.synthetic", data: { sessionID: "ses_notice", text: "Finished", metadata: { source: "shell", state: "completed" } } },
+      ]),
+      directory: "/workspace",
+      buddyEvents: { initialEvents: [{ directory: "/workspace", payload: { type: "notes.library.updated", properties: {} } }], subscribe: () => () => { released = true } },
+    })
+    expect(response.headers.get("content-type")).toBe("text/event-stream")
     const text = await response.text()
-    const dataLine = text.split("\n").find((line) => line.startsWith("data: "))
-
-    expect(dataLine).toBeDefined()
-    const payload: unknown = JSON.parse((dataLine ?? "").slice("data: ".length))
-
-    expect(payload).toMatchObject({
-      payload: {
-        properties: {
-          part: {
-            metadata: {
-              buddy: {
-                presentation: {
-                  archetype: "activity",
-                  phase: "pending",
-                  action: "Preparing demo",
-                  icon: "tool",
-                },
-              },
-            },
-          },
-        },
-      },
-    })
+    expect(text).toContain('"type":"notes.library.updated"')
+    expect(text).toContain('"type":"server.connected"')
+    expect(text).toContain('"kind":"synthetic"')
+    expect(text).toContain('"text":"Shell completed"')
+    expect(released).toBe(true)
   })
 
-  test("keeps runtime-defined MCP tool frames visible without a registered descriptor", async () => {
-    const response = transformOpenCodeEventStreamResponse({
-      directory: "/tmp/buddy-event-stream",
-      response: sseResponse(
-        eventFrame({
-          directory: "/tmp/buddy-event-stream",
-          payload: {
-            id: "evt_mcp",
-            type: "message.part.updated",
-            properties: {
-              sessionID: "ses_mcp",
-              part: {
-                id: "prt_mcp",
-                sessionID: "ses_mcp",
-                messageID: "msg_mcp",
-                type: "tool",
-                callID: "call_mcp",
-                tool: "runtime-server_private_snake_case_tool",
-                state: { status: "pending", input: {}, raw: "{}" },
-              },
-              time: 1,
-            },
-          },
-        } satisfies BuddyGlobalEvent & {
-          directory: string
-          payload: EventMessagePartUpdated
-        }),
-      ),
-    })
-
+  test("maps filesystem.changed to the Buddy watcher contract and isolates directories", async () => {
+    const response = createBuddyEventStreamResponse({ client: client([
+      { id: "evt_file", created: 1, type: "filesystem.changed", location: { directory: "/workspace" }, data: { file: "/workspace/new.md", event: "add" } },
+      { id: "evt_external", created: 2, type: "filesystem.changed", location: { directory: "/elsewhere" }, data: { file: "/elsewhere/private.md", event: "change" } },
+    ]), directory: "/workspace" })
     const text = await response.text()
-    const dataLine = text.split("\n").find((line) => line.startsWith("data: "))
-
-    expect(dataLine).toBeDefined()
-    const payload: unknown = JSON.parse((dataLine ?? "").slice("data: ".length))
-    expect(payload).toMatchObject({
-      payload: {
-        properties: {
-          part: {
-            metadata: {
-              buddy: {
-                presentation: {
-                  archetype: "activity",
-                  phase: "pending",
-                  action: "Preparing connected tool",
-                  icon: "tool",
-                },
-              },
-            },
-          },
-        },
-      },
-    })
+    expect(text).toContain('"type":"file.watcher.updated"')
+    expect(text).toContain('"relativePath":"new.md"')
+    expect(text).not.toContain("private.md")
   })
 
-  test("leaves non-tool-update frames unchanged", async () => {
-    const body = [
-      "id: evt_2",
-      'data: {"directory":"/tmp/buddy-event-stream","payload":{"type":"message.updated","info":{"id":"msg_1"}}}',
-      "",
-    ].join("\n")
-
-    const response = transformOpenCodeEventStreamResponse({
-      directory: "/tmp/buddy-event-stream",
-      response: sseResponse(body),
-    })
-
-    expect(await response.text()).toBe(body)
-  })
-
-  test("adds workspace-relative paths to watcher frames", async () => {
-    const response = transformOpenCodeEventStreamResponse({
-      directory: "/tmp/buddy-event-stream",
-      response: sseResponse(
-        eventFrame({
-          directory: "/tmp/buddy-event-stream",
-          payload: {
-            type: "file.watcher.updated",
-            properties: {
-              file: "/tmp/buddy-event-stream/src/app.ts",
-              event: "unlink",
-            },
-          },
-        }),
-      ),
-    })
-
-    const text = await response.text()
-    const dataLine = text.split("\n").find((line) => line.startsWith("data: "))
-    expect(dataLine).toBeDefined()
-    const payload = parseJsonObjectText((dataLine ?? "").slice("data: ".length))
-    const inner = requireJsonObject(payload.payload, "event payload")
-    const properties = parseJsonObject(inner.properties)
-    expect(parsePromptString(properties?.relativePath)).toBe("src/app.ts")
-  })
-
-  test("normalizes Windows watcher paths at the stream boundary", async () => {
-    const response = transformOpenCodeEventStreamResponse({
-      directory: "C:\\Users\\buddy\\project",
-      response: sseResponse(
-        eventFrame({
-          directory: "C:\\Users\\buddy\\project",
-          payload: {
-            type: "file.watcher.updated",
-            properties: {
-              file: "C:\\Users\\buddy\\project\\docs\\intro.md",
-              event: "change",
-            },
-          },
-        }),
-      ),
-    })
-
-    const text = await response.text()
-    const dataLine = text.split("\n").find((line) => line.startsWith("data: "))
-    expect(dataLine).toBeDefined()
-    const payload = parseJsonObjectText((dataLine ?? "").slice("data: ".length))
-    const inner = requireJsonObject(payload.payload, "event payload")
-    const properties = parseJsonObject(inner.properties)
-    expect(parsePromptString(properties?.relativePath)).toBe("docs/intro.md")
-  })
-
-  test("does not drain the transformed upstream while the downstream is paused", async () => {
-    const encoder = new TextEncoder()
-    let upstreamPullCount = 0
-    const upstreamResponse = new Response(
-      new ReadableStream<Uint8Array>({
-        pull(controller) {
-          upstreamPullCount += 1
-          controller.enqueue(encoder.encode(`data: {"sequence":${upstreamPullCount}}\n\n`))
-          if (upstreamPullCount === BACKPRESSURE_UPSTREAM_CHUNK_COUNT) {
-            controller.close()
-          }
-        },
-      }),
-      { headers: { "content-type": "text/event-stream" } },
-    )
-
-    const response = transformOpenCodeEventStreamResponse({
-      directory: "/tmp/buddy-event-stream",
-      response: upstreamResponse,
-      buddyEvents: {
-        subscribe: () => () => undefined,
-      },
-    })
-
-    await Bun.sleep(BACKPRESSURE_OBSERVATION_DELAY_MS)
-
-    expect(upstreamPullCount).toBeLessThan(BACKPRESSURE_UPSTREAM_CHUNK_COUNT)
-    await response.body?.cancel()
+  test("cancelling a reader aborts only its subscription and releases Buddy event listeners", async () => {
+    let signal: AbortSignal | undefined
+    let released = false
+    const pendingClient: EventClient = {
+      ...client([]),
+      event: { async *subscribe(options) {
+        signal = options?.signal
+        yield { id: "evt_connected", type: "server.connected", data: {} }
+        await new Promise<void>((resolve) => options?.signal?.addEventListener("abort", () => resolve(), { once: true }))
+      } },
+    }
+    const response = createBuddyEventStreamResponse({ client: pendingClient, directory: "/workspace", buddyEvents: { subscribe: () => () => { released = true } } })
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error("Expected event stream body")
+    await reader.read()
+    await reader.cancel()
+    expect(signal?.aborted).toBe(true)
+    expect(released).toBe(true)
   })
 })

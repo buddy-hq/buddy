@@ -1,5 +1,5 @@
 import { createElement } from "react"
-import type { ToolPresentationSnapshot } from "@buddy/opencode-adapter/tool-presentation"
+import type { ToolPresentationSnapshot } from "@buddy/transcript-contract/tool-presentation"
 
 import { Panda } from "@/icons/app-icons"
 import type { MessagePart } from "@/state/chat-types"

@@ -1,6 +1,8 @@
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { readProjectConfig } from "../../../config/runtime"
+import { getOpenCodeClient } from "../../../opencode-runtime/client"
+import type { SessionInfo } from "@buddy/opencode-adapter/host"
+import { isSessionArchived } from "@buddy/opencode-adapter/gateway/session"
+import { listDirectorySessions } from "../../../project/session-history"
+import { readProjectConfig } from "../../../config/runtime/project-config"
 import { internalLearnerMemorySession } from "./internal-session"
 import { readLearnerMemorySettings } from "./settings"
 import { extractLearnerMemoryFromSession } from "./session-extraction"
@@ -27,7 +29,7 @@ type LearnerMemoryStartupSessionResult = {
 type LearnerMemoryStartupPlan = {
   scanned: number
   startupConcurrency: number
-  eligible: OpenCodeSession.Info[]
+  eligible: SessionInfo[]
   skippedReason?: string
 }
 
@@ -38,7 +40,7 @@ type LearnerMemoryStartupObserver = {
 }
 
 function eligibleSession(input: {
-  session: OpenCodeSession.Info
+  session: SessionInfo
   currentSessionID?: string
   now: number
   minIdleMs: number
@@ -54,7 +56,7 @@ function eligibleSession(input: {
   ) {
     return false
   }
-  if (input.session.time.archived !== undefined) return false
+  if (isSessionArchived(input.session)) return false
   if (input.session.time.updated < input.now - input.maxSessionAgeMs) return false
   if (input.session.time.updated > input.now - input.minIdleMs) return false
   return true
@@ -81,7 +83,7 @@ async function runWithConcurrency<T>(
 }
 
 function startupSessionSummary(
-  session: OpenCodeSession.Info,
+  session: SessionInfo,
 ): Omit<LearnerMemoryStartupSessionResult, "extraction" | "error"> {
   return Object.assign(
     {
@@ -107,10 +109,7 @@ async function buildLearnerMemoryStartupPlan(input: {
     }
   }
 
-  const sessions = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => OpenCodeSession.list({ directory: input.directory }),
-  })
+  const sessions = await listDirectorySessions(await getOpenCodeClient(), input.directory)
   const now = Date.now()
   const eligible = sessions
     .filter((session) =>

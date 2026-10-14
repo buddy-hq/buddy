@@ -17,10 +17,10 @@ import {
   booleanJsonResponse,
   routeErrors,
   runRouteTask,
-  respondWithSdkResult,
   runSdkRoute,
 } from "../http"
-import { getOpenCodeClient } from "../opencode-runtime/client"
+import { refreshActiveNotebookConfigs } from "../config/runtime/opencode-sync"
+import { projectWebSafeConfig } from "../config/contract/web-safe"
 import {
   mapNotesDirectoryError,
   readNotesDirectoryState,
@@ -107,7 +107,7 @@ export const GlobalRoutes = new Hono()
     }),
     async (c) =>
       runRouteTask({
-        task: async () => c.json(await Config.getGlobal()),
+        task: async () => c.json(projectWebSafeConfig(await Config.getGlobal())),
         mapError: mapConfigRouteError,
       }),
   )
@@ -129,7 +129,7 @@ export const GlobalRoutes = new Hono()
     validator("json", z.record(z.string(), z.unknown())),
     async (c) =>
       runRouteTask({
-        task: async () => c.json(await patchGlobalConfig(c.req.valid("json"))),
+        task: async () => c.json(projectWebSafeConfig(await patchGlobalConfig(c.req.valid("json")))),
         mapError: mapConfigRouteError,
       }),
   )
@@ -316,7 +316,7 @@ export const GlobalRoutes = new Hono()
     "/dispose",
     describeRoute({
       operationId: "global.dispose",
-      summary: "Dispose all global runtime instances",
+      summary: "Refresh active notebook configuration",
       responses: {
         200: {
           description: "Disposal response",
@@ -328,9 +328,8 @@ export const GlobalRoutes = new Hono()
     }),
     async (c) =>
       runSdkRoute(c, async () => {
-        const client = await getOpenCodeClient()
-        const result = await client.global.dispose()
-        return respondWithSdkResult(c, result)
+        await refreshActiveNotebookConfigs()
+        return c.json(true)
       }),
   )
   .get(
