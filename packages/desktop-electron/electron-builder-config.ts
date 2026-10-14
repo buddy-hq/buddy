@@ -2,6 +2,7 @@ import path from "node:path"
 import type { Configuration } from "electron-builder"
 import { BUDDY_BRANDING, formatCopyrightNotice } from "@buddy/script/branding"
 import type { BuddyReleaseChannel } from "@buddy/script/channel"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
 import { ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS } from "@buddy/script/chemfig-runtime"
 import {
   WINDOWS_RELEASE_ARCHS,
@@ -13,7 +14,6 @@ const WINDOWS_RELEASE_TARGET_ARCH = WINDOWS_RELEASE_ARCHS[0]
 const RUNTIME_RESOURCE_NAMES = ["backend", "knowledge-graph", "migrations", "tessdata"]
 const LEGAL_RESOURCE_NAMES = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 const DEV_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Dev`
-const BETA_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Beta`
 const MACOS_AD_HOC_SIGNING_IDENTITY = "-"
 const CHEMFIG_RUNTIME_ASAR_PATTERN = path.posix.join(
   "out/main",
@@ -105,31 +105,29 @@ export function createElectronBuilderConfiguration(
     }
   }
 
-  if (input.channel === "beta") {
-    return {
-      ...baseConfiguration,
-      appId: "ai.buddy.desktop.beta",
-      productName: BETA_PRODUCT_NAME,
-      publish: {
-        provider: "github",
-        owner: "prashantbhudwal",
-        repo: "buddy-releases",
-        channel: "latest",
-      },
-    }
-  }
-
-  return {
+  const distribution = BUDDY_DISTRIBUTIONS[input.channel]
+  const configuration: Configuration = {
     ...baseConfiguration,
-    appId: "ai.buddy.desktop",
-    productName: BUDDY_BRANDING.productName,
+    appId: distribution.appId,
+    productName: distribution.productName,
+    protocols: { name: distribution.productName, schemes: [distribution.protocol] },
     publish: {
       provider: "github",
-      owner: "prashantbhudwal",
-      repo: "buddy-releases",
+      owner: distribution.releaseOwner,
+      repo: distribution.releaseRepository,
       channel: "latest",
     },
   }
+  if (distribution.packageName) {
+    return {
+      ...configuration,
+      extraMetadata: {
+        ...baseConfiguration.extraMetadata,
+        name: distribution.packageName,
+      },
+    }
+  }
+  return configuration
 }
 
 export const ELECTRON_BUILDER_RESOURCE_NAMES = {

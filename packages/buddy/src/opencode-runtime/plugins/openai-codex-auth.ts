@@ -2,7 +2,8 @@ import { createServer } from "node:http"
 import { setTimeout as sleep } from "node:timers/promises"
 import type { AuthHook } from "@opencode-ai/plugin"
 import { Auth } from "@buddy/opencode-adapter/auth"
-import { BUDDY_BRANDING } from "@buddy/script/branding"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
+import { BUDDY_CHANNEL_ENV } from "@buddy/script/channel"
 import { APICallError } from "ai"
 import z from "zod"
 import { BUDDY_ENV } from "../../storage/constants"
@@ -271,13 +272,16 @@ async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: Pk
   return tokens
 }
 
+/** Render the OAuth success page, accepting only the callback scheme for this distribution. */
 export function buildBuddyCodexSuccessHtml() {
+  const distribution =
+    process.env[BUDDY_CHANNEL_ENV] === "beta" ? BUDDY_DISTRIBUTIONS.beta : BUDDY_DISTRIBUTIONS.prod
   const configuredCallbackUrl = process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]?.trim()
   const callbackUrl = configuredCallbackUrl
     ? (() => {
         try {
           const candidate = new URL(configuredCallbackUrl)
-          return candidate.protocol === `${BUDDY_BRANDING.appProtocol}:`
+          return candidate.protocol === `${distribution.protocol}:`
             ? candidate.toString()
             : undefined
         } catch {

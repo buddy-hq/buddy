@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, shell } from "electron"
 import type { BaseWindow } from "electron"
 import { UPDATE_CHECK_MENU_COMMAND } from "@buddy/update-contract"
+import { APP_PRODUCT_NAME } from "./constants"
 import { createMainWindow } from "./windows"
 
 type MenuDeps = {
@@ -16,7 +17,7 @@ export function createMenu(deps: MenuDeps) {
 
   const template: Electron.MenuItemConstructorOptions[] = [
     {
-      label: "Buddy",
+      label: APP_PRODUCT_NAME,
       submenu: [
         { role: "about" },
         {
@@ -122,7 +123,7 @@ export function createMenu(deps: MenuDeps) {
       label: "Help",
       submenu: [
         {
-          label: "Buddy Repository",
+          label: `${APP_PRODUCT_NAME} Repository`,
           click: () => shell.openExternal("https://github.com/buddy-hq/buddy"),
         },
       ],

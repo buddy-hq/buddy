@@ -29,7 +29,7 @@ export type UpdateCheckOutcome =
   | { readonly kind: "up-to-date" }
   | { readonly kind: "available"; readonly version: string }
   | { readonly kind: "blocked" }
-  | { readonly kind: "failed" }
+  | { readonly kind: "failed"; readonly reason?: "not-configured" }
 
 export type UpdateDownloadOutcome =
   | { readonly kind: "downloaded"; readonly version: string }
@@ -87,6 +87,7 @@ export type UpdateService = {
  * a different ring/version after the user acts.
  */
 export function createUpdateService(input: {
+  readonly distribution?: "beta"
   readonly currentVersion: string
   readonly ring: UpdateRing
   readonly supported: boolean
@@ -97,6 +98,7 @@ export function createUpdateService(input: {
   const listeners = new Set<(state: UpdateState) => void>()
 
   let state = createUpdateState({
+    distribution: input.distribution,
     currentVersion: input.currentVersion,
     ring: input.ring,
     supported: input.supported,
@@ -124,7 +126,7 @@ export function createUpdateService(input: {
         case "blocked":
           return commit(completeCheckBlocked(state, { checkedAt }))
         case "failed":
-          return commit(failCheck(state, { checkedAt }))
+          return commit(failCheck(state, { checkedAt, reason: outcome.reason }))
         case "available": {
           const releaseNotes = await dependencies.readReleaseNotes({
             currentVersion: state.currentVersion,
@@ -202,7 +204,7 @@ export function createUpdateService(input: {
   }
 
   const runSetRing = async (ring: UpdateRing): Promise<UpdateState> => {
-    if (state.ring === ring) return state
+    if (state.distribution === "beta" || state.ring === ring) return state
 
     dependencies.persistRing(ring)
     dependencies.discardReadyUpdate()

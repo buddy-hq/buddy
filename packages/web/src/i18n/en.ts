@@ -862,6 +862,8 @@ export const dict = {
   "settings.updates.checkNow": "Check now",
   "settings.updates.checkTitle": "Manual check",
   "settings.updates.ringPreview": "Preview",
+  "settings.updates.channelBeta": "Beta",
+  "settings.updates.channelBetaDescription": "This app receives updates from the Beta channel.",
   "settings.updates.ringSaveFailed": "Failed to save update channel",
   "settings.updates.ringStable": "Stable",
   "settings.updates.title": "Updates",
@@ -877,6 +879,9 @@ export const dict = {
   "updates.confirm.description":
     "Buddy will close and reopen. Anything running right now, including chats that are still replying, will be stopped.",
   "updates.confirm.title": "Restart to install Buddy {{version}}?",
+  "updates.failure.notConfigured": "Beta updates are not configured",
+  "updates.failure.notConfiguredDetail":
+    "An update signing key has not been provisioned for Buddy Beta.",
   "updates.failure.check": "Couldn't check for updates",
   "updates.failure.detail": "Buddy is still running this version.",
   "updates.failure.download": "Couldn't download the update",

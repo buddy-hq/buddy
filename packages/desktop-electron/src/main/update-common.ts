@@ -1,3 +1,9 @@
+import {
+  BUDDY_DISTRIBUTIONS,
+  formatReleaseRepositorySlug,
+  requireUpdaterPublicKey,
+  type BuddyDistribution,
+} from "@buddy/script/distribution"
 import { latestReleaseVersionFromReleases } from "@buddy/script/release-version"
 import { verifySignedMessage } from "@buddy/script/minisign"
 import { z } from "zod"
@@ -11,11 +17,45 @@ const GITHUB_RELEASES_API_VERSION_HEADER = "2022-11-28"
 const GITHUB_RELEASES_API_USER_AGENT = "Buddy-Updater"
 const LATEST_PRERELEASE_SEARCH_LIMIT = 100
 
-export const RELEASE_REPOSITORY_OWNER = "prashantbhudwal"
-export const RELEASE_REPOSITORY_NAME = "buddy-releases"
-export const RELEASE_REPOSITORY = `${RELEASE_REPOSITORY_OWNER}/${RELEASE_REPOSITORY_NAME}`
+/** Resolved once from the embedded build channel, never the process environment. */
+export const UPDATE_DISTRIBUTION: BuddyDistribution =
+  import.meta.env.BUDDY_CHANNEL === "beta" ? BUDDY_DISTRIBUTIONS.beta : BUDDY_DISTRIBUTIONS.prod
+
+export const RELEASE_REPOSITORY_OWNER = UPDATE_DISTRIBUTION.releaseOwner
+export const RELEASE_REPOSITORY_NAME = UPDATE_DISTRIBUTION.releaseRepository
+export const RELEASE_REPOSITORY = formatReleaseRepositorySlug(UPDATE_DISTRIBUTION)
 export const BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY = "BUDDY_UPDATE_PUBLIC_KEY"
-export const BUDDY_MINISIGN_PUBLIC_KEY = "RWTcBSYzKsK7Gf1M2w9kTDB2fvSRlsZejPWt+AaMGvGiNk3mxAW+Wh3f"
+export const BUDDY_MINISIGN_PUBLIC_KEY = UPDATE_DISTRIBUTION.updaterPublicKey
+
+/** Missing distribution signing configuration, surfaced separately from network failures. */
+export class UpdatesNotConfiguredError extends Error {
+  constructor(distribution: BuddyDistribution, cause: unknown) {
+    super(`${distribution.productName} updates are not configured.`, { cause })
+    this.name = "UpdatesNotConfiguredError"
+  }
+}
+
+/** Ambient overrides remain available for prod; Beta trusts only its embedded key. */
+export function resolveUpdatePublicKeyOverride(
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): string | undefined {
+  return distribution.id === "beta"
+    ? undefined
+    : process.env[BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY]?.trim() || undefined
+}
+
+/** Require this distribution's verification key before any update discovery or content fetch. */
+export function resolveUpdateVerificationPublicKey(
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+  explicitKey?: string,
+): string {
+  if (explicitKey !== undefined) return explicitKey
+  try {
+    return requireUpdaterPublicKey(distribution)
+  } catch (cause) {
+    throw new UpdatesNotConfiguredError(distribution, cause)
+  }
+}
 
 type TGithubRelease = {
   draft: boolean
@@ -30,6 +70,7 @@ const githubReleaseSchema = z.object({
 })
 
 type VersionedReleaseAssetUrlInput = {
+  distribution?: BuddyDistribution
   legacyFilename?: string
   primaryFilename: string
   version: string
@@ -47,63 +88,96 @@ export class SignedUpdateFetchError extends Error {
   }
 }
 
-export function resolveLatestReleaseAssetUrl(filename: string): string {
-  return `https://github.com/${RELEASE_REPOSITORY}/releases/latest/download/${filename}`
+export function resolveLatestReleaseAssetUrl(
+  filename: string,
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): string {
+  return `https://github.com/${formatReleaseRepositorySlug(distribution)}/releases/latest/download/${filename}`
 }
 
-export function resolveReleaseDownloadBaseUrl(version: string): string {
-  return resolveReleaseTagDownloadBaseUrl(`v${version}`)
+export function resolveReleaseDownloadBaseUrl(
+  version: string,
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): string {
+  return resolveReleaseTagDownloadBaseUrl(`v${version}`, distribution)
 }
 
-export function resolveReleaseAssetUrl(version: string, filename: string): string {
-  return resolveReleaseTagAssetUrl(`v${version}`, filename)
+export function resolveReleaseAssetUrl(
+  version: string,
+  filename: string,
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): string {
+  return resolveReleaseTagAssetUrl(`v${version}`, filename, distribution)
 }
 
 export function resolveVersionedReleaseAssetUrls(
   input: VersionedReleaseAssetUrlInput,
 ): readonly string[] {
-  const primaryUrl = resolveReleaseAssetUrl(input.version, input.primaryFilename)
-  if (!input.legacyFilename || input.legacyFilename === input.primaryFilename) {
+  const distribution = input.distribution ?? UPDATE_DISTRIBUTION
+  const primaryUrl = resolveReleaseAssetUrl(input.version, input.primaryFilename, distribution)
+  if (
+    distribution.id === "beta" ||
+    !input.legacyFilename ||
+    input.legacyFilename === input.primaryFilename
+  ) {
     return [primaryUrl]
   }
 
-  return [primaryUrl, resolveReleaseAssetUrl(input.version, input.legacyFilename)]
+  return [primaryUrl, resolveReleaseAssetUrl(input.version, input.legacyFilename, distribution)]
 }
 
-export function resolveReleaseTagDownloadBaseUrl(tag: string): string {
-  return `https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/`
+export function resolveReleaseTagDownloadBaseUrl(
+  tag: string,
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): string {
+  return `https://github.com/${formatReleaseRepositorySlug(distribution)}/releases/download/${tag}/`
 }
 
-export function resolveReleaseTagAssetUrl(tag: string, filename: string): string {
-  if (isAbsoluteUrl(filename)) {
-    return filename
+export function resolveReleaseTagAssetUrl(
+  tag: string,
+  filename: string,
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): string {
+  if (distribution.id === "prod" && isAbsoluteUrl(filename)) return filename
+  const baseUrl = resolveReleaseTagDownloadBaseUrl(tag, distribution)
+  const url = new URL(filename, baseUrl)
+  // Signed Beta manifests may carry absolute assets, but never another distribution's feed.
+  if (distribution.id === "beta" && !url.href.startsWith(baseUrl)) {
+    throw new Error("Beta update assets must belong to the Beta release repository and tag")
   }
-
-  return new URL(filename, resolveReleaseTagDownloadBaseUrl(tag)).toString()
+  return url.toString()
 }
 
-export async function resolveLatestPreviewAssetUrl(filename: string): Promise<string> {
-  const release = await fetchLatestGithubPreviewRelease()
+export async function resolveLatestPreviewAssetUrl(
+  filename: string,
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): Promise<string> {
+  const release = await fetchLatestGithubPreviewRelease(distribution)
   if (!release) {
-    return resolveLatestReleaseAssetUrl(filename)
+    if (distribution.id === "beta") throw new Error("No numeric Beta release is available")
+    return resolveLatestReleaseAssetUrl(filename, distribution)
   }
 
-  return resolveReleaseTagAssetUrl(release.tagName, filename)
+  return resolveReleaseTagAssetUrl(release.tagName, filename, distribution)
 }
 
 export async function resolveLatestRingAssetUrl(input: {
+  distribution?: BuddyDistribution
   filename: string
   ring: UpdateRing
 }): Promise<string> {
-  if (input.ring === UPDATE_RING_PREVIEW) {
-    return await resolveLatestPreviewAssetUrl(input.filename)
+  const distribution = input.distribution ?? UPDATE_DISTRIBUTION
+  if (distribution.id === "beta" || input.ring === UPDATE_RING_PREVIEW) {
+    return await resolveLatestPreviewAssetUrl(input.filename, distribution)
   }
 
-  return resolveLatestReleaseAssetUrl(input.filename)
+  return resolveLatestReleaseAssetUrl(input.filename, distribution)
 }
 
-async function fetchLatestGithubPreviewRelease(): Promise<TGithubRelease | undefined> {
-  const releases = await fetchGithubReleases()
+async function fetchLatestGithubPreviewRelease(
+  distribution: BuddyDistribution,
+): Promise<TGithubRelease | undefined> {
+  const releases = await fetchGithubReleases(distribution)
   const latestVersion = latestReleaseVersionFromReleases(
     releases.map((release) => ({
       isDraft: release.draft,
@@ -118,9 +192,13 @@ async function fetchLatestGithubPreviewRelease(): Promise<TGithubRelease | undef
   )
 }
 
-async function fetchGithubReleases(): Promise<TGithubRelease[]> {
+async function fetchGithubReleases(
+  distribution: BuddyDistribution,
+  page = 1,
+): Promise<TGithubRelease[]> {
+  const pageQuery = page === 1 ? "" : `&page=${page}`
   const response = await fetch(
-    `https://api.github.com/repos/${RELEASE_REPOSITORY}/releases?per_page=${LATEST_PRERELEASE_SEARCH_LIMIT}`,
+    `https://api.github.com/repos/${formatReleaseRepositorySlug(distribution)}/releases?per_page=${LATEST_PRERELEASE_SEARCH_LIMIT}${pageQuery}`,
     {
       headers: {
         Accept: GITHUB_RELEASES_API_ACCEPT_HEADER,
@@ -146,6 +224,10 @@ async function fetchGithubReleases(): Promise<TGithubRelease[]> {
     if (release) releases.push(release)
   }
 
+  // Beta selects the highest version across its repository, including older publications.
+  if (distribution.id === "beta" && body.length === LATEST_PRERELEASE_SEARCH_LIMIT) {
+    releases.push(...(await fetchGithubReleases(distribution, page + 1)))
+  }
   return releases
 }
 
@@ -160,7 +242,15 @@ function parseGithubRelease<TValue>(value: TValue): TGithubRelease | undefined {
   }
 }
 
-export async function fetchSignedText(input: { publicKey?: string; url: string }): Promise<string> {
+export async function fetchSignedText(input: {
+  distribution?: BuddyDistribution
+  publicKey?: string
+  url: string
+}): Promise<string> {
+  const publicKey = resolveUpdateVerificationPublicKey(
+    input.distribution ?? UPDATE_DISTRIBUTION,
+    input.publicKey,
+  )
   const [contentResponse, signatureResponse] = await Promise.all([
     fetch(input.url, {
       headers: {
@@ -199,7 +289,7 @@ export async function fetchSignedText(input: { publicKey?: string; url: string }
 
   const verified = await verifySignedMessage({
     message: Buffer.from(contentText, "utf8"),
-    publicKey: input.publicKey ?? BUDDY_MINISIGN_PUBLIC_KEY,
+    publicKey,
     signatureFileText: decodeTauriSignatureOuterText(signatureOuterText),
   })
 
@@ -211,6 +301,7 @@ export async function fetchSignedText(input: { publicKey?: string; url: string }
 }
 
 export async function fetchSignedElectronUpdateManifest(input: {
+  distribution?: BuddyDistribution
   publicKey?: string
   url: string
 }): Promise<{ content: string; version: string }> {

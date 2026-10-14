@@ -33,6 +33,7 @@ export function describeUpdateStatus(state: UpdateState): string {
 }
 
 export function describeUpdateFailure(failure: UpdateFailure): string {
+  if (failure.reason === "not-configured") return language.t("updates.failure.notConfigured")
   switch (failure.stage) {
     case "check":
       return language.t("updates.failure.check")
