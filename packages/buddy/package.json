@@ -35,7 +35,7 @@
     "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit",
     "start": "bun run ensure:advanced-math-runtime && bun --env-file=../../.env run src/dev/start-with-safe-env.ts",
     "test": "bun ./test/run-tests.ts",
-    "test:config": "bun ../../script/run-test-command.ts -- bun test --preload ./test/preload.ts test/config",
+    "test:config": "bun ./test/run-tests.ts test/config/*.test.ts",
     "test:curriculum": "bun ../../script/run-test-command.ts -- bun test --preload ./test/preload.ts test/curriculum",
     "test:learning": "bun ../../script/run-test-command.ts -- bun test --preload ./test/preload.ts test/learning",
     "test:session": "bun ../../script/run-test-command.ts -- bun test --preload ./test/preload.ts test/session",

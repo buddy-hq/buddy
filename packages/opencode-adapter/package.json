@@ -69,6 +69,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@ai-sdk/anthropic": "3.0.111",
     "typescript": "^5.0.0"
   }
 }

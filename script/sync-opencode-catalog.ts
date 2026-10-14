@@ -10,11 +10,13 @@ const PackageJsonSchema = z.looseObject({
       catalog: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
+  patchedDependencies: z.record(z.string(), z.string()).optional(),
 })
 
 type PackageManifest = z.infer<typeof PackageJsonSchema>
 
 const CHECK_FLAG = "--check"
+const VENDOR_PATCH_PREFIX = "vendor/opencode/"
 
 function sortRecord(input: Record<string, string>) {
   return Object.fromEntries(
@@ -24,6 +26,10 @@ function sortRecord(input: Record<string, string>) {
 
 function readCatalog(source: PackageManifest | undefined) {
   return source?.workspaces?.catalog ?? {}
+}
+
+function readPatches(source: PackageManifest) {
+  return source.patchedDependencies ?? {}
 }
 
 function mergeVendorCatalog(input: {
@@ -47,6 +53,32 @@ function mergeVendorCatalog(input: {
   }
 }
 
+function mergeVendorPatches(input: {
+  root: Record<string, string>
+  vendor: Record<string, string>
+}) {
+  const merged = Object.fromEntries(
+    Object.entries(input.root).filter(
+      ([name, patch]) => !patch.startsWith(VENDOR_PATCH_PREFIX) || name in input.vendor,
+    ),
+  )
+
+  for (const [name, patch] of Object.entries(input.vendor)) {
+    if (!patch.startsWith("patches/")) {
+      throw new Error(`Unexpected upstream patch path for ${name}: ${patch}`)
+    }
+    if (merged[name] && !merged[name].startsWith(VENDOR_PATCH_PREFIX)) continue
+    merged[name] = `${VENDOR_PATCH_PREFIX}${patch}`
+  }
+
+  return {
+    merged: sortRecord(merged),
+    changed: [...new Set([...Object.keys(input.root), ...Object.keys(merged)])].filter(
+      (name) => input.root[name] !== merged[name],
+    ),
+  }
+}
+
 function packageJsonPaths() {
   const repoRoot = path.resolve(import.meta.dir, "..")
   return {
@@ -58,8 +90,9 @@ function packageJsonPaths() {
 
 async function readPackageJson(filePath: string): Promise<PackageManifest> {
   const content = await Bun.file(filePath).text()
-  const parsed: unknown = JSON.parse(content)
-  return PackageJsonSchema.parse(parsed)
+  const parsed = z.record(z.string(), z.unknown()).parse(JSON.parse(content))
+  const validated = PackageJsonSchema.parse(parsed)
+  return { ...parsed, ...validated }
 }
 
 async function main() {
@@ -69,20 +102,22 @@ async function main() {
   const root = await readPackageJson(rootPackageJson)
   const vendor = await readPackageJson(vendorPackageJson)
 
-  const result = mergeVendorCatalog({
+  const catalog = mergeVendorCatalog({
     root: readCatalog(root),
     vendor: readCatalog(vendor),
   })
+  const patches = mergeVendorPatches({ root: readPatches(root), vendor: readPatches(vendor) })
 
-  if (result.changed.length === 0) {
-    console.log("OpenCode catalog already aligned")
+  if (catalog.changed.length === 0 && patches.changed.length === 0) {
+    console.log("OpenCode catalog and patches already aligned")
     return
   }
 
   if (checkOnly) {
-    console.error(
-      `OpenCode catalog drift detected for ${result.changed.length} entries: ${result.changed.join(", ")}`,
-    )
+    if (catalog.changed.length > 0)
+      console.error(`OpenCode catalog drift: ${catalog.changed.join(", ")}`)
+    if (patches.changed.length > 0)
+      console.error(`OpenCode patch drift: ${patches.changed.join(", ")}`)
     process.exitCode = 1
     return
   }
@@ -91,14 +126,16 @@ async function main() {
     ...root,
     workspaces: {
       ...root.workspaces,
-      catalog: result.merged,
+      catalog: catalog.merged,
     },
+    patchedDependencies: patches.merged,
   }
 
   await Bun.write(rootPackageJson, `${JSON.stringify(nextRoot, null, 2)}\n`)
-  console.log(
-    `Aligned ${result.changed.length} OpenCode catalog entries: ${result.changed.join(", ")}`,
-  )
+  if (catalog.changed.length > 0)
+    console.log(`Aligned ${catalog.changed.length} OpenCode catalog entries: ${catalog.changed.join(", ")}`)
+  if (patches.changed.length > 0)
+    console.log(`Aligned ${patches.changed.length} OpenCode patches: ${patches.changed.join(", ")}`)
 }
 
 await main()

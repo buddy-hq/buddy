@@ -81,6 +81,7 @@ docs/audits/
 docs/todo.md
 script/install-latest-release.sh
 .opencode
+!/vendor/opencode/.opencode/
 docs/local
 docs/artifacts/distilled/
 .agents/skills/local/

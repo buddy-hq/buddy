@@ -1,10 +1,19 @@
 #!/usr/bin/env bun
 
 import { execFileSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { z } from "zod"
 
 const VENDOR_PREFIX = "vendor/opencode/"
 const VENDOR_DIFF_FILTER = "ACMRD"
+const UPSTREAM_SOURCE = "script/opencode-upstream.json"
+const UpstreamSourceSchema = z.strictObject({
+  tag: z.string().regex(/^v\d+\.\d+\.\d+$/),
+  commit: z.string().regex(/^[0-9a-f]{40}$/),
+  tree: z.string().regex(/^[0-9a-f]{40}$/),
+})
 
 type Mode =
   | { kind: "staged" }
@@ -42,6 +51,47 @@ function parseMode(argv: string[]): Mode {
 
 function gitOutput(args: string[]): string {
   return execFileSync("git", args, { encoding: "utf8" }).trim()
+}
+
+function worktreeVendorTree(): string {
+  const directory = mkdtempSync(join(tmpdir(), "buddy-vendor-guard-"))
+  const env = { ...process.env, GIT_INDEX_FILE: join(directory, "index") }
+  try {
+    execFileSync("git", ["read-tree", "HEAD"], { env })
+    execFileSync("git", ["add", "-A", "--", VENDOR_PREFIX], { env })
+    const root = execFileSync("git", ["write-tree"], { env, encoding: "utf8" }).trim()
+    return gitOutput(["rev-parse", `${root}:vendor/opencode`])
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+}
+
+function mirrorRevision(mode: Mode): string | undefined {
+  if (mode.kind === "worktree") return
+  if (mode.kind === "staged") return gitOutput(["write-tree"])
+  if (mode.kind === "stdin") throw new Error("Push revisions must come from ref updates")
+  return mode.range.split("..").at(-1)
+}
+
+function allowsUpstreamSnapshot(mode: Mode, pushRevisions: string[]): boolean {
+  try {
+    const revisions = mode.kind === "stdin" ? pushRevisions : [mirrorRevision(mode)]
+    if (revisions.length === 0) return false
+    return revisions.every((revision) => {
+      const source =
+        revision === undefined
+          ? readFileSync(UPSTREAM_SOURCE, "utf8")
+          : gitOutput(["show", `${revision}:${UPSTREAM_SOURCE}`])
+      const record = UpstreamSourceSchema.parse(JSON.parse(source))
+      const actual =
+        revision === undefined
+          ? worktreeVendorTree()
+          : gitOutput(["rev-parse", `${revision}:vendor/opencode`])
+      return actual === record.tree
+    })
+  } catch {
+    return false
+  }
 }
 
 function gitChangedFilesForRange(range: string): string[] {
@@ -146,8 +196,9 @@ function parseRefUpdate(line: string): RefUpdate | null {
   return { oldSha, newSha, refName }
 }
 
-function gitChangedFilesForRefUpdates(updates: RefUpdate[]): string[] {
+function gitChangedFilesForRefUpdates(updates: RefUpdate[]) {
   const changedPaths = new Set<string>()
+  const revisions: string[] = []
 
   for (const update of updates) {
     if (isNullSha(update.newSha)) continue
@@ -156,15 +207,17 @@ function gitChangedFilesForRefUpdates(updates: RefUpdate[]): string[] {
       ? getChangedFilesForNewRef(update.newSha)
       : gitChangedFilesForRange(`${update.oldSha}..${update.newSha}`)
 
+    if (paths.some((path) => path.startsWith(VENDOR_PREFIX))) revisions.push(update.newSha)
+
     for (const path of paths) {
       changedPaths.add(path)
     }
   }
 
-  return [...changedPaths]
+  return { paths: [...changedPaths], revisions }
 }
 
-function gitChangedFilesForMode(mode: Mode): string[] {
+function gitChangedFilesForMode(mode: Mode) {
   if (mode.kind === "staged") {
     const output = execFileSync(
       "git",
@@ -173,18 +226,19 @@ function gitChangedFilesForMode(mode: Mode): string[] {
         encoding: "utf8",
       },
     )
-    return output
+    const paths = output
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
+    return { paths, revisions: [] }
   }
 
   if (mode.kind === "worktree") {
-    return gitChangedFilesForWorktree()
+    return { paths: gitChangedFilesForWorktree(), revisions: [] }
   }
 
   if (mode.kind === "range") {
-    return gitChangedFilesForRange(mode.range)
+    return { paths: gitChangedFilesForRange(mode.range), revisions: [] }
   }
 
   const input = readFileSync(0, "utf8")
@@ -198,7 +252,7 @@ function gitChangedFilesForMode(mode: Mode): string[] {
     return gitChangedFilesForRefUpdates(updates)
   }
 
-  return lines
+  return { paths: lines, revisions: [] }
 }
 
 function printFailure(vendorPaths: string[], mode: Mode): void {
@@ -221,7 +275,8 @@ What failed:
 Detected vendor paths:
 ${list}
 
-Inform the user about the details and stop any further work for this turn.
+For an intentional upstream sync, verify the tag and record its commit and tree in ${UPSTREAM_SOURCE}.
+For a Buddy-specific change, move it into Buddy-owned code.
 `
 
   console.error(message)
@@ -229,10 +284,11 @@ Inform the user about the details and stop any further work for this turn.
 
 function main(): void {
   const mode = parseMode(process.argv.slice(2))
-  const changedPaths = gitChangedFilesForMode(mode)
-  const vendorPaths = changedPaths.filter((path) => path.startsWith(VENDOR_PREFIX))
+  const changed = gitChangedFilesForMode(mode)
+  const vendorPaths = changed.paths.filter((path) => path.startsWith(VENDOR_PREFIX))
 
   if (vendorPaths.length === 0) process.exit(0)
+  if (allowsUpstreamSnapshot(mode, changed.revisions)) process.exit(0)
 
   printFailure(vendorPaths, mode)
   process.exit(1)

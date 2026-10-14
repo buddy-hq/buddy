@@ -8,20 +8,25 @@ Completion means that the upstream snapshot and Buddy migrations work seamlessly
 
 ## 1. Environment Inputs & Setup
 
-Set environment variables before starting:
+Use an isolated Buddy checkout or worktree that is already available and clean. Confirm paths and remotes rather than assuming their names:
 
 ```sh
-export BUDDY_DIR="${PWD}"                     # Path to Buddy repository root
-export OPENCODE_DIR="../opencode"             # Path to clean local OpenCode clone
-export UPSTREAM_REMOTE="opencode-upstream"    # Upstream git remote
+git status --short
+git remote -v
+git -C ../opencode status --short
+git -C ../opencode remote -v
 ```
+
+The local OpenCode clone may be dirty. Read tags and Git objects from it without changing its worktree. The Buddy remote is normally `opencode`, but use the name that `git remote -v` reports.
+
+After inspection, set `OPENCODE_DIR` to the clone path, `UPSTREAM_REMOTE` to the verified Buddy remote, and `TAG` to the selected stable tag.
 
 ---
 
 ## 2. Core Rules & Boundary Invariants
 
 1. **Vendor Cleanliness:** Do not fork or patch `vendor/opencode/**` directly. Place Buddy-specific behavior, shims, and overlays in Buddy-owned packages (`packages/buddy`, `packages/opencode-adapter`, build layer).
-2. **Vendor Guard:** Vendor changes are guarded by local git hooks. Use `ALLOW_VENDOR_SYNC=1` on intentional, validated vendor sync commits.
+2. **Vendor Guard:** Vendor changes are guarded by local hooks and `bun lint`. An intentional sync records the selected tag, commit, and tree in `script/opencode-upstream.json`; the guard accepts the complete vendor tree only when it matches that record. `ALLOW_VENDOR_SYNC=1` does not bypass the guard.
 3. **Compatibility Seams:** Keep runtime compatibility strictly isolated to designated boundary files:
    - Plugin `ask()` compatibility: `packages/buddy/src/opencode-runtime/plugin-ask-compat.ts`
    - LLM event normalization: `packages/opencode-adapter/src/llm.ts`
@@ -30,11 +35,11 @@ export UPSTREAM_REMOTE="opencode-upstream"    # Upstream git remote
 4. **No Premature Translation Shims:** For adopted upstream v2 capabilities, migrate connected Buddy layers (backend, SDK, frontend) directly to the v2 contract rather than maintaining leaky v2-to-v1 conversion bridges. Do **not** add wrappers that translate vendor v2 APIs, types, events, messages, permission model, or runtime behavior back into Buddy v1 shapes. Dual v1/v2 protocols, translation DTOs, and event reassembly whose purpose is to avoid completing an adopted v2 migration are forbidden. If a v2 surface is too incomplete for an end-to-end overhaul, keep that capability wholly on the existing v1 path, record the blocker, and defer it. `@buddy/opencode-adapter` remains the in-process embedding seam; it must not disguise v2 as v1.
 5. **Vendor desktop/app parity:** If the stable OpenCode desktop/app uses v2 for a product surface, Buddy must migrate that same surface to v2. The vendor app's SDK calls, state, events, routes, and runtime wiring are the adoption map. A deferral is valid only when the stable vendor app itself still uses v1 for that surface, or when Buddy-specific functionality has no v2 equivalent; record source evidence either way.
 6. **Tests migrate with the product surface:** Do not treat the pre-fetch Buddy test suite as a fixed compatibility contract. For each newly adopted upstream behavior Buddy exposes, add or extend focused Buddy-level coverage for the new v2 contract and its failure/recovery behavior. Update fixtures to current v2 schemas. Remove tests whose only purpose is deleted v1 compatibility. Upstream vendor tests are evidence, not a substitute. Do not run the full vendor suite.
-7. **Hands-on Electron completion gate:** Lint, typecheck, unit/contract tests, and builds are not completion. After automated gates, operate the Buddy Electron app: open a real session, prompt through completion, exercise representative tools/permissions, Bench/files, provider/config, navigation, and reconnect. If the vendor desktop uses v2 for a surface, Buddy desktop must use v2 for that surface while preserving Buddy product behavior.
+7. **Electron verification:** Build and run focused desktop smoke scripts. Operate the app only when the user explicitly requests or approves browser or computer-use verification. Record any unverified interactive paths as limits of the fetch.
 8. **Dirty-tree safety:** Assume the working tree is dirty. Inspect and preserve unrelated edits; never reset, revert, or clean files that are outside the sync scope.
 9. **Helper-script distrust:** Treat helper scripts as convenience only, not as source of truth. Independently inspect remotes, tags, trees, and command output before choosing a snapshot.
 
-These four adoption rules (shims, desktop parity, tests, hands-on gate) are standing policy. They originated in the 2026-07-10 vendor fetch; they are not a resumable diary for that run.
+These adoption rules guide the compatibility audit. If the selected tag activates a new v2 path, trace it through Buddy and migrate the connected surface. Existing v2 adoption debt should be recorded separately rather than silently included in a minor snapshot fetch.
 
 ### v2 adoption status and forward horizon
 
@@ -53,7 +58,7 @@ Inspect `upstream/dev` and `upstream/v2` as forward-looking horizon evidence. Th
 ## 3. Execution Algorithm
 
 ### Step 1: Record Intent (Optional Scratch, Not Policy)
-- Note date, branch, starting `git status --short`, target tag, and whether this is a mechanical sync or a combined v2 adoption.
+- Note date, branch, starting `git status --short`, target tag, and which upstream changes affect Buddy call paths.
 - Do **not** treat a fetch diary as standing procedure. Policy lives in this guide. Git history archives completed syncs; do not keep `docs/ops/logs/upstream-fetch.*` as living runbooks.
 
 ### Step 2: Capture Baseline
@@ -61,18 +66,17 @@ Inspect `upstream/dev` and `upstream/v2` as forward-looking horizon evidence. Th
 git branch --show-current
 git status --short
 ```
-Ensure the starting state is recorded in the sync log.
+Preserve unrelated edits. Reuse a clean isolated worktree when one exists; do not create another worktree solely to repeat the same isolation.
 
 ### Step 3: Verify Upstream Delta & Target Tag
 ```sh
-git fetch "$UPSTREAM_REMOTE" --tags
-git -C "$OPENCODE_DIR" fetch origin --tags
-
-# Inspect latest stable tags
-git -C "$OPENCODE_DIR" tag --sort=-version:refname | head -n 10
+git ls-remote --tags "$UPSTREAM_REMOTE" "refs/tags/$TAG"
+git -C "$OPENCODE_DIR" rev-parse "$TAG^{commit}"
+git -C "$OPENCODE_DIR" rev-parse "$TAG^{tree}"
 ```
+- Fetch a missing selected tag explicitly. Verify its target against the remote tag before copying it; avoid a broad `--tags` fetch unless needed.
 - Compare Buddy's vendored version (`vendor/opencode/packages/opencode/package.json`) against the target tag.
-- If vendored files already match the target tag, stop.
+- If the vendor tree already matches the target tag, stop. Version strings alone do not prove equality.
 - For a combined v2 adoption sync, inspect the forward-looking branch tips without treating them as vendor input:
   ```sh
   git -C "$OPENCODE_DIR" fetch upstream dev v2
@@ -80,122 +84,86 @@ git -C "$OPENCODE_DIR" tag --sort=-version:refname | head -n 10
   ```
   Record the three-way v2 status and concrete desktop/server call paths in the sync evidence. Branch tips are horizon evidence, not permission to vendor unreleased code.
 
-### Step 4: Dry-Run in Temporary Worktree
-Create an isolated worktree from `HEAD`:
+### Step 4: Copy the Exact Tag Into the Isolated Buddy Worktree
+Extract the tag outside the repository, then replace the old vendor snapshot:
 ```sh
-TMP_WORKTREE=$(mktemp -d /tmp/buddy-vendor-check-XXXXXX)
-git worktree add -b "codex/vendor-check-$(date +%Y%m%d)" "$TMP_WORKTREE" HEAD
+SNAPSHOT_DIR=$(mktemp -d /tmp/buddy-opencode-snapshot-XXXXXX)
+git -C "$OPENCODE_DIR" archive "$TAG" | tar -x -C "$SNAPSHOT_DIR"
+rsync -a --delete --exclude=.git --exclude=node_modules --exclude=dist --exclude=.turbo "$SNAPSHOT_DIR/" vendor/opencode/
 ```
 
-Inside `$TMP_WORKTREE`:
-1. Extract the target tag snapshot into `vendor/opencode`:
-   ```sh
-   git -C "$OPENCODE_DIR" archive <tag> | tar -x -C "$TMP_WORKTREE/vendor/opencode"
-   ```
-2. Sync the root workspace catalog and install:
-   ```sh
-   bun run vendor:sync-catalog
-   bun install
-   ```
-3. Run verification gates:
-   ```sh
-   bun typecheck
-   bun lint
-   bun run --cwd packages/buddy test:contracts
-   bun run --cwd packages/web test:contracts
-   bun run --cwd packages/buddy build:node
-   bun run --cwd packages/desktop-electron build
-   bun run --cwd packages/desktop-electron smoke:backend-utility
-   ```
-4. Audit key Buddy compatibility hotspots:
-   - Promise vs. Effect return styles in `plugin-ask-compat.ts` and `buddy-tool-shim.ts`.
-   - Structural parsing in `llm.ts` without reliance on upstream internal event-tag unions.
-   - Dynamic tool registration and permission toggle visibility.
-   - Electron asset paths (`publicDir`, loading screen assets).
-   - Prompt or command sent before the target session exists must fail before mutating Buddy state.
-   - Nested sessions in the same project must not produce a false `404` on prompt send.
-   - `BUDDY_RUNTIME_ROOT` and XDG bootstrap must be set before any global storage-path read.
-   - Agent, subagent, tool, config, and permission overlays must remain isolated across directory changes and runtime disposal/recreation.
-   - SSE `message.part.updated` frames must retain Buddy `toolUi` decoration at the Buddy-owned event-stream boundary.
-   - Do not hand-build upstream `Agent.Info`-shaped values when a Buddy agent id or Buddy-owned lookup path is sufficient.
+`git archive` gives the selected tag without touching a dirty upstream worktree. A plain extraction over the old vendor directory leaves upstream deletions behind. Compare the result against the selected tag's tree, including files ignored by Buddy's `.gitignore`, and update `script/opencode-upstream.json`. If Buddy ignores a new tracked upstream path, add a narrow ignore exception so the path can enter the mirror. The guard must pass on the resulting worktree without bypass variables.
 
-### Step 5: Verify No Stray Vendor Patches
-Confirm no Buddy runtime overrides leaked into vendored OpenCode:
+Then sync dependency metadata and install:
 ```sh
-rg -n "OPENCODE_MIGRATION_DIR|BUDDY_RUNTIME_ROOT" "$TMP_WORKTREE/vendor/opencode/packages/opencode/src"
-```
-
-### Step 6: Apply Validated Snapshot to Workspace
-Copy validated vendor code and root configuration back to the main workspace:
-```sh
-rsync -a --delete "$TMP_WORKTREE/vendor/opencode/" "$BUDDY_DIR/vendor/opencode/"
 bun run vendor:sync-catalog
-```
-Carry over any required root workspace edits (`package.json`, `bun.lock`).
-
-### Step 7: Re-link Dependencies
-```sh
+bun run vendor:check-catalog
 bun install
 ```
+Review upstream root `overrides` and carry over any version pin required by the vendored runtime. Audit each Buddy-owned dependency patch when its package version changes: trace the behavior it protected through current Buddy call paths and the new package. Remove a patch if upstream already covers the relevant path or Buddy no longer uses it. Rebase a still-needed patch; if upstream also patches that package version, compose both changes into one Buddy-owned patch and keep the upstream patch in the vendor mirror unchanged. Confirm every patch mapping points to an existing file, then test the affected behavior through the installed package.
 
-### Step 8: Post-Sync Validations in Main Workspace
-Execute validation gates in the primary workspace:
+### Step 5: Audit Buddy Integration
+Compare changed upstream runtime files against Buddy imports and exercised routes. Run the affected package scripts. Pay particular attention to:
+- Promise vs. Effect return styles in `plugin-ask-compat.ts` and `buddy-tool-shim.ts`.
+- Structural parsing in `llm.ts` without reliance on upstream internal event-tag unions.
+- Dynamic tool registration and permission toggle visibility.
+- Electron asset paths (`publicDir`, loading screen assets).
+- Prompt or command sent before the target session exists must fail before mutating Buddy state.
+- Nested sessions in the same project must not produce a false `404` on prompt send.
+- `BUDDY_RUNTIME_ROOT` and XDG bootstrap must be set before any global storage-path read.
+- Agent, subagent, tool, config, and permission overlays must remain isolated across directory changes and runtime disposal/recreation.
+- SSE `message.part.updated` frames must retain Buddy `toolUi` decoration at the Buddy-owned event-stream boundary.
+- Do not hand-build upstream `Agent.Info`-shaped values when a Buddy agent id or Buddy-owned lookup path is sufficient.
+
+### Step 6: Verify No Stray Vendor Patches
+Confirm no Buddy runtime overrides leaked into vendored OpenCode:
 ```sh
-bun typecheck
+rg -n "OPENCODE_MIGRATION_DIR|BUDDY_RUNTIME_ROOT" vendor/opencode/packages/opencode/src
+```
+
+### Step 7: Verification
+Run repository gates in the required order, then focused package tests and builds:
+```sh
 bun lint
-bun run --cwd packages/buddy test:contracts
-bun run --cwd packages/web test:contracts
+bun typecheck
+bun run --cwd packages/opencode-adapter test
+bun run --cwd packages/buddy test:session
+bun run --cwd packages/buddy test:parity
+bun run --cwd packages/web test:parity
 bun run --cwd packages/buddy build:node
 bun run --cwd packages/desktop-electron build
 bun run --cwd packages/desktop-electron smoke:backend-utility
 ```
 
+Use package scripts for other affected tests. Run tests that mutate shared config in isolated processes when their group script shares a process. Keep runtime and notebook roots temporary. Do not run raw `bun test`, the vendor suite, or concurrent typechecks. Run `bun fmt` only after implementation is complete and the user is satisfied.
+
 Also run focused Buddy regressions for the sync-risk surfaces: missing-session prompt/command rejection before state mutation, nested-session false-404 prevention, `BUDDY_RUNTIME_ROOT`/XDG bootstrap, overlay isolation, SSE `toolUi` decoration, and agent lookup without hand-built `Agent.Info` values. Keep deleted regression tests for route envelopes, overlay isolation, and desktop assets; restore or extend them when a sync touches those surfaces.
 
-### Step 9: HTTP Route & SSE Smoke
-Start a real Buddy backend and verify touched endpoints with `curl` (see `docs/guides/buddy-http-curl-smoke.md`):
+### Step 8: HTTP Route & SSE Smoke
+If HTTP behavior changed, start a Buddy backend with temporary state roots and verify touched endpoints with `curl` (see `docs/guides/buddy-http-curl-smoke.md`):
 - `GET /api/health` and `GET /api/healthz`
 - Session create and asynchronous prompt flow
 - SSE `message.part.updated` tool UI decorations
 - Negative error status codes and `{ "error": string }` envelopes.
 
-### Step 10: Cleanliness Diff Against Clean Upstream
+### Step 9: Exact Snapshot Check
 ```sh
-diff -qr --exclude .git --exclude node_modules --exclude .turbo --exclude dist "$OPENCODE_DIR" "$BUDDY_DIR/vendor/opencode"
+git -C "$OPENCODE_DIR" rev-parse "$TAG^{tree}"
+bun ./script/vendor-guard.ts --worktree
 ```
-Reject unexpected tracked source drift.
+Compare the vendor Git tree with the recorded upstream tree. A directory diff against the clone's current worktree is not evidence when that clone is dirty or on another revision.
 
-### Step 11: Prune Compatibility Shims
+### Step 10: Prune Compatibility Shims
 Remove any temporary adapter wrappers that merely disguise upstream API improvements.
 
-### Step 12: Request Human Review
-Summarize changes, test results, and risk assessment to the user before committing.
-
-### Step 13: Two-Batch Commit
-1. **Commit 1: Vendor Snapshot & Root Linking**
-   ```sh
-   git add vendor/opencode package.json bun.lock
-   ALLOW_VENDOR_SYNC=1 git commit -m "chore(vendor): sync opencode upstream to <tag>"
-   ```
-2. **Commit 2: Buddy Adaptations**
-   ```sh
-   git add packages/ docs/
-   git commit -m "refactor(buddy): adapt buddy to new opencode runtime"
-   ```
-
-### Step 14: Log Summary & Risk Ledger
-Record commit hashes, vendor diff stats (`git diff --shortstat`), confirmed fixes, and remaining risks in the PR or commit message. Do not add a durable `docs/ops/logs/upstream-fetch.*` diary.
-
-### Step 15: Clean Up Worktree
-```sh
-git worktree remove "$TMP_WORKTREE"
-```
+### Step 11: Report Evidence
+Summarize the selected tag and tree, Buddy-owned changes, test and build results, unverified product paths, and remaining risks. Commit or open a PR only when the user requests it. Do not add a durable `docs/ops/logs/upstream-fetch.*` diary.
 
 ---
 
-## 4. Minimum Buddy Smoke Checklist
+## 4. Buddy Smoke Checklist
 
-Always verify these critical integration paths after a sync:
+Verify affected paths through focused tests and smoke scripts. If the user authorizes interactive app verification, exercise these paths in the desktop app:
 1. **Chat Send:** Send a prompt to an existing session via standard chat UI.
 2. **Session 404:** Verify prompts to non-existent sessions return `404` without modifying local state.
 3. **Permission Prompt:** Trigger a tool that requires permission and verify the UI prompt renders and answers correctly.

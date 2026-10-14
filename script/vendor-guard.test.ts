@@ -16,3 +16,13 @@ test("does not authorize vendor changes through an environment variable", () => 
   expect(result.status).toBe(1)
   expect(result.stderr).toContain("Protected vendored source was modified")
 })
+
+test("accepts an exact recorded upstream snapshot in the worktree", () => {
+  const result = spawnSync(process.execPath, [VENDOR_GUARD_PATH, "--worktree"], {
+    cwd: REPOSITORY_ROOT,
+    encoding: "utf8",
+  })
+
+  expect(result.status).toBe(0)
+  expect(result.stderr).toBe("")
+})
