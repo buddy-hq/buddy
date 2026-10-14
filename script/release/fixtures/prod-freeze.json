@@ -1,0 +1,15 @@
+{
+  "assets": [
+    {
+      "name": "Buddy.zip",
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "size": 10
+    }
+  ],
+  "planDigest": "969adab0401fa3a09853dcadb21e33fafe766c9e41997aa913041fd0773e4811",
+  "schemaVersion": 1,
+  "sourceRepository": "buddy-hq/buddy",
+  "sourceSha": "1111111111111111111111111111111111111111",
+  "tag": "v1.2.3",
+  "version": "1.2.3"
+}

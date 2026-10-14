@@ -23,8 +23,11 @@ import { z } from "zod"
 import { uploadReleaseAssetSafely } from "../../../script/release/assets"
 import { readNewestPublishedReleaseWithAssets } from "../../../script/release/published-manifest"
 
-const RELEASE_REPOSITORY_ENV_KEY = "BUDDY_RELEASE_REPO"
-const LEGACY_RELEASE_REPOSITORY_ENV_KEY = "GH_REPO"
+import { assertReleaseDestination } from "../../../script/release/distribution-guard"
+import { releaseRepository } from "../../../script/release-repositories"
+import { requireUpdaterPublicKey } from "@buddy/script/distribution"
+import { verifyReleaseSignature } from "./verify-release-signature"
+
 const RELEASE_TAG_ENV_KEY = "BUDDY_RELEASE_TAG"
 const VERSION_ENV_KEY = "BUDDY_VERSION"
 const RELEASE_DATE_ENV_KEY = "BUDDY_RELEASE_DATE"
@@ -91,16 +94,12 @@ type WindowsTarget = {
 
 type ReleaseTarget = MacOsTarget | WindowsTarget
 
-const repo =
-  process.env[RELEASE_REPOSITORY_ENV_KEY]?.trim() ||
-  process.env[LEGACY_RELEASE_REPOSITORY_ENV_KEY]?.trim() ||
-  ""
-if (!repo) {
-  throw new Error(`${RELEASE_REPOSITORY_ENV_KEY} is required`)
-}
+const repo = releaseRepository()
+const distribution = assertReleaseDestination(repo)
+requireUpdaterPublicKey(distribution)
 
 const tag = process.env[RELEASE_TAG_ENV_KEY]?.trim() || ""
-if (!tag) {
+if (!/^v\d+\.\d+\.\d+$/u.test(tag)) {
   throw new Error(`${RELEASE_TAG_ENV_KEY} is required`)
 }
 
@@ -108,6 +107,7 @@ const releaseVersion = process.env[VERSION_ENV_KEY]?.trim() || ""
 if (!releaseVersion) {
   throw new Error(`${VERSION_ENV_KEY} is required`)
 }
+if (tag !== `v${releaseVersion}`) throw new Error("Release tag and version do not match")
 const releaseDate = process.env[RELEASE_DATE_ENV_KEY]?.trim() || ""
 
 const checkOnly = process.env[CHECK_ONLY_ENV_KEY]?.trim() === TRUE_ENV_VALUE
@@ -121,7 +121,7 @@ const electronDistDir =
 const outputDirectory =
   process.env[UPDATE_OUTPUT_DIR_ENV_KEY]?.trim() ||
   process.env.RUNNER_TEMP ||
-  DEFAULT_OUTPUT_DIRECTORY
+  (distribution.id === "beta" ? path.join(DEFAULT_OUTPUT_DIRECTORY, "buddy-beta-release") : DEFAULT_OUTPUT_DIRECTORY)
 
 const releaseTargets: readonly ReleaseTarget[] = [
   {
@@ -251,6 +251,9 @@ async function resolveOmittedTargetManifest(
     return
   }
 
+  if (distribution.id === "beta") {
+    throw new Error(`Beta cannot bootstrap ${target.manifestFilename}; the first Beta release requires all three targets`)
+  }
   const previousStableTag = await resolvePreviousStableReleaseTag()
   const bootstrapped =
     target.platform === "macos"
@@ -282,6 +285,15 @@ async function downloadPreviousTargetManifest(
   await Promise.all([rm(manifestPath, { force: true }), rm(signaturePath, { force: true })])
   await $`gh release download ${previousTag} --repo ${repo} --dir ${outputDirectory} --pattern ${target.manifestFilename} --pattern ${`${target.manifestFilename}.sig`}`.quiet()
   await Promise.all([assertFileExists(manifestPath), assertFileExists(signaturePath)])
+  if (distribution.id === "beta") {
+    await verifyReleaseSignature(manifestPath)
+    const content = await Bun.file(manifestPath).text()
+    const manifest = target.platform === "macos" ? parseMacOsManifest(content) : parseWindowsManifest(content)
+    const prefix = `https://github.com/${repo}/releases/download/`
+    if (manifest.files.some((file) => !file.url.startsWith(prefix))) {
+      throw new Error(`Carried-forward Beta manifest contains an URL outside ${repo}`)
+    }
+  }
 }
 
 async function copyPreviousSignedTargetManifest(
@@ -585,6 +597,7 @@ type Signer = {
 
 async function signManifest(manifestPath: string, signer: Signer): Promise<void> {
   await $`${signer.path} signer sign ${manifestPath}`.env(signer.environment)
+  await verifyReleaseSignature(manifestPath)
 }
 
 async function requireTauriSignerBinaryPath(): Promise<string> {

@@ -14,6 +14,12 @@ import {
 } from "./assets"
 import { RELEASE_FREEZE_FILENAME } from "./constants"
 import { appendGithubOutputs } from "./github-output"
+import {
+  assertReleaseDestination,
+  assertReleaseRecordChannel,
+  releaseChannelIdentity,
+  releaseDistribution,
+} from "./distribution-guard"
 
 export { RELEASE_FREEZE_FILENAME } from "./constants"
 const RELEASE_FREEZE_SCHEMA_VERSION = 1
@@ -32,6 +38,7 @@ const releaseFreezeSchema = z.object({
   sourceSha: z.string().regex(/^[0-9a-f]{40}$/u),
   tag: z.string().regex(/^v\d+\.\d+\.\d+$/u),
   version: z.string().regex(/^\d+\.\d+\.\d+$/u),
+  channel: z.literal("beta").optional(),
 })
 
 export type ReleaseFreeze = z.infer<typeof releaseFreezeSchema>
@@ -64,6 +71,7 @@ export function releaseFreezeIdentity(
   environment: NodeJS.ProcessEnv,
 ): Omit<ReleaseFreeze, "assets"> {
   return {
+    ...releaseChannelIdentity(environment),
     planDigest: requiredEnvironmentValue(environment, "BUDDY_RELEASE_PLAN_DIGEST"),
     schemaVersion: RELEASE_FREEZE_SCHEMA_VERSION,
     sourceRepository: requiredEnvironmentValue(environment, "BUDDY_RELEASE_SOURCE_REPOSITORY"),
@@ -78,6 +86,7 @@ export function assertReleaseFreezeIdentity(
   expected: Omit<ReleaseFreeze, "assets">,
 ): void {
   if (
+    actual.channel !== expected.channel ||
     actual.planDigest !== expected.planDigest ||
     actual.schemaVersion !== expected.schemaVersion ||
     actual.sourceRepository !== expected.sourceRepository ||
@@ -118,12 +127,14 @@ export async function verifyReleaseFreeze(input: {
   repository: string
   tag: string
 }): Promise<ReleaseFreeze> {
+  assertReleaseDestination(input.repository)
   const [assets, freeze] = await Promise.all([
     readGithubReleaseAssets(input.repository, input.tag),
     readReleaseFreeze(input),
   ])
+  assertReleaseRecordChannel(freeze, releaseDistribution().id)
   if (input.expectedIdentity) {
-    const actualIdentity = {
+    const actualIdentity: Omit<ReleaseFreeze, "assets"> = {
       planDigest: freeze.planDigest,
       schemaVersion: freeze.schemaVersion,
       sourceRepository: freeze.sourceRepository,
@@ -131,6 +142,7 @@ export async function verifyReleaseFreeze(input: {
       tag: freeze.tag,
       version: freeze.version,
     }
+    if (freeze.channel) actualIdentity.channel = freeze.channel
     assertReleaseFreezeIdentity(actualIdentity, input.expectedIdentity)
   }
 

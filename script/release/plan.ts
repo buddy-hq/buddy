@@ -14,6 +14,8 @@ import {
 import { appendGithubOutputs } from "./github-output"
 import { normalizeReleaseSourceSha } from "./preflight"
 
+import { releaseChannelIdentity } from "./distribution-guard"
+
 export const RELEASE_PLAN_FILENAME = "buddy-release-plan.json"
 const RELEASE_PLAN_SCHEMA_VERSION = 1
 const TRUE_ENV_VALUE = "1"
@@ -53,6 +55,7 @@ const releasePlanIdentitySchema = z.object({
   targets: releaseTargetSelectionSchema,
   toolchain: releasePlanToolchainIdentitySchema,
   version: z.string().regex(/^\d+\.\d+\.\d+$/u),
+  channel: z.literal("beta").optional(),
 })
 
 const releasePlanSchema = releasePlanIdentitySchema.extend({
@@ -141,6 +144,7 @@ async function expectedPlanIdentity(environment: NodeJS.ProcessEnv): Promise<Rel
     requiredEnvironmentValue(environment, "BUDDY_RELEASE_SOURCE_SHA"),
   )
   const identity = {
+    ...releaseChannelIdentity(environment),
     advancedMathInputSha256: await hashAdvancedMathInputs(),
     advancedMathVersion: resolveAdvancedMathRuntimeVersion(),
     releaseDate: await sourceReleaseDate(sourceSha),

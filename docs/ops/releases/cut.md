@@ -77,3 +77,35 @@ Launch installed app targeting mock metadata server:
 BUDDY_UPDATE_METADATA_URL="http://127.0.0.1:43199/latest-mac.json" /Applications/Buddy.app/Contents/MacOS/Buddy
 ```
 Inspect logs in `~/Library/Logs/Buddy/main.log` and `update-installer.log`.
+
+## Buddy Beta distribution
+
+Buddy Beta is a separate installation and release stream. Its independent numeric versions start at `0.1.0`. Release assets live in `prashantbhudwal/buddy-beta-releases` under `vX.Y.Z`; source provenance lives in `buddy-hq/buddy` under `beta-vX.Y.Z`. Artifact filenames stay the same because the repositories provide the namespace.
+
+Before the first cut, the owner must:
+
+1. Create the public `prashantbhudwal/buddy-beta-releases` repository.
+2. Generate a separate minisign updater keypair. Commit its public key in `BUDDY_DISTRIBUTIONS.beta.updaterPublicKey` in `packages/script/src/distribution.ts`. Keep the private key outside the repository. Beta signing and publication fail closed while the public key is `null`.
+3. Add `BUDDY_BETA_RELEASE_TOKEN`, `BUDDY_BETA_UPDATER_PRIVATE_KEY`, and `BUDDY_BETA_UPDATER_PRIVATE_KEY_PASSWORD` to the source repository's Actions secrets. The token must write only the Beta releases repository. Scope the production release token only to the production releases repository, so neither token can write to the other stream.
+4. Complete the Beta runtime and packaging identity work: product `Buddy Beta`, app id `ai.buddy.desktop.beta`, protocol `buddy-beta`, separate user state and Windows updater cache, and Beta-only updater repository/key. Run the side-by-side checks in [qa-checklist.md](qa-checklist.md).
+
+From clean, green `main`, run:
+
+```sh
+bun run release:cut:beta --targets all
+```
+
+The first Beta release must build macOS ARM64, macOS Intel, and Windows x64. Later cuts may select a subset; omitted feeds must come from a previous published Beta release. Beta never bootstraps a production or legacy manifest. For local gates, explicitly configure the Beta key through `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH` and its password; Beta never falls back to `~/.config/buddy/tauri-updater.key`.
+
+`publish-beta.yml` maps the three Beta secrets to the generic release/signing slots, serializes the entire Beta stream, and skips skill artifact publication. The pipeline creates a draft, builds and verifies assets, freezes their bytes, records the source tag, then publishes a **non-prerelease latest** release. Beta has no promotion step. A cut below the highest published Beta version is refused. Retrying the same frozen version verifies the original bytes and source instead of replacing assets.
+
+Inspect and install a published release:
+
+```sh
+gh release view v0.1.0 --repo prashantbhudwal/buddy-beta-releases --json isDraft,isPrerelease,tagName,url,assets
+bun run download:beta v0.1.0
+```
+
+The local macOS installer selects `Buddy Beta.app` and checks `ai.buddy.desktop.beta` before replacing it. For end users, each Beta release contains `install-buddy-macos.sh` and `install-buddy-windows.ps1` rendered with Beta repository, product, and download-directory defaults. Review and run the installer downloaded from the Beta repository. Production installer files and published bytes are unchanged.
+
+Validate Beta-to-Beta updates on both platforms. For a defective Beta, cut a higher numeric Beta version with the fix and let clients roll forward. Do not retarget latest to an older version or run `release:promote`; promotion refuses the Beta channel and repository.
