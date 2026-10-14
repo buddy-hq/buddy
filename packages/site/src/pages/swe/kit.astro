@@ -13,7 +13,6 @@ import { Image } from "astro:assets"
 import KitAction from "../../components/swe/KitAction.astro"
 import KitBlock from "../../components/swe/KitBlock.astro"
 import Landing from "../../layouts/Landing.astro"
-import { GITHUB_URL } from "../../lib/constants"
 import instructorPhoto from "../../assets/swe/prashant.jpg"
 
 export const prerender = true
@@ -46,6 +45,12 @@ const speaker = {
 // Shown first: everything a college must arrange, one section each. The card
 // and its plain-text copy share these headings.
 const requirements = {
+  booking: {
+    heading: "Book a workshop slot",
+    instruction: "Pick the workshop date and time on Prashant’s calendar.",
+    name: "Cal.com booking page",
+    href: "https://cal.com/prashantb/agentic-software-engineering-workshop",
+  },
   form: {
     heading: "Organizer form",
     instruction:
@@ -63,11 +68,10 @@ const requirements = {
   software: {
     heading: "Software to install before the workshop",
     apps: [
-      { name: "OpenCode Desktop", href: "https://opencode.ai/download" },
       { name: "Buddy Desktop", href: "https://hibuddy.in/download" },
     ],
-    platforms: "Both apps are free and work on macOS and Windows.",
-    labComputers: "If the college provides the computers, please install both apps on them before the workshop.",
+    platforms: "Buddy Desktop is free and works on macOS and Windows.",
+    labComputers: "If the college provides the computers, please install it on them before the workshop.",
   },
   accounts: {
     heading: "Accounts",
@@ -88,22 +92,13 @@ const requirements = {
       "Let Prashant know which option suits you, and who will handle it, before the workshop.",
     ],
   },
-  clone: {
-    heading: "Optional: clone the Buddy repository",
-    instruction: "For students who want to go deeper in the hands-on part. Needs Git installed.",
-    command: `git clone ${GITHUB_URL}.git`,
-  },
 } as const
 
 const numbered = (items: readonly string[]) => items.map((item, index) => `${index + 1}. ${item}`).join("\n")
 const bulleted = (items: readonly string[]) => items.map((item) => `- ${item}`).join("\n")
 
-const { form, computers, software, accounts, clone, venue, travel } = requirements
+const { booking, form, computers, software, accounts, venue, travel } = requirements
 const downloadLinks = software.apps.map((app) => `${app.name}: ${app.href}`)
-// On a narrow screen the clone command wraps after the host, keeping the repo path whole.
-const cloneBreak = clone.command.indexOf("github.com/") + "github.com/".length
-const cloneCommandHead = clone.command.slice(0, cloneBreak)
-const cloneCommandTail = clone.command.slice(cloneBreak)
 const accountLines = accounts.items.map((item) => `${item.name}: ${item.detail}`)
 
 // Plain text with one numbered heading per step, in the card's order, so it
@@ -111,6 +106,7 @@ const accountLines = accounts.items.map((item) => `${item.name}: ${item.detail}`
 const requirementsCopy = [
   "Workshop requirements",
   ...[
+    { heading: booking.heading, body: bulleted([booking.instruction, `${booking.name}: ${booking.href}`]) },
     { heading: form.heading, body: bulleted([form.instruction, `${form.name}: ${form.href}`]) },
     { heading: computers.heading, body: bulleted(computers.items) },
     {
@@ -120,11 +116,10 @@ const requirementsCopy = [
     { heading: accounts.heading, body: bulleted(accountLines) },
     { heading: venue.heading, body: bulleted(venue.items) },
     { heading: travel.heading, body: bulleted(travel.items) },
-    { heading: clone.heading, body: `${clone.instruction}\n${clone.command}` },
   ].map((step, index) => `${index + 1}. ${step.heading}\n${step.body}`),
 ].join("\n\n")
 
-const downloadLinksCopy = `Install these apps before the workshop:
+const downloadLinksCopy = `Install this app before the workshop:
 ${numbered(downloadLinks)}
 ${software.platforms}`
 
@@ -160,9 +155,6 @@ Every student needs access to a laptop or computer with Wi-Fi. No prior machine 
 ${numbered(prepSteps)}
 ${software.platforms}
 
-*Optional:* to go deeper in the hands-on part, clone the Buddy repository:
-${clone.command}
-
 Regards,
 [COORDINATOR NAME]`,
   },
@@ -185,10 +177,7 @@ You'll need one to follow along. No ML background needed.
 
 *Before the workshop:*
 ${prepSteps.map((step) => `✅ ${step}`).join("\n")}
-${software.platforms}
-
-🔧 *Optional:* want to go deeper? Clone Buddy:
-${clone.command}`,
+${software.platforms}`,
   },
 ] as const
 
@@ -334,6 +323,25 @@ const toc = [
         <KitBlock label="Requirements" copy={requirementsCopy} copyLabel="Copy requirements">
           <ol class="kit-req">
             <li>
+              <h3 class="kit-req__heading">{booking.heading}</h3>
+              <p class="kit-req__instruction">{booking.instruction}</p>
+              <div class="kit-req__app">
+                <div>
+                  <p class="kit-req__app-name">{booking.name}</p>
+                  <a class="kit-req__app-url" href={booking.href} target="_blank" rel="noopener">
+                    {booking.href}
+                  </a>
+                </div>
+                <a class="btn-cta" href={booking.href} target="_blank" rel="noopener">
+                  Book a slot
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="7" y1="17" x2="17" y2="7" />
+                    <polyline points="7 7 17 7 17 17" />
+                  </svg>
+                </a>
+              </div>
+            </li>
+            <li>
               <h3 class="kit-req__heading">{form.heading}</h3>
               <p class="kit-req__instruction">{form.instruction}</p>
               <div class="kit-req__app">
@@ -361,7 +369,7 @@ const toc = [
             <li>
               <div class="kit-req__heading-row">
                 <h3 class="kit-req__heading">{software.heading}</h3>
-                <KitAction copy={downloadLinksCopy} label="Copy download links" />
+                <KitAction copy={downloadLinksCopy} label="Copy download link" />
               </div>
               <ul class="kit-req__apps">
                 {
@@ -409,14 +417,6 @@ const toc = [
               <ul class="kit-req__list">
                 {travel.items.map((item) => <li>{item}</li>)}
               </ul>
-            </li>
-            <li>
-              <h3 class="kit-req__heading">{clone.heading}</h3>
-              <p class="kit-req__instruction">{clone.instruction}</p>
-              <div class="kit-req__command">
-                <code>{cloneCommandHead}<wbr /><span>{cloneCommandTail}</span></code>
-                <KitAction copy={clone.command} />
-              </div>
             </li>
           </ol>
         </KitBlock>
@@ -946,30 +946,6 @@ const toc = [
     text-decoration: underline;
     text-underline-offset: 3px;
     overflow-wrap: anywhere;
-  }
-
-  /* On a phone the command takes the full width and Copy drops below it. */
-  .kit-req__command {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--space-2) var(--space-3);
-    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
-    border: 1px solid var(--border-base);
-    border-radius: 8px;
-  }
-
-  .kit-req__command code span {
-    white-space: nowrap;
-  }
-
-  .kit-req__command code {
-    flex: 1 1 20rem;
-    min-width: 0;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--fg-strong);
   }
 
   .kit-req__note {
