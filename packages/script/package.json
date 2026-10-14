@@ -8,6 +8,7 @@
     "./branding": "./src/branding.ts",
     "./backend-node-runtime": "./src/backend-node-runtime.ts",
     "./channel": "./src/channel.ts",
+    "./distribution": "./src/distribution.ts",
     "./chemfig-runtime": "./src/chemfig-runtime.ts",
     "./minisign": "./src/minisign.ts",
     "./release-version": "./src/release-version.ts",
