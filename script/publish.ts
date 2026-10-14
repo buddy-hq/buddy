@@ -5,6 +5,12 @@ import { Script } from "@buddy/script"
 import { z } from "zod"
 import { verifyReleaseFreeze } from "./release/freeze"
 import { releaseRepository, sourceRepository } from "./release-repositories"
+import { assertReleaseRecordChannel, releaseDistribution } from "./release/distribution-guard"
+import { requireUpdaterPublicKey } from "@buddy/script/distribution"
+import { assertBetaVersionMovesForward, highestPublishedBetaVersion } from "./release/beta-publication"
+
+const distribution = releaseDistribution()
+requireUpdaterPublicKey(distribution)
 
 const releaseStateSchema = z.object({
   isDraft: z.boolean(),
@@ -42,7 +48,7 @@ let release = await readReleaseState(releaseRepo, tag)
 if (release.tagName !== tag) {
   throw new Error(`Release tag mismatch: expected ${tag}, received ${release.tagName}`)
 }
-if (!release.isDraft && !release.isPrerelease) {
+if (distribution.id === "prod" && !release.isDraft && !release.isPrerelease) {
   throw new Error(`Release ${tag} is already stable and cannot be republished`)
 }
 
@@ -51,6 +57,7 @@ const freeze = await verifyReleaseFreeze({
   repository: releaseRepo,
   tag,
 })
+assertReleaseRecordChannel(freeze, distribution.id)
 if (
   freeze.planDigest !== requiredEnvironmentValue("BUDDY_RELEASE_PLAN_DIGEST") ||
   freeze.sourceRepository !== sourceRepo ||
@@ -61,14 +68,26 @@ if (
   throw new Error(`Release freeze identity does not match ${releaseRepo}@${tag}`)
 }
 
-if (release.isDraft) {
-  await $`gh release edit ${tag} --draft=false --prerelease --latest=false --repo ${releaseRepo}`
-  release = await readReleaseState(releaseRepo, tag)
-}
-if (release.isDraft || !release.isPrerelease) {
-  throw new Error(
-    `Expected ${releaseRepo}@${tag} to be a published Preview prerelease, got draft=${release.isDraft} prerelease=${release.isPrerelease}`,
-  )
-}
+if (distribution.id === "beta") {
+  assertBetaVersionMovesForward(Script.version, await highestPublishedBetaVersion(releaseRepo))
+  if (release.isDraft) {
+    await $`gh release edit ${tag} --draft=false --prerelease=false --latest --repo ${releaseRepo}`
+    release = await readReleaseState(releaseRepo, tag)
+  }
+  if (release.isDraft || release.isPrerelease) {
+    throw new Error(`Expected ${releaseRepo}@${tag} to be a published non-prerelease Beta`)
+  }
+  console.log(`Published Beta ${releaseRepo}@${tag} from ${sourceRepo}@${releaseTarget}`)
+} else {
+  if (release.isDraft) {
+    await $`gh release edit ${tag} --draft=false --prerelease --latest=false --repo ${releaseRepo}`
+    release = await readReleaseState(releaseRepo, tag)
+  }
+  if (release.isDraft || !release.isPrerelease) {
+    throw new Error(
+      `Expected ${releaseRepo}@${tag} to be a published Preview prerelease, got draft=${release.isDraft} prerelease=${release.isPrerelease}`,
+    )
+  }
 
-console.log(`Published Preview ${releaseRepo}@${tag} from ${sourceRepo}@${releaseTarget}`)
+  console.log(`Published Preview ${releaseRepo}@${tag} from ${sourceRepo}@${releaseTarget}`)
+}

@@ -7,6 +7,7 @@ import {
   type GithubReleaseVersion,
   type LatestReleaseVersionInput,
 } from "@buddy/script/release-version"
+import { sourceReleaseTag } from "./release/distribution-guard"
 import { releaseRepository } from "./release-repositories"
 
 type Commit = {
@@ -54,34 +55,42 @@ export function latestReleaseVersionFromReleases(
   })
 }
 
-async function listGithubReleases(): Promise<GithubReleaseVersion[]> {
-  const repo = releaseRepository()
+async function listGithubReleases(environment: NodeJS.ProcessEnv): Promise<GithubReleaseVersion[]> {
+  const repo = releaseRepository(environment)
   const releases =
     await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()
   return z.array(GithubReleaseVersionSchema).parse(releases)
 }
 
-export async function getLatestRelease(skip?: string) {
-  const releases = await listGithubReleases()
+export async function getLatestRelease(skip?: string, environment: NodeJS.ProcessEnv = process.env) {
+  const releases = await listGithubReleases(environment)
   return latestReleaseVersionFromReleases(releases, { skip })
 }
 
-export async function getLatestPublishedRelease(skip?: string) {
-  const releases = await listGithubReleases()
+export async function getLatestPublishedRelease(skip?: string, environment: NodeJS.ProcessEnv = process.env) {
+  const releases = await listGithubReleases(environment)
   return latestReleaseVersionFromReleases(releases, {
     includePrereleases: true,
     skip,
   })
 }
 
-async function listCommitHashes(from: string | undefined, to = "HEAD") {
-  if (!from) {
+export function changelogSourceRef(
+  version: string,
+  sourceRef?: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): string {
+  return sourceRef ?? sourceReleaseTag(version.replace(/^v/u, ""), environment)
+}
+
+async function listCommitHashes(from: string | undefined, to = "HEAD", sourceRef?: string) {
+  if (!from && !sourceRef) {
     return $`git rev-list --reverse ${to}`
       .text()
       .then((output) => output.split("\n").filter(Boolean))
   }
 
-  const fromRef = from.startsWith("v") ? from : `v${from}`
+  const fromRef = changelogSourceRef(from ?? "", sourceRef)
   return $`git rev-list --reverse ${fromRef}..${to}`
     .text()
     .then((output) => output.split("\n").filter(Boolean))
@@ -104,8 +113,8 @@ function classifyAreas(files: string[]) {
   return areas
 }
 
-async function getCommits(from: string | undefined, to = "HEAD") {
-  const hashes = await listCommitHashes(from, to)
+async function getCommits(from: string | undefined, to = "HEAD", sourceRef?: string) {
+  const hashes = await listCommitHashes(from, to, sourceRef)
   const commits: Commit[] = []
 
   for (const hash of hashes) {
@@ -160,8 +169,8 @@ function sectionForAreas(areas: Set<string>) {
   return "Backend"
 }
 
-export async function buildNotes(from: string | undefined, to = "HEAD") {
-  const commits = await getCommits(from, to)
+export async function buildNotes(from: string | undefined, to = "HEAD", sourceRef?: string) {
+  const commits = await getCommits(from, to, sourceRef)
   if (commits.length === 0) {
     return []
   }

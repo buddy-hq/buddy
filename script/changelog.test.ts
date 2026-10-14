@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { latestReleaseVersionFromReleases } from "./changelog"
+import { latestReleaseVersionFromReleases, changelogSourceRef } from "./changelog"
 
 describe("changelog release version helpers", () => {
   test("selects the highest stable semver release by default", () => {
@@ -68,4 +68,11 @@ describe("changelog release version helpers", () => {
       ),
     ).toBe("1.2.0")
   })
+})
+
+
+test("keeps Beta changelog provenance in its source tag namespace", () => {
+  expect(changelogSourceRef("v1.2.3", undefined, {})).toBe("v1.2.3")
+  expect(changelogSourceRef("0.1.0", undefined, { BUDDY_CHANNEL: "beta" })).toBe("beta-v0.1.0")
+  expect(changelogSourceRef("0.1.0", "deadbeef", { BUDDY_CHANNEL: "beta" })).toBe("deadbeef")
 })

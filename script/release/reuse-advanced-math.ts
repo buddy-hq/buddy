@@ -29,6 +29,9 @@ import {
   type ReleasePlan,
 } from "./plan"
 
+import { assertReleaseDestination, releaseDistribution } from "./distribution-guard"
+import type { BuddyDistributionId } from "@buddy/script/distribution"
+
 const TRUE_ENV_VALUE = "1"
 const REUSED_ARM64_OUTPUT = "reused_macos_arm64"
 const REUSED_X64_OUTPUT = "reused_macos_x64"
@@ -45,12 +48,14 @@ function requiredEnvironmentValue(environment: NodeJS.ProcessEnv, key: string): 
 }
 
 export function advancedMathPlanCanBeReused(input: {
+  channel?: BuddyDistributionId
   currentInputSha256: string
   currentPythonVersion: string
   currentRuntimeVersion: string
   previousPlan: ReleasePlan
 }): boolean {
   return (
+    (input.previousPlan.channel ?? "prod") === (input.channel ?? "prod") &&
     input.previousPlan.advancedMathInputSha256 === input.currentInputSha256 &&
     input.previousPlan.advancedMathVersion === input.currentRuntimeVersion &&
     input.previousPlan.toolchain.python === input.currentPythonVersion
@@ -211,6 +216,7 @@ async function readReusablePreviousPlan(input: {
     })
     const plan = parseReleasePlan(JSON.parse(await Bun.file(planPath).text()))
     const matches = advancedMathPlanCanBeReused({
+      channel: releaseDistribution(input.environment).id,
       currentInputSha256: await hashAdvancedMathInputs(),
       currentPythonVersion: requiredEnvironmentValue(
         input.environment,
@@ -236,6 +242,7 @@ async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void>
   }
 
   const repository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_REPO")
+  assertReleaseDestination(repository, environment)
   const tag = requiredEnvironmentValue(environment, "BUDDY_RELEASE_TAG")
   const dryRun = environment.BUDDY_RELEASE_DRY_RUN?.trim() === TRUE_ENV_VALUE
   if (!dryRun) {

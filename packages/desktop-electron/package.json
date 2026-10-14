@@ -13,9 +13,11 @@
   "scripts": {
     "icons:generate": "bun ./scripts/generate-icons.ts",
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
+    "typecheck:release": "bun ../../script/typecheck-lock.ts -- bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit -p tsconfig.release.json",
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
     "typecheck:raw": "bun run --cwd ../web prepare:web:typecheck && bun ../../node_modules/@typescript/native-preview/bin/tsgo.js -b",
     "test:storage": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts ./test/storage-paths.test.ts ./test/desktop-storage-environment.test.ts",
+    "test:release-assets": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts test/release-asset-names.test.ts test/release-smoke-target.test.ts",
     "test": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts test",
     "predev": "bun ./scripts/predev.ts",
     "dev": "bun ./scripts/dev.ts",
