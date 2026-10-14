@@ -2,11 +2,6 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import os from "node:os"
 import fs from "node:fs/promises"
-import {
-  applyDesktopStorageEnvironment,
-  prepareDesktopStorageDirectories,
-  resolveDesktopStoragePlan,
-} from "../../desktop-electron/src/main/storage-paths"
 import path from "node:path"
 import {
   configureOpenCodeEnvironment,
@@ -460,15 +455,33 @@ describe("opencode runtime env", () => {
     // User-authored OpenCode config is shared on purpose, like ~/.claude and ~/.agents.
     const userOpenCodeConfig = path.join(home, ".opencode")
     await fs.mkdir(userOpenCodeConfig, { recursive: true })
-    const plan = resolveDesktopStoragePlan({
-      channel: "beta",
-      isPackaged: true,
-      home,
-      documentsPath: documents,
-      userDataPath: userData,
-    })
-    const preparation = prepareDesktopStorageDirectories(plan)
-    expect(preparation.type).toBe("ok")
+    // The environment packaged Beta's desktop shell hands the backend (see desktop storage-paths).
+    const notebookHome = path.join(documents, "Buddy Beta")
+    const xdg = (category: string, ...rest: string[]) => path.join(userData, "xdg", category, ...rest)
+    const betaEnvironment = {
+      XDG_DATA_HOME: xdg("data"),
+      XDG_CACHE_HOME: xdg("cache"),
+      XDG_CONFIG_HOME: xdg("config"),
+      XDG_STATE_HOME: xdg("state"),
+      [BUDDY_ENV.DATA_DIR]: xdg("data", "buddy"),
+      [BUDDY_ENV.CACHE_DIR]: xdg("cache", "buddy"),
+      [BUDDY_ENV.GLOBAL_CONFIG_DIR]: xdg("config", "buddy"),
+      [BUDDY_ENV.STATE_DIR]: xdg("state", "buddy"),
+      [BUDDY_ENV.MANAGED_HOME_DIR]: xdg("config", "buddy"),
+      [BUDDY_ENV.DEFAULT_NOTEBOOK_HOME]: notebookHome,
+      [BUDDY_ENV.OPENCODE_SKILL_CACHE_DIR]: xdg("cache", "buddy", "opencode", "skills"),
+      [BUDDY_ENV.DIRECTORY_BASE]: notebookHome,
+      [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: notebookHome,
+      TMPDIR: xdg("tmp"),
+      TMP: xdg("tmp"),
+      TEMP: xdg("tmp"),
+      OPENCODE_CONFIG_DIR: xdg("config", "buddy"),
+      OPENCODE_DB: BUDDY_OPENCODE_DB_FILENAME,
+      BUDDY_CHANNEL: "beta",
+    }
+    for (const directory of [notebookHome, xdg("tmp"), xdg("state", "buddy")]) {
+      await fs.mkdir(directory, { recursive: true })
+    }
     const betaCapture = path.join(
       userData, "xdg", "tmp", "buddy", "opencode", "bench-captures", "stale.png",
     )
@@ -501,7 +514,7 @@ describe("opencode runtime env", () => {
       const { ConfigPaths } = await import("opencode/config/paths");
       const { FSUtil } = await import("@opencode-ai/core/fs-util");
       const discoveredConfigDirectories = await Effect.runPromise(
-        ConfigPaths.directories(${JSON.stringify(plan.notebookHome)}).pipe(
+        ConfigPaths.directories(${JSON.stringify(notebookHome)}).pipe(
           Effect.provide(AppNodeBuilderV1.build(FSUtil.node))));
       const fs = await import("node:fs/promises");
       const { Flock } = await import(${JSON.stringify(flockModulePath)});
@@ -549,7 +562,7 @@ describe("opencode runtime env", () => {
     const result = spawnSync(bunExecutable, ["-e", script], {
       // Resolve OpenCode-only dependencies at the adapter package boundary.
       cwd: path.resolve(import.meta.dir, "../../opencode-adapter"),
-      env: applyDesktopStorageEnvironment(environment, plan, process.platform),
+      env: betaBackendEnvironment(environment, betaEnvironment),
       encoding: "utf8",
       timeout: 3_000,
     })
@@ -697,3 +710,18 @@ describe("opencode runtime env", () => {
     expect(result.stderr).toContain("outside isolated test roots")
   })
 })
+
+/** Mirror the desktop shell: strip inherited storage injection, then apply Beta's roots. */
+function betaBackendEnvironment(inherited: Record<string, string>, beta: Record<string, string>) {
+  const environment = { ...inherited }
+  for (const key of [
+    BUDDY_ENV.TEST_HOME,
+    BUDDY_ENV.TEST_XDG_ROOT,
+    BUDDY_ENV.RUNTIME_ROOT,
+    "OPENCODE_TEST_HOME",
+    "OPENCODE_AUTH_CONTENT",
+  ]) {
+    delete environment[key]
+  }
+  return { ...environment, ...beta }
+}
