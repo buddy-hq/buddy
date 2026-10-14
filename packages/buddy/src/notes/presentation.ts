@@ -1,3 +1,7 @@
+import { withoutBuddyMarkdownLinks } from "@buddy/citation-contract/chat-links"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
+import { BUDDY_CHANNEL_ENV } from "@buddy/script/channel"
+
 const PREVIEW_LENGTH = 180
 const QUOTE_LENGTH = 280
 const QUOTE_TITLE_LENGTH = 120
@@ -11,7 +15,6 @@ const EDGE_ASTERISKS = /^\*+|\*+$/gu
 const CAPTURE_DATE_LINE = /^\*\*[A-Z][a-z]+ \d{1,2}, \d{4}\*\*[ \t]*$/gmu
 const CAPTURE_TIME_LINE = /^\*\d{2}:\d{2}\*[ \t]*$/gmu
 const LEGACY_CAPTURE_HEADING = /^#{1,6}[ \t]+(?:Note|Annotation)[ \t]+—[ \t].*$/gmu
-const BUDDY_LINK = /\[[^\]]*\]\(buddy:\/\/[^)]*\)/gu
 const IMAGE_EMBED = /!\[[^\]]*\]\([^)]*\)/gu
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 
@@ -85,14 +88,14 @@ function unmarkMarkdown(markdown: string): string {
 
 /** Plain prose for note previews and compact message quotes. */
 export function notePlainText(markdown: string): string {
-  const blocks = markdown
+  const withoutCaptureMetadata = markdown
     .replace(/^---(?:yaml|yml)?[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/u, "")
     .replace(QUOTE_CALLOUT_TITLE_LINE, "")
     .replace(CALLOUT_MARKER, "$1")
     .replace(CAPTURE_DATE_LINE, "")
     .replace(CAPTURE_TIME_LINE, "")
     .replace(LEGACY_CAPTURE_HEADING, "")
-    .replace(BUDDY_LINK, "")
+  const blocks = withoutBuddyMarkdownLinks(withoutCaptureMetadata)
     .replace(IMAGE_EMBED, "")
     .replace(/\[([^\]]*)\]\([^)]*\)/gu, "$1")
     .replace(/<[^>]*>/gu, "")
@@ -140,7 +143,11 @@ function renderMessageQuote(input: {
   source: { sessionID: string; messageID: string; text: string }
   expanded: boolean
 }) {
-  const link = `buddy://chat/${encodeURIComponent(input.source.sessionID)}?message=${encodeURIComponent(input.source.messageID)}`
+  const protocol =
+    process.env[BUDDY_CHANNEL_ENV] === "beta"
+      ? BUDDY_DISTRIBUTIONS.beta.protocol
+      : BUDDY_DISTRIBUTIONS.prod.protocol
+  const link = `${protocol}://chat/${encodeURIComponent(input.source.sessionID)}?message=${encodeURIComponent(input.source.messageID)}`
   return [
     messageQuoteTitleLine({ text: input.source.text, expanded: input.expanded }),
     quotedMessageBody(input.source.text),

@@ -1,3 +1,4 @@
+import type { BuddyDistributionId } from "@buddy/script/distribution"
 import type { BuddyReleaseChannel } from "@buddy/script/channel"
 import {
   parseTJsonObject,
@@ -24,6 +25,8 @@ type TRecoveryPolicyEntry = {
 }
 
 type TRecoveryPolicy = {
+  /** Verification provenance, never read from the signed JSON payload. */
+  distribution?: "beta"
   badVersions: TRecoveryPolicyEntry[]
   schema: typeof RECOVERY_POLICY_SCHEMA_VERSION
 }
@@ -41,7 +44,10 @@ function parseTRecoveryPlatform<TValue>(value: TValue): TRecoveryPlatform | unde
   return parseWithSchema(recoveryPlatformSchema, value)
 }
 
-function parseRecoveryPolicy(content: string): TRecoveryPolicy {
+function parseRecoveryPolicy(
+  content: string,
+  distribution: BuddyDistributionId = "prod",
+): TRecoveryPolicy {
   const parsed = parseTJsonObject(JSON.parse(content))
   if (parsed === undefined) {
     throw new Error("Recovery policy must be an object")
@@ -56,10 +62,8 @@ function parseRecoveryPolicy(content: string): TRecoveryPolicy {
   }
 
   const badVersions = parsed.badVersions.map(parseRecoveryPolicyEntry)
-  return {
-    badVersions,
-    schema: RECOVERY_POLICY_SCHEMA_VERSION,
-  }
+  const policy: TRecoveryPolicy = { badVersions, schema: RECOVERY_POLICY_SCHEMA_VERSION }
+  return distribution === "beta" ? { ...policy, distribution } : policy
 }
 
 function parseRecoveryPolicyEntry<TValue>(value: TValue): TRecoveryPolicyEntry {
@@ -132,7 +136,7 @@ function findRecoveryTarget(input: {
     (entry) =>
       entry.version === input.currentVersion &&
       isCurrentPlatformAllowed(entry.platforms, input.platform) &&
-      isChannelEligible(input.channel),
+      isChannelEligible(input.channel, input.policy.distribution ?? "prod"),
   )
 }
 
@@ -163,8 +167,8 @@ function validateRecoveryTarget(
   return undefined
 }
 
-function isChannelEligible(channel: TReleaseChannel): boolean {
-  return channel === "prod" || channel === "beta"
+function isChannelEligible(channel: TReleaseChannel, distribution: BuddyDistributionId): boolean {
+  return channel === distribution
 }
 
 function compareVersions(left: string, right: string): number {

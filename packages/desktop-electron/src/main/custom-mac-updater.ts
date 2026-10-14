@@ -2,10 +2,13 @@ import { createHash } from "node:crypto"
 import { access, mkdir, readFile, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { spawn } from "node:child_process"
+import type { BuddyDistribution } from "@buddy/script/distribution"
 import { z } from "zod"
 import {
-  BUDDY_MINISIGN_PUBLIC_KEY,
-  BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
+  UPDATE_DISTRIBUTION,
+  UpdatesNotConfiguredError,
+  resolveUpdatePublicKeyOverride,
+  resolveUpdateVerificationPublicKey,
   fetchSignedText,
   isAbsoluteUrl,
   resolveLatestRingAssetUrl,
@@ -72,6 +75,7 @@ type MacUpdaterResult =
   | {
       blocked?: boolean
       failed?: boolean
+      notConfigured?: boolean
       updateAvailable: false
     }
 
@@ -109,6 +113,7 @@ export type MacInstallerResult = {
 }
 
 type CreateCustomMacUpdaterOptions = {
+  distribution?: BuddyDistribution
   currentVersion: string
   packaged: boolean
   execPath: string
@@ -198,7 +203,9 @@ export function createCustomMacUpdater(
         })
         .catch((error): MacUpdaterResult => {
           options.logger.error("custom mac update check failed", error)
-          return { updateAvailable: false, failed: true }
+          return error instanceof UpdatesNotConfiguredError
+            ? { updateAvailable: false, failed: true, notConfigured: true }
+            : { updateAvailable: false, failed: true }
         })
         .finally(() => {
           checkForUpdateTasks.delete(ring)
@@ -238,7 +245,9 @@ export function createCustomMacUpdater(
         })
         .catch((error): MacUpdaterResult => {
           options.logger.error("custom mac update download failed", error)
-          return { updateAvailable: false, failed: true }
+          return error instanceof UpdatesNotConfiguredError
+            ? { updateAvailable: false, failed: true, notConfigured: true }
+            : { updateAvailable: false, failed: true }
         })
         .finally(() => {
           downloadTasks.delete(taskKey)
@@ -280,7 +289,9 @@ export function createCustomMacUpdater(
       })
         .catch((error): MacUpdaterResult => {
           options.logger.error("custom mac recovery update check failed", error)
-          return { updateAvailable: false, failed: true }
+          return error instanceof UpdatesNotConfiguredError
+            ? { updateAvailable: false, failed: true, notConfigured: true }
+            : { updateAvailable: false, failed: true }
         })
         .finally(() => {
           checkForVersionTasks.delete(version)
@@ -312,6 +323,7 @@ export function createCustomMacUpdater(
           options.appName,
           installerLogPath,
           installerResultPath,
+          (options.distribution ?? UPDATE_DISTRIBUTION).appId,
         ],
         {
           detached: true,
@@ -339,8 +351,9 @@ async function resolveManifestUrls(
   options: CreateCustomMacUpdaterOptions,
 ): Promise<readonly string[]> {
   if (options.metadataUrl) return [options.metadataUrl]
-  if (target.kind === "latest") return [await resolveDefaultMacMetadataUrl(target.ring)]
-  return resolveMacVersionedMetadataUrls(target.version)
+  if (target.kind === "latest")
+    return [await resolveDefaultMacMetadataUrl(target.ring, options.distribution)]
+  return resolveMacVersionedMetadataUrls(target.version, options.distribution)
 }
 
 async function resolveManifestUpdate(input: {
@@ -350,6 +363,7 @@ async function resolveManifestUpdate(input: {
   target: ManifestTarget
 }): Promise<ResolvedMacUpdate> {
   const { target } = input
+  resolveUpdateVerificationPublicKey(input.options.distribution, input.options.publicKey)
   const metadataUrls = await resolveManifestUrls(target, input.options)
   const metadata = await input.dependencies.fetchManifest(metadataUrls, input.options)
   if (target.kind !== "latest" && metadata.version !== target.version) {
@@ -446,7 +460,8 @@ async function fetchLatestManifest(
   for (const [index, metadataUrl] of metadataUrls.entries()) {
     try {
       const manifestText = await fetchSignedText({
-        publicKey: options.publicKey ?? BUDDY_MINISIGN_PUBLIC_KEY,
+        distribution: options.distribution,
+        publicKey: options.publicKey,
         url: metadataUrl,
       })
       return parseLatestManifest(manifestText)
@@ -509,7 +524,7 @@ async function ensureArchiveDownloaded(
     return archivePath
   }
 
-  const response = await fetch(resolveMacReleaseAssetUrl(entry.url, version))
+  const response = await fetch(resolveReleaseAssetUrl(version, entry.url, options.distribution))
   if (!response.ok) {
     throw new Error(`Failed to download update archive: ${response.status} ${response.statusText}`)
   }
@@ -606,14 +621,6 @@ async function isExistingArchiveValid(archivePath: string, expectedSha512: strin
   return digest === expectedSha512
 }
 
-function resolveMacReleaseAssetUrl(filename: string, version: string) {
-  if (isAbsoluteUrl(filename)) {
-    return filename
-  }
-
-  return resolveReleaseAssetUrl(version, filename)
-}
-
 function resolveArchiveName(value: string) {
   if (!isAbsoluteUrl(value)) {
     return value
@@ -684,10 +691,15 @@ export function resolveMacAppPath(execPath: string) {
   return resolve(execPath, "..", "..", "..")
 }
 
-export function resolveCustomMacUpdaterOptions() {
+export function resolveCustomMacUpdaterOptions(
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+) {
   return {
-    metadataUrl: process.env[BUDDY_UPDATE_METADATA_URL_ENV_KEY]?.trim() || undefined,
-    publicKey: process.env[BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY]?.trim() || undefined,
+    metadataUrl:
+      distribution.id === "beta"
+        ? undefined
+        : process.env[BUDDY_UPDATE_METADATA_URL_ENV_KEY]?.trim() || undefined,
+    publicKey: resolveUpdatePublicKeyOverride(distribution),
   }
 }
 
@@ -701,15 +713,21 @@ function resolveMacMetadataFilename(): string {
 
 export async function resolveDefaultMacMetadataUrl(
   ring: UpdateRing = UPDATE_RING_STABLE,
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
 ): Promise<string> {
   return await resolveLatestRingAssetUrl({
+    distribution,
     filename: resolveMacMetadataFilename(),
     ring,
   })
 }
 
-export function resolveMacVersionedMetadataUrls(version: string): readonly string[] {
+export function resolveMacVersionedMetadataUrls(
+  version: string,
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): readonly string[] {
   return resolveVersionedReleaseAssetUrls({
+    distribution,
     legacyFilename: LEGACY_MACOS_UPDATE_MANIFEST_FILENAME,
     primaryFilename: resolveMacMetadataFilename(),
     version,
