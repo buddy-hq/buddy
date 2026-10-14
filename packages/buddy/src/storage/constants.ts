@@ -1,6 +1,10 @@
 import os from "node:os"
 import path from "node:path"
-import { BUDDY_ENV, BUDDY_HOME_DIRECTORY_NAME } from "@buddy/script/storage-env"
+import {
+  BUDDY_ENV,
+  BUDDY_HOME_DIRECTORY_NAME,
+  DEFAULT_NOTEBOOK_HOME_SEGMENTS,
+} from "@buddy/script/storage-env"
 
 export {
   BUDDY_APP_NAME,
@@ -33,4 +37,24 @@ export function resolveBuddyHomeDirectory() {
 
 export function resolveDefaultBuddyGlobalConfigDir() {
   return path.join(resolveBuddyHomeDirectory(), BUDDY_HOME_DIRECTORY_NAME)
+}
+
+/** Resolve authored skills and memory without changing the legacy home default. */
+export function resolveBuddyManagedHomeDirectory(
+  homeDirectory = process.env[BUDDY_ENV.TEST_HOME] || os.homedir(),
+): string {
+  return (
+    resolveConfiguredPath(process.env[BUDDY_ENV.MANAGED_HOME_DIR]) ??
+    path.join(homeDirectory, BUDDY_HOME_DIRECTORY_NAME)
+  )
+}
+
+/** Resolve the notebook default while preserving the caller's legacy home getter. */
+export function resolveDefaultNotebookHomeDirectory(
+  homeDirectory = resolveBuddyHomeDirectory(),
+): string {
+  return (
+    resolveConfiguredPath(process.env[BUDDY_ENV.DEFAULT_NOTEBOOK_HOME]) ??
+    path.join(homeDirectory, ...DEFAULT_NOTEBOOK_HOME_SEGMENTS)
+  )
 }

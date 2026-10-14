@@ -3,18 +3,13 @@ import fs from "node:fs"
 import path from "node:path"
 import {
   BUDDY_ENV,
-  resolveBuddyHomeDirectory,
+  resolveDefaultNotebookHomeDirectory,
   resolveConfiguredPath,
   resolveDefaultBuddyGlobalConfigDir,
-} from "../storage"
-import { BUDDY_HOME_DEFAULT_PATH_SEGMENTS } from "./notebook-constants"
+} from "../storage/constants"
 import { monorepoPackageJsonDeclaresWorkspaces, parseMonorepoPackageJson } from "./parse-values"
 
 const BUDDY_BOOTSTRAP_DIRECTORY_PATH_SEGMENTS = ["bootstrap", "http-proxy"] as const
-
-function resolveDefaultNotebookHomeDirectory() {
-  return path.join(resolveBuddyHomeDirectory(), ...BUDDY_HOME_DEFAULT_PATH_SEGMENTS)
-}
 
 function resolveBuddyGlobalConfigDirectory() {
   return (
