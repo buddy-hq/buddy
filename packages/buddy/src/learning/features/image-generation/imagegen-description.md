@@ -3,7 +3,7 @@ Generate a new image from a description, or edit an existing image. Use it when:
 - The user requests an image based on a scene description, such as an illustration, imagined scene, portrait, comic, poster, or visual style.
 - The user wants to modify an attached or previously generated image, including adding or removing elements, changing colors, improving quality, or transforming its style.
 
-For explanatory visuals, use image generation when the appearance of the scene or illustration is the point. A generic request to explain, draw, or show a diagram does not by itself select image generation; choose the best currently available visual capability for the requested result.
+For explanatory visuals, use image generation when an illustrative appearance is the point, such as an imagined scene or a recognizable everyday object. A generated image is an illustration, not an authentic source, specimen, photograph, scan, or measured result: when real details are the point, show a real image or source instead, and say that a generated image is an illustration if it could be mistaken for the real thing. For a relationship that needs exact geometry, controlled data, or a clear causal structure, use the matching figure, plot, or diagram tool. A generic request to explain, draw, or show a diagram does not by itself select image generation.
 
 Guidelines:
 

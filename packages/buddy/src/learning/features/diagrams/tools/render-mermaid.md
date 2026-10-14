@@ -1,12 +1,11 @@
-Renders Mermaid source as an inline chat diagram. The UI displays the returned diagram automatically; continue with a brief explanation in normal text.
+Render Mermaid source as a finished diagram inline in the chat, as part of your reply. The UI displays it automatically; continue in normal text and say what to look at rather than repeating what the diagram shows.
 
-Use when the user explicitly requests a rendered Mermaid diagram, or when both conditions hold:
+Choose this when the point is how things connect or in what order, and the boxes could be rearranged without changing the meaning: how a process runs or branches (flowchart), who exchanges what and in what order (sequence), how something moves between states (state), how parts or types relate (class, ER, mindmap), and when things happen (timeline, gantt). It also covers simple two-axis and proportional pictures (quadrantChart, xychart-beta, pie, sankey-beta). Buddy accepts flowchart/graph, sequenceDiagram, classDiagram, stateDiagram, erDiagram, journey, gantt, pie, mindmap, timeline, gitGraph, quadrantChart, requirementDiagram, C4, zenuml, sankey-beta, xychart-beta, block-beta, packet-beta, kanban, and architecture.
 
-- Relationships, branching sequences, state transitions, hierarchies, or dependencies are the subject being explained.
-- Seeing the connections makes the explanation materially easier to follow than prose, a list, or a table.
+Mermaid lays diagrams out automatically, so choose something else when position must carry meaning—sizes, distances, containment, or a spatial arrangement—and use a freeform figure, or a constrained figure for exact geometry. Use the whiteboard when the structure should be built up step by step while you explain it, extended across turns, or annotated with the user. Use the calculator for computed values, function graphs, and data plots. A topic having steps is not by itself a reason to diagram it; skip the diagram when a sentence, a list, or a table makes the point as well.
 
-A topic having steps or structure is not sufficient. Do not call this tool for a simple definition, a short linear procedure, a comparison better shown in a table, or a decorative summary. A request for a visual does not by itself select Mermaid: use the medium suited to the idea.
+Keep each diagram to one idea. Use short labels placed on the nodes and links they describe, and leave out decoration. Show the whole structure when the reader needs it to follow, compare, or predict; leave part of it blank only when completing it is the reader's task.
 
-Keep the diagram focused on the relevant connections. Use scaffolds or incomplete diagrams only when the learning activity calls for the learner to complete them.
+The diagram is saved as an object. When the user will keep coming back to it, move it onto the Bench with `bench_present` `present_object` and the returned object id.
 
-Omit `repairOfObjectID` for new diagrams. Include it only when the prompt or UI explicitly requests repair of an existing Mermaid object and supplies its exact object ID. Copy that ID exactly; never invent, guess, or substitute a sample ID.
+Omit `repairOfObjectID` for new diagrams. Include it only when the prompt or UI explicitly asks you to repair an existing Mermaid object and supplies its exact object ID. Copy that ID exactly; never invent, guess, or substitute a sample ID.

@@ -58,6 +58,8 @@ These layers disagree. For example, the shared visual guidance recommends the wh
 3. **The system prompt does not name tools.** Tools come and go by feature, provider, and permission. The persona prompt can describe teaching moves and kinds of representation. The routing for a specific tool (when to use it, when not to, and its nearest alternatives) lives in that tool's description. Skills follow the same rule. This matches current frontier system prompts; see the ledger.
 4. **Give each decision exactly one home.** A choice should not be encoded in two layers that can drift apart.
 5. **Leave nothing without an owner.** If every tool disclaims the generic "explain / draw / show me" request, nobody catches it. Something must own the default.
+6. **Keep general-purpose tools unopinionated.** The Bench, Browser, media, calculator, and diagram tools also serve plain questions and the code persona. Their descriptions state capabilities and fit for "the user". Teaching judgment belongs in the persona and in `teaching-models`. Only explanatory tools, like the whiteboard, are framed around explaining.
+7. **Don't overfit to one example.** The CNN request is a motivating case, not a spec. Prompt examples span subjects, and the yardstick checks for generality.
 
 ## What has already been done
 
@@ -70,6 +72,24 @@ Treat this as context, not as the answer.
   - **Proposal 02, visual teaching system:** source inspection, Bench continuity, fading support, meaningful widget interaction, geometry accuracy, plots, finished diagrams, and illustration versus evidence.
 
   Neither proposal has been applied to the live prompts.
+- **First editing pass (2026-09-24):**
+  - Decisions were locked with the user, and the routing model was applied to the persona prompts, a new Bench feature prompt, the tool descriptions, and the `teaching-models`, `whiteboard-authoring`, and `reading` skills.
+  - The pre-pass state is staged in git. The pass itself shows as unstaged changes plus two new files.
+  - See ledger sections I and J, [routing-model.md](routing-model.md), and the yardstick in [evals.md](evals.md).
+- **Second pass (2026-09-24):**
+  - Three new skills: `explanatory-drawing`, `interactive-pages`, and `find-and-show-resources`.
+  - The board's teaching jobs were lifted into the Bench prompt.
+  - A consistency sweep fixed the docked-layout side and a stale auto-open line in Buddy Help.
+  - Tufte's *Visual Explanations* was OCR'd and applied.
+  - The branch was rebased onto `origin/main` with the staged/unstaged split preserved.
+  - See ledger section K.
+- **Third pass (2026-09-24), after the first live session failed:**
+  - What happened: GPT-6 Sol explained neural networks in text and ASCII. It drew only when asked and never used the whiteboard (ledger L).
+  - Decision with the user: the system prompt owns one teaching algorithm, and skills are sources for its parts.
+  - New `shared/teaching-plan.p.md` ("Plan how you'll teach it"): settle where the learner is, the move, what they'll see, and what they'll do, then let the plan govern the reply.
+  - `visual-guidance.p.md` was rewritten as "Show the idea": showing structure is the default.
+  - `teaching-models` hands control back to the plan through a workflow step, a `Learner sees` line in each router entry, and a note atop each reference file.
+  - The eval harness (built on OpenCode's APIs) is deferred to a separate effort.
 - **Pedagogy distillations** in `~/Code/resources`: `visualization/visual-thinking-guide.md` (maps the dominant question to a figure type; its own TODO says it has "too much what, not enough how") and `whiteboard/digital-board-workflow.md` (board modes and zones for digital boards).
 
 ## Resources
@@ -88,9 +108,22 @@ Treat this as context, not as the answer.
 | System prompts | `~/Code/CL4R1T4S` | How frontier products route visuals and write tool descriptions. **Use only prompts from roughly the last year:** Claude Opus 4.5 and later, Fable 5/5.1, Opus 5/5.5, Claude Design; GPT-5 and later, including GPT-6 in `OPENAI/Codex_Desktop`; Grok 4.1 and 4.20; Meta Muse Spark |
 | Skills vaults | `~/Code/agentic/skills_vault` | How other agents package skills |
 | Web | Browser and web search | Vendor tool-writing guidance, learning-science sources |
-| Research ledger | [research-ledger.md](research-ledger.md) | Everything already observed. Add to it, don't repeat it |
+| Research ledger | [research-ledger.md](research-ledger.md) | Everything already observed, and every decision (section N from 2026-09-28). Add to it, don't repeat it |
+| System map | [system-map.md](system-map.md) | How a turn is put together: personas and the mode switch, prompt layers, features, where each visual lands, and the layers we can change |
 | Routing model | [routing-model.md](routing-model.md) | The contract for choosing what to show, with which instrument, and where: five questions, six shapes, and the Mermaid, whiteboard, SVG, and Browser test |
 | Proposed direction | [Teaching on the Bench (artifact)](https://claude.ai/artifact/5A5xgrLMKybWXhLuUDnFKH) | The decision map, placement rule, declared defaults, tool-description template, 12-prompt yardstick, and step-by-step plan drawn from the ledger |
+
+## Known issues
+
+- **Buddy can't open the pages it authors in the Browser.**
+  - The long-term plan is for the Browser to replace the HTML widget tool, but that can't happen yet. `inapp_browser_open` accepts only `http(s)` and localhost URLs, not `file:` paths.
+  - The widget runtime is served under Buddy's backend `/api` routes, which require basic-auth credentials in the desktop app (`packages/buddy/src/app.ts`), and a Browser tab has none.
+  - Until Buddy has a way to serve authored pages at a Browser-openable local URL, "act on it" routes to `present_html_widget`. That path is guided by the `interactive-pages` skill, which is written so the same craft applies once pages move to the Browser.
+  - Serving those pages is a code change with a trust decision attached: Browser pages would run outside the widget sandbox, with network access.
+- **Buddy can't save a found image and show it inline.**
+  - `webfetch` returns images to the model only. The `find-and-show-resources` skill allows saving an openly licensed image when Buddy can save files, and otherwise falls back to opening its page in the Browser.
+  - A dedicated figure-finding tool is still to do.
+- **Buddy can't refocus Browser tabs.** `bench_present` `focus_tab` refuses them, so prompts tell Buddy to point the user to an open Browser tab instead.
 
 ## Vocabulary
 

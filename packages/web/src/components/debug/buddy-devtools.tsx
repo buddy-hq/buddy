@@ -58,7 +58,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router"
 import { language } from "@/context/language"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { useChatStore } from "@/state/chat-store"
-import { useTranscriptSessionMessages } from "@/state/transcript-repository"
+import { loadTranscriptMessages, useTranscriptSessionMessages } from "@/state/transcript-repository"
 import { useGlobalLearnerMemorySettings } from "@/state/learner-memory-settings"
 import { teachingSessionKey, useTeachingRuntime } from "@/state/teaching-runtime"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
@@ -76,10 +76,18 @@ import { PalettePanel } from "./palette-panel"
 import { DevToolsContextTab } from "./devtools-context-tab"
 import { DevToolsEaselTab } from "./devtools-easel-tab"
 import { PromptReviewWorkbench } from "./prompt-review-workbench"
+import { ToolDesignWorkbench } from "./tool-design-workbench"
 import { isBuddyDevToolsTab, useDevToolsNavigation } from "./devtools-navigation-store"
 import { DevToolsUITab } from "./devtools-ui-tab"
 import { DevToolsTranscriptTab } from "./devtools-transcript-tab"
-import { buildSessionTrace, copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
+import { DevToolsEvalsTab } from "./devtools-evals-tab"
+import {
+  buildSessionTrace,
+  copyToClipboard,
+  formatSessionTraceSummary,
+  saveSessionTraceToFile,
+  type SaveSessionTraceResult,
+} from "@/lib/directory-chat/chat-debug-helpers"
 import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
 import {
   formatProviderAuthError,
@@ -2589,6 +2597,7 @@ export function BuddyDevTools() {
   const activeTab = useDevToolsNavigation((state) => state.activeTab)
   const setActiveTab = useDevToolsNavigation((state) => state.setActiveTab)
   const [isCopied, setIsCopied] = useState(false)
+  const [lastSavedTrace, setLastSavedTrace] = useState<SaveSessionTraceResult | undefined>(undefined)
   const [isDisconnectingOpenAi, setIsDisconnectingOpenAi] = useState(false)
   const [isResettingOnboarding, setIsResettingOnboarding] = useState(false)
   const [affordancePosition, setAffordancePosition] = useState<DevToolsAffordancePosition>(
@@ -2632,6 +2641,7 @@ export function BuddyDevTools() {
   })
   const activeDirectory = traceSnapshot.activeDirectory
   const sessionID = traceSnapshot.sessionID
+  const transcriptMessages = useTranscriptSessionMessages(activeDirectory, sessionID)
   const activeSessionTitle = useChatStore((state) => {
     if (!activeDirectory) {
       return undefined
@@ -2678,21 +2688,108 @@ export function BuddyDevTools() {
       directoryState: traceSnapshot.directoryState,
       sessionID: traceSnapshot.sessionID,
       streamStatus: traceSnapshot.streamStatus,
+      messages: transcriptMessages,
     })
-  }, [traceSnapshot])
+  }, [traceSnapshot, transcriptMessages])
 
-  const handleCopySessionTrace = useCallback(() => {
-    if (!sessionTrace) {
+  const handleCopySessionTrace = useCallback(async () => {
+    if (!activeDirectory || !sessionID) {
       return
     }
-    void copyToClipboard(sessionTrace)
-    setIsCopied(true)
-    const estTokens = Math.ceil(sessionTrace.length / 4)
-    toast.success(
-      `${language.t("desktopTitlebar.sessionTraceCopied")} (${estTokens.toLocaleString()} tokens)`,
-    )
-    setTimeout(() => setIsCopied(false), 2000)
-  }, [sessionTrace])
+
+    let messages = transcriptMessages
+    if (messages.length === 0) {
+      try {
+        messages = await loadTranscriptMessages(activeDirectory, sessionID, {
+          force: true,
+          limit: 1000,
+        })
+      } catch (error) {
+        console.error("Failed to load transcript messages for session trace", error)
+      }
+    }
+
+    const currentTrace = buildSessionTrace({
+      directory: activeDirectory,
+      directoryState: traceSnapshot.directoryState,
+      sessionID,
+      streamStatus: traceSnapshot.streamStatus,
+      messages,
+    })
+
+    if (!currentTrace) {
+      return
+    }
+
+    try {
+      const devServer = "window" in globalThis ? window.location.origin : undefined
+      const saveResult = await saveSessionTraceToFile({
+        trace: currentTrace,
+        sessionID,
+        sessionTitle: activeSessionTitle,
+        directory: activeDirectory,
+        devInstanceName,
+        devServer,
+        repositoryRoot: import.meta.env.VITE_BUDDY_DEV_REPOSITORY_ROOT,
+      })
+
+      const summary = formatSessionTraceSummary({
+        sessionID: saveResult.sessionID ?? sessionID,
+        sessionTitle: saveResult.sessionTitle ?? activeSessionTitle,
+        directory: saveResult.directory ?? activeDirectory,
+        databasePath: saveResult.databasePath,
+        devServer: saveResult.devServer ?? devServer,
+        devInstanceName: saveResult.devInstanceName ?? devInstanceName,
+        worktree: saveResult.worktree,
+        worktreeName: saveResult.worktreeName,
+        branch: saveResult.branch,
+        filePath: saveResult.filePath,
+        relativeFilePath: saveResult.relativeFilePath,
+        capturedAt: saveResult.savedAt,
+        streamStatus: saveResult.streamStatus ?? traceSnapshot.streamStatus,
+        messageCount: saveResult.messageCount,
+        tokenCount: saveResult.tokenCount,
+        byteCount: saveResult.byteCount,
+      })
+
+      await copyToClipboard(summary)
+      setIsCopied(true)
+      setLastSavedTrace(saveResult)
+
+      toast.success(`Trace saved to ${saveResult.relativeFilePath} (trace info copied)`)
+      setTimeout(() => setIsCopied(false), 2000)
+    } catch (error) {
+      console.error("Failed to save session trace to file", error)
+      const devServer = "window" in globalThis ? window.location.origin : undefined
+      const estTokens = Math.ceil(currentTrace.length / 4)
+      const fallbackSummary = formatSessionTraceSummary({
+        sessionID,
+        sessionTitle: activeSessionTitle,
+        directory: activeDirectory,
+        devServer,
+        devInstanceName,
+        worktree: import.meta.env.VITE_BUDDY_DEV_REPOSITORY_ROOT,
+        capturedAt: new Date().toISOString(),
+        streamStatus: traceSnapshot.streamStatus,
+        messageCount: messages.length,
+        tokenCount: estTokens,
+        byteCount: currentTrace.length,
+      })
+      await copyToClipboard(fallbackSummary)
+      setIsCopied(true)
+      toast.error(
+        `Could not save trace file: ${error instanceof Error ? error.message : String(error)} (info copied)`,
+      )
+      setTimeout(() => setIsCopied(false), 2000)
+    }
+  }, [
+    activeDirectory,
+    sessionID,
+    activeSessionTitle,
+    devInstanceName,
+    traceSnapshot,
+    transcriptMessages,
+  ])
 
   const handleAffordancePositionChange = useCallback(
     (value: string) => {
@@ -3017,11 +3114,17 @@ export function BuddyDevTools() {
                   <TabsTrigger value="prompt-engineering" className="text-xs">
                     Prompt engineering
                   </TabsTrigger>
+                  <TabsTrigger value="tool-design" className="text-xs">
+                    Tool design
+                  </TabsTrigger>
                   <TabsTrigger value="ui" className="text-xs">
                     UI
                   </TabsTrigger>
                   <TabsTrigger value="transcript" className="text-xs">
                     Transcript
+                  </TabsTrigger>
+                  <TabsTrigger value="evals" className="text-xs">
+                    Evals
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -3203,6 +3306,16 @@ export function BuddyDevTools() {
                       {language.t("desktopTitlebar.copySessionTrace")}
                     </Button>
                   </div>
+                  {lastSavedTrace ? (
+                    <div className="flex items-center justify-between border-b border-border-weaker-base bg-surface-raised-base/50 px-3 py-1.5 text-[11px] text-text-weak">
+                      <span className="truncate">
+                        Saved: <span className="font-mono text-text-base">{lastSavedTrace.relativeFilePath}</span>
+                      </span>
+                      <span className="shrink-0 text-text-weaker text-[10px]">
+                        {lastSavedTrace.worktreeName} ({lastSavedTrace.branch})
+                      </span>
+                    </div>
+                  ) : null}
                   {activeDirectory ? (
                     <>
                       <CapabilitiesChips directory={activeDirectory} />
@@ -3232,12 +3345,20 @@ export function BuddyDevTools() {
               <PromptReviewWorkbench />
             </TabsContent>
 
+            <TabsContent value="tool-design" className="min-h-0 flex-1 overflow-hidden mt-0">
+              <ToolDesignWorkbench />
+            </TabsContent>
+
             <TabsContent value="ui" className="min-h-0 flex-1 overflow-hidden mt-0">
               <DevToolsUITab />
             </TabsContent>
 
             <TabsContent value="transcript" className="min-h-0 flex-1 overflow-hidden mt-0">
               <DevToolsTranscriptTab />
+            </TabsContent>
+
+            <TabsContent value="evals" className="min-h-0 flex-1 overflow-hidden mt-0 flex flex-col">
+              <DevToolsEvalsTab />
             </TabsContent>
           </Tabs>
 

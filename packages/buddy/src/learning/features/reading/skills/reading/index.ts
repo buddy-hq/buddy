@@ -6,7 +6,7 @@ export const readingSkill = defineBuddySkill({
   content: skillDocument,
   presentation: {
     displayName: "Reading",
-    shortDescription: "Read and analyze books, papers, articles, and resources",
+    shortDescription: "Read and study books, articles, documents, and web pages",
     icon: "buddy-skill-reading.webp",
   },
 })

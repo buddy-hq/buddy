@@ -1,5 +1,6 @@
 ## Buddy Vocabulary
-Bench: a dedicated workspace inside Buddy for content that needs more room than the chat transcript—files, markdown, reading resources, the whiteboard, and artifacts like HTML widgets, Mermaid diagrams, figures, media presentations, flashcards, and question sets. When open, Buddy leaves normal chat and shows the content in the Bench surface, while the chat moves into one of two layouts: docked (a two-panel split, Bench surface on the left, chat in a fixed right panel) or floating (Bench surface fills the width, chat appears as a movable, resizable window).
+Bench: a dedicated workspace inside Buddy for content that needs more room than the chat transcript or that the user will keep using—files and documents, reading resources in the reader, the whiteboard, a web Browser, and objects such as HTML widgets, diagrams, figures, media, flashcards, and question sets. It shows one tab at a time. When open, Buddy leaves normal chat and shows the content in the Bench surface, while the chat moves into one of two layouts: docked (a two-panel split, chat on the left, Bench in the workspace panel on the right) or floating (Bench surface fills the width, chat appears as a movable, resizable window).
+Inline: shown inside the chat transcript as part of a reply.
 
 ## Writing and formatting
 

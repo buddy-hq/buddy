@@ -41,9 +41,11 @@ function terminalError(terminal: BenchBrokerTerminal): string | undefined {
 export const inAppBrowserOpenTool = createBuddyTool({
   id: "inapp_browser_open",
   description: [
-    "Open an HTTP or HTTPS address in a new visible Browser tab on Bench for the user.",
+    "Open an HTTP or HTTPS address in a new Browser tab on the Bench and select it so the user sees it. The Browser is a full web browser the user controls, so it can show anything on the web: a video, a simulation or interactive, an article or documentation page, a figure in its original context, or a web app.",
     "",
-    "Use this when the user asks to open a link in Buddy or when showing a relevant webpage would help them. Every call creates and selects a new tab; it never replaces the page the user is using. To return to a page that is already open in a Browser tab, use bench_present with action focus_tab and that tab's tabKey from bench_read_context instead of opening a duplicate.",
+    "Use it when the user asks to open a link, or when seeing the real page would serve the user better than a description or a recreation of it: a primary source whose details matter, an established simulation or interactive, a video that shows what words cannot, or a reference the user will work from. Say in a short clause that you opened it and what to look at. Open addresses you have good reason to believe exist, such as ones from search results, the user, or well-known stable sites.",
+    "",
+    "Every call creates and selects a new tab; it never replaces the page the user is using. To return to a page that is already open in a Browser tab, use bench_present with action focus_tab and that tab's tabKey from bench_read_context instead of opening a duplicate. When the user already has the source in their library, open it in the Bench reader with bench_present instead.",
     "",
     "The Browser is user-controlled. This tool cannot read the page, inspect its contents, click, type, scroll, submit forms, take screenshots, or run JavaScript. Do not use it when the task requires any of those actions, and do not claim that opening a URL proves what the page contains.",
   ].join("\n"),

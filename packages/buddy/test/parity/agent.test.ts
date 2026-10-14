@@ -152,6 +152,9 @@ describe("parity.agent", () => {
         PermissionNext.evaluate("task", "learner-memory-consolidator", buddyAgent.permission)
           .action,
       ).toBe("deny")
+      expect(PermissionNext.evaluate("task", "eval-learner", buddyAgent.permission).action).toBe(
+        "deny",
+      )
 
       expect(
         PermissionNext.evaluate("task", "curriculum-orchestrator", teachingBuddyAgent.permission)

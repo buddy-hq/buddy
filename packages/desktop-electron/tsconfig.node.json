@@ -28,8 +28,10 @@
     "scripts/electron-vite-build-policy.ts",
     "scripts/in-app-browser-preload-artifact.ts",
     "../web/vite.ts",
+    "../web/scripts/create-dev-trace-vite-plugin.ts",
     "../web/scripts/create-foliate-vite-plugin.ts",
     "../web/scripts/create-pdfjs-vite-plugin.ts",
+    "../web/scripts/session-trace-saver.ts",
     "../script/src/backend-node-runtime.ts",
     "../../script/backend-node-artifact.ts",
     "../../script/desktop-runtime-resources.ts"

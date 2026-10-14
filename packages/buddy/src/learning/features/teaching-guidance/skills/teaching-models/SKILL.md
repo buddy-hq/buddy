@@ -1,6 +1,6 @@
 ---
 name: teaching-models
-description: Decide which concrete teaching model Buddy should use when helping a learner understand, practice, recover from confusion, or approach the same idea from another angle. Make sure to use this skill whenever the learner says "I don't get it", "explain another way", "I'm stuck", "too abstract", "show me an example", "quiz me", "walk me through it", gives a wrong or confused answer, repeats the same error, cannot start, loses interest, dislikes the current explanation, or needs a different path into the concept. Use it when the question is how to teach the learner, not merely what answer to give. Covers direct instruction, worked examples, fading, guided practice, concept attainment, Socratic diagnostic questioning, inquiry, advance organizers, analogy and model bridging, mastery loops, and case-based or problem-based teaching. Do not use for broad curriculum design, standards alignment, assessment rigor, access planning, classroom climate, or technology integration; use learning-design-frameworks for those.
+description: Choose a concrete teaching model when helping a learner understand or practice a concept, recover from confusion, or approach it another way. Use for sustained learning of a concept or skill at session start or when that intent appears, and whenever the learner says "I don't get it", "explain another way", "I'm stuck", "too abstract", "show me an example", "quiz me", or "walk me through it"; gives a wrong or confused answer; repeats an error; cannot start; loses interest; or dislikes the current explanation. Route how to teach, not just what answer to give. Covers direct instruction, worked examples and fading, guided practice, concept attainment, Socratic diagnosis, inquiry, advance organizers, analogy and model bridging, mastery loops, and case-based or problem-based teaching. Skip quick facts and general help. Use learning-design-frameworks for curriculum design, standards, assessment rigor, access planning, classroom climate, or technology integration.
 ---
 # Teaching Models
 
@@ -13,7 +13,7 @@ This skill helps Buddy choose an instructional model for the next teaching move.
 3. Use `Model Router` to pick a teaching model.
 4. READ the reference (`references/*`) for that teaching model. 
   1. If details inside the reference file is not enough, gather more information by using he `Sources` at the end of the reference.
-5. Continue teaching without mentioning any of this to the student following the guidelines in `Output Default`
+5. Teach following `Output Default` without mentioning any of this to the student.
 
 ## Core Rule
 
@@ -69,6 +69,8 @@ Use when:
 
 Teaching move: explain the idea plainly, model one example, check a micro-step, then move quickly into guided practice.
 
+Learner sees: Your explanation and one modeled example. When the idea has structure, a picture of it: built on the whiteboard as you explain when the structure is new to them, or one inline picture when a glance is enough.
+
 Do not use when:
 
 * the learner already heard the explanation and still does not understand;
@@ -87,6 +89,8 @@ Use when:
 * the learner needs to see expert thinking before trying.
 
 Teaching move: show one fully worked example with reasoning, then give a near example with one missing step, then a similar one with more responsibility shifted to the learner.
+
+Learner sees: A worked record that unfolds step by step with the reasoning beside each step; the next example leaves a step for them to complete in the same place.
 
 Do not use when:
 
@@ -107,6 +111,8 @@ Use when:
 
 Teaching move: solve one small step together, ask the learner for the next step, give hints before answers, then fade support.
 
+Learner sees: A shared working space where they take the next step and you respond to what they did.
+
 Do not use when:
 
 * the learner lacks the basic model needed to attempt the task;
@@ -125,6 +131,8 @@ Use when:
 * the learner overgeneralizes or undergeneralizes a term.
 
 Teaching move: present a few yes/no examples, ask the learner what feature separates them, test the rule on a new example, then name or refine the concept.
+
+Learner sees: Examples and non-examples side by side, arranged so the deciding feature can be spotted.
 
 Do not use when:
 
@@ -145,6 +153,8 @@ Use when:
 
 Teaching move: ask one focused question that reveals the learner's rule, assumption, prediction, or evidence. Use the response to choose the next model.
 
+Learner sees: Mostly words; a picture only when you want them to predict, point at, or sketch something.
+
 Do not use when:
 
 * the learner needs direct instruction first;
@@ -163,6 +173,8 @@ Use when:
 * the topic supports a quick contrast, simulation, example, or thought experiment.
 
 Teaching move: ask for a prediction, ask why, show the result or counterexample, help the learner explain the mismatch, then build a better model.
+
+Learner sees: A committed prediction first, then the result: a real observation, a counterexample, or something they run themselves.
 
 Do not use when:
 
@@ -183,6 +195,8 @@ Use when:
 
 Teaching move: give a simple map of the big idea, key parts, and relationships before going into details. Keep it short enough to hold in working memory.
 
+Learner sees: A compact overview of the whole on the Bench, usually a whiteboard frame, kept within reach as the details arrive so each new piece can be placed on it.
+
 Do not use when:
 
 * the learner needs practice, not more overview;
@@ -201,6 +215,8 @@ Use when:
 * Buddy can state the analogy's limits clearly.
 
 Teaching move: map the familiar source to the target idea, say exactly what carries over, say what does not, then test the target idea without leaning on the analogy.
+
+Learner sees: The familiar case and the target side by side, with what corresponds made visible and where the analogy breaks marked.
 
 Do not use when:
 
@@ -221,6 +237,8 @@ Use when:
 
 Teaching move: define a small target, teach or model, check performance, give corrective feedback, retry with a nearby task, and only advance after evidence.
 
+Learner sees: Practice items with feedback, varied around the same target.
+
 Do not use when:
 
 * the target is too broad to assess quickly;
@@ -239,6 +257,8 @@ Use when:
 * the learner needs to reason from context before naming the principle.
 
 Teaching move: start with a compact case or problem, ask what decision or explanation is needed, teach the concept as the tool for resolving it, then return to the case.
+
+Learner sees: The case itself, such as a real source, dataset, scenario, or artifact, before the concept that resolves it.
 
 Do not use when:
 
@@ -301,8 +321,8 @@ Use `resolve-confusions` when there is evidence of a stable faulty learner model
 
 ## Output Default
 
-Deliver the teaching move that addresses the learner's need. Acknowledge their difficulty or explain a change of approach when that helps them follow.
+Deliver the teaching move that addresses the learner's need, with the representation your plan chose for it. Acknowledge their difficulty or explain a change of approach when that helps them follow.
 
-Use evidence already available from their response or work. Include a separate check only when it will resolve an important uncertainty about what to teach next. Do not automatically append a question or learner action.
+Finish an explanation or example before checking it. Use evidence already available from their response or work. Include a separate check only when it will resolve an important uncertainty about what to teach next. Do not automatically append a question or learner action. Move one step per turn, with the learner taking each next step, only inside guided practice, Socratic questioning, or a worked example the learner is completing.
 
 Follow the active response-style preference and the learner's requested depth and format. Keep the instructional model behind the scenes unless explaining the approach would help the learner.

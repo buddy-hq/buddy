@@ -63,6 +63,7 @@ const skillAfter = [
 export const WHITEBOARD_SELECTION_REVIEW: PromptReview = {
   id: "whiteboard-selection",
   label: "Proposal 01",
+  status: "historical",
   title: "Whiteboard routing and skill loading",
   summary:
     "Keep shared visual guidance lean. Put ten positive whiteboard teaching examples in the tool description, and use the skill description to identify and load the authoring guide before drawing.",

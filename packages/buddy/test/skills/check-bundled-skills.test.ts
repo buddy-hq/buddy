@@ -6,6 +6,7 @@ import {
   checkBundledSkills,
   collectBundledSkillRegistrations,
   collectSourceBuddyManifests,
+  validateRegisteredBundledSkillDocuments,
 } from "../../script/check-bundled-skills"
 import type { BuddySkill } from "../../src/learning/runtime/define-buddy-skill"
 import { isDisabledBundledSkillName } from "../../src/learning/skill-management/disabled-bundled-skills"
@@ -71,6 +72,22 @@ describe("bundled skill registrations", () => {
     expect(
       registrations.every((registration) => !isDisabledBundledSkillName(registration.skillName)),
     ).toBe(true)
+  })
+
+  test("rejects malformed frontmatter in a registered skill", async () => {
+    await using root = await temporaryDirectory({ prefix: "buddy-invalid-skill-" })
+    const documentPath = path.join(root.path, "SKILL.md")
+    await fsp.writeFile(
+      documentPath,
+      "---\nname: summarise\ndescription: Applies to any text: books and articles.\n---\n",
+      "utf8",
+    )
+
+    await expect(
+      validateRegisteredBundledSkillDocuments([
+        { skillName: "summarise", skillDocumentPath: documentPath },
+      ]),
+    ).rejects.toThrow(`Invalid bundled skill document: ${documentPath}`)
   })
 
   test("detects source manifests that duplicate typed metadata", async () => {

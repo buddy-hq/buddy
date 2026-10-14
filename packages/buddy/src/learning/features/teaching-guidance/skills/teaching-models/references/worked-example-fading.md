@@ -1,7 +1,5 @@
 # Worked Example With Fading
 
-> In Buddy: this reference informs the move in your teaching plan. Learner sees: A worked record that unfolds step by step with the reasoning beside each step; the next example leaves a step for them to complete in the same place. Settle what the learner sees and does before you reply.
-
 ## What This Model Is
 
 **Worked Example With Fading** is an instructional sequence for teaching **multi-step procedures and problem-solving methods** when learners are novices on the target skill. The teacher first presents a complete solution with visible reasoning (subgoals, decisions, and why each step matters). Learners study that model, then work through **completion examples** in which one or more solution steps are omitted, and finally solve **similar problems** with increasing responsibility until they can perform the task without a visible solution trace.

@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "items": {
+      "description": "One to twelve related files to show together, in display order.",
+      "minItems": 1,
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Existing local file to show: a workspace-relative path, absolute path, file:// URL, or ~/ path. Never invent a path.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  },
+  "required": [
+    "items"
+  ]
+}

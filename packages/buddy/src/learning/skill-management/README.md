@@ -2,6 +2,10 @@
 
 This folder owns Buddy's skills facade. The runtime still comes from vendored OpenCode; Buddy adds product-facing routes, UI data shaping, and Buddy-managed skill storage on top.
 
+## Validate a skill
+
+From the repository root, run `bun run skill:validate` to check every registered bundled skill, or `bun run skill:validate path/to/skill` to check a skill directory or its `SKILL.md` file. The command checks YAML with Buddy's runtime parser, required metadata, naming, description length, and unfinished placeholders. The bundled check also verifies feature registration and runs during `bun lint`.
+
 ## OpenCode Core Model
 
 - OpenCode discovers skills from global locations such as `~/.agents/skills` and `~/.claude/skills`, plus workspace-local `.agents/skills` and `.claude/skills` folders while walking up from the active directory.

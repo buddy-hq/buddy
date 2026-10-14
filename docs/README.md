@@ -29,6 +29,7 @@ docs/
       tool-permissions-and-migration-faq.md
       upstream-fetch-reduction-plan.md
     design/grain.md
+    design/tool-surface.md
     v2-upstream/
       buddy-opencode-v2-findings.md
       permission-v2-adoption-decision.md

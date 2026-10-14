@@ -110,6 +110,7 @@ const imagegenAfter = replacePromptSpan(
 export const VISUAL_TEACHING_SYSTEM_REVIEW: PromptReview = {
   id: "visual-teaching-system",
   label: "Proposal 02",
+  status: "historical",
   title: "Teach through the whole visual system",
   summary:
     "Coordinate source inspection, Bench continuity, learner responsibility, static diagrams, geometry, graphs, generated images, and interactive widgets. Whiteboard selection remains in Proposal 01.",

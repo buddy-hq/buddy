@@ -4,11 +4,26 @@ This is the contract for visual and Bench routing. It answers "when Mermaid, whe
 
 ## The idea in one paragraph
 
-A teacher does not pick a tool. They decide whether words are enough; whether something real or already excellent exists to show; what the learner will *do* with what they see; what *shape* the idea has; and how rough or complete it should be. Buddy asks the same five questions in order and stops as soon as one settles the matter. The tool falls out of the answers.
+A teacher does not pick a tool. They decide whether the idea needs showing; whether something real or already excellent exists to show; what the learner will *do* with what they see; what *shape* the idea has; and how rough or complete it should be. The tool falls out of the answers.
 
-## The five questions
+## Where this sits: the teaching plan (revised 2026-09-24)
 
-### 1. Are words enough?
+The first live session on this branch (ledger L) showed that routing written as a chain of judgment calls doesn't fire. GPT-6 Sol answered two structural questions in words, drew only when the learner said "I can't imagine it", and never used the whiteboard. The model faithfully followed the procedure in the skill it loaded (`teaching-models`, then a reference file) and ignored the declarative guidance in the system prompt.
+
+The routing now sits inside one algorithm owned by the system prompt (`shared/teaching-plan.p.md`, "Plan how you'll teach it"). When the learner wants to learn, Buddy settles a four-part plan before replying:
+
+1. **Where the learner is.**
+2. **The move.** Informed by `teaching-models`.
+3. **What they'll see.** Informed by this document's questions, `explanatory-drawing`, `interactive-pages`, `find-and-show-resources`, and domain skills.
+4. **What they'll do.** Informed by `teaching-models`, practice features, and future skills such as learning science.
+
+Skills are sources for one part of the plan, never the controller of the turn. After reading one, Buddy comes back and settles what is still open. `teaching-models` returns control explicitly: its workflow ends with "Return to your teaching plan", and each router entry and each reference file carries a `Learner sees` line. A future skill plugs into a part of the plan instead of competing for the turn.
+
+Showing structure is now the default and words alone are the exception (definitions, quick facts, small talk, ideas the learner can already picture). The old wording ("most of the time you talk", "stop as soon as one decides the matter") acted as a brake.
+
+## The five questions (the "what they'll see" part of the plan)
+
+### 1. Does the idea need showing?
 
 Look at the sentence you are about to write (G3, *Blah Blah Blah*'s "Vivid Grammar"). Does it contain any of these?
 - a process or cause (complex verbs);
@@ -17,7 +32,7 @@ Look at the sentence you are about to write (G3, *Blah Blah Blah*'s "Vivid Gramm
 - quantities to compare;
 - several interacting variables.
 
-If none of these is present, answer in words. If the answer is one or two numbers, words still win (G10). A simple definition or small talk needs no picture (C1 step 0, C5).
+If any of these is present on a teaching turn, show it; that is the default, not the exception. If none is present, answer in words. If the answer is one or two numbers, words still win (G10). A simple definition, small talk, or an idea the learner can already picture needs no picture (C1 step 0, C5).
 
 ### 2. Find, or make?
 
@@ -31,7 +46,7 @@ If one fits, **find it and open it** on the Bench, in the reader or the Browser.
 
 **Make it** only when nothing fits the exact need, or when the learner needs a version shaped to their current step.
 
-Finding does not hand the teaching off. Open the resource at the right moment and give the learner a task: a timestamp to watch, a region to look at, a question to test (E10, E11).
+Finding does not hand the teaching off. Buddy opens the resource itself (decided 2026-09-24), says so in one clause, and gives the learner a task: a timestamp to watch, a region to look at, a question to test (E10, E11). It opens the resource once the learner has enough of a frame to know what to look for, not as the first move on a new idea. Buddy cannot refocus a Browser tab later (A22), so it points the learner to the tab that is already open instead of opening the page again.
 
 ### 3. What will the learner do with it?
 
@@ -42,7 +57,7 @@ This question decides the *surface*.
 | Look once to understand this reply | Inline in chat | A render: diagram, figure, plot, table, image |
 | Watch it being built while you explain | Bench (home tab) | Whiteboard |
 | Keep extending it across turns (the lesson's record) | Bench (home tab) | Whiteboard |
-| Act on it: change a value, run it, play it | Bench (Browser) | An authored web page. Today this is `present_html_widget`; long term, a Browser-hosted page (H1) |
+| Act on it: change a value, run it, play it | Inline card; Bench for larger widgets | An authored web page. Today this is `present_html_widget`: `compact_4_3` and `square` widgets stay inline, while `standard_16_10`, `wide_16_9`, and `tall_mobile` widgets also open on the Bench. Long term, it becomes a Browser-hosted page (H1) |
 | Inspect a source closely | Bench (reader or Browser) | Keep the source selected; reason in chat |
 | Keep and use it later (notes, handout, worksheet) | Bench (document) | Document (`teaching-resource-authoring`) |
 | Practice or recall | Inline card, Bench practice | Question set, flashcards |
@@ -108,11 +123,17 @@ The system prompt stays free of tool names (problem.md, principle 3). Routing wo
 
 | Rule | Home |
 |---|---|
-| Questions 1, 3, and 5, and the find-before-make principle from question 2 | Persona prompt, "Teach with the room" section: the vocabulary, no tool names |
-| Which instrument serves which shape and action (question 4, the four-way test) | Each tool's description claims its cell: "Choose this for *how* ideas where only connections matter, read once…" |
-| Finding sources (question 2) | The Browser and reader tool descriptions, and the `reading` skill |
-| Tabs, the home tab, promoting inline objects, returning to earlier work | Bench feature `prompt.instructions` |
-| How to draw or author well | Skills (`whiteboard-authoring`, `teach-chemistry`, `teach-mathematics` protocols) |
+| The teaching algorithm: settle where the learner is, the move, what they'll see, and what they'll do; skills inform parts of the plan | Persona prompt, `shared/teaching-plan.p.md` ("Plan how you'll teach it"), shared by both teaching personas. Names no tools or skills |
+| All five questions, with showing structure as the default | Persona prompt, `shared/visual-guidance.p.md` ("Show the idea"). It uses the shared vocabulary and names no tools |
+| Which instrument serves which shape and action (question 4, the four-way test) | Each tool's description claims its cases: "Choose this when the point is how things connect or in what order…" |
+| Which teaching move implies which representation | `teaching-models`: a `Learner sees` line in each router entry, repeated at the top of each reference file, and a workflow step that returns to the plan |
+| Finding sources | The Browser and reader tool descriptions (neutral: what they can show), and the `reading` skill |
+| Tabs, the home tab, promoting inline objects, returning to earlier work | Bench feature `prompt.instructions` (`features/bench/bench-feature.p.md`) |
+| How to draw or author well | Skills. `explanatory-drawing` covers composing custom pictures, `interactive-pages` covers pages the learner acts on, and `whiteboard-authoring` covers board format and pacing. `teach-chemistry` and the `teach-mathematics` protocols cover their domains |
+| How to find and present an existing resource | `find-and-show-resources`: the learner's library first, then vetted web sources, always presented with a frame and a task |
+| What job each Bench tab is doing | Bench feature prompt: orient, model, prompt recall, record, organize, compare, check, preserve, focus |
+
+General-purpose tools stay unopinionated. The Bench, Browser, media, calculator, and Mermaid tools also serve plain questions and the code persona. Their descriptions say "the user", state capabilities and fit, and carry no teaching judgment. Only explanatory tools (whiteboard, widgets) are framed around explaining.
 
 ## Worked routes
 
@@ -135,7 +156,7 @@ The system prompt stays free of tool names (problem.md, principle 3). Routing wo
 
 - **Finding images (Q1 in the ledger):** Buddy cannot yet save and show a real image found on the web. Use the Browser page until a figure-finding tool exists.
 - **Widgets move to the Browser (H1):** as authored pages move to the Browser, the "act on it" row changes instrument, but not its routing rule.
-- **Mermaid's description** stopped listing the diagram families it supports. Without that list, question 4 can't be matched reliably. Restore it.
+- **Mermaid's description** stopped listing the diagram families it supports; without the list, question 4 can't be matched reliably. The list was restored on 2026-09-24.
   - Buddy accepts about 25 types (A21).
   - Besides *how* and *when* (flowchart, sequence, state, timeline, gantt), Mermaid covers simple *why* (a `quadrantChart` 2×2) and simple *how much* (`xychart-beta`, `pie`, `sankey-beta`).
   - Mermaid's layout is automatic, so it never serves ideas where position carries meaning.

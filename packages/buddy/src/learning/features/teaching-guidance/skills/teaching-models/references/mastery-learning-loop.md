@@ -1,7 +1,5 @@
 # Mastery Learning Loop
 
-> In Buddy: this reference informs the move in your teaching plan. Learner sees: Practice items with feedback, varied around the same target. Settle what the learner sees and does before you reply.
-
 ## What This Model Is
 
 The mastery learning loop is an instructional cycle built on a simple premise: **advance only after evidence of competence**, not after exposure, seat time, or a fixed calendar. It treats learning as something that can be completed to a defined standard, then extended, rather than something students either “get” on the first pass or miss permanently.

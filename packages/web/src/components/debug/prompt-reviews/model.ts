@@ -14,10 +14,14 @@ export type PromptComparison = {
   readonly expectedEffects: readonly string[]
 }
 
+/** Where a proposal stands: still under review, applied to the live prompts, or kept only as a record. */
+export type PromptReviewStatus = "proposed" | "applied" | "historical"
+
 /** A prompt refactor can compare one or more prompt files. */
 export type PromptReview = {
   readonly id: string
   readonly label: string
+  readonly status: PromptReviewStatus
   readonly title: string
   readonly summary: string
   readonly note: string

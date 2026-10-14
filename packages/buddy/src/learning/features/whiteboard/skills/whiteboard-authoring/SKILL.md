@@ -1,6 +1,6 @@
 ---
 name: whiteboard-authoring
-description: "Author clear, editable whiteboards with Buddy's compact drawing program. Use after selecting a shared canvas workflow: explicit whiteboard or Excalidraw work, learner drawing and annotation, rearranging ideas together, or preserving and revising a visual reasoning record across turns. A generic request to draw, explain, or show a diagram does not by itself select this skill. Do not use for a finished static diagram, a simulation with controls, or document authoring unless canvas editing is part of the requested activity. Read before using whiteboard tools."
+description: "Author Buddy whiteboards with the editable teaching canvas. Load before the first whiteboard_create_view call for the drawing format, board teaching workflow, and board editing rules."
 ---
 <!-- cspell:disable -->
 
@@ -51,17 +51,14 @@ Board means a digital visual surface such as an Excalidraw-like canvas, online w
 
 ## Teaching Workflow
 ### Teaching Heuristics
-- Don't dump everything at the board, at once.
-- Go one logical block at a time.
-  - Teach frame by frame
-- Practice Progressive Disclosure
-- Go one frame; ask user for intearaction based on the content.
-  - Don't draw more than 2 frames a turn.
-- For interaction you can
-  - ask them a question - in chat or using 'question' tool.
-  - ask them to intearct with the drawing.
-  - ask them to draw something and then use `whiteboard_read_context` to see what they did.
-- If you are just pushing out diagrams, and user is not interacting, you are NOT doing a good job.
+- Don't dump everything on the board at once.
+- Go one logical block at a time, and explain each block as it appears.
+- Pace the board by the teaching move. For an explanation or walkthrough, draw the blocks that make the idea complete, one at a time as you explain them, and stop at a coherent point. In guided practice or questioning, draw one step, then give the learner the next move.
+- Invite interaction when it serves the move:
+  - ask them a question, in chat or using the 'question' tool;
+  - ask them to interact with the drawing;
+  - ask them to draw or annotate something, then use `whiteboard_read_context` to see what they did.
+- A board is working when it moves the learner's understanding forward, not when it holds the most drawings.
 - Optimize for time to first drawing.
   - Start drawing before the full diagram is fully planned.
   - The first visible output can be a heading, section label, rough frame, placeholder, or single block.
@@ -72,7 +69,7 @@ Board means a digital visual surface such as an Excalidraw-like canvas, online w
 
 
 ### Ideal flow
-User: [work through x together on this whiteboard...]
+User: [explain or work through x on this whiteboard...]
 Assistant:
 - Loads Whiteboard skill
 - chooses a teaching model
@@ -421,7 +418,9 @@ Use `learning-design-frameworks` when the user needs a broader design or audit l
 
 Use `teaching-resource-authoring` when the output should be a durable artifact such as a worksheet, quiz, rubric, exemplar set, project brief, reading packet, or lab handout.
 
-Use this skill when the visual canvas itself is the teaching surface. In combined work, first choose the teaching model or framework if needed, then use this skill to decide how the agent should draw, write, pace, compare, preserve, and check understanding on the canvas.
+Use `explanatory-drawing` to choose a new picture's frame (portrait, chart, map, timeline, flow, or multi-variable plot), its starting point, and what to leave out before drawing it.
+
+Once a whiteboard has been chosen, use this skill to decide how Buddy should draw, write, pace, compare, preserve, and check understanding on the canvas. Choose a teaching model or framework separately when needed.
 
 
 ---
@@ -602,7 +601,7 @@ Tip: For large diagrams, emit a cameraUpdate to focus on each section as you dra
 
 ## Diagram Example
 
-Example prompt: "Build a photosynthesis explanation with me on the whiteboard; leave space for me to label the inputs."
+Example prompt: "Explain how photosynthesis works step by step on the whiteboard."
 
 Uses 2 camera positions: start zoomed in (M) for title, then zoom out (L) to reveal the full diagram. Sun art drawn last as a finishing touch.
 
@@ -651,7 +650,7 @@ Common mistakes to avoid:
 
 ## Sequence flow Diagram Example
 
-Example prompt: "Put an editable MCP Apps sequence diagram on our whiteboard so we can annotate it together."
+Example prompt: "Show the MCP Apps sequence flow on the whiteboard."
 
 This demonstrates a UML-style sequence diagram with 4 actors (User, Agent, App iframe, MCP Server), dashed lifelines, and labeled arrows showing the full MCP Apps request/response flow. Camera pans progressively across the diagram:
 

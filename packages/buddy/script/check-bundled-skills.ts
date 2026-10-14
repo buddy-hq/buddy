@@ -7,6 +7,7 @@ import { ALL_BUDDY_FEATURES } from "../src/learning/features"
 import type { BuddySkill } from "../src/learning/runtime/define-buddy-skill"
 import { isDisabledBundledSkillName } from "../src/learning/skill-management/disabled-bundled-skills"
 import { loadManagedSkillFile } from "../src/learning/skill-management/service/documents"
+import { validateBuddySkillFile } from "./skill-validator"
 
 const SKILL_DOCUMENT_FILENAME = "SKILL.md"
 const SKILLS_DIRECTORY_NAME = "skills"
@@ -48,6 +49,22 @@ function collectBundledSkillRegistrations(skills: readonly BuddySkill[]): Regist
 
 function collectRegisteredBundledSkills(): RegisteredBundledSkill[] {
   return collectBundledSkillRegistrations(ALL_BUDDY_FEATURES.flatMap((feature) => feature.skills))
+}
+
+async function validateRegisteredBundledSkillDocuments(
+  registrations: readonly RegisteredBundledSkill[],
+): Promise<void> {
+  for (const registration of registrations) {
+    const result = await validateBuddySkillFile(
+      registration.skillDocumentPath,
+      registration.skillName,
+    )
+    if (result.issues.length > 0) {
+      throw new Error(
+        `Invalid bundled skill document: ${registration.skillDocumentPath}\n${result.issues.join("\n")}`,
+      )
+    }
+  }
 }
 
 async function collectBundledSkillDocuments(root: string): Promise<string[]> {
@@ -96,6 +113,7 @@ async function collectSourceBuddyManifests(root: string): Promise<string[]> {
 
 async function checkBundledSkills(): Promise<RegisteredBundledSkill[]> {
   const registrations = collectRegisteredBundledSkills()
+  await validateRegisteredBundledSkillDocuments(registrations)
   const registeredDocuments = new Set(
     registrations.map((registration) => registration.skillDocumentPath),
   )
@@ -147,6 +165,7 @@ export {
   collectBundledSkillRegistrations,
   collectRegisteredBundledSkills,
   collectSourceBuddyManifests,
+  validateRegisteredBundledSkillDocuments,
 }
 
 export type { RegisteredBundledSkill }

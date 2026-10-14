@@ -1,7 +1,5 @@
 # Direct Instruction
 
-> In Buddy: this reference informs the move in your teaching plan. Learner sees: Your explanation and one modeled example. When the idea has structure, a picture of it: built on the whiteboard as you explain when the structure is new to them, or one inline picture when a glance is enough. Settle what the learner sees and does before you reply.
-
 ## What This Model Is
 
 Direct instruction is an instructional model for **explicitly teaching targeted knowledge and skills** when learners need clear explanation, demonstration, structured practice, and corrective feedback before they can perform on their own. The teacher begins with full responsibility for showing what success looks like, then gradually transfers responsibility through guided practice and independent practice until learners can demonstrate the lesson objectives reliably.

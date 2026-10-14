@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url"
 import type { PluginOption, UserConfig } from "vite"
 import { createFoliateVitePlugin } from "./scripts/create-foliate-vite-plugin"
 import { createPdfJsVitePlugin } from "./scripts/create-pdfjs-vite-plugin"
+import { createDevTraceVitePlugin } from "./scripts/create-dev-trace-vite-plugin"
 
 const BUDDY_WEB_PACKAGE_NAME = "@buddy/web"
 const BUDDY_WEB_SOURCE_ALIAS = "@"
@@ -94,6 +95,7 @@ export function buddyWebVitePlugin(options: BuddyWebVitePluginOptions = {}): Plu
     },
     createFoliateVitePlugin(),
     createPdfJsVitePlugin(),
+    createDevTraceVitePlugin(REPOSITORY_DIRECTORY),
   ]
 }
 

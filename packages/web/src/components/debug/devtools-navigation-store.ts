@@ -15,8 +15,10 @@ export type BuddyDevToolsTab =
   | "actions"
   | "easel"
   | "prompt-engineering"
+  | "tool-design"
   | "ui"
   | "transcript"
+  | "evals"
 
 export type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
 
@@ -28,6 +30,7 @@ type DevToolsNavigationState = {
   activeTab: BuddyDevToolsTab
   promptComparisonID: string | undefined
   promptViewMode: PromptViewMode
+  toolPromptID: string | undefined
   easelPrototypeID: string
   easelSection: EaselSectionID
   easelLotsOfContent: boolean
@@ -36,6 +39,7 @@ type DevToolsNavigationState = {
   setActiveTab: (tab: BuddyDevToolsTab) => void
   setPromptComparisonID: (id: string) => void
   setPromptViewMode: (mode: PromptViewMode) => void
+  setToolPromptID: (id: string) => void
   setEaselPrototypeID: (id: string) => void
   setEaselSection: (section: EaselSectionID) => void
   setEaselLotsOfContent: (enabled: boolean) => void
@@ -53,8 +57,10 @@ export function isBuddyDevToolsTab(value: string): value is BuddyDevToolsTab {
     value === "actions" ||
     value === "easel" ||
     value === "prompt-engineering" ||
+    value === "tool-design" ||
     value === "ui" ||
-    value === "transcript"
+    value === "transcript" ||
+    value === "evals"
   )
 }
 
@@ -87,6 +93,7 @@ export const useDevToolsNavigation = create<DevToolsNavigationState>()(
       activeTab: "palette",
       promptComparisonID: undefined,
       promptViewMode: "context",
+      toolPromptID: undefined,
       easelPrototypeID: "sent-message-motion",
       easelSection: "sources",
       easelLotsOfContent: false,
@@ -95,6 +102,7 @@ export const useDevToolsNavigation = create<DevToolsNavigationState>()(
       setActiveTab: (activeTab) => set({ activeTab }),
       setPromptComparisonID: (promptComparisonID) => set({ promptComparisonID }),
       setPromptViewMode: (promptViewMode) => set({ promptViewMode }),
+      setToolPromptID: (toolPromptID) => set({ toolPromptID }),
       setEaselPrototypeID: (easelPrototypeID) => set({ easelPrototypeID }),
       setEaselSection: (easelSection) => set({ easelSection }),
       setEaselLotsOfContent: (easelLotsOfContent) => set({ easelLotsOfContent }),
@@ -102,11 +110,12 @@ export const useDevToolsNavigation = create<DevToolsNavigationState>()(
     {
       name: DEVTOOLS_NAVIGATION_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ buddyOpen, activeTab, promptComparisonID, promptViewMode, easelPrototypeID, easelSection, easelLotsOfContent }) => ({
+      partialize: ({ buddyOpen, activeTab, promptComparisonID, promptViewMode, toolPromptID, easelPrototypeID, easelSection, easelLotsOfContent }) => ({
         buddyOpen,
         activeTab,
         promptComparisonID,
         promptViewMode,
+        toolPromptID,
         easelPrototypeID,
         easelSection,
         easelLotsOfContent,
@@ -119,6 +128,7 @@ export const useDevToolsNavigation = create<DevToolsNavigationState>()(
         const promptComparisonID = parseStringValue(saved.promptComparisonID)
         const promptViewMode = parseStringValue(saved.promptViewMode)
         const legacyPromptReviewID = parseStringValue(saved.promptReviewID)
+        const toolPromptID = parseStringValue(saved.toolPromptID)
         const easelPrototypeID = parseStringValue(saved.easelPrototypeID)
         const easelSection = parseStringValue(saved.easelSection)
         const easelLotsOfContent = parseBooleanValue(saved.easelLotsOfContent)
@@ -133,6 +143,7 @@ export const useDevToolsNavigation = create<DevToolsNavigationState>()(
           promptViewMode: promptViewMode && isPromptViewMode(promptViewMode)
             ? promptViewMode
             : currentState.promptViewMode,
+          toolPromptID: toolPromptID ?? currentState.toolPromptID,
           easelPrototypeID: easelPrototypeID ?? currentState.easelPrototypeID,
           easelSection: easelSection && isEaselSectionID(easelSection)
             ? easelSection

@@ -126,7 +126,7 @@ Use the local review workflow for this repository.
       ).toBe(true)
       expect(beforeInstalled.find((skill) => skill.name === "reading")).toMatchObject({
         displayName: "Reading",
-        shortDescription: "Read and analyze books, papers, articles, and resources",
+        shortDescription: "Read and study books, articles, documents, and web pages",
       })
       expect(
         beforeLibrary.some((entry) => entry.id === "anthropic-pptx" && entry.state === "available"),

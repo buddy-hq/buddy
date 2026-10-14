@@ -8,7 +8,11 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tabs,
   TabsContent,
   TabsList,
@@ -24,7 +28,7 @@ import { usePlatform } from "@/context/platform"
 import { ArrowLeftIcon, ArrowRightIcon } from "@/icons/app-icons"
 import { useDevToolsNavigation, type PromptViewMode } from "./devtools-navigation-store"
 import { PROMPT_COMPARISONS, PROMPT_REVIEWS } from "./prompt-reviews"
-import type { RegisteredPromptComparison } from "./prompt-reviews/model"
+import type { PromptReviewStatus, RegisteredPromptComparison } from "./prompt-reviews/model"
 
 const UNCHANGED_PROMPT_TEXT_STYLE: CSSProperties = { color: "var(--text-weakest)" }
 const CONTEXT_LINE_COUNT = 3
@@ -407,13 +411,17 @@ function PromptComparisonSection(props: { entry: RegisteredPromptComparison }) {
   )
 }
 
+const PROMPT_REVIEW_STATUS_SUFFIX = {
+  proposed: "",
+  applied: " (applied)",
+  historical: " (historical)",
+} satisfies Record<PromptReviewStatus, string>
+
 /** Render every registered prompt refactor through the same comparison UI. */
 export function PromptReviewWorkbench() {
   const selectedComparisonID = useDevToolsNavigation((state) => state.promptComparisonID)
   const setPromptComparisonID = useDevToolsNavigation((state) => state.setPromptComparisonID)
   const mainScrollRef = useRef<HTMLDivElement>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const normalizedSearch = searchQuery.trim().toLowerCase()
   const changeCounts = useMemo(
     () =>
       new Map(
@@ -424,93 +432,76 @@ export function PromptReviewWorkbench() {
       ),
     [],
   )
-  const matchingComparisons = PROMPT_COMPARISONS.filter((entry) => {
-    if (!normalizedSearch) return true
-    return [
-      entry.review.title,
-      entry.review.label,
-      entry.comparison.title,
-      entry.comparison.target,
-    ].some((text) => text.toLowerCase().includes(normalizedSearch))
-  })
-  const matchingIDs = new Set(matchingComparisons.map((entry) => entry.id))
   const activeEntry =
-    matchingComparisons.find((entry) => entry.id === selectedComparisonID) ?? matchingComparisons[0]
+    PROMPT_COMPARISONS.find((entry) => entry.id === selectedComparisonID) ?? PROMPT_COMPARISONS.at(-1)
+  const activeReview = activeEntry?.review
+  const activeComparisons = PROMPT_COMPARISONS.filter((entry) => entry.review.id === activeReview?.id)
 
-  if (PROMPT_COMPARISONS.length === 0) return null
+  function selectComparison(id: string) {
+    setPromptComparisonID(id)
+    mainScrollRef.current?.scrollTo({ top: 0, left: 0 })
+  }
+
+  if (!activeEntry || !activeReview) return null
 
   return (
     <Tabs
       orientation="vertical"
-      value={activeEntry?.id ?? ""}
+      value={activeEntry.id}
       onValueChange={(value) => {
-        if (!PROMPT_COMPARISONS.some((entry) => entry.id === value)) return
-        setPromptComparisonID(value)
-        mainScrollRef.current?.scrollTo({ top: 0, left: 0 })
+        if (PROMPT_COMPARISONS.some((entry) => entry.id === value)) selectComparison(value)
       }}
       className="h-full min-h-0 w-full gap-0 bg-background-base text-text-base"
     >
       <aside className="flex min-h-0 w-72 shrink-0 flex-col border-r border-border-base bg-surface-raised-base">
-        <div className="border-b border-border-base px-4 py-4">
-          <p className="text-xs text-text-weaker">Prompt engineering</p>
-          <p className="mt-1 text-sm font-medium text-text-base">Reviews</p>
-        </div>
         <div className="border-b border-border-base p-2">
-          <Input
-            type="search"
-            aria-label="Search prompt reviews"
-            placeholder="Search reviews"
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.target.value)
-              mainScrollRef.current?.scrollTo({ top: 0, left: 0 })
+          <Select
+            value={activeReview.id}
+            onValueChange={(reviewID) => {
+              const firstEntry = PROMPT_COMPARISONS.find((entry) => entry.review.id === reviewID)
+              if (firstEntry) selectComparison(firstEntry.id)
             }}
-            className="h-8 text-sm"
-          />
+          >
+            <SelectTrigger aria-label="Prompt proposal" className="w-full text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent style={{ zIndex: Z_INDEX.devtoolsFloating }} position="popper">
+              {PROMPT_REVIEWS.toReversed().map((review) => (
+                <SelectItem key={review.id} value={review.id} className="text-sm">
+                  {review.label} · {review.title}
+                  {PROMPT_REVIEW_STATUS_SUFFIX[review.status]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <TabsList
-          aria-label="Prompt files"
+          aria-label={`${activeReview.label} files`}
           className="min-h-0 w-full flex-col items-stretch justify-start gap-1 overflow-y-auto rounded-none p-2"
         >
-          {PROMPT_REVIEWS.map((review) => {
-            const comparisons = review.comparisons.filter((comparison) =>
-              matchingIDs.has(`${review.id}/${comparison.id}`),
-            )
-            if (comparisons.length === 0) return null
-            return (
-              <Fragment key={review.id}>
-                <div role="presentation" className="px-3 pb-1 pt-3 text-xs font-medium text-text-weaker">
-                  {review.title}
-                </div>
-                {comparisons.map((comparison) => (
-                  <TabsTrigger
-                    key={`${review.id}/${comparison.id}`}
-                    value={`${review.id}/${comparison.id}`}
-                    className="h-auto min-h-0 w-full flex-none whitespace-normal rounded-md px-3 py-3 text-left"
+          {activeComparisons.map(({ id, comparison }) => (
+            <TabsTrigger
+              key={id}
+              value={id}
+              className="h-auto min-h-0 w-full flex-none whitespace-normal rounded-md px-3 py-3 text-left"
+            >
+              <span className="flex min-w-0 w-full flex-col items-start gap-1">
+                <span className="flex w-full min-w-0 items-start justify-between gap-2">
+                  <span className="min-w-0 text-sm leading-5">{comparison.title}</span>
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 tabular-nums"
+                    aria-label={`${changeCounts.get(id) ?? 0} changed areas`}
                   >
-                    <span className="flex min-w-0 w-full flex-col items-start gap-1">
-                      <span className="flex w-full min-w-0 items-start justify-between gap-2">
-                        <span className="min-w-0 text-sm leading-5">{comparison.title}</span>
-                        <Badge
-                          variant="outline"
-                          className="shrink-0 tabular-nums"
-                          aria-label={`${changeCounts.get(`${review.id}/${comparison.id}`) ?? 0} changed areas`}
-                        >
-                          {changeCounts.get(`${review.id}/${comparison.id}`) ?? 0}
-                        </Badge>
-                      </span>
-                      <span className="text-xs font-normal text-text-weaker">
-                        {comparison.target.split("/").at(-1)}
-                      </span>
-                    </span>
-                  </TabsTrigger>
-                ))}
-              </Fragment>
-            )
-          })}
-          {matchingComparisons.length === 0 ? (
-            <p className="px-3 py-4 text-xs text-text-weak">No matching reviews</p>
-          ) : null}
+                    {changeCounts.get(id) ?? 0}
+                  </Badge>
+                </span>
+                <span className="text-xs font-normal text-text-weaker">
+                  {comparison.target.split("/").at(-1)}
+                </span>
+              </span>
+            </TabsTrigger>
+          ))}
         </TabsList>
       </aside>
 
@@ -526,14 +517,14 @@ export function PromptReviewWorkbench() {
               <p className="text-xs text-text-weaker">{activeEntry.review.note}</p>
             </header>
 
-            {matchingComparisons.map((entry) => (
+            {activeComparisons.map((entry) => (
               <TabsContent key={entry.id} value={entry.id} className="mt-0 min-w-0">
                 <PromptComparisonSection entry={entry} />
               </TabsContent>
             ))}
           </div>
         ) : (
-          <p className="p-6 text-sm text-text-weak">No prompt reviews match “{searchQuery}”.</p>
+          <p className="p-6 text-sm text-text-weak">No prompt reviews.</p>
         )}
       </div>
     </Tabs>

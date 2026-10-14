@@ -1454,13 +1454,13 @@ function resolveBenchPresentSilentOutcome(
 const benchPresentTool = createBuddyTool({
   id: "bench_present",
   description: [
-    "Present an existing stable target, focus an exact open tab, or close Bench.",
+    "Show something on the Bench, return to an open tab, or close the Bench. The Bench shows one tab at a time, and the selected tab is what you and the user are both looking at. If the target already has a tab, that tab is focused instead of opening a copy.",
     "",
-    "Use present_file, present_resource, or present_object to open and focus a stable target. Use focus_tab to switch to an already-open tab, including an open Browser tab or a New tab (new-tab:...), only with an exact current tabKey copied from bench_read_context; a missing key means the tab set is stale and must be read again. A chat tab (session:...) can only be switched to by the user. Focusing a Browser tab only brings it to the front; it does not let you read, click, type into, or capture the page. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
+    "Use present_file to open an existing local file the user should read or work in; Markdown opens in the Bench editor. Use present_resource to open a prepared reading resource in the reader, such as the user's own books, papers, and documents. Use present_object to put an existing Buddy object on the Bench: a diagram, figure, media gallery, HTML widget, question set, or flashcard deck that first appeared inline and that the user will keep using, or a whiteboard. Use focus_tab to return to an already-open file, Browser tab, or New tab (new-tab:...) only with an exact current tabKey copied from bench_read_context; a missing key means the tab set is stale and must be read again. A chat tab (session:...) can only be switched to by the user. Focusing a Browser tab only brings it to the front; it does not let you read, click, type into, or capture the page. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object. Use close only when the user asks to close the Bench.",
     "",
-    "For Buddy objects, pass only objectID copied from a prior tool result. Do not pass object kind, revision id, item id, view id, routes, layout pixels, or user preferences.",
+    "Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object. For Buddy objects, pass only objectID copied from a prior tool result. Do not pass object kind, revision id, item id, view id, routes, layout pixels, or user preferences.",
     "",
-    "This tool does not author or modify content. For an approved external file it creates only a managed reference needed by Bench. Do not use it to render media inline, create an HTML widget, edit a whiteboard, choose layout pixels, change user preferences, or build routes.",
+    "This tool does not author or modify content. For an approved external file it creates only a managed reference needed by Bench. Do not use it to open web pages (use the Browser), render media inline, create an HTML widget, edit a whiteboard, choose layout pixels, change user preferences, or build routes.",
   ].join("\n"),
   parameters: BenchPresentInputSchema,
   formatValidationError: formatBenchPresentValidationError,

@@ -25,6 +25,7 @@ describe("DevTools navigation persistence", () => {
     state.setActiveTab("prompt-engineering")
     state.setPromptComparisonID("whiteboard-selection/skill-guidance")
     state.setPromptViewMode("full")
+    state.setToolPromptID("present-merge/present")
     state.setEaselPrototypeID("right-workspace")
     state.setEaselSection("boards")
     state.setEaselLotsOfContent(true)
@@ -35,6 +36,7 @@ describe("DevTools navigation persistence", () => {
       activeTab: "prompt-engineering",
       promptComparisonID: "whiteboard-selection/skill-guidance",
       promptViewMode: "full",
+      toolPromptID: "present-merge/present",
       easelPrototypeID: "right-workspace",
       easelSection: "boards",
       easelLotsOfContent: true,
@@ -47,6 +49,7 @@ describe("DevTools navigation persistence", () => {
       activeTab: "palette",
       promptComparisonID: undefined,
       promptViewMode: "context",
+      toolPromptID: undefined,
       easelPrototypeID: "sent-message-motion",
       easelSection: "sources",
       easelLotsOfContent: false,
@@ -62,6 +65,7 @@ describe("DevTools navigation persistence", () => {
       activeTab: "prompt-engineering",
       promptComparisonID: "whiteboard-selection/skill-guidance",
       promptViewMode: "full",
+      toolPromptID: "present-merge/present",
       easelPrototypeID: "right-workspace",
       easelSection: "boards",
       easelLotsOfContent: true,

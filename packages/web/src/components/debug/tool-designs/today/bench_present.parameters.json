@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "description": "What to show on Bench. Use present_file for an existing local file, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id, focus_tab to switch to an already-open tab, including an open Browser tab, by an exact tabKey returned by bench_read_context, and close only when the user asks to close Bench.",
+      "type": "string",
+      "enum": [
+        "present_object",
+        "present_file",
+        "present_resource",
+        "focus_tab",
+        "close"
+      ]
+    },
+    "path": {
+      "description": "Existing local file path for present_file. Accepts workspace-relative paths, absolute paths, file:// URLs, and ~/ home-relative paths. A path that resolves outside the workspace requires external-folder permission. Omit for every other action. Do not invent paths. Use present_html_widget for .html or .htm teaching widgets.",
+      "type": "string",
+      "minLength": 1
+    },
+    "resourceKey": {
+      "description": "Prepared reading resource object id or alias, usually copied from resource inventory or prepare_resource output. Required only for present_resource. Only use resources that expose a Bench reader source, such as bench_reader=<path>. Omit for every other action. Do not invent resource ids or aliases.",
+      "type": "string",
+      "minLength": 1
+    },
+    "objectID": {
+      "description": "Buddy object id copied from a prior tool result. Required only for present_object. Omit for every other action.",
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "tabKey": {
+      "description": "Exact logical tabKey copied from bench_read_context, such as a file tab or an open Browser tab (browser:...). Required only for focus_tab. Omit for every other action.",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "additionalProperties": false
+}

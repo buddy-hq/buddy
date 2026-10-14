@@ -1,0 +1,58 @@
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "description": "show puts items in front of the user. focus_tab returns to an open Bench tab. close closes the Bench, only when the user asks.",
+      "type": "string",
+      "enum": [
+        "show",
+        "focus_tab",
+        "close"
+      ]
+    },
+    "items": {
+      "description": "Only for show. What to show, in display order. Each item has exactly one of path, resource, or object.",
+      "minItems": 1,
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Existing local file: a workspace-relative path, absolute path, file:// URL, or ~/ path. Paths outside the workspace ask the user for permission. Never invent a path.",
+            "type": "string",
+            "minLength": 1
+          },
+          "resource": {
+            "description": "Prepared reading resource id or alias, copied from the resource list or prepare_resource. Never invent one.",
+            "type": "string",
+            "minLength": 1
+          },
+          "object": {
+            "description": "Buddy object id copied from an earlier tool result.",
+            "type": "string",
+            "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "where": {
+      "description": "Only for show. Where images, video, and audio appear. Defaults to inline. Ignored for anything that can display in only one place.",
+      "type": "string",
+      "enum": [
+        "inline",
+        "bench"
+      ]
+    },
+    "tabKey": {
+      "description": "Only for focus_tab. Exact tab key from the turn context or bench_read_context, such as a file tab or a Browser tab (browser:...).",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "additionalProperties": false
+}

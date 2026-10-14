@@ -43,7 +43,7 @@ export function prepareMacDevElectronExecutable(input: {
     APP_EXECUTABLE_NAME,
   )
 
-  if (!existsSync(executablePath)) {
+  if (!existsSync(executablePath) || !isIntactAppBundle(destinationAppPath)) {
     prepareAppBundle({
       appName: input.appName,
       cacheKey,
@@ -95,6 +95,17 @@ function prepareAppBundle(input: {
   } catch (error) {
     rmSync(stagingRoot, { force: true, recursive: true })
     throw error
+  }
+}
+
+function isIntactAppBundle(appPath: string): boolean {
+  try {
+    execFileSync(CODESIGN_PATH, ["--verify", "--deep", "--strict", appPath], {
+      stdio: "ignore",
+    })
+    return true
+  } catch {
+    return false
   }
 }
 
