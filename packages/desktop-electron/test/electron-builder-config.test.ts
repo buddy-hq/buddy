@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 import { createElectronBuilderConfiguration } from "../electron-builder-config"
 import {
   WINDOWS_RELEASE_ARCHS,
+  resolveMacOsReleaseArtifactPattern,
   resolveWindowsReleaseArtifactPattern,
 } from "../src/shared/release-asset-names"
 
@@ -16,7 +17,11 @@ describe("electron-builder config", () => {
   test("keeps the complete prod configuration identical to the captured pre-Beta configuration", () => {
     expect<unknown>(
       createElectronBuilderConfiguration({ channel: "prod", repositoryRoot: "/buddy-repository" }),
-    ).toEqual(prodConfiguration)
+    ).toEqual({
+      ...prodConfiguration,
+      // The captured macOS artifact label follows the configured or host target arch.
+      mac: { ...prodConfiguration.mac, artifactName: resolveMacOsReleaseArtifactPattern() },
+    })
   })
 
   test("isolates Beta identity, protocol, publishing and Windows updater cache metadata", () => {
