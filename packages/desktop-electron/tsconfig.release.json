@@ -1,0 +1,38 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "types": ["bun", "node"]
+  },
+  "include": [
+    "scripts/build-release-target.ts",
+    "scripts/finalize-target-update-manifests.ts",
+    "scripts/finalize-recovery-policy.ts",
+    "scripts/finalize-latest-mac-json.ts",
+    "scripts/finalize-latest-yml.ts",
+    "scripts/upload-release-assets.ts",
+    "scripts/verify-update-signing.ts",
+    "scripts/release-package-identity.ts",
+    "scripts/verify-release-signature.ts",
+    "test/release-asset-names.test.ts",
+    "test/release-smoke-target.test.ts",
+    "../../script/cut-release.ts",
+    "../../script/release-local-gate.ts",
+    "../../script/version.ts",
+    "../../script/publish.ts",
+    "../../script/changelog.ts",
+    "../../script/promote-release.ts",
+    "../../script/verify-release-assets.ts",
+    "../../script/release/**/*.ts",
+    "../../script/release-repositories.test.ts",
+    "../../script/cut-release.test.ts",
+    "../../script/promote-release.test.ts",
+    "../../script/changelog.test.ts",
+    "../../script/install-release.test.ts",
+    "../../script/run-root-script-tests.ts"
+  ]
+}

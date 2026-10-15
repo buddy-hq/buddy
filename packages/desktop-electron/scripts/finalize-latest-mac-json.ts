@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { assertLegacyProdRelease } from "../../../script/release/distribution-guard"
 import path from "node:path"
 import { createHash } from "node:crypto"
 import { access, mkdir, readFile, stat } from "node:fs/promises"
@@ -11,6 +12,8 @@ import {
 } from "../src/shared/release-asset-names"
 import { parseTNumber, parseTString } from "../src/shared/parse-external"
 import { resolveTauriSignerBinaryPath } from "./utils"
+
+assertLegacyProdRelease()
 
 const LATEST_YML_DIR_ENV_KEY = "LATEST_YML_DIR"
 const RELEASE_REPOSITORY_ENV_KEY = "GH_REPO"

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
+import { createHash } from "node:crypto"
 import { RELEASE_GATE_COMMAND_PLAN } from "../release-required-gates.ts"
 
 const ROOT_DIRECTORY = path.resolve(import.meta.dir, "../..")
@@ -112,13 +113,17 @@ describe("release workflow", () => {
 
     for (const secretName of [
       "BUDDY_RELEASE_TOKEN",
-      "BUDDY_SKILL_SIGNING_PRIVATE_KEY",
-      "BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD",
-      "BUDDY_SKILLS_REPOSITORY_TOKEN",
       "TAURI_SIGNING_PRIVATE_KEY",
       "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
     ]) {
       expect(objectValue(secrets[secretName], secretName).required).toBe(true)
+    }
+    for (const secretName of [
+      "BUDDY_SKILL_SIGNING_PRIVATE_KEY",
+      "BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD",
+      "BUDDY_SKILLS_REPOSITORY_TOKEN",
+    ]) {
+      expect(objectValue(secrets[secretName], secretName).required).toBe(false)
     }
   })
 
@@ -445,5 +450,72 @@ describe("release skill artifacts", () => {
         "release:validate-skill-artifacts script",
       ),
     ).toBe(ciGateCommand)
+  })
+})
+
+describe("Beta workflow wiring", () => {
+  test("maps only dedicated Beta credentials and serializes the entire stream", async () => {
+    const document = await workflowDocument("publish-beta.yml")
+    const job = workflowJob(document, "publish")
+    const inputs = objectValue(job.with, "Beta inputs")
+    const secrets = objectValue(job.secrets, "Beta secrets")
+    expect(inputs.channel).toBe("beta")
+    expect(objectValue(document.concurrency, "Beta concurrency").group).toBe("release-beta")
+    expect(secrets).toEqual({
+      BUDDY_RELEASE_TOKEN: "${{ secrets.BUDDY_BETA_RELEASE_TOKEN }}",
+      TAURI_SIGNING_PRIVATE_KEY: "${{ secrets.BUDDY_BETA_UPDATER_PRIVATE_KEY }}",
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "${{ secrets.BUDDY_BETA_UPDATER_PRIVATE_KEY_PASSWORD }}",
+    })
+    const prod = await workflowDocument("publish.yml")
+    expect(objectValue(workflowJob(prod, "publish").with, "prod inputs").channel).toBeUndefined()
+    expect(objectValue(prod.concurrency, "prod concurrency").group).toBe(
+      "release-${{ inputs.version }}-${{ inputs.dry_run && 'dry-run' || 'publish' }}",
+    )
+  })
+
+  test("preserves the exact prod wrapper bytes and shares dispatch inputs", async () => {
+    const prodSource = await Bun.file(
+      path.join(ROOT_DIRECTORY, ".github/workflows/publish.yml"),
+    ).text()
+    const expectedDigest = (
+      await Bun.file(new URL("./fixtures/prod-workflow.sha256", import.meta.url)).text()
+    ).trim()
+    expect(createHash("sha256").update(prodSource).digest("hex")).toBe(expectedDigest)
+    const prod = await workflowDocument("publish.yml")
+    const beta = await workflowDocument("publish-beta.yml")
+    const prodDispatch = objectValue(
+      objectValue(prod.on, "prod triggers").workflow_dispatch,
+      "prod dispatch",
+    )
+    const betaDispatch = objectValue(
+      objectValue(beta.on, "beta triggers").workflow_dispatch,
+      "beta dispatch",
+    )
+    expect(betaDispatch.inputs).toEqual(prodDispatch.inputs)
+  })
+
+  test("propagates channel, guards preflight, and excludes Beta skill publication", async () => {
+    const document = await workflowDocument("publish-shared.yml")
+    expect(objectValue(document.env, "shared env").BUDDY_CHANNEL).toBe("${{ inputs.channel }}")
+    expect(
+      objectValue(workflowJob(document, "build-electron").env, "electron env").BUDDY_CHANNEL,
+    ).toBe("${{ inputs.channel }}")
+    const call = objectValue(objectValue(document.on, "triggers").workflow_call, "call")
+    expect(objectValue(objectValue(call.inputs, "inputs").channel, "channel").default).toBe("prod")
+    const preflight = workflowJob(document, "preflight")
+    expect(namedWorkflowStepIndex(preflight, "Verify distribution boundary")).toBeLessThan(
+      namedWorkflowStepIndex(preflight, "Resolve release draft"),
+    )
+    expect(
+      stringValue(workflowJob(document, "publish-skill-artifacts").if, "skills condition"),
+    ).toContain("inputs.channel == 'prod'")
+    expect(
+      namedWorkflowStep(workflowJob(document, "validate-skills"), "Build signed skill artifacts")
+        .if,
+    ).toBe("${{ inputs.channel == 'prod' }}")
+    expect(
+      namedWorkflowStep(workflowJob(document, "finalize-and-publish"), "Upload installer scripts")
+        .run,
+    ).toBe("bun ./script/release/installers.ts")
   })
 })

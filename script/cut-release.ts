@@ -14,11 +14,21 @@ import { RELEASE_GATE_COMMAND_PLAN } from "./release-required-gates.ts"
 import { parseReleasePlan, RELEASE_PLAN_FILENAME, type ReleasePlan } from "./release/plan"
 import { assertGreenMainReleaseSource } from "./release/preflight"
 import { releaseRepository, sourceRepository } from "./release-repositories"
+import { releaseDistribution, assertReleaseRecordChannel } from "./release/distribution-guard"
+import { RELEASE_FREEZE_FILENAME } from "./release/constants"
+import {
+  assertBetaVersionMovesForward,
+  highestPublishedBetaVersion,
+} from "./release/beta-publication"
+import { requireUpdaterPublicKey, type BuddyDistributionId } from "@buddy/script/distribution"
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
 const RELEASE_BRANCH = "main"
-const RELEASE_WORKFLOW_FILENAME = "publish.yml"
 const FAST_SKIP_FLAG = "--fs"
+
+function releaseWorkflowFilename(): string {
+  return releaseDistribution().id === "beta" ? "publish-beta.yml" : "publish.yml"
+}
 
 type SyncState = "in-sync" | "ahead" | "behind" | "diverged"
 
@@ -67,6 +77,7 @@ type ReleaseExecution = {
 }
 
 type ReleaseWizardFlags = {
+  channel: BuddyDistributionId
   fast: boolean
   help: boolean
   skipLocalReleaseGates: boolean
@@ -179,7 +190,7 @@ async function ensureMainBranch() {
 
   if (branch !== RELEASE_BRANCH) {
     throw new Error(
-      `Preview release candidates must be cut from ${RELEASE_BRANCH}, received '${branch}'`,
+      `${releaseDistribution().id === "beta" ? "Beta releases" : "Preview release candidates"} must be cut from ${RELEASE_BRANCH}, received '${branch}'`,
     )
   }
 }
@@ -223,14 +234,21 @@ async function ensureReleaseSecrets() {
     "WINDOWS_CERTIFICATE",
     "WINDOWS_CERTIFICATE_PASSWORD",
   ]
-  const requiredSecrets = [
-    "BUDDY_RELEASE_TOKEN",
-    "BUDDY_SKILLS_REPOSITORY_TOKEN",
-    "BUDDY_SKILL_SIGNING_PRIVATE_KEY",
-    "BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD",
-    "TAURI_SIGNING_PRIVATE_KEY",
-    "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
-  ]
+  const requiredSecrets =
+    releaseDistribution().id === "beta"
+      ? [
+          "BUDDY_BETA_RELEASE_TOKEN",
+          "BUDDY_BETA_UPDATER_PRIVATE_KEY",
+          "BUDDY_BETA_UPDATER_PRIVATE_KEY_PASSWORD",
+        ]
+      : [
+          "BUDDY_RELEASE_TOKEN",
+          "BUDDY_SKILLS_REPOSITORY_TOKEN",
+          "BUDDY_SKILL_SIGNING_PRIVATE_KEY",
+          "BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD",
+          "TAURI_SIGNING_PRIVATE_KEY",
+          "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
+        ]
 
   const missingRequired = requiredSecrets.filter((name) => !names.has(name))
   if (missingRequired.length > 0) {
@@ -335,7 +353,8 @@ async function chooseVersion(rl: ReleaseReadline, fast = false) {
   const latestStable = await getLatestRelease()
   const latestPublished = await getLatestPublishedRelease()
   const versionBase = latestPublished ?? latestStable
-  let patchSuggestion = versionBase ? bumpVersion(versionBase, "patch") : "0.0.1"
+  const initialVersion = releaseDistribution().id === "beta" ? "0.1.0" : "0.0.1"
+  let patchSuggestion = versionBase ? bumpVersion(versionBase, "patch") : initialVersion
   const incompatibleDrafts: string[] = []
   while (true) {
     const draft = await loadRelease(`v${patchSuggestion}`)
@@ -353,7 +372,9 @@ async function chooseVersion(rl: ReleaseReadline, fast = false) {
   const majorSuggestion = versionBase ? bumpVersion(versionBase, "major") : "1.0.0"
   const versionContext = versionBase
     ? [
-        latestStable ? `Latest stable release: v${latestStable}` : "No prior stable release found.",
+        latestStable
+          ? `Latest ${releaseDistribution().id === "beta" ? "Beta" : "stable"} release: v${latestStable}`
+          : "No prior stable release found.",
         `Highest published release tag: v${versionBase}`,
       ].join("\n")
     : "No prior published release found."
@@ -437,13 +458,20 @@ async function loadDraftReleasePlan(
 async function ensureVersionIsAvailable(version: string) {
   const tag = `v${version}`
   const existing = await loadRelease(tag)
-  if (existing && !existing.isDraft) {
+  if (releaseDistribution().id === "beta") {
+    assertBetaVersionMovesForward(version, await highestPublishedBetaVersion(releaseRepository()))
+  }
+  const frozenBeta =
+    releaseDistribution().id === "beta" &&
+    existing?.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
+  if (existing && !existing.isDraft && !frozenBeta) {
     throw new Error(`Release ${tag} already exists: ${existing.url}`)
   }
   return existing
 }
 
 export function resolveReleaseExecution(input: {
+  channel?: BuddyDistributionId
   currentSourceSha: string
   plan: ReleasePlan | undefined
   repository: string
@@ -451,6 +479,7 @@ export function resolveReleaseExecution(input: {
   tag: string
   version: string
 }): ReleaseExecution {
+  if (input.plan) assertReleaseRecordChannel(input.plan, input.channel ?? "prod")
   if (
     input.plan &&
     (input.plan.tag !== input.tag ||
@@ -485,6 +514,18 @@ async function editReleaseDraft(
   fast = false,
 ) {
   const tag = `v${version}`
+  if (
+    existingDraft &&
+    releaseDistribution().id === "beta" &&
+    existingDraft.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
+  ) {
+    return {
+      body: existingDraft.body,
+      notesPath: undefined,
+      tempDir: undefined,
+      title: existingDraft.name,
+    }
+  }
   const title = fast ? tag : await promptLine(rl, "Release title", existingDraft?.name || tag)
   const initialBody = await initialReleaseBody(version, existingDraft)
 
@@ -547,6 +588,8 @@ async function upsertDraftRelease(
   targetSha: string,
   existingDraft: ReleaseSummary | undefined,
 ) {
+  if (existingDraft && releaseDistribution().id === "beta" && !existingDraft.isDraft)
+    return existingDraft
   const tag = `v${version}`
   printStep("Draft Release", `Creating or updating draft release ${tag}.`)
   const releaseRepo = releaseRepository()
@@ -596,6 +639,7 @@ async function upsertDraftRelease(
 function runRequiredGates() {
   printStep("Validation", "Running required repo gates before dispatching the release.")
   for (const gate of RELEASE_GATE_COMMAND_PLAN) {
+    if (releaseDistribution().id === "beta" && gate.args.includes("packages/buddy")) continue
     runCommand(gate.command, [...gate.args])
   }
 }
@@ -603,12 +647,14 @@ function runRequiredGates() {
 export function selectWorkflowRunUrls(
   runs: readonly WorkflowRun[],
   version: string,
+  channel: BuddyDistributionId = "prod",
 ): WorkflowRunSelection {
   const exact = runs.find(
     (run) =>
       run.event === "workflow_dispatch" &&
       run.headBranch === RELEASE_BRANCH &&
-      run.displayTitle === `preview candidate v${version}`,
+      run.displayTitle ===
+        `${channel === "beta" ? "beta release" : "preview candidate"} v${version}`,
   )
   const fallback = runs.find(
     (run) => run.event === "workflow_dispatch" && run.headBranch === RELEASE_BRANCH,
@@ -620,12 +666,12 @@ async function waitForRunUrl(version: string) {
   let fallbackUrl: string | undefined
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const payload =
-      await $`gh run list --repo ${sourceRepository()} --workflow ${RELEASE_WORKFLOW_FILENAME} --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
+      await $`gh run list --repo ${sourceRepository()} --workflow ${releaseWorkflowFilename()} --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
         .cwd(ROOT_DIR)
         .json()
     const runs = z.array(WorkflowRunSchema).parse(payload)
 
-    const selected = selectWorkflowRunUrls(runs, version)
+    const selected = selectWorkflowRunUrls(runs, version, releaseDistribution().id)
     if (selected.exact) return selected.exact
     fallbackUrl = selected.fallback ?? fallbackUrl
     if (attempt < 9) await Bun.sleep(2_000)
@@ -638,7 +684,7 @@ async function dispatchRelease(version: string, targetSha: string, targets: Rele
   printStep("Dispatch", `Triggering GitHub release workflow for v${version}.`)
 
   const dispatchOutput =
-    await $`gh workflow run ${RELEASE_WORKFLOW_FILENAME} --repo ${sourceRepository()} --ref ${RELEASE_BRANCH} -f ${`version=${version}`} -f ${`source_sha=${targetSha}`} -f ${`build_macos_arm64=${String(targets.macosArm64)}`} -f ${`build_macos_x64=${String(targets.macosX64)}`} -f ${`build_windows_x64=${String(targets.windowsX64)}`}`
+    await $`gh workflow run ${releaseWorkflowFilename()} --repo ${sourceRepository()} --ref ${RELEASE_BRANCH} -f ${`version=${version}`} -f ${`source_sha=${targetSha}`} -f ${`build_macos_arm64=${String(targets.macosArm64)}`} -f ${`build_macos_x64=${String(targets.macosX64)}`} -f ${`build_windows_x64=${String(targets.windowsX64)}`}`
       .cwd(ROOT_DIR)
       .text()
       .then((output) => output.trim())
@@ -682,8 +728,10 @@ function watchRun(runId: string): boolean {
   return false
 }
 
-function parseArgs(): ReleaseWizardFlags {
-  const args = process.argv.slice(2)
+export function parseReleaseWizardArgs(
+  args: readonly string[] = process.argv.slice(2),
+): ReleaseWizardFlags {
+  let channel: BuddyDistributionId = "prod"
   let targets: ReleaseTargets | undefined
   let fast = false
   let help = false
@@ -691,6 +739,12 @@ function parseArgs(): ReleaseWizardFlags {
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
+    if (arg === "--channel" || arg?.startsWith("--channel=")) {
+      const raw = arg === "--channel" ? args[++index] : arg.slice("--channel=".length)
+      if (raw !== "prod" && raw !== "beta") throw new Error("--channel must be prod or beta")
+      channel = raw
+      continue
+    }
     if (arg === "--fast") {
       fast = true
       continue
@@ -726,6 +780,7 @@ function parseArgs(): ReleaseWizardFlags {
   }
 
   return {
+    channel,
     fast,
     help,
     skipLocalReleaseGates,
@@ -736,7 +791,7 @@ function parseArgs(): ReleaseWizardFlags {
 function printUsage(): void {
   console.log(
     [
-      `Usage: bun ./script/cut-release.ts [--fast | ${FAST_SKIP_FLAG}] [--targets <target-list>]`,
+      `Usage: bun ./script/cut-release.ts [--channel prod|beta] [--fast | ${FAST_SKIP_FLAG}] [--targets <target-list>]`,
       "",
       `${FAST_SKIP_FLAG} runs the fast flow and skips the local Buddy Dev installable and production release smoke builds.`,
       "",
@@ -874,10 +929,14 @@ function serializeReleaseTargets(targets: ReleaseTargets): string {
 function runLocalReleaseGates(version: string, targetSha: string, targets: ReleaseTargets): void {
   printStep(
     "Local Release Gates",
-    "Building and installing Buddy Dev for manual approval, then validating the native production release target.",
+    releaseDistribution().id === "beta"
+      ? "Building and installing Buddy Dev for manual approval, then validating the native Buddy Beta release target."
+      : "Building and installing Buddy Dev for manual approval, then validating the native production release target.",
   )
   runCommand("bun", [
     "./script/release-local-gate.ts",
+    "--channel",
+    releaseDistribution().id,
     "--version",
     version,
     "--commit",
@@ -888,18 +947,28 @@ function runLocalReleaseGates(version: string, targetSha: string, targets: Relea
 }
 
 async function main() {
-  const flags = parseArgs()
+  const flags = parseReleaseWizardArgs()
   if (flags.help) {
     printUsage()
     return
   }
 
+  process.env.BUDDY_CHANNEL = flags.channel
+  releaseRepository()
+  requireUpdaterPublicKey(releaseDistribution())
   ensureInteractiveTerminal()
   await ensureMainBranch()
   await ensureCleanTree()
   const targets = flags.targets ?? (await chooseReleaseTargets())
   ensureGithubAuth()
   await ensureReleaseSecrets()
+  if (
+    flags.channel === "beta" &&
+    !(await getLatestPublishedRelease()) &&
+    (!targets.macosArm64 || !targets.macosX64 || !targets.windowsX64)
+  ) {
+    throw new Error("The first Beta release requires all three targets")
+  }
 
   const rl = createInterface({ input, output })
 
@@ -920,6 +989,7 @@ async function main() {
     const existingDraft = await ensureVersionIsAvailable(version)
     const existingPlan = await loadDraftReleasePlan(existingDraft)
     const execution = resolveReleaseExecution({
+      channel: flags.channel,
       currentSourceSha: targetSha,
       plan: existingPlan,
       repository: sourceRepository(),
@@ -972,7 +1042,7 @@ async function main() {
       } else if (flags.skipLocalReleaseGates) {
         printStep(
           "Local Release Gates",
-          `Skipped local Buddy Dev and production release builds via ${FAST_SKIP_FLAG}.`,
+          `Skipped local Buddy Dev and ${flags.channel === "beta" ? "Beta" : "production"} release builds via ${FAST_SKIP_FLAG}.`,
         )
       } else {
         runLocalReleaseGates(version, releaseTargetSha, releaseTargets)
@@ -1004,16 +1074,24 @@ async function main() {
 
       const published = await loadRelease(tag)
       if (published && !published.isDraft) {
-        console.log(`Preview release candidate published: ${published.url}`)
+        console.log(
+          `${flags.channel === "beta" ? "Beta release" : "Preview release candidate"} published: ${published.url}`,
+        )
       } else {
         console.log(`Release draft: ${release.url}`)
       }
 
       console.log("\nNext steps:")
-      console.log(`- Use a Preview-channel Buddy installation to check for ${tag}`)
-      console.log("- Verify the updater downloads, installs, and restarts into the new version")
-      console.log(`- Promote after soak with: bun run release:promote ${tag}`)
-      console.log(`- If needed, use bun run download:preview ${tag}`)
+      if (flags.channel === "beta") {
+        console.log(`- Install side by side with: bun run download:beta ${tag}`)
+        console.log("- Verify Beta updates to Beta on macOS and Windows")
+        console.log("- Roll forward by cutting a higher Beta version if a fix is needed")
+      } else {
+        console.log(`- Use a Preview-channel Buddy installation to check for ${tag}`)
+        console.log("- Verify the updater downloads, installs, and restarts into the new version")
+        console.log(`- Promote after soak with: bun run release:promote ${tag}`)
+        console.log(`- If needed, use bun run download:preview ${tag}`)
+      }
     } finally {
       if (editedDraft.tempDir) {
         rmSync(editedDraft.tempDir, { recursive: true, force: true })

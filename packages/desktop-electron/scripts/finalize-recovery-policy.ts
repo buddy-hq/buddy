@@ -7,7 +7,11 @@ import { z } from "zod"
 import { resolveTauriSignerBinaryPath } from "./utils"
 import { uploadReleaseAssetSafely } from "../../../script/release/assets"
 
-const RELEASE_REPOSITORY_ENV_KEY = "GH_REPO"
+import { releaseRepository } from "../../../script/release-repositories"
+import { assertReleaseDestination } from "../../../script/release/distribution-guard"
+import { requireUpdaterPublicKey } from "@buddy/script/distribution"
+import { verifyReleaseSignature } from "./verify-release-signature"
+
 const VERSION_ENV_KEY = "BUDDY_VERSION"
 const RECOVERY_POLICY_FILE_ENV_KEY = "BUDDY_RECOVERY_POLICY_FILE"
 const RECOVERY_POLICY_JSON_ENV_KEY = "BUDDY_RECOVERY_POLICY_JSON"
@@ -24,17 +28,22 @@ const RecoveryPolicySchema = z.object({
 
 type RecoveryPolicy = z.infer<typeof RecoveryPolicySchema>
 
-const repo = process.env[RELEASE_REPOSITORY_ENV_KEY]?.trim() || ""
+const repo = releaseRepository()
+const distribution = assertReleaseDestination(repo)
+requireUpdaterPublicKey(distribution)
 const version = process.env[VERSION_ENV_KEY]?.trim() || ""
 if (!version) {
   throw new Error(`${VERSION_ENV_KEY} is required`)
 }
 
+if (!/^\d+\.\d+\.\d+$/u.test(version)) throw new Error("BUDDY_VERSION must be numeric semver")
 const tag = `v${version}`
 const outputDirectory =
   process.env[UPDATE_OUTPUT_DIR_ENV_KEY]?.trim() ||
   process.env.RUNNER_TEMP ||
-  DEFAULT_OUTPUT_DIRECTORY
+  (distribution.id === "beta"
+    ? path.join(DEFAULT_OUTPUT_DIRECTORY, "buddy-beta-release")
+    : DEFAULT_OUTPUT_DIRECTORY)
 const outputPath = path.join(outputDirectory, RECOVERY_POLICY_FILENAME)
 const skipUpload = process.env[UPDATE_SKIP_UPLOAD_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 
@@ -115,12 +124,9 @@ ensureTauriSigningKeyPresent()
 const tauriSigner = await requireTauriSignerBinaryPath()
 
 await $`${tauriSigner} signer sign ${outputPath}`.env(resolveSignerEnvironment())
+await verifyReleaseSignature(outputPath)
 
 if (!skipUpload) {
-  if (!repo) {
-    throw new Error(`${RELEASE_REPOSITORY_ENV_KEY} is required when uploading signed manifests`)
-  }
-
   await uploadReleaseAssetSafely({ filePath: outputPath, repository: repo, tag })
   await uploadReleaseAssetSafely({ filePath: `${outputPath}.sig`, repository: repo, tag })
 }

@@ -87,7 +87,11 @@ import {
   type CommandChild,
   type TerminatedPayload,
 } from "./server"
-import { resolveOpenCodeSqlitePath } from "./storage-paths"
+import {
+  prepareDesktopStorageDirectories,
+  resolveDesktopStoragePlan,
+  resolveOpenCodeSqlitePath,
+} from "./storage-paths"
 import {
   BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
   fetchSignedElectronUpdateManifest,
@@ -147,6 +151,22 @@ if (process.platform === "win32") {
   app.setAppUserModelId(resolveAppId(app.isPackaged))
 }
 app.setPath("userData", join(app.getPath("appData"), resolveAppId(app.isPackaged)))
+
+// Beta's session, logs and temp roots must be pinned before their first use.
+const desktopStoragePlan = resolveDesktopStoragePlan({
+  channel: CHANNEL,
+  isPackaged: app.isPackaged,
+  home: homedir(),
+  documentsPath: app.getPath("documents"),
+  userDataPath: app.getPath("userData"),
+})
+if (desktopStoragePlan.electronPaths) {
+  const preparation = prepareDesktopStorageDirectories(desktopStoragePlan)
+  if (preparation.type === "err") throw preparation.error
+  for (const [name, directory] of Object.entries(desktopStoragePlan.electronPaths)) {
+    app.setPath(name, directory)
+  }
+}
 
 const logger = initLogging()
 const initEmitter = new EventEmitter()
@@ -897,7 +917,7 @@ function ensureLoopbackNoProxy() {
 }
 
 async function getBackendPort() {
-  const fromEnv = process.env.BUDDY_PORT
+  const fromEnv = desktopStoragePlan.kind === "beta" ? undefined : process.env.BUDDY_PORT
   if (fromEnv) {
     const parsed = Number.parseInt(fromEnv, 10)
     if (!Number.isNaN(parsed)) return parsed

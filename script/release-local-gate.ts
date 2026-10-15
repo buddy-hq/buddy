@@ -11,12 +11,21 @@ import {
   resolveNativeReleaseSmokeTarget,
 } from "../packages/desktop-electron/scripts/release-smoke-target"
 import { releaseRepository } from "./release-repositories"
+import { releaseDistribution } from "./release/distribution-guard"
+import { requireUpdaterPublicKey } from "@buddy/script/distribution"
+
+const channelIndex = Bun.argv.indexOf("--channel")
+const channel = channelIndex < 0 ? "prod" : Bun.argv[channelIndex + 1]
+if (channel !== "prod" && channel !== "beta") throw new Error("--channel must be prod or beta")
+const distribution = releaseDistribution({ ...process.env, BUDDY_CHANNEL: channel })
+requireUpdaterPublicKey(distribution)
+process.env.BUDDY_CHANNEL = distribution.id
+releaseRepository()
 
 const VERSION_FLAG = "--version"
 const COMMIT_FLAG = "--commit"
 const SELECTED_TARGETS_FLAG = "--selected-targets"
 const DEVELOPMENT_CHANNEL = "dev"
-const PRODUCTION_CHANNEL = "prod"
 const LOCAL_KEY_DIRECTORY_SEGMENTS = [".config", "buddy"] as const
 const LOCAL_KEY_FILENAME = "tauri-updater.key"
 const LOCAL_KEY_PASSWORD_FILENAME = "tauri-updater.key.password"
@@ -68,6 +77,11 @@ function updaterSigningEnvironment(): NodeJS.ProcessEnv {
     return environment
   }
 
+  if (distribution.id === "beta") {
+    throw new Error(
+      "Beta local gates require an explicit Beta updater signing key; prod local keys are never used",
+    )
+  }
   const keyDirectory = path.join(os.homedir(), ...LOCAL_KEY_DIRECTORY_SEGMENTS)
   const keyPath = path.join(keyDirectory, LOCAL_KEY_FILENAME)
   if (!existsSync(keyPath)) {
@@ -97,6 +111,8 @@ function runBuddyDevSpotCheck(
     ...process.env,
     ...releaseTargetEnvironment(target),
     BUDDY_CHANNEL: DEVELOPMENT_CHANNEL,
+    BUDDY_RELEASE_REPO: undefined,
+    GH_REPO: undefined,
     BUDDY_VERSION: version,
   }
 
@@ -125,7 +141,9 @@ function runProductionTargetSmoke(input: {
   const target = RELEASE_SMOKE_TARGETS[input.targetName]
   let worktreeAdded = false
 
-  console.log(`\n== Production release smoke (${input.targetName}) ==`)
+  console.log(
+    `\n== ${distribution.id === "beta" ? "Beta" : "Production"} release smoke (${input.targetName}) ==`,
+  )
   try {
     run("git", ["worktree", "add", "--detach", worktreeDirectory, input.commit])
     worktreeAdded = true
@@ -137,7 +155,7 @@ function runProductionTargetSmoke(input: {
     const releaseEnvironment = {
       ...input.signingEnvironment,
       ...releaseTargetEnvironment(input.targetName),
-      BUDDY_CHANNEL: PRODUCTION_CHANNEL,
+      BUDDY_CHANNEL: distribution.id,
       BUDDY_VERSION: input.version,
     }
     run(

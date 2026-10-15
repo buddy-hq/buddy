@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import { z } from "zod"
+import { createHash } from "node:crypto"
 import { mkdir, mkdtemp, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
@@ -18,7 +20,13 @@ import {
   releaseCheckpointIsReusable,
   type ReleaseCheckpoint,
 } from "./checkpoint"
-import { assertReleaseFreezeIdentity, releaseFreezeIdentity, type ReleaseFreeze } from "./freeze"
+import {
+  assertReleaseFreezeIdentity,
+  releaseFreezeIdentity,
+  parseReleaseFreeze,
+  renderReleaseFreeze,
+  type ReleaseFreeze,
+} from "./freeze"
 import { appendGithubOutputs } from "./github-output"
 import {
   assertMatchingReleasePlanIdentity,
@@ -26,6 +34,7 @@ import {
   parseReleasePlan,
   releasePlanDigest,
   releasePlanIdentity,
+  renderReleasePlan,
 } from "./plan"
 import {
   assertReleaseSourceIsOnMain,
@@ -34,6 +43,11 @@ import {
 } from "./preflight"
 import { selectNewestPublishedReleaseWithAssets } from "./published-manifest"
 import { advancedMathPlanCanBeReused } from "./reuse-advanced-math"
+
+import { assertReleaseRecordChannel, releaseChannelIdentity } from "./distribution-guard"
+import { requiredAssetsForRelease } from "../verify-release-assets"
+
+const fixture = (filename: string) => Bun.file(new URL(`./fixtures/${filename}`, import.meta.url))
 
 const SOURCE_SHA = "1".repeat(40)
 const PLAN_DIGEST = "2".repeat(64)
@@ -469,5 +483,83 @@ describe("release protocol", () => {
     })
 
     expect(release?.tag).toBe("v1.2.3")
+  })
+})
+
+describe("release stream protocol identity", () => {
+  test("preserves exact committed prod plan bytes and digest", async () => {
+    const bytes = await fixture("prod-plan.json").text()
+    const plan = parseReleasePlan(JSON.parse(bytes))
+    expect(renderReleasePlan(plan)).toBe(bytes)
+    expect(releasePlanDigest(plan)).toBe((await fixture("prod-plan.sha256").text()).trim())
+    const beta = parseReleasePlan({ ...plan, channel: "beta" })
+    expect(releasePlanDigest(beta)).not.toBe(releasePlanDigest(plan))
+    expect(releasePlanIdentity(beta).channel).toBe("beta")
+    expect(() => assertReleaseRecordChannel(beta, "prod")).toThrow("conflicts with prod")
+    expect(() => assertReleaseRecordChannel(plan, "beta")).toThrow("conflicts with beta")
+    expect(releaseChannelIdentity({})).toEqual({})
+    expect(releaseChannelIdentity({ BUDDY_CHANNEL: "beta" })).toEqual({ channel: "beta" })
+  })
+
+  test("preserves exact prod freeze bytes and binds Beta freezes", async () => {
+    const bytes = await fixture("prod-freeze.json").text()
+    const freeze = parseReleaseFreeze(JSON.parse(bytes))
+    expect(renderReleaseFreeze(freeze)).toBe(bytes)
+    expect(createHash("sha256").update(renderReleaseFreeze(freeze)).digest("hex")).toBe(
+      (await fixture("prod-freeze.sha256").text()).trim(),
+    )
+    const beta = parseReleaseFreeze({ ...freeze, channel: "beta" })
+    expect(() => assertReleaseFreezeIdentity(beta, freeze)).toThrow("identity does not match")
+    expect(() => assertReleaseFreezeIdentity(beta, beta)).not.toThrow()
+  })
+
+  test("preserves the exact prod draft and published inventory", async () => {
+    const inventories = z
+      .array(
+        z.object({
+          draft: z.boolean(),
+          targets: z.object({
+            macosArm64: z.boolean(),
+            macosX64: z.boolean(),
+            windowsX64: z.boolean(),
+          }),
+          inventory: z.array(z.object({ label: z.string(), matcher: z.string() })),
+        }),
+      )
+      .parse(await fixture("prod-inventory.json").json())
+    for (const expected of inventories) {
+      const actual = requiredAssetsForRelease({
+        draft: expected.draft,
+        targets: expected.targets,
+        repo: "prashantbhudwal/buddy-releases",
+        tag: "v1.2.3",
+      })
+      expect(
+        actual.map((asset) => ({ label: asset.label, matcher: asset.matcher.toString() })),
+      ).toEqual(expected.inventory)
+    }
+  })
+
+  test("never reuses advanced math across streams", async () => {
+    const plan = parseReleasePlan(await fixture("prod-plan.json").json())
+    const input = {
+      currentInputSha256: plan.advancedMathInputSha256,
+      currentPythonVersion: plan.toolchain.python,
+      currentRuntimeVersion: plan.advancedMathVersion,
+    }
+    expect(advancedMathPlanCanBeReused({ ...input, previousPlan: plan })).toBe(true)
+    expect(advancedMathPlanCanBeReused({ ...input, previousPlan: plan, channel: "beta" })).toBe(
+      false,
+    )
+    expect(
+      advancedMathPlanCanBeReused({
+        ...input,
+        previousPlan: { ...plan, channel: "beta" },
+        channel: "beta",
+      }),
+    ).toBe(true)
+    expect(
+      advancedMathPlanCanBeReused({ ...input, previousPlan: { ...plan, channel: "beta" } }),
+    ).toBe(false)
   })
 })

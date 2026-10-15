@@ -1,6 +1,11 @@
 import { $, semver } from "bun"
 import path from "node:path"
 import { latestReleaseVersionFromReleases, type GithubReleaseVersion } from "./release-version"
+import {
+  BUDDY_DISTRIBUTIONS,
+  formatReleaseRepositorySlug,
+  isBuddyDistributionId,
+} from "./distribution"
 
 const rootPkgPath = path.resolve(import.meta.dir, "../../../package.json")
 const rootPkg: {
@@ -33,7 +38,21 @@ function cleanRepository(value: string | undefined) {
 }
 
 function releaseRepo() {
-  return cleanRepository(process.env.BUDDY_RELEASE_REPO) || "prashantbhudwal/buddy-releases"
+  const channel = process.env.BUDDY_CHANNEL?.trim() || "prod"
+  // Dev builds still derive numeric versions from prod, but cannot override its destination.
+  if (channel !== "dev" && !isBuddyDistributionId(channel)) {
+    throw new Error(`Release channel must be prod or beta, received ${channel}`)
+  }
+  const repo = formatReleaseRepositorySlug(
+    BUDDY_DISTRIBUTIONS[channel === "beta" ? "beta" : "prod"],
+  )
+  for (const override of [process.env.BUDDY_RELEASE_REPO, process.env.GH_REPO]) {
+    const candidate = cleanRepository(override)
+    if (candidate && candidate !== repo) {
+      throw new Error(`Release repository ${candidate} conflicts with ${channel}; expected ${repo}`)
+    }
+  }
+  return repo
 }
 
 function normalizeVersion(input: string) {
@@ -54,11 +73,18 @@ function githubTagVersion() {
     return undefined
   }
 
+  if (process.env.BUDDY_CHANNEL?.trim() === "beta") {
+    const prefix = BUDDY_DISTRIBUTIONS.beta.sourceTagPrefix
+    if (!refName.startsWith(prefix)) {
+      throw new Error(`Invalid Beta source tag: ${refName}`)
+    }
+    return normalizeVersion(refName.slice(prefix.length))
+  }
   return normalizeVersion(refName)
 }
 
 async function getLatestReleaseVersion() {
-  const repo = releaseRepo()
+  const repo = RELEASE_REPO
   const releases: GithubReleaseVersion[] =
     await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()
   return latestReleaseVersionFromReleases(releases)
@@ -83,6 +109,8 @@ function bumpVersion(version: string, bump: string | undefined) {
 
 const CHANNEL = "latest"
 const IS_PREVIEW = false
+
+const RELEASE_REPO = releaseRepo()
 
 const VERSION = await (async () => {
   if (env.BUDDY_VERSION) {

@@ -1,5 +1,6 @@
 import path from "node:path"
-import { BUDDY_HOME_DIRECTORY_NAME, Global } from "../../../storage"
+import { Global } from "../../../storage/global"
+import { resolveBuddyManagedHomeDirectory } from "../../../storage/constants"
 import { learnerMemoryLabRootOverride } from "./lab-context"
 import { LEARNER_MEMORY_FILE_TUNING } from "./tuning"
 
@@ -9,8 +10,7 @@ function learnerMemoryRoot(_directory: string): string {
     return labRootOverride
   }
   return path.join(
-    Global.Path.home,
-    BUDDY_HOME_DIRECTORY_NAME,
+    resolveBuddyManagedHomeDirectory(Global.Path.home),
     LEARNER_MEMORY_FILE_TUNING.rootDirectoryName,
   )
 }

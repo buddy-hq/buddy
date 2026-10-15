@@ -3,8 +3,9 @@ import path from "node:path"
 import { Config } from "../config"
 import { resolveDefaultNotesLibraryDirectory } from "../notes/paths"
 import { Global } from "../storage/global"
+import { resolveDefaultNotebookHomeDirectory } from "../storage/constants"
 import { resolveDirectory } from "./directory"
-import { BUDDY_HOME_DEFAULT_PATH_SEGMENTS, INBOX_NOTEBOOK_NAME } from "./notebook-constants"
+import { INBOX_NOTEBOOK_NAME } from "./notebook-constants"
 import { parseProjectNodeErrnoCode, parseProjectString, PROJECT_NODE_ERRNO } from "./parse-values"
 
 export type BuddyHomeState = {
@@ -76,7 +77,7 @@ export function mapBuddyHomeError<TValue>(error: TValue): Response | undefined {
 }
 
 export function resolveBuddyHomeDefaultPath() {
-  return path.join(Global.Path.home, ...BUDDY_HOME_DEFAULT_PATH_SEGMENTS)
+  return resolveDefaultNotebookHomeDirectory(Global.Path.home)
 }
 
 export function readBuddyHomeDefaultAccessState(): BuddyHomeAccessState {

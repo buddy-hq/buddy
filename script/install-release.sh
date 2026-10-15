@@ -1,20 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${BUDDY_RELEASE_REPO:-prashantbhudwal/buddy-releases}"
-APP_NAME="${BUDDY_APP_NAME:-Buddy}"
-INSTALL_DIR="${BUDDY_INSTALL_DIR:-/Applications}"
-RELEASE_KIND="${BUDDY_INSTALL_RELEASE_KIND:-stable}"
-ARCH="$(uname -m)"
-
 usage() {
   cat <<'EOF'
 Usage:
-  ./script/install-release.sh [tag]
+  ./script/install-release.sh [--channel prod|beta] [tag]
 
 Examples:
   ./script/install-release.sh
   ./script/install-release.sh v0.0.5
+  ./script/install-release.sh --channel beta v0.1.0
   BUDDY_INSTALL_RELEASE_KIND=preview ./script/install-release.sh
 
 Environment overrides:
@@ -25,10 +20,53 @@ Environment overrides:
 EOF
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  usage
-  exit 0
+CHANNEL="prod"
+TAG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --channel)
+      CHANNEL="${2:-}"
+      if [[ $# -lt 2 ]]; then echo "--channel requires prod or beta" >&2; exit 1; fi
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --*) echo "Unknown argument: $1" >&2; exit 1 ;;
+    *)
+      if [[ -n "$TAG" ]]; then echo "Only one release tag is allowed" >&2; exit 1; fi
+      TAG="$1"
+      shift
+      ;;
+  esac
+done
+case "$CHANNEL" in
+  prod)
+    EXPECTED_REPO="prashantbhudwal/buddy-releases"
+    EXPECTED_APP_NAME="Buddy"
+    EXPECTED_APP_ID="ai.buddy.desktop"
+    ;;
+  beta)
+    EXPECTED_REPO="prashantbhudwal/buddy-beta-releases"
+    EXPECTED_APP_NAME="Buddy Beta"
+    EXPECTED_APP_ID="ai.buddy.desktop.beta"
+    ;;
+  *) echo "--channel must be prod or beta" >&2; exit 1 ;;
+esac
+REPO="${BUDDY_RELEASE_REPO:-$EXPECTED_REPO}"
+APP_NAME="${BUDDY_APP_NAME:-$EXPECTED_APP_NAME}"
+if [[ "$CHANNEL" == "beta" && ( "$REPO" != "$EXPECTED_REPO" || "$APP_NAME" != "$EXPECTED_APP_NAME" ) ]]; then
+  echo "Release repository and app name must match $CHANNEL ($EXPECTED_REPO, $EXPECTED_APP_NAME)." >&2
+  exit 1
 fi
+if [[ "$CHANNEL" == "beta" && -n "${GH_REPO:-}" && "$GH_REPO" != "$EXPECTED_REPO" ]]; then
+  echo "GH_REPO conflicts with $CHANNEL ($EXPECTED_REPO)." >&2
+  exit 1
+fi
+INSTALL_DIR="${BUDDY_INSTALL_DIR:-/Applications}"
+RELEASE_KIND="${BUDDY_INSTALL_RELEASE_KIND:-stable}"
+ARCH="$(uname -m)"
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "gh CLI is required." >&2
@@ -37,6 +75,11 @@ fi
 
 if ! command -v hdiutil >/dev/null 2>&1; then
   echo "This installer only supports macOS." >&2
+  exit 1
+fi
+
+if [[ "$CHANNEL" == "beta" && "$RELEASE_KIND" != "stable" ]]; then
+  echo "Beta installs published non-prerelease releases; Preview is only available for prod." >&2
   exit 1
 fi
 
@@ -66,7 +109,6 @@ case "$ARCH" in
     ;;
 esac
 
-TAG="${1:-}"
 if [[ -z "$TAG" ]]; then
   RELEASE_LABEL="stable"
   if [[ "$RELEASE_KIND" == "preview" ]]; then
@@ -195,6 +237,12 @@ esac
 
 if [[ ! -d "$SOURCE_APP_PATH" ]]; then
   echo "Downloaded installer does not contain $APP_NAME.app." >&2
+  exit 1
+fi
+
+DOWNLOADED_APP_ID="$(plutil -extract CFBundleIdentifier raw -o - "$SOURCE_APP_PATH/Contents/Info.plist")"
+if [[ "$DOWNLOADED_APP_ID" != "$EXPECTED_APP_ID" ]]; then
+  echo "Downloaded bundle id $DOWNLOADED_APP_ID does not match $EXPECTED_APP_ID; refusing replacement." >&2
   exit 1
 fi
 

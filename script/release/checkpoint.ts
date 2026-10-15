@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { assertReleaseDestination } from "./distribution-guard"
 import path from "node:path"
 import { z } from "zod"
 import { resolveAdvancedMathRuntimeVersion } from "../../packages/buddy/script/advanced-math-version"
@@ -222,6 +223,7 @@ export async function inspectReleaseCheckpoint(input: {
   target: ReleaseCheckpointTarget
 }): Promise<boolean> {
   const repository = requiredEnvironmentValue(input.environment, "BUDDY_RELEASE_REPO")
+  assertReleaseDestination(repository, input.environment)
   const tag = requiredEnvironmentValue(input.environment, "BUDDY_RELEASE_TAG")
   const assets = await readGithubReleaseAssets(repository, tag)
   const checkpointName = releaseCheckpointFilename(input.target)
@@ -267,6 +269,7 @@ export async function recordReleaseCheckpoint(input: {
   target: ReleaseCheckpointTarget
 }): Promise<void> {
   const repository = requiredEnvironmentValue(input.environment, "BUDDY_RELEASE_REPO")
+  assertReleaseDestination(repository, input.environment)
   const tag = requiredEnvironmentValue(input.environment, "BUDDY_RELEASE_TAG")
   const assetDirectory = requiredEnvironmentValue(input.environment, "BUDDY_RELEASE_ASSET_DIR")
   const identity = checkpointIdentity(input)

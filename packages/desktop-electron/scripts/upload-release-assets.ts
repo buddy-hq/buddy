@@ -1,8 +1,11 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { assertLegacyProdRelease } from "../../../script/release/distribution-guard"
 import path from "node:path"
 import { readdir } from "node:fs/promises"
+
+assertLegacyProdRelease()
 
 const RELEASE_REPOSITORY_ENV_KEY = "BUDDY_RELEASE_REPO"
 const RELEASE_TAG_ENV_KEY = "BUDDY_RELEASE_TAG"

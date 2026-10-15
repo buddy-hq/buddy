@@ -1,0 +1,30 @@
+{
+  "advancedMathInputSha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "advancedMathVersion": "runtime-42",
+  "releaseDate": "2026-08-29T10:00:00+00:00",
+  "schemaVersion": 1,
+  "sourceRepository": "buddy-hq/buddy",
+  "sourceSha": "1111111111111111111111111111111111111111",
+  "tag": "v1.2.3",
+  "targets": {
+    "macosArm64": true,
+    "macosX64": true,
+    "windowsX64": true
+  },
+  "toolchain": {
+    "bun": "1.3.13",
+    "python": "3.12",
+    "runners": {
+      "macosArm64": "macos-26",
+      "macosX64": "macos-26-intel",
+      "windowsX64": "windows-2025-vs2026"
+    }
+  },
+  "version": "1.2.3",
+  "createdBy": {
+    "repository": "buddy-hq/buddy",
+    "runAttempt": "1",
+    "runId": "123",
+    "workflow": "publish"
+  }
+}

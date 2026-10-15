@@ -1,7 +1,8 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { ulid } from "ulid"
-import { BUDDY_HOME_DIRECTORY_NAME, Global } from "../../../storage"
+import { Global } from "../../../storage/global"
+import { resolveBuddyManagedHomeDirectory } from "../../../storage/constants"
 import {
   runWithLearnerMemoryLabContext,
   type LearnerMemoryLabSettingsOverride,
@@ -178,8 +179,7 @@ const learnerMemoryLabRunTasks = new Map<string, Promise<void>>()
 
 function makeLabMemoryRoot(runID: string): string {
   return path.join(
-    Global.Path.home,
-    BUDDY_HOME_DIRECTORY_NAME,
+    resolveBuddyManagedHomeDirectory(Global.Path.home),
     LAB_MEMORY_DIRECTORY_NAME,
     `${LAB_RUN_DIRECTORY_PREFIX}${runID}`,
   )
