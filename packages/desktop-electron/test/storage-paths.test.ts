@@ -7,8 +7,6 @@ import {
   DESKTOP_XDG_ENV,
   prepareDesktopStorageDirectories,
   resolveDesktopStoragePlan,
-  resolveAllowedDirectoryRoots,
-  resolveBuddyDataDir,
   resolveDevRuntimeEnvironment,
   resolveOpenCodeSqlitePath,
   shouldUseDevRuntimeIsolation,
@@ -57,13 +55,6 @@ describe("desktop storage paths", () => {
     })
   })
 
-  test("authorizes notebook home without authorizing runtime storage", () => {
-    const home = path.join("/Users", "buddy")
-    const expectedNotebookHome = path.join(home, "Documents", "Buddy")
-
-    expect(resolveAllowedDirectoryRoots({ home })).toBe(expectedNotebookHome)
-  })
-
   test("resolves OpenCode sqlite paths inside Buddy-owned XDG data roots", () => {
     const home = path.join("/Users", "buddy")
     const userData = path.join("/tmp", "Buddy Dev")
@@ -103,13 +94,14 @@ describe("desktop storage paths", () => {
     const buddyDataDir = path.join("/Volumes", "Buddy", "data")
 
     expect(
-      resolveBuddyDataDir({
+      resolveDesktopStoragePlan({
         channel: "prod",
         envXdgDataHome: xdgDataHome,
         home,
         isPackaged: true,
         userDataPath: userData,
-      }),
+        readDocumentsPath: () => path.join(home, "Documents"),
+      }).buddyDataDir,
     ).toBe(path.join(xdgDataHome, "buddy"))
 
     expect(
@@ -140,17 +132,21 @@ describe("desktop storage plan", () => {
   for (const channel of ["dev", "beta", "prod"] as const) {
     for (const isPackaged of [false, true]) {
       test(`${channel}, packaged=${isPackaged}: preserves legacy behavior outside packaged Beta`, () => {
+        const beta = channel === "beta" && isPackaged
+        const production = channel === "prod" && isPackaged
         const input = {
           channel,
           isPackaged,
           home: "/sandbox/home",
           userDataPath: "/sandbox/user-data",
-          documentsPath: "/sandbox/redirected-documents",
+          // Electron's Documents lookup can throw (e.g. a redirected folder on a missing drive).
+          readDocumentsPath: () => {
+            if (!beta) throw new Error("Only packaged Beta may read the Documents path")
+            return "/sandbox/redirected-documents"
+          },
           pathApi: path.posix,
         }
         const plan = resolveDesktopStoragePlan(input)
-        const beta = channel === "beta" && isPackaged
-        const production = channel === "prod" && isPackaged
         expect(plan.kind).toBe(beta ? "beta" : production ? "production" : "development")
         expect(plan.notebookHome).toBe(
           beta ? "/sandbox/redirected-documents/Buddy Beta" : "/sandbox/home/Documents/Buddy",
@@ -194,7 +190,7 @@ describe("desktop storage plan", () => {
       channel: "beta",
       isPackaged: true,
       home: "/sandbox/home",
-      documentsPath: documents,
+      readDocumentsPath: () => documents,
       userDataPath: userData,
       pathApi,
       envBuddyDataDir: "/sandbox/stable/data",
@@ -223,6 +219,7 @@ describe("desktop storage plan", () => {
       OPENCODE_CONFIG_DIR: at("xdg/config/buddy"),
       OPENCODE_DB: "opencode.db",
       BUDDY_CHANNEL: "beta",
+      BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-beta-releases",
     })
     expect(plan.electronPaths).toEqual({
       sessionData: u,
@@ -233,7 +230,7 @@ describe("desktop storage plan", () => {
     expect(plan.storeCwd).toBe(u)
     expect(plan.openCodeSqlitePath).toBe(at("xdg/data/buddy/opencode/opencode.db"))
     expect(
-      resolveBuddyDataDir({
+      resolveDesktopStoragePlan({
         channel: "beta",
         isPackaged: true,
         home: "/sandbox/home",
@@ -241,7 +238,8 @@ describe("desktop storage plan", () => {
         pathApi,
         envBuddyDataDir: "/sandbox/stable/data",
         envXdgDataHome: "/sandbox/stable/xdg",
-      }),
+        readDocumentsPath: () => "/sandbox/documents",
+      }).buddyDataDir,
     ).toBe(at("xdg/data/buddy"))
     for (const directory of [
       u,
@@ -267,7 +265,7 @@ describe("desktop storage plan", () => {
         channel: "beta",
         isPackaged: true,
         home: path.join(root, "home"),
-        documentsPath: path.join(root, "documents"),
+        readDocumentsPath: () => path.join(root, "documents"),
         userDataPath: blocked,
       })
       const result = prepareDesktopStorageDirectories(plan)

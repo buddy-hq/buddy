@@ -18,6 +18,8 @@ export type BuddyDistribution = {
   packageName: string | undefined
   releaseOwner: string
   releaseRepository: string
+  /** Source branch required for release cuts and workflow dispatches. */
+  releaseBranch: string
   /** Prefix for source-repository provenance tags; release-repo tags stay `vX.Y.Z`. */
   sourceTagPrefix: string
   /**
@@ -39,6 +41,7 @@ export const BUDDY_DISTRIBUTIONS = {
     packageName: undefined,
     releaseOwner: RELEASE_OWNER,
     releaseRepository: "buddy-releases",
+    releaseBranch: "main",
     sourceTagPrefix: "v",
     updaterPublicKey: "RWTcBSYzKsK7Gf1M2w9kTDB2fvSRlsZejPWt+AaMGvGiNk3mxAW+Wh3f",
   },
@@ -50,6 +53,7 @@ export const BUDDY_DISTRIBUTIONS = {
     packageName: "buddy-desktop-beta",
     releaseOwner: RELEASE_OWNER,
     releaseRepository: "buddy-beta-releases",
+    releaseBranch: "beta",
     sourceTagPrefix: "beta-v",
     updaterPublicKey: null,
   },

@@ -1,11 +1,13 @@
 import type { BuddyDistribution } from "@buddy/script/distribution"
 import { createServer, type Server } from "node:http"
+import { parseUpdateInfo, resolveFiles } from "electron-updater/out/providers/Provider.js"
 import { parseTPortedAddress } from "../shared/parse-external"
 import {
   UPDATE_DISTRIBUTION,
   fetchSignedElectronUpdateManifest,
   resolveLatestRingAssetUrl,
   resolveReleaseAssetUrl,
+  resolveReleaseTagDownloadBaseUrl,
   resolveVersionedReleaseAssetUrls,
   resolveUpdatePublicKeyOverride,
   resolveUpdateVerificationPublicKey,
@@ -148,15 +150,35 @@ export async function startWindowsUpdateFeed(input: {
   }
 }
 
+/** Absolutize manifest assets and require every Beta download to stay within its release. */
 export function absolutizeElectronUpdateManifestUrls(
   content: string,
   version: string,
   distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
 ): string {
-  return content
+  const manifestContent = content
     .split(/\r?\n/u)
     .map((line) => absolutizeElectronUpdateManifestUrlLine(line, version, distribution))
     .join("\n")
+  if (distribution.id === "beta") {
+    const releaseBaseUrl = resolveReleaseTagDownloadBaseUrl(`v${version}`, distribution)
+    // The generic provider resolves against loopback; unrewritten relative URLs must fail closed.
+    const feedBaseUrl = new URL(`http://${WINDOWS_UPDATE_FEED_HOSTNAME}/`)
+    const updateInfo = parseUpdateInfo(
+      manifestContent,
+      WINDOWS_UPDATE_MANIFEST_FILENAME,
+      new URL(WINDOWS_UPDATE_MANIFEST_PATHNAME, feedBaseUrl),
+    )
+    for (const file of resolveFiles(updateInfo, feedBaseUrl)) {
+      if (
+        !file.url.href.startsWith(releaseBaseUrl) ||
+        (file.packageInfo && !file.packageInfo.path.startsWith(releaseBaseUrl))
+      ) {
+        throw new Error("Beta update assets must belong to the Beta release repository and tag")
+      }
+    }
+  }
+  return manifestContent
 }
 
 function absolutizeElectronUpdateManifestUrlLine(

@@ -31,7 +31,7 @@ import {
   renderReleasePlan,
 } from "./plan"
 import {
-  assertReleaseSourceIsOnMain,
+  assertReleaseSourceIsOnBranch,
   assertRequiredReleaseChecks,
   normalizeReleaseSourceSha,
 } from "./preflight"
@@ -163,7 +163,7 @@ describe("release protocol", () => {
     }
   })
 
-  test("fails closed unless both protected-main checks succeeded", () => {
+  test("fails closed unless both required release checks succeeded", () => {
     expect(() =>
       assertRequiredReleaseChecks([
         { conclusion: "success", name: "Check", status: "completed" },
@@ -189,10 +189,10 @@ describe("release protocol", () => {
   })
 
   test("keeps a green source retryable after main advances", () => {
-    expect(() => assertReleaseSourceIsOnMain("identical")).not.toThrow()
-    expect(() => assertReleaseSourceIsOnMain("ahead")).not.toThrow()
-    expect(() => assertReleaseSourceIsOnMain("behind")).toThrow("not an ancestor")
-    expect(() => assertReleaseSourceIsOnMain("diverged")).toThrow("not an ancestor")
+    expect(() => assertReleaseSourceIsOnBranch("identical", "main")).not.toThrow()
+    expect(() => assertReleaseSourceIsOnBranch("ahead", "main")).not.toThrow()
+    expect(() => assertReleaseSourceIsOnBranch("behind", "main")).toThrow("not an ancestor of main: behind")
+    expect(() => assertReleaseSourceIsOnBranch("diverged", "main")).toThrow("not an ancestor of main: diverged")
   })
 
   test("rejects a retry that changes immutable release identity", () => {

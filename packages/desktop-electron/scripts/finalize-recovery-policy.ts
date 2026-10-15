@@ -4,7 +4,7 @@ import { $ } from "bun"
 import { access, mkdir } from "node:fs/promises"
 import path from "node:path"
 import { z } from "zod"
-import { resolveTauriSignerBinaryPath } from "./utils"
+import { resolveSignerEnvironment, resolveTauriSignerBinaryPath } from "./utils"
 import { uploadReleaseAssetSafely } from "../../../script/release/assets"
 
 import { releaseRepository } from "../../../script/release-repositories"
@@ -93,24 +93,6 @@ function ensureTauriSigningKeyPresent() {
   throw new Error(
     "TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH is required for signed recovery policy manifests",
   )
-}
-
-function resolveSignerEnvironment() {
-  const environment = { ...process.env }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PATH?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY_PATH
-  }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY
-  }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-  }
-
-  return environment
 }
 
 const policy = await loadRecoveryPolicy()

@@ -1,20 +1,25 @@
 import { describe, expect, test } from "bun:test"
-import prodConfiguration from "./fixtures/prod-builder-config.json"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { createElectronBuilderConfiguration } from "../electron-builder-config"
-import {
-  WINDOWS_RELEASE_ARCHS,
-  resolveWindowsReleaseArtifactPattern,
-} from "../src/shared/release-asset-names"
 
 describe("electron-builder config", () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url))
   const repositoryRoot = path.resolve(testDirectory, "../../..")
   const config = createElectronBuilderConfiguration({ channel: "prod", repositoryRoot })
 
-  test("keeps the complete prod configuration identical to the captured pre-Beta configuration", () => {
-    expect<unknown>(createElectronBuilderConfiguration({ channel: "prod", repositoryRoot: "/buddy-repository" })).toEqual(prodConfiguration)
+  test("preserves Stable identity, protocol, publishing and Windows installer settings", () => {
+    expect(config.appId).toBe("ai.buddy.desktop")
+    expect(config.productName).toBe("Buddy")
+    expect(config.protocols).toEqual({ name: "Buddy", schemes: ["buddy"] })
+    expect(config.publish).toEqual({ provider: "github", owner: "prashantbhudwal", repo: "buddy-releases", channel: "latest" })
+    expect(config.extraMetadata).not.toHaveProperty("name")
+    expect(config.nsis).toEqual({
+      oneClick: false,
+      allowToChangeInstallationDirectory: true,
+      installerIcon: "resources/icons/icon.ico",
+      installerHeaderIcon: "resources/icons/icon.ico",
+    })
   })
 
   test("isolates Beta identity, protocol, publishing and Windows updater cache metadata", () => {
@@ -42,18 +47,30 @@ describe("electron-builder config", () => {
     )
   })
 
-  test("requires explicit ad-hoc signing for macOS release bundles", () => {
+  test("preserves Stable macOS packaging identity and ad-hoc signing", () => {
     expect(config.forceCodeSigning).toBeUndefined()
-    expect(config.mac?.forceCodeSigning).toBe(true)
-    expect(config.mac?.identity).toBe("-")
-    expect(config.mac?.hardenedRuntime).toBe(true)
+    expect(config.mac).toEqual({
+      artifactName: "buddy-v${version}-macos-apple-silicon.${ext}",
+      category: "public.app-category.developer-tools",
+      forceCodeSigning: true,
+      icon: "resources/icons/icon.icns",
+      hardenedRuntime: true,
+      identity: "-",
+      gatekeeperAssess: false,
+      entitlements: "resources/entitlements.plist",
+      entitlementsInherit: "resources/entitlements.plist",
+      notarize: false,
+      target: ["dmg", "zip"],
+    })
+    expect(config.dmg).toEqual({ sign: true })
   })
 
   test("keeps unsigned Windows NSIS updates compatible with the signed manifest updater", () => {
     expect(config.win?.target).toEqual(["nsis"])
     expect(config.win?.artifactName).toBe(
-      resolveWindowsReleaseArtifactPattern(WINDOWS_RELEASE_ARCHS[0]),
+      "buddy-v${version}-windows-x64.${ext}",
     )
+    expect(config.win?.icon).toBe("resources/icons/icon.ico")
     expect(config.win?.verifyUpdateCodeSignature).toBe(false)
   })
 

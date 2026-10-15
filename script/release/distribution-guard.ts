@@ -18,6 +18,15 @@ export function releaseDistribution(environment: NodeJS.ProcessEnv = process.env
   return BUDDY_DISTRIBUTIONS[channel]
 }
 
+/** Require the release source branch to match the selected distribution. */
+export function assertReleaseBranch(branch: string, distribution: BuddyDistribution): void {
+  if (branch !== distribution.releaseBranch) {
+    throw new Error(
+      `${distribution.id === "beta" ? "Beta releases" : "Preview release candidates"} must be cut from ${distribution.releaseBranch}, received '${branch}'`,
+    )
+  }
+}
+
 export function assertReleaseDestination(
   repository: string,
   environment: NodeJS.ProcessEnv = process.env,

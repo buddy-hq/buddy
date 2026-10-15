@@ -17,7 +17,7 @@ A **notebook** is a **folder** Buddy has open (workspace). Chats live inside a n
 
 ### Defaults
 
-- **Buddy Home** (managed create root): `Documents/Buddy` under the user’s home, unless they set another folder
+- **Buddy Home** (managed create root): `Documents/Buddy` in Stable, `Documents/Buddy Beta` in Beta, under the user’s home unless they set another folder
 - **Inbox**: managed folder named `Inbox` under Buddy Home
 - **Quick Chat** = open/create Inbox, then a new chat there
 - **Open list**: curated list of open notebooks — not every folder on disk
@@ -47,7 +47,7 @@ Empty-state intent: **Inbox** for quick chats and notes associated with those ch
 
 ### Buddy Home
 
-- Default: `Documents/Buddy`.
+- Default: `Documents/Buddy` in Stable; `Documents/Buddy Beta` in Beta.
 - New **managed** notebooks are child folders there.
 - Changing Home does **not** move old folders; it only retargets new managed creates.
 - You can still open notebooks outside Home via **Open existing folder**.

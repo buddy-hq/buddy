@@ -12,6 +12,7 @@ import { createSerialRunner } from "../src/main/serial-runner"
 import { createUpdateService } from "../src/main/update-service"
 import { resolveMacOsReleaseArtifactFilename } from "../src/shared/release-asset-names"
 import { createTestFetch } from "./helpers/fetch"
+import { signedUpdateFixture } from "./helpers/signed-update"
 
 const CURRENT_VERSION = "2.0.0"
 const ROLLBACK_VERSION = "1.9.0"
@@ -385,21 +386,22 @@ describe("Beta macOS updater", () => {
   })
 
   test("ignores ambient metadata and key overrides and exposes a not-configured outcome", async () => {
+    const distribution = { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null }
     const oldMetadata = process.env.BUDDY_UPDATE_METADATA_URL
     const oldKey = process.env.BUDDY_UPDATE_PUBLIC_KEY
     const requested: string[] = []
     try {
       process.env.BUDDY_UPDATE_METADATA_URL = "https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/latest-mac.json"
       process.env.BUDDY_UPDATE_PUBLIC_KEY = BUDDY_DISTRIBUTIONS.prod.updaterPublicKey
-      expect(resolveCustomMacUpdaterOptions(BUDDY_DISTRIBUTIONS.beta)).toEqual({ metadataUrl: undefined, publicKey: undefined })
+      expect(resolveCustomMacUpdaterOptions(distribution)).toEqual({ metadataUrl: undefined, publicKey: undefined })
       expect(resolveCustomMacUpdaterOptions(BUDDY_DISTRIBUTIONS.prod)).toEqual({ metadataUrl: process.env.BUDDY_UPDATE_METADATA_URL, publicKey: process.env.BUDDY_UPDATE_PUBLIC_KEY })
       globalThis.fetch = createTestFetch(async (url) => {
         requested.push(String(url))
         return Response.json([{ draft: false, prerelease: true, tag_name: "v2.1.0" }])
       })
       const updater = createCustomMacUpdater({
-        distribution: BUDDY_DISTRIBUTIONS.beta,
-        ...resolveCustomMacUpdaterOptions(BUDDY_DISTRIBUTIONS.beta),
+        distribution,
+        ...resolveCustomMacUpdaterOptions(distribution),
         appName: "Buddy Beta", appPath: "/test/Buddy Beta.app", appRootPath: "/test", cachePath: "/test/cache", currentVersion: "2.0.0", execPath: "/test/Buddy Beta.app/Contents/MacOS/Buddy Beta", logsPath: "/test/logs", packaged: true, quit: () => undefined, resourcesPath: "/test/resources", stopBackend: () => undefined, logger: { warn: () => undefined, info: () => undefined, error: () => undefined },
       })
       expect(await updater.checkForUpdate({ ring: "stable" })).toEqual({ updateAvailable: false, failed: true, notConfigured: true })
@@ -410,5 +412,41 @@ describe("Beta macOS updater", () => {
       if (oldKey === undefined) delete process.env.BUDDY_UPDATE_PUBLIC_KEY
       else process.env.BUDDY_UPDATE_PUBLIC_KEY = oldKey
     }
+  })
+
+  test("checks a signed macOS manifest with a provisioned Beta test key", async () => {
+    const architecture = process.arch
+    if (architecture !== "arm64" && architecture !== "x64") {
+      throw new Error(`Unsupported test architecture: ${architecture}`)
+    }
+    const content = JSON.stringify({
+      version: NEXT_VERSION,
+      files: [{
+        url: resolveMacOsReleaseArtifactFilename(NEXT_VERSION, architecture, "zip"),
+        sha512: "test",
+        size: 1,
+      }],
+    })
+    const fixture = signedUpdateFixture(content)
+    const requested: string[] = []
+    globalThis.fetch = createTestFetch(async (url) => {
+      requested.push(String(url))
+      if (String(url).startsWith("https://api.github.com/")) {
+        return Response.json([{ draft: false, prerelease: true, tag_name: `v${NEXT_VERSION}` }])
+      }
+      return new Response(String(url).endsWith(".sig") ? fixture.signature : content)
+    })
+    const distribution = { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey }
+    const updater = createCustomMacUpdater({
+      distribution,
+      ...resolveCustomMacUpdaterOptions(distribution),
+      appName: "Buddy Beta", appPath: "/test/Buddy Beta.app", appRootPath: "/test", cachePath: "/test/cache", currentVersion: CURRENT_VERSION, execPath: "/test/Buddy Beta.app/Contents/MacOS/Buddy Beta", logsPath: "/test/logs", packaged: true, quit: () => undefined, resourcesPath: "/test/resources", stopBackend: () => undefined, logger: { warn: () => undefined, info: () => undefined, error: () => undefined },
+    })
+    await expect(updater.checkForUpdate({ ring: "stable" })).resolves.toEqual({ updateAvailable: true, version: NEXT_VERSION })
+    expect(requested.toSorted()).toEqual([
+      "https://api.github.com/repos/prashantbhudwal/buddy-beta-releases/releases?per_page=100",
+      `https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v${NEXT_VERSION}/latest-macos-${process.arch}.json`,
+      `https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v${NEXT_VERSION}/latest-macos-${process.arch}.json.sig`,
+    ])
   })
 })

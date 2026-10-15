@@ -172,7 +172,7 @@ describe("Beta update distribution", () => {
   test("fails closed before fetching when the embedded Beta signing key is missing", async () => {
     const requested: string[] = []
     globalThis.fetch = createTestFetch(async (url) => { requested.push(String(url)); return new Response("unused") })
-    await expect(fetchSignedText({ distribution: BUDDY_DISTRIBUTIONS.beta, url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest.yml" })).rejects.toBeInstanceOf(UpdatesNotConfiguredError)
+    await expect(fetchSignedText({ distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null }, url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest.yml" })).rejects.toBeInstanceOf(UpdatesNotConfiguredError)
     expect(requested).toEqual([])
   })
 
@@ -200,6 +200,7 @@ test("Beta signed text supports an explicit test key without falling back to the
   const url = "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/metadata.json"
   globalThis.fetch = createTestFetch(async (input) => new Response(String(input).endsWith(".sig") ? fixture.signature : content))
   await expect(fetchSignedText({ distribution: BUDDY_DISTRIBUTIONS.beta, publicKey: fixture.publicKey, url })).resolves.toBe(content)
+  await expect(fetchSignedText({ distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey }, url })).resolves.toBe(content)
   await expect(fetchSignedText({ distribution: BUDDY_DISTRIBUTIONS.beta, publicKey: BUDDY_DISTRIBUTIONS.prod.updaterPublicKey, url })).rejects.toThrow("verification failed")
 })
 

@@ -15,8 +15,9 @@ export function renderReleaseInstaller(source: string, channel: BuddyDistributio
       formatReleaseRepositorySlug(BUDDY_DISTRIBUTIONS.prod),
       formatReleaseRepositorySlug(BUDDY_DISTRIBUTIONS.beta),
     )
+    .replaceAll("BUDDY_RELEASE_REPO", "BUDDY_BETA_RELEASE_REPO")
     .replaceAll("Downloads/buddy-release", "Downloads/buddy-beta-release")
-    .replaceAll("Buddy", BUDDY_DISTRIBUTIONS.beta.productName)
+    .replace(/\bBuddy\b(?! Beta\b)/gu, BUDDY_DISTRIBUTIONS.beta.productName)
 }
 
 if (import.meta.main) {

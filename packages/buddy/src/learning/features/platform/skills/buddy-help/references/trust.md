@@ -24,14 +24,16 @@ Not provider connect flows (`providers.md`). Not memory remember/forget (`learne
 
 ### What stays on this computer
 
-Rough map (prod desktop; exact Windows folders may differ):
+Rough map (desktop; exact Windows folders may differ):
 
 | What | Where |
 | --- | --- |
-| Notebooks / Buddy Home | Documents → Buddy (or the Home folder they chose) |
+| Notebooks / Buddy Home | Stable: Documents → Buddy; Beta: Documents → Buddy Beta (or the Home folder they chose) |
 | App settings, memory, and local app data | On this computer under the user profile (not a Buddy cloud) |
 
-Prefer “on this computer in your user profile / Documents / Buddy” over inventing exact folder paths.
+Stable and Buddy Beta keep separate app data; they intentionally share `~/.opencode`, `~/.claude`, and `~/.agents`.
+
+Prefer “on this computer in your user profile / Documents” over inventing exact folder paths.
 
 ### What leaves the machine
 

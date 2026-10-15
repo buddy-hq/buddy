@@ -13,7 +13,7 @@ const storagePlan = resolveDesktopStoragePlan({
   channel: CHANNEL,
   isPackaged: app.isPackaged,
   home: homedir(),
-  documentsPath: app.getPath("documents"),
+  readDocumentsPath: () => app.getPath("documents"),
   userDataPath: join(
     app.getPath("appData"),
     resolveBuddyDistribution(CHANNEL)?.appId ?? app.getName(),

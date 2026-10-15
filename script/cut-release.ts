@@ -12,15 +12,14 @@ import { z } from "zod"
 import { buildNotes, getLatestPublishedRelease, getLatestRelease } from "./changelog.ts"
 import { RELEASE_GATE_COMMAND_PLAN } from "./release-required-gates.ts"
 import { parseReleasePlan, RELEASE_PLAN_FILENAME, type ReleasePlan } from "./release/plan"
-import { assertGreenMainReleaseSource } from "./release/preflight"
+import { assertGreenReleaseSource } from "./release/preflight"
 import { releaseRepository, sourceRepository } from "./release-repositories"
-import { releaseDistribution, assertReleaseRecordChannel } from "./release/distribution-guard"
+import { assertReleaseBranch, releaseDistribution, assertReleaseRecordChannel } from "./release/distribution-guard"
 import { RELEASE_FREEZE_FILENAME } from "./release/constants"
 import { assertBetaVersionMovesForward, highestPublishedBetaVersion } from "./release/beta-publication"
-import { requireUpdaterPublicKey, type BuddyDistributionId } from "@buddy/script/distribution"
+import { BUDDY_DISTRIBUTIONS, requireUpdaterPublicKey, type BuddyDistributionId } from "@buddy/script/distribution"
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
-const RELEASE_BRANCH = "main"
 const FAST_SKIP_FLAG = "--fs"
 
 function releaseWorkflowFilename(): string {
@@ -179,17 +178,13 @@ async function resolveEditor() {
   throw new Error("No editor found. Set $VISUAL or $EDITOR before running the release wizard.")
 }
 
-async function ensureMainBranch() {
+async function ensureReleaseBranch() {
   const branch = await $`git branch --show-current`
     .cwd(ROOT_DIR)
     .text()
     .then((output) => output.trim())
 
-  if (branch !== RELEASE_BRANCH) {
-    throw new Error(
-      `${releaseDistribution().id === "beta" ? "Beta releases" : "Preview release candidates"} must be cut from ${RELEASE_BRANCH}, received '${branch}'`,
-    )
-  }
+  assertReleaseBranch(branch, releaseDistribution())
 }
 
 async function ensureCleanTree() {
@@ -260,8 +255,8 @@ async function ensureReleaseSecrets() {
   }
 }
 
-async function fetchOriginMain() {
-  await $`git fetch origin ${RELEASE_BRANCH} --quiet`.cwd(ROOT_DIR)
+async function fetchOriginReleaseBranch() {
+  await $`git fetch origin ${releaseDistribution().releaseBranch} --quiet`.cwd(ROOT_DIR)
 }
 
 async function currentHeadSha(ref: string) {
@@ -272,7 +267,7 @@ async function currentHeadSha(ref: string) {
 }
 
 async function syncState() {
-  const counts = await $`git rev-list --left-right --count HEAD...origin/${RELEASE_BRANCH}`
+  const counts = await $`git rev-list --left-right --count HEAD...origin/${releaseDistribution().releaseBranch}`
     .cwd(ROOT_DIR)
     .text()
     .then((output) => output.trim())
@@ -299,40 +294,41 @@ async function syncState() {
   }
 }
 
-async function alignWithOriginMain(rl: ReleaseReadline) {
-  printStep("Git Sync", "Checking whether local main matches origin/main.")
-  await fetchOriginMain()
+async function alignWithOriginReleaseBranch(rl: ReleaseReadline) {
+  const { releaseBranch } = releaseDistribution()
+  printStep("Git Sync", `Checking whether local ${releaseBranch} matches origin/${releaseBranch}.`)
+  await fetchOriginReleaseBranch()
 
   while (true) {
     const state = await syncState()
 
     if (state.state === "in-sync") {
       const head = await currentHeadSha("HEAD")
-      console.log(`Local main matches origin/main at ${head.slice(0, 12)}.`)
+      console.log(`Local ${releaseBranch} matches origin/${releaseBranch} at ${head.slice(0, 12)}.`)
       return head
     }
 
     if (state.state === "behind") {
-      console.log(`Local main is behind origin/main by ${state.behind} commit(s).`)
-      if (!(await confirm(rl, "Fast-forward local main now?", true))) {
-        throw new Error("Release aborted before syncing local main")
+      console.log(`Local ${releaseBranch} is behind origin/${releaseBranch} by ${state.behind} commit(s).`)
+      if (!(await confirm(rl, `Fast-forward local ${releaseBranch} now?`, true))) {
+        throw new Error(`Release aborted before syncing local ${releaseBranch}`)
       }
-      runCommand("git", ["pull", "--ff-only", "origin", RELEASE_BRANCH])
+      runCommand("git", ["pull", "--ff-only", "origin", releaseBranch])
       continue
     }
 
     if (state.state === "ahead") {
-      console.log(`Local main is ahead of origin/main by ${state.ahead} commit(s).`)
-      if (!(await confirm(rl, "Push local main to origin now?", true))) {
-        throw new Error("Release aborted before pushing local main")
+      console.log(`Local ${releaseBranch} is ahead of origin/${releaseBranch} by ${state.ahead} commit(s).`)
+      if (!(await confirm(rl, `Push local ${releaseBranch} to origin now?`, true))) {
+        throw new Error(`Release aborted before pushing local ${releaseBranch}`)
       }
-      runCommand("git", ["push", "origin", RELEASE_BRANCH])
-      await fetchOriginMain()
+      runCommand("git", ["push", "origin", releaseBranch])
+      await fetchOriginReleaseBranch()
       continue
     }
 
     throw new Error(
-      "Local main diverged from origin/main. Rebase or merge it manually, then rerun the release wizard.",
+      `Local ${releaseBranch} diverged from origin/${releaseBranch}. Rebase or merge it manually, then rerun the release wizard.`,
     )
   }
 }
@@ -633,14 +629,15 @@ export function selectWorkflowRunUrls(
   version: string,
   channel: BuddyDistributionId = "prod",
 ): WorkflowRunSelection {
+  const { releaseBranch } = BUDDY_DISTRIBUTIONS[channel]
   const exact = runs.find(
     (run) =>
       run.event === "workflow_dispatch" &&
-      run.headBranch === RELEASE_BRANCH &&
+      run.headBranch === releaseBranch &&
       run.displayTitle === `${channel === "beta" ? "beta release" : "preview candidate"} v${version}`,
   )
   const fallback = runs.find(
-    (run) => run.event === "workflow_dispatch" && run.headBranch === RELEASE_BRANCH,
+    (run) => run.event === "workflow_dispatch" && run.headBranch === releaseBranch,
   )
   return { exact: exact?.url, fallback: fallback?.url }
 }
@@ -667,7 +664,7 @@ async function dispatchRelease(version: string, targetSha: string, targets: Rele
   printStep("Dispatch", `Triggering GitHub release workflow for v${version}.`)
 
   const dispatchOutput =
-    await $`gh workflow run ${releaseWorkflowFilename()} --repo ${sourceRepository()} --ref ${RELEASE_BRANCH} -f ${`version=${version}`} -f ${`source_sha=${targetSha}`} -f ${`build_macos_arm64=${String(targets.macosArm64)}`} -f ${`build_macos_x64=${String(targets.macosX64)}`} -f ${`build_windows_x64=${String(targets.windowsX64)}`}`
+    await $`gh workflow run ${releaseWorkflowFilename()} --repo ${sourceRepository()} --ref ${releaseDistribution().releaseBranch} -f ${`version=${version}`} -f ${`source_sha=${targetSha}`} -f ${`build_macos_arm64=${String(targets.macosArm64)}`} -f ${`build_macos_x64=${String(targets.macosX64)}`} -f ${`build_windows_x64=${String(targets.windowsX64)}`}`
       .cwd(ROOT_DIR)
       .text()
       .then((output) => output.trim())
@@ -940,7 +937,7 @@ async function main() {
   releaseRepository()
   requireUpdaterPublicKey(releaseDistribution())
   ensureInteractiveTerminal()
-  await ensureMainBranch()
+  await ensureReleaseBranch()
   await ensureCleanTree()
   const targets = flags.targets ?? (await chooseReleaseTargets())
   ensureGithubAuth()
@@ -953,11 +950,11 @@ async function main() {
   const rl = createInterface({ input, output })
 
   try {
-    const targetSha = await alignWithOriginMain(rl)
+    const targetSha = await alignWithOriginReleaseBranch(rl)
     await ensureCleanTree()
 
-    printStep("Green Main", `Verifying required CI checks for ${targetSha.slice(0, 12)}.`)
-    await assertGreenMainReleaseSource({
+    printStep(flags.channel === "beta" ? "Green Beta" : "Green Main", `Verifying required CI checks for ${targetSha.slice(0, 12)}.`)
+    await assertGreenReleaseSource({
       repository: sourceRepository(),
       sourceSha: targetSha,
     })
@@ -984,7 +981,7 @@ async function main() {
         "Resume",
         `Continuing ${tag} from its immutable plan at ${releaseTargetSha.slice(0, 12)} for ${describeReleaseTargets(releaseTargets)}.`,
       )
-      await assertGreenMainReleaseSource({
+      await assertGreenReleaseSource({
         repository: sourceRepository(),
         sourceSha: releaseTargetSha,
       })
