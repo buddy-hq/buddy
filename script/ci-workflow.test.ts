@@ -163,7 +163,7 @@ describe("CI workflow", () => {
     )
 
     expect(triggers).toHaveProperty("pull_request")
-    expect(arrayValue(push.branches, "CI push branches")).toEqual(["main"])
+    expect(arrayValue(push.branches, "CI push branches")).toEqual(["main", "beta"])
     expect(permissions.contents).toBe("read")
     expect(environment.BUDDY_TEST_CONCURRENCY).toBeUndefined()
     expect(actionReferences.some((reference) => reference.startsWith("actions/cache@"))).toBe(false)

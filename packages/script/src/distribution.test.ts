@@ -13,6 +13,7 @@ describe("Buddy distributions", () => {
     expect(prod.appId).toBe("ai.buddy.desktop")
     expect(prod.protocol).toBe("buddy")
     expect(formatReleaseRepositorySlug(prod)).toBe("prashantbhudwal/buddy-releases")
+    expect(prod.releaseBranch).toBe("main")
     expect(formatSourceReleaseTag(prod, "1.2.3")).toBe("v1.2.3")
     expect(requireUpdaterPublicKey(prod)).toStartWith("RW")
   })
@@ -30,10 +31,13 @@ describe("Buddy distributions", () => {
       expect(beta[key]).not.toBe(prod[key])
     }
     expect(formatSourceReleaseTag(beta, "0.1.0")).toBe("beta-v0.1.0")
+    expect(beta.releaseBranch).toBe("beta")
   })
 
   test("beta fails closed until its own updater key is provisioned", () => {
-    expect(() => requireUpdaterPublicKey(BUDDY_DISTRIBUTIONS.beta)).toThrow(/no updater public key/)
+    expect(() =>
+      requireUpdaterPublicKey({ ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null }),
+    ).toThrow(/no updater public key/)
   })
 
   test("dev is not a releasable distribution", () => {

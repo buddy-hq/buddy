@@ -1,5 +1,6 @@
-import { homedir, hostname, tmpdir } from "node:os"
+import { homedir, hostname } from "node:os"
 import path from "node:path"
+import { app } from "electron"
 import type {
   BrowserImportResult,
   BrowserImportSource,
@@ -95,7 +96,7 @@ function createMachineBrowserImporter(logger: BrowserImportLogger): BrowserImpor
     home,
     localAppData: process.env.LOCALAPPDATA?.trim() || path.join(home, "AppData", "Local"),
     hostname: hostname(),
-    temporaryDirectory: tmpdir(),
+    temporaryDirectory: app.getPath("temp"),
     files: nodeBrowserImportFiles,
     openDatabase: openNodeSqliteDatabase,
     readKeychainPassword,

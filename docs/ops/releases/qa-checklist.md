@@ -135,6 +135,7 @@ Related: [User journey — critical path and test coverage](../../features/relea
 
 Run these checks separately on macOS Apple Silicon, macOS Intel, and Windows x64 using published, packaged releases. Record both installed versions and the Beta source tag.
 
+- [ ] Confirm the Beta source commit is on `beta` and has green `Check` and `vendor-guard` checks. Follow the branch and protection setup in [cut.md](cut.md#buddy-beta-distribution).
 - [ ] Install production Buddy and Buddy Beta side by side. Confirm both appear as separate applications and both can launch without overwriting the other.
 - [ ] macOS: confirm `/Applications/Buddy.app` has bundle id `ai.buddy.desktop` and `/Applications/Buddy Beta.app` has `ai.buddy.desktop.beta`. Beta's installer must reject a production bundle before replacing an existing Beta installation.
 - [ ] Windows: confirm separate Buddy and Buddy Beta install locations, Start menu entries, uninstall entries, and updater caches. The Beta installer must leave production Buddy available.

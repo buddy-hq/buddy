@@ -2,6 +2,7 @@
 
 import { $ } from "bun"
 import { assertLegacyProdRelease } from "../../../script/release/distribution-guard"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
 import { createHash } from "node:crypto"
 import { access, readFile, stat } from "node:fs/promises"
 import path from "node:path"
@@ -10,7 +11,8 @@ import {
   resolveWindowsReleaseArtifactFilename,
 } from "../src/shared/release-asset-names"
 import { parseTNumber, parseTString } from "../src/shared/parse-external"
-import { resolveTauriSignerBinaryPath } from "./utils"
+import { resolveSignerEnvironment, resolveTauriSignerBinaryPath } from "./utils"
+import { verifyReleaseSignature } from "./verify-release-signature"
 
 assertLegacyProdRelease()
 
@@ -148,24 +150,6 @@ function ensureTauriSigningKeyPresent() {
   )
 }
 
-function resolveSignerEnvironment() {
-  const environment = { ...process.env }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PATH?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY_PATH
-  }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY
-  }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-  }
-
-  return environment
-}
-
 async function toFileEntry(filepath: string): Promise<FileEntry> {
   const [fileBuffer, fileStats] = await Promise.all([readFile(filepath), stat(filepath)])
   const blockmapPath = `${filepath}.blockmap`
@@ -259,6 +243,7 @@ for (const [filename, content] of Object.entries(outputs)) {
   const filepath = path.join(tmp, filename)
   await Bun.write(filepath, content)
   await $`${tauriSigner} signer sign ${filepath}`.env(signerEnvironment)
+  await verifyReleaseSignature(filepath, BUDDY_DISTRIBUTIONS.prod)
   await $`gh release upload ${tag} ${filepath} ${`${filepath}.sig`} --clobber --repo ${repo}`
 }
 

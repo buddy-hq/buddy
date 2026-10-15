@@ -6,6 +6,7 @@ import {
   type WorkflowRun,
 } from "./cut-release"
 import { parseReleasePlan } from "./release/plan"
+import { assertReleaseBranch, releaseDistribution } from "./release/distribution-guard"
 
 const CURRENT_SOURCE_SHA = "1".repeat(40)
 const PLANNED_SOURCE_SHA = "2".repeat(40)
@@ -40,6 +41,22 @@ function plannedRelease() {
 }
 
 describe("cut release", () => {
+  test.each([
+    ["prod", "main", "beta", "Preview release candidates"],
+    ["beta", "beta", "main", "Beta releases"],
+  ] as const)("requires the %s source branch", (channel, branch, otherBranch, label) => {
+    const flags = parseReleaseWizardArgs(channel === "prod" ? [] : ["--channel", channel])
+    const distribution = releaseDistribution({ BUDDY_CHANNEL: flags.channel })
+    expect(distribution.releaseBranch).toBe(branch)
+    expect(() => assertReleaseBranch(branch, distribution)).not.toThrow()
+    expect(() => assertReleaseBranch(otherBranch, distribution)).toThrow(
+      `${label} must be cut from ${branch}, received '${otherBranch}'`,
+    )
+    expect(() => assertReleaseBranch("", distribution)).toThrow(
+      `${label} must be cut from ${branch}, received ''`,
+    )
+  })
+
   test("prefers the exact dispatched release run over an older fallback", () => {
     const run = (displayTitle: string, url: string): WorkflowRun => ({
       createdAt: "2026-08-29T10:00:00Z",
@@ -111,18 +128,56 @@ describe("Beta release wizard", () => {
     expect(() => parseReleaseWizardArgs(["--channel"])).toThrow("must be prod or beta")
   })
 
-  test("selects the Beta workflow run title", () => {
+  test("selects the Beta workflow run title on beta", () => {
     const run: WorkflowRun = {
       createdAt: "2026-08-29T10:00:00Z",
       displayTitle: "beta release v0.1.0",
       event: "workflow_dispatch",
-      headBranch: "main",
+      headBranch: "beta",
       headSha: CURRENT_SOURCE_SHA,
       url: "https://example.test/beta",
     }
     expect(selectWorkflowRunUrls([run], "0.1.0", "beta").exact).toBe(run.url)
     expect(selectWorkflowRunUrls([run], "0.1.0", "prod").exact).toBeUndefined()
   })
+
+  test.each(["prod", "beta"] as const)(
+    "matches %s exact and fallback runs only on its source branch",
+    (channel) => {
+      const branch = channel === "beta" ? "beta" : "main"
+      const title = channel === "beta" ? "beta release" : "preview candidate"
+      const run: WorkflowRun = {
+        createdAt: "2026-08-29T10:00:00Z",
+        displayTitle: `${title} v0.1.0`,
+        event: "workflow_dispatch",
+        headBranch: branch,
+        headSha: CURRENT_SOURCE_SHA,
+        url: "https://example.test/exact",
+      }
+      const unrelated = [
+        { ...run, headBranch: channel === "beta" ? "main" : "beta" },
+        { ...run, event: "push" },
+        { ...run, headBranch: "feature" },
+      ]
+      expect(selectWorkflowRunUrls(unrelated, "0.1.0", channel)).toEqual({
+        exact: undefined,
+        fallback: undefined,
+      })
+      const fallback = {
+        ...run,
+        displayTitle: `${title} v0.0.9`,
+        url: "https://example.test/fallback",
+      }
+      expect(selectWorkflowRunUrls([...unrelated, fallback], "0.1.0", channel)).toEqual({
+        exact: undefined,
+        fallback: fallback.url,
+      })
+      expect(selectWorkflowRunUrls([...unrelated, fallback, run], "0.1.0", channel)).toEqual({
+        exact: run.url,
+        fallback: fallback.url,
+      })
+    },
+  )
 
   test("rejects a prod plan when resuming Beta", () => {
     expect(() =>

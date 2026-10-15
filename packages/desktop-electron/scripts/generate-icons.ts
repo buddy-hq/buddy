@@ -10,6 +10,7 @@ type SizedAsset = {
 }
 
 const APP_ICON_FILENAME = "buddy-app-icon.png"
+const BETA_APP_ICON_FILENAME = "buddy-beta-app-icon.png"
 const IN_APP_ICON_FILENAME = "buddy-inapp-icon.png"
 const PACKAGE_DIRECTORY = resolve(import.meta.dir, "..")
 const REPOSITORY_DIRECTORY = resolve(PACKAGE_DIRECTORY, "../..")
@@ -26,6 +27,7 @@ const WEB_PUBLIC_ICON_PATH = join(
   "buddy-icon.png",
 )
 const APP_ICON_CANONICAL_PATH = join(ASSETS_DIRECTORY, APP_ICON_FILENAME)
+const BETA_APP_ICON_CANONICAL_PATH = join(ASSETS_DIRECTORY, BETA_APP_ICON_FILENAME)
 const IN_APP_ICON_CANONICAL_PATH = join(ASSETS_DIRECTORY, IN_APP_ICON_FILENAME)
 const ICONSET_DIRECTORY_SUFFIX = ".iconset"
 const MACOS_ICONSET_ASSETS: SizedAsset[] = [
@@ -196,14 +198,22 @@ const inAppSourcePath = await preserveSource(
   await resolveSourcePath(process.argv[3], IN_APP_ICON_CANONICAL_PATH, "in-app icon"),
   "buddy-inapp-icon-source",
 )
+const betaAppSourcePath = await preserveSource(
+  await resolveSourcePath(process.argv[4], BETA_APP_ICON_CANONICAL_PATH, "beta app icon"),
+  "buddy-beta-app-icon-source",
+)
 
 await resetGeneratedIcons()
 await mkdir(ASSETS_DIRECTORY, { recursive: true })
 await cp(appSourcePath, APP_ICON_CANONICAL_PATH)
 await cp(inAppSourcePath, IN_APP_ICON_CANONICAL_PATH)
+await cp(betaAppSourcePath, BETA_APP_ICON_CANONICAL_PATH)
 
 for (const channel of BUDDY_RELEASE_CHANNELS) {
-  await generateChannelIcons(APP_ICON_CANONICAL_PATH, channel)
+  await generateChannelIcons(
+    channel === "beta" ? BETA_APP_ICON_CANONICAL_PATH : APP_ICON_CANONICAL_PATH,
+    channel,
+  )
 }
 
 await generatePublicIcons(IN_APP_ICON_CANONICAL_PATH)

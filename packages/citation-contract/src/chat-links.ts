@@ -19,6 +19,8 @@ export function readChatMessageLink(
 export function withoutBuddyMarkdownLinks(markdown: string): string {
   return markdown.replace(/\[[^\]]*\]\(([^)]*)\)/gu, (match, href: string) => {
     const protocol = href.slice(0, href.indexOf(":") + 1)
-    return CHAT_LINK_PROTOCOLS.has(protocol) && href.startsWith(`${protocol}//`) ? "" : match
+    return CHAT_LINK_PROTOCOLS.has(protocol.toLowerCase()) && href.startsWith(`${protocol}//`)
+      ? ""
+      : match
   })
 }

@@ -62,7 +62,7 @@ describe("recovery-policy distribution", () => {
     })
     expect(
       await fetchRecoveryPolicy({
-        distribution: BUDDY_DISTRIBUTIONS.beta,
+        distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null },
         logger: {
           warn: (...args) => {
             warnings.push(args)
@@ -95,5 +95,12 @@ describe("recovery-policy distribution", () => {
       "https://example.invalid/beta-policy.json",
       "https://example.invalid/beta-policy.json.sig",
     ])
+    await expect(
+      fetchRecoveryPolicy({
+        distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey },
+        policyUrl: "https://example.invalid/beta-policy.json",
+        logger,
+      }),
+    ).resolves.toEqual({ schema: 1, distribution: "beta", badVersions: [] })
   })
 })

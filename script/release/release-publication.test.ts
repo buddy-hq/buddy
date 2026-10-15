@@ -31,6 +31,7 @@ async function publicationFixture(
     frozen?: boolean
     exists?: boolean
     partial?: boolean
+    refName?: string
   } = {},
 ) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "buddy-beta-publication-"))
@@ -180,7 +181,10 @@ if (args[0] === "api") {
     )
     await chmod(gh, 0o755)
     const git = path.join(bin, "git")
-    await Bun.write(git, '#!/bin/bash\nif [[ "$1" == "rev-list" ]]; then exit 0; fi\necho main\n')
+    await Bun.write(
+      git,
+      `#!/bin/bash\nif [[ "$1" == "rev-list" ]]; then exit 0; fi\necho ${input.channel === "prod" ? "main" : "beta"}\n`,
+    )
     await chmod(git, 0o755)
     const runnerTemp = path.join(directory, "runner")
     await mkdir(runnerTemp)
@@ -205,7 +209,7 @@ if (args[0] === "api") {
         BUDDY_RELEASE_SOURCE_SHA: SOURCE_SHA,
         BUDDY_RELEASE_PLAN_DIGEST: PLAN_DIGEST,
         BUDDY_RELEASE_DRY_RUN: "",
-        GITHUB_REF_NAME: "main",
+        GITHUB_REF_NAME: input.refName ?? (input.channel === "prod" ? "main" : "beta"),
         GITHUB_REF_TYPE: "branch",
         GITHUB_OUTPUT: path.join(directory, "outputs.txt"),
         RUNNER_TEMP: runnerTemp,
@@ -316,6 +320,30 @@ describe("Beta publication CLI", () => {
     expect(create?.slice(0, 4)).toEqual(["release", "create", "v0.1.0", "-d"])
     expect(create).toContain(REPOSITORY)
     expect(outputs).toContain("tag=v0.1.0")
+  })
+
+  test.each([
+    ["prod", "beta", "Preview release candidates must be cut from main, received 'beta'"],
+    ["beta", "main", "Beta releases must be cut from beta, received 'main'"],
+  ] as const)(
+    "version resolution rejects the other source branch for %s",
+    async (channel, refName, message) => {
+      const { result, calls } = await publicationFixture({ script: "version", channel, refName })
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(message)
+      expect(calls).toEqual([])
+    },
+  )
+
+  test("version resolution keeps prod drafts on main", async () => {
+    const { result, calls, outputs } = await publicationFixture({
+      script: "version",
+      channel: "prod",
+    })
+    expect(result.status).toBe(0)
+    expect(outputs).toContain("release_repo=prashantbhudwal/buddy-releases")
+    expect(calls.some((call) => call[1] === "create" || call[1] === "edit")).toBe(false)
+    expect(calls.some((call) => call.includes("--slurp"))).toBe(false)
   })
 
   test("rejects a partial first Beta release in preflight", async () => {

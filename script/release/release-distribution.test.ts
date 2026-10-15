@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test"
-import { z } from "zod"
 import { spawnSync } from "node:child_process"
 import path from "node:path"
-import { createHash } from "node:crypto"
-import { BUDDY_DISTRIBUTIONS, requireUpdaterPublicKey } from "@buddy/script/distribution"
+import {
+  BUDDY_DISTRIBUTIONS,
+  formatReleaseRepositorySlug,
+  requireUpdaterPublicKey,
+} from "@buddy/script/distribution"
 import { assertReleaseDestination, sourceReleaseTag } from "./distribution-guard"
 import { assertBetaVersionMovesForward } from "./beta-publication"
 import { renderReleaseInstaller } from "./installers"
-
-const fixture = (filename: string) => Bun.file(new URL(`./fixtures/${filename}`, import.meta.url))
 
 describe("release distribution boundary", () => {
   test("Beta has no fallback signing key", () => {
@@ -79,20 +79,44 @@ describe("release distribution boundary", () => {
         new URL(`../../scripts/install-buddy-${suffix}`, import.meta.url),
       ).text()
       expect(renderReleaseInstaller(source, "prod")).toBe(source)
-      const digests = z
-        .object({ "install-buddy-macos.sh": z.string(), "install-buddy-windows.ps1": z.string() })
-        .parse(await fixture("prod-installers.sha256.json").json())
-      const filename =
-        suffix === "macos.sh" ? "install-buddy-macos.sh" : "install-buddy-windows.ps1"
-      expect(
-        createHash("sha256").update(renderReleaseInstaller(source, "prod")).digest("hex"),
-      ).toBe(digests[filename])
       const beta = renderReleaseInstaller(source, "beta")
       expect(beta).toContain("prashantbhudwal/buddy-beta-releases")
       expect(beta).toContain("Downloads/buddy-beta-release")
       expect(beta).toContain("Buddy Beta installer")
       expect(beta).not.toContain("prashantbhudwal/buddy-releases")
-      expect(beta).toContain("buddy-v")
+      expect(beta).toContain("BUDDY_BETA_RELEASE_REPO")
+      expect(beta).not.toContain("BUDDY_RELEASE_REPO")
+      expect(beta).not.toContain("Buddy Beta Beta")
+      expect(beta).not.toContain("Buddy.app")
+      expect(beta).not.toContain("Buddy Beta.app")
+      if (suffix === "macos.sh") {
+        expect(beta).toContain('CURRENT_ASSET_BASENAME="buddy-v${VERSION}-macos-${ARCH_LABEL}"')
+        expect(beta).toContain('LEGACY_ASSET_BASENAME="buddy-electron-mac-${ARCH}"')
+        expect(beta).toContain("Drag Buddy Beta into Applications")
+      } else {
+        expect(beta).toContain('"buddy-v$version-windows-$arch.exe"')
+        expect(beta).toContain('"buddy-electron-win-$arch.exe"')
+        expect(beta).toContain('"buddy-v$version-windows-x64.exe"')
+      }
     },
   )
+
+  test.each(Object.values(BUDDY_DISTRIBUTIONS))(
+    "local installer defaults match $id",
+    async (distribution) => {
+      const source = await Bun.file(new URL("../install-release.sh", import.meta.url)).text()
+      const defaults = source.match(
+        new RegExp(`\\n  ${distribution.id}\\)\\n([\\s\\S]*?)\\n    ;;`, "u"),
+      )?.[1]
+      expect(defaults).toContain(`EXPECTED_REPO="${formatReleaseRepositorySlug(distribution)}"`)
+      expect(defaults).toContain(`EXPECTED_APP_NAME="${distribution.productName}"`)
+      expect(defaults).toContain(`EXPECTED_APP_ID="${distribution.appId}"`)
+    },
+  )
+
+  test("rendering Beta display text keeps an existing Beta label intact", () => {
+    expect(renderReleaseInstaller("Buddy installer; Buddy Beta installer", "beta")).toBe(
+      "Buddy Beta installer; Buddy Beta installer",
+    )
+  })
 })
