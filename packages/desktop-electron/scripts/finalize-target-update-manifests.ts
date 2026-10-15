@@ -18,7 +18,7 @@ import {
   parseTString,
   parseWithSchema,
 } from "../src/shared/parse-external"
-import { resolveTauriSignerBinaryPath } from "./utils"
+import { resolveSignerEnvironment, resolveTauriSignerBinaryPath } from "./utils"
 import { z } from "zod"
 import { uploadReleaseAssetSafely } from "../../../script/release/assets"
 import { readNewestPublishedReleaseWithAssets } from "../../../script/release/published-manifest"
@@ -629,24 +629,6 @@ function ensureTauriSigningKeyPresent(): void {
   throw new Error(
     "TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH is required for signed target update manifests",
   )
-}
-
-function resolveSignerEnvironment(): NodeJS.ProcessEnv {
-  const environment = { ...process.env }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PATH?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY_PATH
-  }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY
-  }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-  }
-
-  return environment
 }
 
 function resolveReleaseAssetUrl(releaseTag: string, filename: string): string {

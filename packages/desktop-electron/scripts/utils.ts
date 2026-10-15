@@ -115,3 +115,18 @@ export function resolveTauriSignerBinaryPath(environment: NodeJS.ProcessEnv = pr
     path.join(PACKAGE_DIR, TAURI_SIGNER_BINARY_RELATIVE_PATH)
   )
 }
+
+/** Unset empty optional secrets so the signer does not parse them as CLI arguments. */
+export function resolveSignerEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const resolved = { ...environment }
+  for (const key of [
+    "TAURI_SIGNING_PRIVATE_KEY_PATH",
+    "TAURI_SIGNING_PRIVATE_KEY",
+    "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
+  ]) {
+    if (!resolved[key]?.trim()) delete resolved[key]
+  }
+  return resolved
+}

@@ -200,7 +200,7 @@ describe("Beta update distribution", () => {
     })
     await expect(
       fetchSignedText({
-        distribution: BUDDY_DISTRIBUTIONS.beta,
+        distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null },
         url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest.yml",
       }),
     ).rejects.toBeInstanceOf(UpdatesNotConfiguredError)
@@ -240,6 +240,12 @@ test("Beta signed text supports an explicit test key without falling back to the
   )
   await expect(
     fetchSignedText({ distribution: BUDDY_DISTRIBUTIONS.beta, publicKey: fixture.publicKey, url }),
+  ).resolves.toBe(content)
+  await expect(
+    fetchSignedText({
+      distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey },
+      url,
+    }),
   ).resolves.toBe(content)
   await expect(
     fetchSignedText({

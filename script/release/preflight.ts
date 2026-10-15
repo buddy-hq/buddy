@@ -2,8 +2,8 @@
 
 import { $ } from "bun"
 import { z } from "zod"
+import { releaseDistribution } from "./distribution-guard"
 
-const RELEASE_BRANCH = "main"
 export const REQUIRED_RELEASE_CHECKS = ["Check", "vendor-guard"] as const
 
 const checkRunSchema = z.object({
@@ -72,49 +72,58 @@ export async function readCommitCheckRuns(
     .flatMap((page) => page.check_runs)
 }
 
-export function assertReleaseSourceIsOnMain(
+/** Accept a source commit equal to or behind the selected release branch. */
+export function assertReleaseSourceIsOnBranch(
   status: "ahead" | "behind" | "diverged" | "identical",
+  releaseBranch: string,
 ): void {
   if (status !== "ahead" && status !== "identical") {
-    throw new Error(`Release source is not an ancestor of ${RELEASE_BRANCH}: ${status}`)
+    throw new Error(`Release source is not an ancestor of ${releaseBranch}: ${status}`)
   }
 }
 
-export async function assertReleaseSourceRemainsOnMain(
+async function assertReleaseSourceRemainsOnBranch(
   repository: string,
   sourceSha: string,
+  releaseBranch: string,
 ): Promise<void> {
   const comparison =
-    await $`gh api ${`repos/${repository}/compare/${sourceSha}...${RELEASE_BRANCH}`}`.quiet().json()
-  assertReleaseSourceIsOnMain(githubComparisonSchema.parse(comparison).status)
+    await $`gh api ${`repos/${repository}/compare/${sourceSha}...${releaseBranch}`}`.quiet().json()
+  assertReleaseSourceIsOnBranch(githubComparisonSchema.parse(comparison).status, releaseBranch)
 }
 
-export async function assertGreenMainReleaseSource(input: {
-  repository: string
-  sourceSha: string
-}): Promise<void> {
+/** Require the pinned source to remain on its distribution's branch with green CI checks. */
+export async function assertGreenReleaseSource(
+  input: {
+    repository: string
+    sourceSha: string
+  },
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  const { releaseBranch } = releaseDistribution(environment)
   const sourceSha = normalizeReleaseSourceSha(input.sourceSha)
   await Promise.all([
-    assertReleaseSourceRemainsOnMain(input.repository, sourceSha),
+    assertReleaseSourceRemainsOnBranch(input.repository, sourceSha, releaseBranch),
     readCommitCheckRuns(input.repository, sourceSha).then(assertRequiredReleaseChecks),
   ])
 }
 
 async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void> {
+  const { releaseBranch } = releaseDistribution(environment)
   const sourceSha = normalizeReleaseSourceSha(
     requiredEnvironmentValue(environment, "BUDDY_RELEASE_SOURCE_SHA"),
   )
   const refName = requiredEnvironmentValue(environment, "GITHUB_REF_NAME")
-  if (refName !== RELEASE_BRANCH) {
+  if (refName !== releaseBranch) {
     throw new Error(
-      `Release workflow must be dispatched from ${RELEASE_BRANCH}, received ${refName}`,
+      `Release workflow must be dispatched from ${releaseBranch}, received ${refName}`,
     )
   }
 
   const repository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_SOURCE_REPOSITORY")
-  await assertGreenMainReleaseSource({ repository, sourceSha })
+  await assertGreenReleaseSource({ repository, sourceSha }, environment)
   console.log(
-    `Verified ${repository}@${sourceSha} is a green ${RELEASE_BRANCH} commit (${REQUIRED_RELEASE_CHECKS.join(", ")})`,
+    `Verified ${repository}@${sourceSha} is a green ${releaseBranch} commit (${REQUIRED_RELEASE_CHECKS.join(", ")})`,
   )
 }
 

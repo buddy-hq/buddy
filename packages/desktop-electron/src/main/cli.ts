@@ -9,6 +9,7 @@ import { parseTString } from "../shared/parse-external"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 import {
   applyDesktopStorageEnvironment,
+  pinBackendChannel,
   prepareDesktopStorageDirectories,
   resolveDesktopStoragePlan,
 } from "./storage-paths"
@@ -110,7 +111,7 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
     channel: CHANNEL,
     isPackaged: app.isPackaged,
     home,
-    documentsPath: app.getPath("documents"),
+    readDocumentsPath: () => app.getPath("documents"),
     userDataPath: app.getPath("userData"),
   })
   const shouldIsolateDevRuntime = storagePlan.kind === "development"
@@ -173,9 +174,9 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
     environment.set(BUDDY_ENV.STANDARDS_LOCAL_ASSET_DIR, standardsAssetDir)
   }
 
-  return applyDesktopStorageEnvironment(
-    Object.fromEntries(environment),
-    storagePlan,
+  return pinBackendChannel(
+    applyDesktopStorageEnvironment(Object.fromEntries(environment), storagePlan, process.platform),
+    CHANNEL,
     process.platform,
   )
 }

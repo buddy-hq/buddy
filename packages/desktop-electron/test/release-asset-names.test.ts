@@ -62,7 +62,7 @@ test("checks the Windows packaged updater destination and product name", async (
   }
 })
 
-test("checks the macOS packaged bundle id", async () => {
+test.skipIf(process.platform !== "darwin")("checks the macOS packaged bundle id", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "buddy-mac-identity-"))
   const originalPath = process.env.PATH
   try {

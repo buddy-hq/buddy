@@ -21,11 +21,8 @@ const LATEST_PRERELEASE_SEARCH_LIMIT = 100
 export const UPDATE_DISTRIBUTION: BuddyDistribution =
   import.meta.env.BUDDY_CHANNEL === "beta" ? BUDDY_DISTRIBUTIONS.beta : BUDDY_DISTRIBUTIONS.prod
 
-export const RELEASE_REPOSITORY_OWNER = UPDATE_DISTRIBUTION.releaseOwner
-export const RELEASE_REPOSITORY_NAME = UPDATE_DISTRIBUTION.releaseRepository
 export const RELEASE_REPOSITORY = formatReleaseRepositorySlug(UPDATE_DISTRIBUTION)
 export const BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY = "BUDDY_UPDATE_PUBLIC_KEY"
-export const BUDDY_MINISIGN_PUBLIC_KEY = UPDATE_DISTRIBUTION.updaterPublicKey
 
 /** Missing distribution signing configuration, surfaced separately from network failures. */
 export class UpdatesNotConfiguredError extends Error {

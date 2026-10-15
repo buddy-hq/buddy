@@ -7,12 +7,13 @@ import { mergeShellEnv } from "../src/main/shell-env"
 import { createDesktopStoreRegistry } from "../src/main/store-registry"
 import {
   applyDesktopStorageEnvironment,
+  pinBackendChannel,
   resolveDesktopStoragePlan,
 } from "../src/main/storage-paths"
 
 const input = {
   home: "/sandbox/home",
-  documentsPath: "/sandbox/documents",
+  readDocumentsPath: () => "/sandbox/documents",
   userDataPath: "/sandbox/beta",
   pathApi: path.posix,
 }
@@ -22,6 +23,13 @@ const injectionKeys = [
   "OPENCODE_CONFIG",
   "OPENCODE_CONFIG_CONTENT",
   "OPENCODE_AUTH_CONTENT",
+  "OPENCODE_MODELS_PATH",
+  "OPENCODE_TEST_MANAGED_CONFIG_DIR",
+  "OPENCODE_TUI_CONFIG",
+  "OPENCODE_PLUGIN_META_FILE",
+  "OPENCODE_ZED_DB",
+  "BUDDY_ADVANCED_MATH_ASSET_BASE_URL",
+  "BUDDY_STANDARDS_ASSET_BASE_URL",
   "BUDDY_RUNTIME_ROOT",
   "OPENCODE_DISABLE_CHANNEL_DB",
   "BUDDY_TEST_HOME",
@@ -49,6 +57,9 @@ describe("desktop storage environment", () => {
         USERPROFILE: "/sandbox/os-profile",
         APPDATA: "/sandbox/appdata",
         LOCALAPPDATA: "/sandbox/localappdata",
+        OPENCODE_DISABLE_MODELS_FETCH: "true",
+        OPENCODE_DISABLE_PROJECT_CONFIG: "true",
+        OPENCODE_GIT_BASH_PATH: "/sandbox/git/bin/bash.exe",
       }
       if (platform === "win32") {
         for (const key of Object.keys(shell)) {
@@ -72,17 +83,23 @@ describe("desktop storage environment", () => {
         expect(environment[key]).toBe(app[key])
       }
       expect(environment[BUDDY_ENV.DIRECTORY_BASE]).toBe("/sandbox/documents/Buddy Beta")
+      expect(environment.BUDDY_RELEASE_REPO).toBe("prashantbhudwal/buddy-beta-releases")
+      expect(environment.OPENCODE_DISABLE_MODELS_FETCH).toBe("true")
+      expect(environment.OPENCODE_DISABLE_PROJECT_CONFIG).toBe("true")
+      expect(environment.OPENCODE_GIT_BASH_PATH).toBe("/sandbox/git/bin/bash.exe")
     },
   )
 
   test("Stable and dev retain existing env injection/precedence", () => {
     const environment = {
+      ...Object.fromEntries(injectionKeys.map((key) => [key, "/sandbox/configured"])),
       BUDDY_CONFIG: "/sandbox/config.json",
       BUDDY_CONFIG_CONTENT: "{}",
       BUDDY_DATA_DIR: "/sandbox/custom-data",
       BUDDY_OPENAI_AUTH_TRACE_FILE: "/sandbox/trace",
       buddy_data_dir: "/sandbox/lowercase",
       TMPDIR: "/sandbox/tmp",
+      BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases",
     }
     const stable = resolveDesktopStoragePlan({ ...input, channel: "prod", isPackaged: true })
     expect(applyDesktopStorageEnvironment(environment, stable, "win32")).toEqual(environment)
@@ -92,6 +109,21 @@ describe("desktop storage environment", () => {
       ...dev.environmentOverrides,
     })
   })
+
+  test.each(["prod", "beta", "dev"] as const)(
+    "the %s backend ignores an inherited BUDDY_CHANNEL",
+    (channel) => {
+      const inherited = { BUDDY_CHANNEL: "beta", Buddy_Channel: "beta", OTHER: "kept" }
+      expect(pinBackendChannel(inherited, channel, "win32")).toEqual({
+        BUDDY_CHANNEL: channel,
+        OTHER: "kept",
+      })
+      expect(pinBackendChannel(inherited, channel, "darwin")).toEqual({
+        ...inherited,
+        BUDDY_CHANNEL: channel,
+      })
+    },
+  )
 })
 
 describe("desktop named stores", () => {
@@ -102,7 +134,7 @@ describe("desktop named stores", () => {
         channel: "beta",
         isPackaged: true,
         home: path.join(root, "home"),
-        documentsPath: path.join(root, "documents"),
+        readDocumentsPath: () => path.join(root, "documents"),
         userDataPath: root,
       })
       const registry = createDesktopStoreRegistry({

@@ -134,7 +134,7 @@ jobs:
           BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bun ./script/release/distribution-guard.ts
 
-      - name: Verify green main source
+      - name: Verify green ${{ inputs.channel == 'beta' && 'beta' || 'main' }} source
         env:
           GH_TOKEN: ${{ github.token }}
           BUDDY_RELEASE_SOURCE_REPOSITORY: ${{ github.repository }}
