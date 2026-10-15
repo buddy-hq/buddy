@@ -15,10 +15,14 @@ import { readDesktopPackageVersion, updateDesktopPackageVersion } from "./utils"
 import { buildElectronPackageAndSmoke } from "./package-electron"
 import { verifyMacUpdateArchive } from "./verify-mac-update-archive"
 
-import { requireUpdaterPublicKey } from "@buddy/script/distribution"
+import { isBuddyDistributionId, requireUpdaterPublicKey } from "@buddy/script/distribution"
 import { releaseDistribution } from "../../../script/release/distribution-guard"
 import { verifyReleasePackageIdentity } from "./release-package-identity"
 
+// Packaging must name its distribution; a missing channel never defaults to prod.
+if (!isBuddyDistributionId(process.env.BUDDY_CHANNEL?.trim())) {
+  throw new Error("Release target builds require BUDDY_CHANNEL=prod or BUDDY_CHANNEL=beta")
+}
 const distribution = releaseDistribution()
 requireUpdaterPublicKey(distribution)
 

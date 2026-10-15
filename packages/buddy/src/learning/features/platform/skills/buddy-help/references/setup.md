@@ -15,7 +15,7 @@ Use when the user asks how to get Buddy, update it, pick Stable vs Preview, or r
 
 ### Fresh install
 
-Prefer the site script or the download buttons on hibuddy.in.
+For **Stable**, prefer the site script or the download buttons on hibuddy.in.
 
 | OS | Command |
 | --- | --- |
@@ -30,12 +30,14 @@ Same from **hibuddy.in** → **Download for Mac** / **Download for Windows**.
 
 Supported: macOS Apple Silicon + Intel; Windows **x64** first. No Linux install path.
 
+For **Buddy Beta**, use `install-buddy-macos.sh` or `install-buddy-windows.ps1` from `prashantbhudwal/buddy-beta-releases`. It installs beside Stable as **Buddy Beta**.
+
 ### Updates (already installed)
 
 In-app updates on the normal installed desktop app (not web-only).
 
-1. **Settings → About**
-2. **Update channel:** **Stable** (default) or **Preview**
+1. **Settings → About → Updates**
+2. **Update channel:** Stable app offers **Stable** (default) or **Preview**; **Buddy Beta** shows a fixed **Beta** row
 3. **Check now** for a manual pass
 
 **Stable** = approved releases. **Preview** = release candidates; switching to Preview saves and checks immediately.
@@ -52,28 +54,28 @@ Status can show checking, downloading, available, downloaded, blocked, up to dat
 
 - Startup failure can offer an update check; may install a fix (including an older or newer build).
 - **Blocked** update ≠ “up to date.”
-- Mid-fail install → may still be on old build; use **Check now** again or re-run the site install command.
-- Re-run install script anytime to re-download latest and open the installer.
+- Mid-fail install → may still be on old build; use **Check now** again or re-run this app’s installer.
+- Re-run this app’s install script anytime to re-download latest and open the installer.
 
 ### Guardrails
 
 - Guide the user to site/script/Settings for app install — not something Buddy does from chat alone.
-- Channel UI is **Stable** / **Preview**, not “Beta.” **Buddy Beta** / **Buddy Dev** are separate app builds if present.
+- Stable app offers **Stable** / **Preview**. **Buddy Beta** is a separate app with its own data and a fixed **Beta** row; it updates from its own releases. **Buddy Dev** is another separate build if present.
 - Do not claim installation happens before the user chooses **Restart to install**.
 - **Install CLI…** in macOS menu is disabled — not available.
-- Prefer hibuddy.in script.
+- Prefer hibuddy.in script for Stable; Beta’s release installer for **Buddy Beta**.
 
 ### Gotchas
 
-- **Updates unavailable in this build** → this install cannot use in-app updates; re-download from hibuddy.in.
+- **Updates unavailable in this build** → this install cannot use in-app updates; re-download this app’s installer (Fresh install above).
 - Preview can be rougher than Stable.
-- Fresh install script pulls **latest stable**, not Preview.
+- Site install script pulls **latest Stable**. Beta uses its own release installer; local macOS `./script/install-release.sh --channel beta` pulls latest Beta unless a tag is supplied.
 - Gatekeeper/SmartScreen: script strips quarantine on download; OS security prompts may still appear.
 - Skills drawer “install” (right rail) ≠ app install.
 
 ## Desktop process
 
-Use when Buddy won’t start, needs restart, multi-window / second-launch behavior, `buddy://` protocol, or desktop logs.
+Use when Buddy won’t start, needs restart, multi-window / second-launch behavior, `buddy://` / `buddy-beta://` protocols, or desktop logs.
 
 Install/update: Install & updates above. First-run wizard: First run below. Privacy of local data: `trust.md`.
 
@@ -105,26 +107,27 @@ Windows has **no** Buddy application menu. Restart = quit/reopen or update insta
 
 ### Windows & single instance
 
-- Normally **one instance**. Second launch focuses the existing window (may pass `buddy://` args).
+- Normally **one instance per app**. Second launch focuses that app’s existing window (may pass deep-link args).
 - **macOS** File → **New Window** can open another UI window; still one Buddy app running.
 - Closing the last window: macOS may keep the app in the Dock; Windows usually quits.
 
 ### Deep links
 
-- Scheme **`buddy://`** is registered.
+- Stable registers **`buddy://`**; **Buddy Beta** registers **`buddy-beta://`**.
 - Incoming links are forwarded into the desktop window.
-- **Do not invent** arbitrary `buddy://…` destinations. Notes can link to a saved chat message (`notes.md`); provider login finishes in the **system browser** and returns to Buddy (`providers.md`).
+- **Do not invent** arbitrary `buddy://…` / `buddy-beta://…` destinations. Notes can link to a saved chat message (`notes.md`); provider login finishes in the **system browser** and returns to Buddy (`providers.md`).
 
 ### Logs
 
-No in-app log viewer. Logs are files on disk (Buddy folder under the OS log location; **Buddy Beta** / **Buddy Dev** use matching names).
+No in-app log viewer. Logs are files on disk (Buddy folder under the OS log location; **Buddy Dev** uses its matching name).
 
+- Packaged **Buddy Beta** logs: macOS `~/Library/Application Support/ai.buddy.desktop.beta/logs`; Windows `%APPDATA%\ai.buddy.desktop.beta\logs`.
 - macOS update failures may also write an update installer log next to the main log.
 
 ### Defaults
 
 - Buddy is local on this machine; not a remote multi-user server.
-- Prod / beta / dev app builds keep **separate** app data; settings do not merge across channels.
+- Stable / Beta / Dev apps keep **separate** app data; Stable/Preview are rings within the Stable app. Stable and Beta intentionally share `~/.opencode`, `~/.claude`, and `~/.agents`.
 - Updates only on normal installed desktop builds.
 
 ### Gotchas
@@ -144,7 +147,7 @@ Desktop only. Web does not show this flow. Install/update: Install & updates abo
 
 - First desktop launch without completed setup or an open notebook → onboarding (focus, AI engine, notebook location).
 - **Learn** selects the **Buddy** persona. **Teach** selects **Teaching Buddy**, shows teaching-oriented copy, reveals **Standards**, and starts Standards package setup on desktop.
-- Default notebook home: **Documents → Buddy** (`~/Documents/Buddy` shape).
+- Default notebook home: Stable **Documents → Buddy** (`~/Documents/Buddy`); Beta **Documents → Buddy Beta** (`~/Documents/Buddy Beta`).
 - First notebook after setup: **Inbox**.
 - AI engines in wizard: **Connect ChatGPT** or **Free models** only.
 - Personalization is available later in **Settings → Personalization**.

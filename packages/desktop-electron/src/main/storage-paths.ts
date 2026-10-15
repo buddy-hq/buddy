@@ -1,7 +1,11 @@
 import fs from "node:fs"
-import path, { join } from "node:path"
+import path from "node:path"
 import { BUDDY_CHANNEL_ENV, type BuddyReleaseChannel } from "@buddy/script/channel"
-import { resolveBuddyDistribution } from "@buddy/script/distribution"
+import {
+  BUDDY_DISTRIBUTIONS,
+  formatReleaseRepositorySlug,
+  resolveBuddyDistribution,
+} from "@buddy/script/distribution"
 import {
   BUDDY_APP_NAME,
   BUDDY_ENV,
@@ -40,14 +44,6 @@ export type DevRuntimeEnvironment = RuntimeXdgEnvironment & {
   [BUDDY_ENV.CACHE_DIR]: string
   [BUDDY_ENV.GLOBAL_CONFIG_DIR]: string
   [BUDDY_ENV.STATE_DIR]: string
-}
-
-export function resolveDefaultNotebookHome(home: string): string {
-  return join(home, ...DEFAULT_NOTEBOOK_HOME_SEGMENTS)
-}
-
-export function resolveAllowedDirectoryRoots(input: { home: string }): string {
-  return resolveDefaultNotebookHome(input.home)
 }
 
 export function shouldUseDevRuntimeIsolation(input: {
@@ -104,7 +100,8 @@ export type DesktopStoragePlanInput = {
   channel: StorageChannel
   isPackaged: boolean
   home: string
-  documentsPath: string
+  /** Only packaged Beta reads Documents; Stable and dev never ask the OS for it. */
+  readDocumentsPath: () => string
   userDataPath: string
   envBuddyDataDir?: string | undefined
   envXdgDataHome?: string | undefined
@@ -143,7 +140,7 @@ export function resolveDesktopStoragePlan(input: DesktopStoragePlanInput): Deskt
     const managedHome = pathApi.join(config, BUDDY_APP_NAME)
     const skillCache = pathApi.join(cache, BUDDY_APP_NAME, "opencode", "skills")
     const buddyDataDir = pathApi.join(data, BUDDY_APP_NAME)
-    const notebookHome = pathApi.join(input.documentsPath, distribution.productName)
+    const notebookHome = pathApi.join(input.readDocumentsPath(), distribution.productName)
     const electronPaths = {
       sessionData: userData,
       temp,
@@ -170,6 +167,7 @@ export function resolveDesktopStoragePlan(input: DesktopStoragePlanInput): Deskt
       [OPENCODE_ENV.CONFIG_DIR]: managedHome,
       [OPENCODE_ENV.DB]: BUDDY_OPENCODE_DB_FILENAME,
       [BUDDY_CHANNEL_ENV]: distribution.id,
+      [BUDDY_ENV.RELEASE_REPO]: formatReleaseRepositorySlug(BUDDY_DISTRIBUTIONS.beta),
     }
     return {
       kind: "beta",
@@ -228,6 +226,13 @@ const BETA_INHERITED_STORAGE_ENV = [
   "OPENCODE_CONFIG",
   "OPENCODE_CONFIG_CONTENT",
   "OPENCODE_AUTH_CONTENT",
+  OPENCODE_ENV.MODELS_PATH,
+  OPENCODE_ENV.TEST_MANAGED_CONFIG_DIR,
+  OPENCODE_ENV.TUI_CONFIG,
+  OPENCODE_ENV.PLUGIN_META_FILE,
+  OPENCODE_ENV.ZED_DB,
+  BUDDY_ENV.ADVANCED_MATH_ASSET_BASE_URL,
+  BUDDY_ENV.STANDARDS_ASSET_BASE_URL,
   BUDDY_ENV.RUNTIME_ROOT,
   OPENCODE_ENV.DISABLE_CHANNEL_DB,
   BUDDY_ENV.TEST_HOME,
@@ -257,21 +262,29 @@ export function applyDesktopStorageEnvironment(
   return Object.assign(result, plan.environmentOverrides)
 }
 
-/** Resolve the Buddy data root using the same policy as backend startup. */
-export function resolveBuddyDataDir(input: Omit<DesktopStoragePlanInput, "documentsPath">): string {
-  return resolveDesktopStoragePlan({
-    ...input,
-    documentsPath: (input.pathApi ?? path).join(input.home, "Documents"),
-  }).buddyDataDir
+/** The backend always runs as the compiled desktop channel, whatever the shell exported. */
+export function pinBackendChannel(
+  environment: Readonly<Record<string, string>>,
+  channel: BuddyReleaseChannel,
+  platform: NodeJS.Platform,
+) {
+  const result = { ...environment }
+  if (platform === "win32") {
+    for (const key of Object.keys(result)) {
+      if (key.toUpperCase() === BUDDY_CHANNEL_ENV) delete result[key]
+    }
+  }
+  result[BUDDY_CHANNEL_ENV] = channel
+  return result
 }
 
 /** Resolve the startup database without inspecting another distribution's data. */
 export function resolveOpenCodeSqlitePath(
-  input: Omit<DesktopStoragePlanInput, "documentsPath">,
+  input: Omit<DesktopStoragePlanInput, "readDocumentsPath">,
 ): string {
   return resolveDesktopStoragePlan({
     ...input,
-    documentsPath: (input.pathApi ?? path).join(input.home, "Documents"),
+    readDocumentsPath: () => (input.pathApi ?? path).join(input.home, "Documents"),
   }).openCodeSqlitePath
 }
 

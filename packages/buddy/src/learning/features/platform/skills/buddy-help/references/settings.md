@@ -49,7 +49,7 @@ Core tabs (Browser appears on desktop):
 | **MCPs** | Global MCP definitions; per-server on/off by default |
 | **Packages** | Optional package installs on desktop; **Memory** experiment opt-in |
 | **Shortcuts** | Built-in keyboard shortcuts |
-| **About** | Version; channel **Stable** / **Preview**; **Check now** (desktop only); attribution and licenses |
+| **About** | Version; Stable app: channel **Stable** / **Preview**; Buddy Beta: fixed **Beta** row; **Check now** (desktop only); attribution and licenses |
 
 Revealed once the matching capability is on — each is independent:
 

@@ -36,6 +36,7 @@ import {
   UPDATER_ENABLED,
 } from "./constants"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
+import { isAppDeepLink } from "./deep-link"
 import { importBrowserCookies } from "./browser-import/browser-import"
 import { buildRuntimeEnvironment, installCli } from "./cli"
 import { setInAppBrowserAppearance } from "./in-app-browser-appearance"
@@ -148,7 +149,7 @@ const desktopStoragePlan = resolveDesktopStoragePlan({
   channel: CHANNEL,
   isPackaged: app.isPackaged,
   home: homedir(),
-  documentsPath: app.getPath("documents"),
+  readDocumentsPath: () => app.getPath("documents"),
   userDataPath: app.getPath("userData"),
 })
 if (desktopStoragePlan.electronPaths) {
@@ -223,7 +224,7 @@ function setupApplication() {
   }
 
   app.on("second-instance", (_event: Event, argv: string[]) => {
-    const urls = argv.filter((arg) => arg.startsWith(`${APP_PROTOCOL}://`))
+    const urls = argv.filter((arg) => isAppDeepLink(arg, APP_PROTOCOL))
     if (urls.length > 0) {
       emitDeepLinks(urls)
     }
@@ -232,7 +233,7 @@ function setupApplication() {
 
   app.on("open-url", (event: Event, url: string) => {
     event.preventDefault()
-    if (!url.startsWith(`${APP_PROTOCOL}://`)) return
+    if (!isAppDeepLink(url, APP_PROTOCOL)) return
     emitDeepLinks([url])
     focusMainWindow()
   })
