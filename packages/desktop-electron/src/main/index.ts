@@ -26,6 +26,7 @@ import {
 } from "./custom-mac-updater"
 import {
   APP_PROTOCOL,
+  APP_PRODUCT_NAME,
   BACKEND_HEALTH_TIMEOUT_MS,
   BACKEND_SERVER_USERNAME,
   CHANNEL,
@@ -92,16 +93,7 @@ import {
   resolveDesktopStoragePlan,
   resolveOpenCodeSqlitePath,
 } from "./storage-paths"
-import {
-  BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
-  fetchSignedElectronUpdateManifest,
-  RELEASE_REPOSITORY,
-  RELEASE_REPOSITORY_NAME,
-  RELEASE_REPOSITORY_OWNER,
-  resolveLatestRingAssetUrl,
-  resolveVersionedReleaseAssetUrls,
-  SignedUpdateFetchError,
-} from "./update-common"
+import { UPDATE_DISTRIBUTION, UpdatesNotConfiguredError, RELEASE_REPOSITORY } from "./update-common"
 import { createReadyUpdateStore, isReadyUpdateCurrent } from "./update-ready-store"
 import { compareVersions } from "./recovery-policy-core"
 import { watchBackendDevelopmentReloadSignal } from "./backend-development-reload"
@@ -125,20 +117,19 @@ import {
 } from "./update-service"
 import {
   createWindowsUpdateFeedProviderOptions,
+  createDefaultWindowsUpdateProviderOptions,
+  fetchWindowsUpdateManifest,
   startWindowsUpdateFeed,
   type WindowsUpdateFeed,
 } from "./windows-update-feed"
-import { resolveWindowsUpdateManifestFilename } from "../shared/release-asset-names"
 import { createLoadingWindow, createMainWindow, setBackgroundColor, setDockIcon } from "./windows"
 
 const { autoUpdater } = electronUpdaterPackage
-const STARTUP_FAILURE_MESSAGE = "Buddy failed to start."
-const UNKNOWN_STARTUP_FAILURE_DETAIL = "The local Buddy server did not become ready."
+const STARTUP_FAILURE_MESSAGE = `${APP_PRODUCT_NAME} failed to start.`
+const UNKNOWN_STARTUP_FAILURE_DETAIL = `The local ${APP_PRODUCT_NAME} server did not become ready.`
 const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
 const MAC_UPDATE_CACHE_DIRECTORY_NAME = "mac-updater"
-const BUDDY_DOWNLOAD_URL = `https://github.com/${RELEASE_REPOSITORY}/releases/latest`
-const WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME = resolveWindowsUpdateManifestFilename("x64")
-const LEGACY_WINDOWS_UPDATE_MANIFEST_FILENAME = "latest.yml"
+const BUDDY_DOWNLOAD_URL = `https://github.com/${RELEASE_REPOSITORY}/releases${UPDATE_DISTRIBUTION.id === "beta" ? "" : "/latest"}`
 const PRIMARY_DIALOG_RESPONSE = 0
 const SECONDARY_DIALOG_RESPONSE = 1
 const STARTUP_FAILURE_UPDATE_CHECK_BUTTONS = ["Check for Update", "Quit"] as const
@@ -192,6 +183,7 @@ let activeWindowsDownload:
 type UpdateCheckResult = {
   blocked?: boolean
   failed?: boolean
+  notConfigured?: boolean
   recoveryTarget?: RecoveryTarget
   updateAvailable: boolean
   version?: string
@@ -240,6 +232,7 @@ function setupApplication() {
 
   app.on("open-url", (event: Event, url: string) => {
     event.preventDefault()
+    if (!url.startsWith(`${APP_PROTOCOL}://`)) return
     emitDeepLinks([url])
     focusMainWindow()
   })
@@ -459,7 +452,7 @@ async function offerStartupFailureUpdateRecovery<TError>(error: TError): Promise
       detail: [
         startupFailureDetail(error),
         "",
-        "Buddy can still check for an update without the local server running.",
+        `${APP_PRODUCT_NAME} can still check for an update without the local server running.`,
       ].join("\n"),
       buttons: [...STARTUP_FAILURE_UPDATE_CHECK_BUTTONS],
       defaultId: PRIMARY_DIALOG_RESPONSE,
@@ -475,14 +468,14 @@ async function offerStartupFailureUpdateRecovery<TError>(error: TError): Promise
 
   const result = await checkStartupRecoveryUpdate()
   if (!result.updateAvailable) {
-    await showStartupFailureUpdateMissingDialog(result.failed, result.blocked)
+    await showStartupFailureUpdateMissingDialog(result.failed, result.blocked, result.notConfigured)
     return false
   }
 
   const response = await dialog.showMessageBox({
     type: "info",
     title: "Update Ready",
-    message: `Buddy ${result.version ?? ""} is ready to install.`,
+    message: `${APP_PRODUCT_NAME} ${result.version ?? ""} is ready to install.`,
     detail: startupRecoveryInstallDetail(result.recoveryTarget),
     buttons: [...STARTUP_FAILURE_UPDATE_INSTALL_BUTTONS],
     defaultId: PRIMARY_DIALOG_RESPONSE,
@@ -540,7 +533,7 @@ function startupRecoveryInstallDetail(target: RecoveryTarget | undefined): strin
 
   const action = target.mode === "downgrade" ? "rollback" : "recovery update"
   const reason = target.reason ? `\n\nReason: ${target.reason}` : ""
-  return `Buddy will install the ${action} selected by the signed recovery policy.${reason}`
+  return `${APP_PRODUCT_NAME} will install the ${action} selected by the signed recovery policy.${reason}`
 }
 
 async function reportPreviousMacInstallerResult(): Promise<void> {
@@ -635,12 +628,15 @@ async function showStartupFailureDialog<TError>(error: TError): Promise<void> {
 async function showStartupFailureUpdateMissingDialog(
   failed: boolean | undefined,
   blocked: boolean | undefined,
+  notConfigured?: boolean,
 ): Promise<void> {
   const response = await dialog.showMessageBox({
     type: failed ? "error" : "info",
     title: app.getName(),
-    message: startupFailureUpdateMissingMessage(failed, blocked),
-    detail: "You can still download the latest Buddy release manually.",
+    message: notConfigured
+      ? `${APP_PRODUCT_NAME} updates are not configured.`
+      : startupFailureUpdateMissingMessage(failed, blocked),
+    detail: `You can still download the latest ${APP_PRODUCT_NAME} release manually.`,
     buttons: [...STARTUP_FAILURE_UPDATE_MISSING_BUTTONS],
     defaultId: PRIMARY_DIALOG_RESPONSE,
     cancelId: SECONDARY_DIALOG_RESPONSE,
@@ -983,6 +979,7 @@ const updateMechanics: UpdateMechanics = {
 
 function createUpdateServiceForApp(): UpdateService {
   return createUpdateService({
+    distribution: CHANNEL === "beta" ? "beta" : undefined,
     currentVersion: app.getVersion(),
     ring: getUpdateRing(),
     supported: updaterEnabled,
@@ -1015,6 +1012,7 @@ function readUpdateState(): UpdateState {
   return (
     updateService?.getState() ??
     createUpdateState({
+      distribution: CHANNEL === "beta" ? "beta" : undefined,
       currentVersion: app.getVersion(),
       ring: getUpdateRing(),
       supported: false,
@@ -1038,7 +1036,9 @@ async function checkLatestUpdate(ring: UpdateRing): Promise<UpdateCheckOutcome> 
 }
 
 function toCheckOutcome(result: UpdateCheckResult, ring: UpdateRing): UpdateCheckOutcome {
-  if (result.failed) return { kind: "failed" }
+  if (result.failed) {
+    return result.notConfigured ? { kind: "failed", reason: "not-configured" } : { kind: "failed" }
+  }
   if (result.blocked) {
     readyUpdateStore.take(ring)
     return { kind: "blocked" }
@@ -1097,7 +1097,9 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckOutcome>
     return { kind: "available", version }
   } catch (error) {
     logger.error("update check failed", error)
-    return { kind: "failed" }
+    return error instanceof UpdatesNotConfiguredError
+      ? { kind: "failed", reason: "not-configured" }
+      : { kind: "failed" }
   } finally {
     await closeWindowsUpdateFeed(signedFeed)
     configureDefaultElectronUpdaterProvider()
@@ -1157,7 +1159,11 @@ async function checkAndDownloadLatestUpdate(): Promise<UpdateCheckResult> {
 
   const ring = getUpdateRing()
   const check = await updateRunner.runExclusive(() => checkLatestUpdate(ring))
-  if (check.kind === "failed") return { failed: true, updateAvailable: false }
+  if (check.kind === "failed") {
+    return check.reason === "not-configured"
+      ? { failed: true, updateAvailable: false, notConfigured: true }
+      : { failed: true, updateAvailable: false }
+  }
   if (check.kind === "blocked") return { blocked: true, updateAvailable: false }
   if (check.kind === "up-to-date") return { updateAvailable: false }
 
@@ -1238,7 +1244,9 @@ async function checkUpdateForVersionNow(version: string): Promise<UpdateCheckRes
     }
   } catch (error) {
     logger.error("recovery update check failed", error)
-    return { failed: true, updateAvailable: false }
+    return error instanceof UpdatesNotConfiguredError
+      ? { failed: true, updateAvailable: false, notConfigured: true }
+      : { failed: true, updateAvailable: false }
   } finally {
     activeWindowsDownload = undefined
     await closeWindowsUpdateFeed(signedFeed)
@@ -1250,8 +1258,7 @@ async function configureSignedWindowsUpdateFeed(
   expectedVersion?: string,
   ring: UpdateRing = getUpdateRing(),
 ): Promise<SignedWindowsUpdateFeed> {
-  const manifestUrls = await resolveSignedWindowsUpdateManifestUrls(expectedVersion, ring)
-  const manifest = await fetchSignedWindowsUpdateManifest(manifestUrls)
+  const manifest = await fetchWindowsUpdateManifest({ expectedVersion, ring, logger })
 
   if (expectedVersion && manifest.version !== expectedVersion) {
     throw new Error(
@@ -1276,60 +1283,6 @@ async function configureSignedWindowsUpdateFeed(
   }
 }
 
-async function resolveSignedWindowsUpdateManifestUrls(
-  expectedVersion?: string,
-  ring: UpdateRing = getUpdateRing(),
-): Promise<readonly string[]> {
-  if (expectedVersion) {
-    return resolveVersionedReleaseAssetUrls({
-      legacyFilename: LEGACY_WINDOWS_UPDATE_MANIFEST_FILENAME,
-      primaryFilename: WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME,
-      version: expectedVersion,
-    })
-  }
-
-  return [
-    await resolveLatestRingAssetUrl({
-      filename: WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME,
-      ring,
-    }),
-  ]
-}
-
-async function fetchSignedWindowsUpdateManifest(
-  manifestUrls: readonly string[],
-): Promise<{ content: string; version: string }> {
-  let lastError: unknown
-
-  for (const [index, manifestUrl] of manifestUrls.entries()) {
-    try {
-      return await fetchSignedElectronUpdateManifest({
-        publicKey: process.env[BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY]?.trim() || undefined,
-        url: manifestUrl,
-      })
-    } catch (error) {
-      lastError = error
-      const fallbackUrl = manifestUrls[index + 1]
-      if (!fallbackUrl || !isMissingSignedManifest(error)) {
-        throw error
-      }
-
-      logger.warn("signed recovery update manifest missing; trying legacy manifest", {
-        fallbackUrl,
-        manifestUrl,
-      })
-    }
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("Failed to fetch Windows update manifest")
-}
-
-function isMissingSignedManifest<TError>(error: TError): boolean {
-  return error instanceof SignedUpdateFetchError && error.status === 404
-}
-
 async function closeWindowsUpdateFeed(feed: WindowsUpdateFeed | undefined): Promise<void> {
   if (!feed) return
 
@@ -1341,14 +1294,9 @@ async function closeWindowsUpdateFeed(feed: WindowsUpdateFeed | undefined): Prom
 }
 
 function configureDefaultElectronUpdaterProvider() {
-  autoUpdater.allowPrerelease = false
+  autoUpdater.allowPrerelease = UPDATE_DISTRIBUTION.id === "beta"
   autoUpdater.allowDowngrade = false
-  autoUpdater.setFeedURL({
-    channel: "latest",
-    owner: RELEASE_REPOSITORY_OWNER,
-    provider: "github",
-    repo: RELEASE_REPOSITORY_NAME,
-  })
+  autoUpdater.setFeedURL(createDefaultWindowsUpdateProviderOptions())
 }
 
 async function installUpdate(): Promise<void> {

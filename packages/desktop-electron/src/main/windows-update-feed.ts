@@ -1,12 +1,91 @@
+import type { BuddyDistribution } from "@buddy/script/distribution"
 import { createServer, type Server } from "node:http"
 import { parseTPortedAddress } from "../shared/parse-external"
-import { isAbsoluteUrl, resolveReleaseAssetUrl } from "./update-common"
+import {
+  UPDATE_DISTRIBUTION,
+  fetchSignedElectronUpdateManifest,
+  resolveLatestRingAssetUrl,
+  resolveReleaseAssetUrl,
+  resolveVersionedReleaseAssetUrls,
+  resolveUpdatePublicKeyOverride,
+  resolveUpdateVerificationPublicKey,
+  SignedUpdateFetchError,
+} from "./update-common"
+import type { UpdateRing } from "@buddy/update-contract"
+import { UPDATE_RING_STABLE } from "@buddy/update-contract"
+import { resolveWindowsUpdateManifestFilename } from "../shared/release-asset-names"
 
 const WINDOWS_UPDATE_FEED_HOSTNAME = "127.0.0.1"
 export const WINDOWS_UPDATE_MANIFEST_FILENAME = "latest.yml"
 const WINDOWS_UPDATE_MANIFEST_PATHNAME = `/${WINDOWS_UPDATE_MANIFEST_FILENAME}`
 const HTTP_OK = 200
 const HTTP_NOT_FOUND = 404
+
+/** Restore electron-updater's provider without ever switching distributions. */
+export function createDefaultWindowsUpdateProviderOptions(
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+) {
+  return {
+    channel: "latest",
+    owner: distribution.releaseOwner,
+    provider: "github" as const,
+    repo: distribution.releaseRepository,
+  }
+}
+
+/** Discover and verify Windows metadata before handing it to electron-updater. */
+export async function fetchWindowsUpdateManifest(input: {
+  distribution?: BuddyDistribution
+  expectedVersion?: string
+  publicKey?: string
+  ring?: UpdateRing
+  logger: { warn: (...args: unknown[]) => void }
+}): Promise<{ content: string; version: string }> {
+  const distribution = input.distribution ?? UPDATE_DISTRIBUTION
+  const publicKey = resolveUpdateVerificationPublicKey(
+    distribution,
+    input.publicKey ?? resolveUpdatePublicKeyOverride(distribution),
+  )
+  const primaryFilename = resolveWindowsUpdateManifestFilename("x64")
+  const manifestUrls = input.expectedVersion
+    ? resolveVersionedReleaseAssetUrls({
+        distribution,
+        legacyFilename: WINDOWS_UPDATE_MANIFEST_FILENAME,
+        primaryFilename,
+        version: input.expectedVersion,
+      })
+    : [
+        await resolveLatestRingAssetUrl({
+          distribution,
+          filename: primaryFilename,
+          ring: input.ring ?? UPDATE_RING_STABLE,
+        }),
+      ]
+
+  let lastError: unknown
+  for (const [index, manifestUrl] of manifestUrls.entries()) {
+    try {
+      return await fetchSignedElectronUpdateManifest({
+        distribution,
+        publicKey,
+        url: manifestUrl,
+      })
+    } catch (error) {
+      lastError = error
+      const fallbackUrl = manifestUrls[index + 1]
+      if (!fallbackUrl || !(error instanceof SignedUpdateFetchError) || error.status !== 404) {
+        throw error
+      }
+      input.logger.warn("signed recovery update manifest missing; trying legacy manifest", {
+        fallbackUrl,
+        manifestUrl,
+      })
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Failed to fetch Windows update manifest")
+}
 
 export type WindowsUpdateFeed = {
   close: () => Promise<void>
@@ -33,8 +112,13 @@ export function createWindowsUpdateFeedProviderOptions(
 export async function startWindowsUpdateFeed(input: {
   content: string
   version: string
+  distribution?: BuddyDistribution
 }): Promise<WindowsUpdateFeed> {
-  const manifestContent = absolutizeElectronUpdateManifestUrls(input.content, input.version)
+  const manifestContent = absolutizeElectronUpdateManifestUrls(
+    input.content,
+    input.version,
+    input.distribution,
+  )
   const server = createServer((request, response) => {
     const requestUrl = parseRequestUrl(request.url)
     if (!requestUrl || requestUrl.pathname !== WINDOWS_UPDATE_MANIFEST_PATHNAME) {
@@ -66,14 +150,22 @@ export async function startWindowsUpdateFeed(input: {
   }
 }
 
-export function absolutizeElectronUpdateManifestUrls(content: string, version: string): string {
+export function absolutizeElectronUpdateManifestUrls(
+  content: string,
+  version: string,
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): string {
   return content
     .split(/\r?\n/u)
-    .map((line) => absolutizeElectronUpdateManifestUrlLine(line, version))
+    .map((line) => absolutizeElectronUpdateManifestUrlLine(line, version, distribution))
     .join("\n")
 }
 
-function absolutizeElectronUpdateManifestUrlLine(line: string, version: string): string {
+function absolutizeElectronUpdateManifestUrlLine(
+  line: string,
+  version: string,
+  distribution: BuddyDistribution,
+): string {
   const match = line.match(/^(\s*(?:-\s*)?(?:url|path):\s*)(.+?)(\s*)$/u)
   if (!match) return line
 
@@ -84,9 +176,8 @@ function absolutizeElectronUpdateManifestUrlLine(line: string, version: string):
       ? rawValue[0]
       : undefined
   const value = quote ? rawValue.slice(1, -1) : rawValue
-  if (isAbsoluteUrl(value)) return line
-
-  const absoluteUrl = resolveReleaseAssetUrl(version, value)
+  const absoluteUrl = resolveReleaseAssetUrl(version, value, distribution)
+  if (absoluteUrl === value) return line
   return `${prefix}${quote ?? ""}${absoluteUrl}${quote ?? ""}${suffix}`
 }
 

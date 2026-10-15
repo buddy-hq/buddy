@@ -45,10 +45,13 @@ export type UpdateActivity =
 
 /** Kept separately so a failed check cannot hide an available or downloaded update. */
 export type UpdateFailure = {
+  readonly reason?: "not-configured"
   readonly stage: UpdateFailureStage
 }
 
 export type UpdateState = {
+  /** Present only for the separately installed Beta distribution. */
+  readonly distribution?: "beta"
   /** Lets readers reject stale snapshots, events, and command replies. */
   readonly revision: number
   readonly ring: UpdateRing
@@ -70,17 +73,19 @@ export function normalizeUpdateRing<TValue>(value: TValue): UpdateRing {
 }
 
 export function createUpdateState(input: {
+  readonly distribution?: "beta"
   readonly currentVersion: string
   readonly ring: UpdateRing
   readonly supported: boolean
 }): UpdateState {
-  return {
+  const state: UpdateState = {
     revision: 0,
-    ring: input.ring,
+    ring: input.distribution === "beta" ? UPDATE_RING_PREVIEW : input.ring,
     currentVersion: input.currentVersion,
     activity: input.supported ? { status: "idle" } : { status: "unsupported" },
     releaseNotes: [],
   }
+  return input.distribution === "beta" ? { ...state, distribution: input.distribution } : state
 }
 
 /**
@@ -199,9 +204,14 @@ export function completeCheckBlocked(
   }
 }
 
-export function failCheck(state: UpdateState, input: { readonly checkedAt: string }): UpdateState {
+export function failCheck(
+  state: UpdateState,
+  input: { readonly checkedAt: string; readonly reason?: "not-configured" },
+): UpdateState {
   if (state.activity.status === "unsupported") return state
-  const failure: UpdateFailure = { stage: "check" }
+  const failure: UpdateFailure = input.reason
+    ? { stage: "check", reason: input.reason }
+    : { stage: "check" }
   if (state.activity.status === "available" || state.activity.status === "downloaded") {
     return { ...state, checkedAt: input.checkedAt, failure }
   }
@@ -281,6 +291,7 @@ export function failInstall(state: UpdateState): UpdateState {
  * returns to idle rather than offering a build from the ring the user left.
  */
 export function selectRing(state: UpdateState, ring: UpdateRing): UpdateState {
+  if (state.distribution === "beta") return state
   if (state.ring === ring) return state
   if (state.activity.status === "unsupported") return { ...state, ring }
   return {

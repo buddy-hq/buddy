@@ -1,3 +1,4 @@
+import { readChatMessageLink } from "@buddy/citation-contract/chat-links"
 import { Button, toast } from "@buddy/ui"
 import { useQuery } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -39,18 +40,6 @@ import { resolveNoteImageSrc } from "./note-image-src"
 import { createNotesWikiLinkContext } from "./notes-wikilinks"
 
 const EMPTY_NOTES: NoteSummary[] = []
-
-function readChatMessageLink(href: string): { sessionID: string; messageID: string } | undefined {
-  try {
-    const url = new URL(href)
-    if (url.protocol !== "buddy:" || url.hostname !== "chat") return undefined
-    const sessionID = decodeURIComponent(url.pathname.replace(/^\//u, ""))
-    const messageID = url.searchParams.get("message")
-    return sessionID && messageID ? { sessionID, messageID } : undefined
-  } catch {
-    return undefined
-  }
-}
 
 const NOTE_UNAVAILABLE_METADATA = ["surface_status: unavailable"]
 

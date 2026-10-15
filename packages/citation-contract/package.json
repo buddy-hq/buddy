@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./chat-links": "./src/chat-links.ts",
     "./rendered-text": "./src/rendered-text.ts",
     "./selection-actions": "./src/selection-actions.ts",
     "./text-fragment": "./src/text-fragment.ts"
