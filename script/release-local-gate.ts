@@ -78,7 +78,9 @@ function updaterSigningEnvironment(): NodeJS.ProcessEnv {
   }
 
   if (distribution.id === "beta") {
-    throw new Error("Beta local gates require an explicit Beta updater signing key; prod local keys are never used")
+    throw new Error(
+      "Beta local gates require an explicit Beta updater signing key; prod local keys are never used",
+    )
   }
   const keyDirectory = path.join(os.homedir(), ...LOCAL_KEY_DIRECTORY_SEGMENTS)
   const keyPath = path.join(keyDirectory, LOCAL_KEY_FILENAME)
@@ -139,7 +141,9 @@ function runProductionTargetSmoke(input: {
   const target = RELEASE_SMOKE_TARGETS[input.targetName]
   let worktreeAdded = false
 
-  console.log(`\n== ${distribution.id === "beta" ? "Beta" : "Production"} release smoke (${input.targetName}) ==`)
+  console.log(
+    `\n== ${distribution.id === "beta" ? "Beta" : "Production"} release smoke (${input.targetName}) ==`,
+  )
   try {
     run("git", ["worktree", "add", "--detach", worktreeDirectory, input.commit])
     worktreeAdded = true

@@ -19,7 +19,14 @@ describe("Buddy distributions", () => {
 
   test("beta shares no identity, scheme, repository, or tag namespace with prod", () => {
     const { beta, prod } = BUDDY_DISTRIBUTIONS
-    for (const key of ["productName", "appId", "protocol", "packageName", "releaseRepository", "sourceTagPrefix"] as const) {
+    for (const key of [
+      "productName",
+      "appId",
+      "protocol",
+      "packageName",
+      "releaseRepository",
+      "sourceTagPrefix",
+    ] as const) {
       expect(beta[key]).not.toBe(prod[key])
     }
     expect(formatSourceReleaseTag(beta, "0.1.0")).toBe("beta-v0.1.0")

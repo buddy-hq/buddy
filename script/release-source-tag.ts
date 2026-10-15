@@ -110,7 +110,13 @@ if (import.meta.main) {
   const repository = process.env.BUDDY_RELEASE_SOURCE_REPOSITORY?.trim()
   const releaseTag = process.env.BUDDY_RELEASE_TAG?.trim()
   const target = process.env.BUDDY_RELEASE_SOURCE_SHA?.trim().toLowerCase()
-  if (!repository || !releaseTag || !/^v\d+\.\d+\.\d+$/u.test(releaseTag) || !target || !/^[0-9a-f]{40}$/u.test(target)) {
+  if (
+    !repository ||
+    !releaseTag ||
+    !/^v\d+\.\d+\.\d+$/u.test(releaseTag) ||
+    !target ||
+    !/^[0-9a-f]{40}$/u.test(target)
+  ) {
     throw new Error(
       "BUDDY_RELEASE_SOURCE_REPOSITORY, BUDDY_RELEASE_TAG, and a full BUDDY_RELEASE_SOURCE_SHA are required",
     )

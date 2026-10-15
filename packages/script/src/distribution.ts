@@ -60,7 +60,9 @@ export function isBuddyDistributionId(value: string | undefined): value is Buddy
 }
 
 /** Dev builds are not a distribution: they are never packaged for release or updated. */
-export function resolveBuddyDistribution(channel: BuddyReleaseChannel): BuddyDistribution | undefined {
+export function resolveBuddyDistribution(
+  channel: BuddyReleaseChannel,
+): BuddyDistribution | undefined {
   return channel === "dev" ? undefined : BUDDY_DISTRIBUTIONS[channel]
 }
 

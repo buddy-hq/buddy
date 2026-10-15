@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { resolveReleaseExecution, selectWorkflowRunUrls, parseReleaseWizardArgs, type WorkflowRun } from "./cut-release"
+import {
+  resolveReleaseExecution,
+  selectWorkflowRunUrls,
+  parseReleaseWizardArgs,
+  type WorkflowRun,
+} from "./cut-release"
 import { parseReleasePlan } from "./release/plan"
 
 const CURRENT_SOURCE_SHA = "1".repeat(40)
@@ -91,12 +96,14 @@ describe("cut release", () => {
   })
 })
 
-
 describe("Beta release wizard", () => {
   test("defaults to prod and accepts explicit Beta targets", () => {
     expect(parseReleaseWizardArgs([]).channel).toBe("prod")
     expect(parseReleaseWizardArgs(["--channel", "beta", "--targets", "all", "--fs"])).toEqual({
-      channel: "beta", fast: true, help: false, skipLocalReleaseGates: true,
+      channel: "beta",
+      fast: true,
+      help: false,
+      skipLocalReleaseGates: true,
       targets: { macosArm64: true, macosX64: true, windowsX64: true },
     })
     expect(parseReleaseWizardArgs(["--channel=beta"]).channel).toBe("beta")
@@ -106,18 +113,28 @@ describe("Beta release wizard", () => {
 
   test("selects the Beta workflow run title", () => {
     const run: WorkflowRun = {
-      createdAt: "2026-08-29T10:00:00Z", displayTitle: "beta release v0.1.0",
-      event: "workflow_dispatch", headBranch: "main", headSha: CURRENT_SOURCE_SHA, url: "https://example.test/beta",
+      createdAt: "2026-08-29T10:00:00Z",
+      displayTitle: "beta release v0.1.0",
+      event: "workflow_dispatch",
+      headBranch: "main",
+      headSha: CURRENT_SOURCE_SHA,
+      url: "https://example.test/beta",
     }
     expect(selectWorkflowRunUrls([run], "0.1.0", "beta").exact).toBe(run.url)
     expect(selectWorkflowRunUrls([run], "0.1.0", "prod").exact).toBeUndefined()
   })
 
   test("rejects a prod plan when resuming Beta", () => {
-    expect(() => resolveReleaseExecution({
-      channel: "beta", currentSourceSha: CURRENT_SOURCE_SHA, plan: plannedRelease(),
-      repository: "buddy-hq/buddy", requestedTargets: { macosArm64: true, macosX64: true, windowsX64: true },
-      tag: "v1.2.3", version: "1.2.3",
-    })).toThrow("channel prod conflicts with beta")
+    expect(() =>
+      resolveReleaseExecution({
+        channel: "beta",
+        currentSourceSha: CURRENT_SOURCE_SHA,
+        plan: plannedRelease(),
+        repository: "buddy-hq/buddy",
+        requestedTargets: { macosArm64: true, macosX64: true, windowsX64: true },
+        tag: "v1.2.3",
+        version: "1.2.3",
+      }),
+    ).toThrow("channel prod conflicts with beta")
   })
 })

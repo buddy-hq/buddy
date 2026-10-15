@@ -52,7 +52,6 @@ if (!version) {
   throw new Error("BUDDY_VERSION is required")
 }
 
-
 const originalVersion = readDesktopPackageVersion()
 const environment = {
   ...process.env,

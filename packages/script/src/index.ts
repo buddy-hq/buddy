@@ -1,7 +1,11 @@
 import { $, semver } from "bun"
 import path from "node:path"
 import { latestReleaseVersionFromReleases, type GithubReleaseVersion } from "./release-version"
-import { BUDDY_DISTRIBUTIONS, formatReleaseRepositorySlug, isBuddyDistributionId } from "./distribution"
+import {
+  BUDDY_DISTRIBUTIONS,
+  formatReleaseRepositorySlug,
+  isBuddyDistributionId,
+} from "./distribution"
 
 const rootPkgPath = path.resolve(import.meta.dir, "../../../package.json")
 const rootPkg: {
@@ -39,7 +43,9 @@ function releaseRepo() {
   if (channel !== "dev" && !isBuddyDistributionId(channel)) {
     throw new Error(`Release channel must be prod or beta, received ${channel}`)
   }
-  const repo = formatReleaseRepositorySlug(BUDDY_DISTRIBUTIONS[channel === "beta" ? "beta" : "prod"])
+  const repo = formatReleaseRepositorySlug(
+    BUDDY_DISTRIBUTIONS[channel === "beta" ? "beta" : "prod"],
+  )
   for (const override of [process.env.BUDDY_RELEASE_REPO, process.env.GH_REPO]) {
     const candidate = cleanRepository(override)
     if (candidate && candidate !== repo) {

@@ -41,7 +41,9 @@ const tag = `v${version}`
 const outputDirectory =
   process.env[UPDATE_OUTPUT_DIR_ENV_KEY]?.trim() ||
   process.env.RUNNER_TEMP ||
-  (distribution.id === "beta" ? path.join(DEFAULT_OUTPUT_DIRECTORY, "buddy-beta-release") : DEFAULT_OUTPUT_DIRECTORY)
+  (distribution.id === "beta"
+    ? path.join(DEFAULT_OUTPUT_DIRECTORY, "buddy-beta-release")
+    : DEFAULT_OUTPUT_DIRECTORY)
 const outputPath = path.join(outputDirectory, RECOVERY_POLICY_FILENAME)
 const skipUpload = process.env[UPDATE_SKIP_UPLOAD_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 

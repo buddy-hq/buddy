@@ -14,8 +14,14 @@ import { releaseRepository, repositoryParts } from "./release-repositories"
 import { BUDDY_DISTRIBUTIONS, formatReleaseRepositorySlug } from "@buddy/script/distribution"
 import { assertReleaseDestination, releaseDistribution } from "./release/distribution-guard"
 
-export function assertPromotionDestination(repo: string, environment: NodeJS.ProcessEnv = process.env): void {
-  if (releaseDistribution(environment).id === "beta" || repo === formatReleaseRepositorySlug(BUDDY_DISTRIBUTIONS.beta)) {
+export function assertPromotionDestination(
+  repo: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): void {
+  if (
+    releaseDistribution(environment).id === "beta" ||
+    repo === formatReleaseRepositorySlug(BUDDY_DISTRIBUTIONS.beta)
+  ) {
     throw new Error("Beta releases publish directly as latest; promotion is not supported")
   }
   assertReleaseDestination(repo, environment)

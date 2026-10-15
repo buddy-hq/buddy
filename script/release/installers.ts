@@ -1,7 +1,11 @@
 import path from "node:path"
 import { mkdtemp, rm } from "node:fs/promises"
 import os from "node:os"
-import { BUDDY_DISTRIBUTIONS, formatReleaseRepositorySlug, type BuddyDistributionId } from "@buddy/script/distribution"
+import {
+  BUDDY_DISTRIBUTIONS,
+  formatReleaseRepositorySlug,
+  type BuddyDistributionId,
+} from "@buddy/script/distribution"
 import { releaseDistribution, assertReleaseDestination } from "./distribution-guard"
 import { uploadReleaseAssetSafely } from "./assets"
 

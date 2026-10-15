@@ -11,7 +11,10 @@ import { appendGithubOutputs } from "./release/github-output"
 import { releaseDistribution } from "./release/distribution-guard"
 import { RELEASE_FREEZE_FILENAME } from "./release/freeze"
 import { requireUpdaterPublicKey } from "@buddy/script/distribution"
-import { assertBetaVersionMovesForward, highestPublishedBetaVersion } from "./release/beta-publication"
+import {
+  assertBetaVersionMovesForward,
+  highestPublishedBetaVersion,
+} from "./release/beta-publication"
 
 const distribution = releaseDistribution()
 const releaseRepo = releaseRepository()
@@ -56,7 +59,9 @@ if (!dryRun && branch !== "main") {
   )
 }
 if (!process.env.BUDDY_VERSION?.trim()) {
-  throw new Error(`${distribution.id === "beta" ? "Beta releases" : "Preview release candidates"} require an explicit BUDDY_VERSION`)
+  throw new Error(
+    `${distribution.id === "beta" ? "Beta releases" : "Preview release candidates"} require an explicit BUDDY_VERSION`,
+  )
 }
 
 const sourceRepo = sourceRepository()
@@ -100,7 +105,10 @@ if (dryRun) {
     if (distribution.id === "beta" && !release.isDraft) {
       const assets = await $`gh release view ${tag} --json assets --repo ${releaseRepo}`.json()
       const frozen = z.object({ assets: z.array(z.object({ name: z.string() })) }).parse(assets)
-      if (release.isPrerelease || !frozen.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)) {
+      if (
+        release.isPrerelease ||
+        !frozen.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
+      ) {
         throw new Error(`Published Beta ${tag} must be non-prerelease and frozen to retry`)
       }
     } else if (!release.isDraft && !release.isPrerelease) {

@@ -456,7 +456,10 @@ describe("opencode runtime env", () => {
     await fs.mkdir(path.dirname(stableCapture), { recursive: true })
     await fs.mkdir(path.dirname(stableAuth), { recursive: true })
     await fs.writeFile(stableCapture, "stable capture survives")
-    await fs.writeFile(stableAuth, JSON.stringify({ stable: { type: "api", key: "sandbox-stable-key" } }))
+    await fs.writeFile(
+      stableAuth,
+      JSON.stringify({ stable: { type: "api", key: "sandbox-stable-key" } }),
+    )
     // User-authored OpenCode config is shared on purpose, like ~/.claude and ~/.agents.
     const userOpenCodeConfig = path.join(home, ".opencode")
     await fs.mkdir(userOpenCodeConfig, { recursive: true })
@@ -470,7 +473,13 @@ describe("opencode runtime env", () => {
     const preparation = prepareDesktopStorageDirectories(plan)
     expect(preparation.type).toBe("ok")
     const betaCapture = path.join(
-      userData, "xdg", "tmp", "buddy", "opencode", "bench-captures", "stale.png",
+      userData,
+      "xdg",
+      "tmp",
+      "buddy",
+      "opencode",
+      "bench-captures",
+      "stale.png",
     )
     await fs.mkdir(path.dirname(betaCapture), { recursive: true })
     await fs.writeFile(betaCapture, "Beta's old capture should be removed")
@@ -480,7 +489,10 @@ describe("opencode runtime env", () => {
       import.meta.dir,
       "../src/learning/skill-management/service/paths.ts",
     )
-    const captureModulePath = path.resolve(import.meta.dir, "../src/learning/features/bench/captures.ts")
+    const captureModulePath = path.resolve(
+      import.meta.dir,
+      "../src/learning/features/bench/captures.ts",
+    )
     const flockModulePath = path.resolve(
       import.meta.dir,
       "../../../vendor/opencode/packages/core/src/util/flock.ts",
@@ -571,7 +583,9 @@ describe("opencode runtime env", () => {
       tmp: path.join(userData, "xdg", "tmp", "buddy", "opencode"),
     })
     expect(parsed.db).toBe(path.join(userData, "xdg", "data", "buddy", "opencode", "opencode.db"))
-    expect(parsed.skillCache).toBe(path.join(userData, "xdg", "cache", "buddy", "opencode", "skills"))
+    expect(parsed.skillCache).toBe(
+      path.join(userData, "xdg", "cache", "buddy", "opencode", "skills"),
+    )
     expect(parsed.managedHome).toBe(path.join(userData, "xdg", "config", "buddy"))
     expect(parsed.tmp).toBe(path.join(userData, "xdg", "tmp"))
     expect(parsed.initialAuth).toEqual({})

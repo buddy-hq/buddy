@@ -116,9 +116,14 @@ describe("promote release", () => {
   })
 })
 
-
 test("rejects Beta promotion before reading or editing releases", async () => {
-  expect(() => assertPromotionDestination("prashantbhudwal/buddy-beta-releases")).toThrow("promotion is not supported")
-  expect(() => assertPromotionDestination("prashantbhudwal/buddy-releases", { BUDDY_CHANNEL: "beta" })).toThrow("promotion is not supported")
-  await expect(promoteRelease({ repo: "prashantbhudwal/buddy-beta-releases", tag: "v0.1.0" })).rejects.toThrow("promotion is not supported")
+  expect(() => assertPromotionDestination("prashantbhudwal/buddy-beta-releases")).toThrow(
+    "promotion is not supported",
+  )
+  expect(() =>
+    assertPromotionDestination("prashantbhudwal/buddy-releases", { BUDDY_CHANNEL: "beta" }),
+  ).toThrow("promotion is not supported")
+  await expect(
+    promoteRelease({ repo: "prashantbhudwal/buddy-beta-releases", tag: "v0.1.0" }),
+  ).rejects.toThrow("promotion is not supported")
 })
