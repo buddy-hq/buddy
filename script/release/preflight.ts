@@ -93,10 +93,13 @@ async function assertReleaseSourceRemainsOnBranch(
 }
 
 /** Require the pinned source to remain on its distribution's branch with green CI checks. */
-export async function assertGreenReleaseSource(input: {
-  repository: string
-  sourceSha: string
-}, environment: NodeJS.ProcessEnv = process.env): Promise<void> {
+export async function assertGreenReleaseSource(
+  input: {
+    repository: string
+    sourceSha: string
+  },
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
   const { releaseBranch } = releaseDistribution(environment)
   const sourceSha = normalizeReleaseSourceSha(input.sourceSha)
   await Promise.all([

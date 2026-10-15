@@ -142,42 +142,79 @@ describe("update common", () => {
   })
 })
 
-
 describe("Beta update distribution", () => {
-  test.each(["stable", "preview"] as const)("%s discovers only the highest non-draft numeric Beta release", async (ring) => {
-    const requested: string[] = []
-    globalThis.fetch = createTestFetch(async (url) => {
-      requested.push(String(url))
-      return Response.json([
-        { draft: true, prerelease: true, tag_name: "v9.0.0" },
-        { draft: false, prerelease: false, tag_name: "v1.9.0" },
-        { draft: false, prerelease: true, tag_name: "v2.0.0" },
-        { draft: false, prerelease: true, tag_name: "beta-current" },
+  test.each(["stable", "preview"] as const)(
+    "%s discovers only the highest non-draft numeric Beta release",
+    async (ring) => {
+      const requested: string[] = []
+      globalThis.fetch = createTestFetch(async (url) => {
+        requested.push(String(url))
+        return Response.json([
+          { draft: true, prerelease: true, tag_name: "v9.0.0" },
+          { draft: false, prerelease: false, tag_name: "v1.9.0" },
+          { draft: false, prerelease: true, tag_name: "v2.0.0" },
+          { draft: false, prerelease: true, tag_name: "beta-current" },
+        ])
+      })
+      await expect(
+        resolveLatestRingAssetUrl({
+          distribution: BUDDY_DISTRIBUTIONS.beta,
+          filename: "latest-windows-x64.yml",
+          ring,
+        }),
+      ).resolves.toBe(
+        "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml",
+      )
+      expect(requested).toEqual([
+        "https://api.github.com/repos/prashantbhudwal/buddy-beta-releases/releases?per_page=100",
       ])
-    })
-    await expect(resolveLatestRingAssetUrl({ distribution: BUDDY_DISTRIBUTIONS.beta, filename: "latest-windows-x64.yml", ring })).resolves.toBe(
-      "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml",
-    )
-    expect(requested).toEqual(["https://api.github.com/repos/prashantbhudwal/buddy-beta-releases/releases?per_page=100"])
-  })
+    },
+  )
 
   test("has no latest or legacy filename fallback", async () => {
     globalThis.fetch = createTestFetch(async () => Response.json([]))
-    await expect(resolveLatestRingAssetUrl({ distribution: BUDDY_DISTRIBUTIONS.beta, filename: "recovery-policy.json", ring: "stable" })).rejects.toThrow("No numeric Beta release")
-    expect(resolveVersionedReleaseAssetUrls({ distribution: BUDDY_DISTRIBUTIONS.beta, primaryFilename: "latest-mac-arm64.json", legacyFilename: "latest-mac.json", version: "2.0.0" })).toEqual([
+    await expect(
+      resolveLatestRingAssetUrl({
+        distribution: BUDDY_DISTRIBUTIONS.beta,
+        filename: "recovery-policy.json",
+        ring: "stable",
+      }),
+    ).rejects.toThrow("No numeric Beta release")
+    expect(
+      resolveVersionedReleaseAssetUrls({
+        distribution: BUDDY_DISTRIBUTIONS.beta,
+        primaryFilename: "latest-mac-arm64.json",
+        legacyFilename: "latest-mac.json",
+        version: "2.0.0",
+      }),
+    ).toEqual([
       "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-mac-arm64.json",
     ])
   })
 
   test("fails closed before fetching when the embedded Beta signing key is missing", async () => {
     const requested: string[] = []
-    globalThis.fetch = createTestFetch(async (url) => { requested.push(String(url)); return new Response("unused") })
-    await expect(fetchSignedText({ distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null }, url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest.yml" })).rejects.toBeInstanceOf(UpdatesNotConfiguredError)
+    globalThis.fetch = createTestFetch(async (url) => {
+      requested.push(String(url))
+      return new Response("unused")
+    })
+    await expect(
+      fetchSignedText({
+        distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null },
+        url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest.yml",
+      }),
+    ).rejects.toBeInstanceOf(UpdatesNotConfiguredError)
     expect(requested).toEqual([])
   })
 
   test("rejects absolute assets from the prod repository", () => {
-    expect(() => resolveReleaseAssetUrl("2.0.0", "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.0.0/update.zip", BUDDY_DISTRIBUTIONS.beta)).toThrow("Beta update assets")
+    expect(() =>
+      resolveReleaseAssetUrl(
+        "2.0.0",
+        "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.0.0/update.zip",
+        BUDDY_DISTRIBUTIONS.beta,
+      ),
+    ).toThrow("Beta update assets")
   })
 
   test("ignores ambient key overrides for Beta while preserving prod overrides", () => {
@@ -193,27 +230,53 @@ describe("Beta update distribution", () => {
   })
 })
 
-
 test("Beta signed text supports an explicit test key without falling back to the prod key", async () => {
-  const content = "{\"version\":\"2.0.0\"}"
+  const content = '{"version":"2.0.0"}'
   const fixture = signedUpdateFixture(content)
-  const url = "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/metadata.json"
-  globalThis.fetch = createTestFetch(async (input) => new Response(String(input).endsWith(".sig") ? fixture.signature : content))
-  await expect(fetchSignedText({ distribution: BUDDY_DISTRIBUTIONS.beta, publicKey: fixture.publicKey, url })).resolves.toBe(content)
-  await expect(fetchSignedText({ distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey }, url })).resolves.toBe(content)
-  await expect(fetchSignedText({ distribution: BUDDY_DISTRIBUTIONS.beta, publicKey: BUDDY_DISTRIBUTIONS.prod.updaterPublicKey, url })).rejects.toThrow("verification failed")
+  const url =
+    "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/metadata.json"
+  globalThis.fetch = createTestFetch(
+    async (input) => new Response(String(input).endsWith(".sig") ? fixture.signature : content),
+  )
+  await expect(
+    fetchSignedText({ distribution: BUDDY_DISTRIBUTIONS.beta, publicKey: fixture.publicKey, url }),
+  ).resolves.toBe(content)
+  await expect(
+    fetchSignedText({
+      distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey },
+      url,
+    }),
+  ).resolves.toBe(content)
+  await expect(
+    fetchSignedText({
+      distribution: BUDDY_DISTRIBUTIONS.beta,
+      publicKey: BUDDY_DISTRIBUTIONS.prod.updaterPublicKey,
+      url,
+    }),
+  ).rejects.toThrow("verification failed")
 })
-
 
 test("Beta discovery includes higher numeric versions on later release pages", async () => {
   const requested: string[] = []
   globalThis.fetch = createTestFetch(async (url) => {
     requested.push(String(url))
-    return Response.json(String(url).endsWith("&page=2")
-      ? [{ draft: false, prerelease: true, tag_name: "v3.0.0" }]
-      : Array.from({ length: 100 }, (_, index) => ({ draft: false, prerelease: false, tag_name: `v1.0.${index}` })))
+    return Response.json(
+      String(url).endsWith("&page=2")
+        ? [{ draft: false, prerelease: true, tag_name: "v3.0.0" }]
+        : Array.from({ length: 100 }, (_, index) => ({
+            draft: false,
+            prerelease: false,
+            tag_name: `v1.0.${index}`,
+          })),
+    )
   })
-  await expect(resolveLatestRingAssetUrl({ distribution: BUDDY_DISTRIBUTIONS.beta, filename: "latest-windows-x64.yml", ring: "preview" })).resolves.toBe(
+  await expect(
+    resolveLatestRingAssetUrl({
+      distribution: BUDDY_DISTRIBUTIONS.beta,
+      filename: "latest-windows-x64.yml",
+      ring: "preview",
+    }),
+  ).resolves.toBe(
     "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v3.0.0/latest-windows-x64.yml",
   )
   expect(requested).toEqual([

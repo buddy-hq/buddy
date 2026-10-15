@@ -20,7 +20,14 @@ describe("Buddy distributions", () => {
 
   test("beta shares no identity, scheme, repository, or tag namespace with prod", () => {
     const { beta, prod } = BUDDY_DISTRIBUTIONS
-    for (const key of ["productName", "appId", "protocol", "packageName", "releaseRepository", "sourceTagPrefix"] as const) {
+    for (const key of [
+      "productName",
+      "appId",
+      "protocol",
+      "packageName",
+      "releaseRepository",
+      "sourceTagPrefix",
+    ] as const) {
       expect(beta[key]).not.toBe(prod[key])
     }
     expect(formatSourceReleaseTag(beta, "0.1.0")).toBe("beta-v0.1.0")
@@ -28,7 +35,9 @@ describe("Buddy distributions", () => {
   })
 
   test("beta fails closed until its own updater key is provisioned", () => {
-    expect(() => requireUpdaterPublicKey({ ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null })).toThrow(/no updater public key/)
+    expect(() =>
+      requireUpdaterPublicKey({ ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null }),
+    ).toThrow(/no updater public key/)
   })
 
   test("dev is not a releasable distribution", () => {

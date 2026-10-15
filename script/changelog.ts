@@ -62,12 +62,18 @@ async function listGithubReleases(environment: NodeJS.ProcessEnv): Promise<Githu
   return z.array(GithubReleaseVersionSchema).parse(releases)
 }
 
-export async function getLatestRelease(skip?: string, environment: NodeJS.ProcessEnv = process.env) {
+export async function getLatestRelease(
+  skip?: string,
+  environment: NodeJS.ProcessEnv = process.env,
+) {
   const releases = await listGithubReleases(environment)
   return latestReleaseVersionFromReleases(releases, { skip })
 }
 
-export async function getLatestPublishedRelease(skip?: string, environment: NodeJS.ProcessEnv = process.env) {
+export async function getLatestPublishedRelease(
+  skip?: string,
+  environment: NodeJS.ProcessEnv = process.env,
+) {
   const releases = await listGithubReleases(environment)
   return latestReleaseVersionFromReleases(releases, {
     includePrereleases: true,

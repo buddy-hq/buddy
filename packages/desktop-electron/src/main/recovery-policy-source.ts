@@ -28,14 +28,15 @@ export async function resolveRecoveryPolicyUrl(
   distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
 ): Promise<string> {
   const override =
-    distribution.id === "prod"
-      ? process.env[BUDDY_RECOVERY_POLICY_URL_ENV_KEY]?.trim()
-      : undefined
-  return override || await resolveLatestRingAssetUrl({
-    distribution,
-    filename: RECOVERY_POLICY_FILENAME,
-    ring: UPDATE_RING_STABLE,
-  })
+    distribution.id === "prod" ? process.env[BUDDY_RECOVERY_POLICY_URL_ENV_KEY]?.trim() : undefined
+  return (
+    override ||
+    (await resolveLatestRingAssetUrl({
+      distribution,
+      filename: RECOVERY_POLICY_FILENAME,
+      ring: UPDATE_RING_STABLE,
+    }))
+  )
 }
 
 /** Fetch a signed policy and attach the verifying distribution as local provenance. */

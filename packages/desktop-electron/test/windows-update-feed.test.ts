@@ -96,17 +96,31 @@ async function withWindowsUpdateFeed(
   }
 }
 
-
 const ORIGINAL_FETCH = globalThis.fetch
-afterEach(() => { globalThis.fetch = ORIGINAL_FETCH })
+afterEach(() => {
+  globalThis.fetch = ORIGINAL_FETCH
+})
 
 describe("Beta Windows feed", () => {
   test("uses the Beta provider for resets and turns relative installer paths into Beta asset URLs", async () => {
-    expect(createDefaultWindowsUpdateProviderOptions(BUDDY_DISTRIBUTIONS.beta)).toEqual({ channel: "latest", provider: "github", owner: "prashantbhudwal", repo: "buddy-beta-releases" })
-    const feed = await startWindowsUpdateFeed({ distribution: BUDDY_DISTRIBUTIONS.beta, content: `version: 1.2.3\npath: update.exe\nsha512: test\n`, version: "1.2.3" })
+    expect(createDefaultWindowsUpdateProviderOptions(BUDDY_DISTRIBUTIONS.beta)).toEqual({
+      channel: "latest",
+      provider: "github",
+      owner: "prashantbhudwal",
+      repo: "buddy-beta-releases",
+    })
+    const feed = await startWindowsUpdateFeed({
+      distribution: BUDDY_DISTRIBUTIONS.beta,
+      content: `version: 1.2.3\npath: update.exe\nsha512: test\n`,
+      version: "1.2.3",
+    })
     try {
-      await expect((await fetch(new URL("latest.yml", feed.url))).text()).resolves.toBe("version: 1.2.3\npath: https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v1.2.3/update.exe\nsha512: test\n")
-    } finally { await feed.close() }
+      await expect((await fetch(new URL("latest.yml", feed.url))).text()).resolves.toBe(
+        "version: 1.2.3\npath: https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v1.2.3/update.exe\nsha512: test\n",
+      )
+    } finally {
+      await feed.close()
+    }
   })
 
   test("missing Beta key stops verification without contacting the prod feed or using an ambient key", async () => {
@@ -114,8 +128,17 @@ describe("Beta Windows feed", () => {
     const requested: string[] = []
     try {
       process.env.BUDDY_UPDATE_PUBLIC_KEY = BUDDY_DISTRIBUTIONS.prod.updaterPublicKey
-      globalThis.fetch = createTestFetch(async (url) => { requested.push(String(url)); return new Response("unused") })
-      await expect(fetchWindowsUpdateManifest({ distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null }, expectedVersion: "2.0.0", logger: { warn: () => undefined } })).rejects.toThrow("Buddy Beta updates are not configured")
+      globalThis.fetch = createTestFetch(async (url) => {
+        requested.push(String(url))
+        return new Response("unused")
+      })
+      await expect(
+        fetchWindowsUpdateManifest({
+          distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null },
+          expectedVersion: "2.0.0",
+          logger: { warn: () => undefined },
+        }),
+      ).rejects.toThrow("Buddy Beta updates are not configured")
       expect(requested).toEqual([])
     } finally {
       if (previous === undefined) delete process.env.BUDDY_UPDATE_PUBLIC_KEY
@@ -125,8 +148,18 @@ describe("Beta Windows feed", () => {
 
   test("a missing Beta target manifest never tries a legacy filename", async () => {
     const requested: string[] = []
-    globalThis.fetch = createTestFetch(async (url) => { requested.push(String(url)); return new Response("missing", { status: 404 }) })
-    await expect(fetchWindowsUpdateManifest({ distribution: BUDDY_DISTRIBUTIONS.beta, expectedVersion: "2.0.0", publicKey: "explicit-test-key", logger: { warn: () => undefined } })).rejects.toThrow("Failed to fetch signed update content")
+    globalThis.fetch = createTestFetch(async (url) => {
+      requested.push(String(url))
+      return new Response("missing", { status: 404 })
+    })
+    await expect(
+      fetchWindowsUpdateManifest({
+        distribution: BUDDY_DISTRIBUTIONS.beta,
+        expectedVersion: "2.0.0",
+        publicKey: "explicit-test-key",
+        logger: { warn: () => undefined },
+      }),
+    ).rejects.toThrow("Failed to fetch signed update content")
     expect(requested.toSorted()).toEqual([
       "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml",
       "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml.sig",
@@ -134,17 +167,31 @@ describe("Beta Windows feed", () => {
   })
 
   test.each([
-    ["flow style", 'files: [{url: "https://github.com/prashantbhudwal/buddy-releases/releases/download/v1.2.3/Buddy-Setup.exe", sha512: test}]'],
-    ["alias", 'installer: &installer {url: "https://github.com/prashantbhudwal/buddy-releases/releases/download/v1.2.3/Buddy-Setup.exe", sha512: test}\nfiles: [*installer]'],
-    ["another Beta tag", 'files: [{url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v9.0.0/Buddy-Setup.exe", sha512: test}]'],
+    [
+      "flow style",
+      'files: [{url: "https://github.com/prashantbhudwal/buddy-releases/releases/download/v1.2.3/Buddy-Setup.exe", sha512: test}]',
+    ],
+    [
+      "alias",
+      'installer: &installer {url: "https://github.com/prashantbhudwal/buddy-releases/releases/download/v1.2.3/Buddy-Setup.exe", sha512: test}\nfiles: [*installer]',
+    ],
+    [
+      "another Beta tag",
+      'files: [{url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v9.0.0/Buddy-Setup.exe", sha512: test}]',
+    ],
     ["relative flow URL", 'files: [{url: "Buddy-Setup.exe", sha512: test}]'],
-    ["web installer package", 'files: [{url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v1.2.3/Buddy-Setup.exe", sha512: test}]\npackages: {ia32: {path: "https://github.com/prashantbhudwal/buddy-releases/releases/download/v1.2.3/package.7z", sha512: test}}'],
+    [
+      "web installer package",
+      'files: [{url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v1.2.3/Buddy-Setup.exe", sha512: test}]\npackages: {ia32: {path: "https://github.com/prashantbhudwal/buddy-releases/releases/download/v1.2.3/package.7z", sha512: test}}',
+    ],
   ])("rejects Beta downloads outside its release through %s", (_style, entries) => {
-    expect(() => absolutizeElectronUpdateManifestUrls(
-      `version: ${UPDATE_VERSION}\n${entries}\n`,
-      UPDATE_VERSION,
-      BUDDY_DISTRIBUTIONS.beta,
-    )).toThrow("Beta update assets must belong to the Beta release repository and tag")
+    expect(() =>
+      absolutizeElectronUpdateManifestUrls(
+        `version: ${UPDATE_VERSION}\n${entries}\n`,
+        UPDATE_VERSION,
+        BUDDY_DISTRIBUTIONS.beta,
+      ),
+    ).toThrow("Beta update assets must belong to the Beta release repository and tag")
   })
 
   test("keeps an absolute block-style Beta manifest unchanged", () => {
@@ -157,7 +204,9 @@ describe("Beta Windows feed", () => {
       "sha512: test",
       "",
     ].join("\n")
-    expect(absolutizeElectronUpdateManifestUrls(content, UPDATE_VERSION, BUDDY_DISTRIBUTIONS.beta)).toBe(content)
+    expect(
+      absolutizeElectronUpdateManifestUrls(content, UPDATE_VERSION, BUDDY_DISTRIBUTIONS.beta),
+    ).toBe(content)
   })
 
   test("verifies a Windows manifest with a provisioned Beta test key", async () => {
@@ -168,11 +217,13 @@ describe("Beta Windows feed", () => {
       requested.push(String(url))
       return new Response(String(url).endsWith(".sig") ? fixture.signature : content)
     })
-    await expect(fetchWindowsUpdateManifest({
-      distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey },
-      expectedVersion: "2.0.0",
-      logger: { warn: () => undefined },
-    })).resolves.toEqual({ content, version: "2.0.0" })
+    await expect(
+      fetchWindowsUpdateManifest({
+        distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey },
+        expectedVersion: "2.0.0",
+        logger: { warn: () => undefined },
+      }),
+    ).resolves.toEqual({ content, version: "2.0.0" })
     expect(requested.toSorted()).toEqual([
       "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml",
       "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml.sig",

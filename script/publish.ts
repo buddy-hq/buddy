@@ -7,7 +7,10 @@ import { verifyReleaseFreeze } from "./release/freeze"
 import { releaseRepository, sourceRepository } from "./release-repositories"
 import { assertReleaseRecordChannel, releaseDistribution } from "./release/distribution-guard"
 import { requireUpdaterPublicKey } from "@buddy/script/distribution"
-import { assertBetaVersionMovesForward, highestPublishedBetaVersion } from "./release/beta-publication"
+import {
+  assertBetaVersionMovesForward,
+  highestPublishedBetaVersion,
+} from "./release/beta-publication"
 
 const distribution = releaseDistribution()
 requireUpdaterPublicKey(distribution)

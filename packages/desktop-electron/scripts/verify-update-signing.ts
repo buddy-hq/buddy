@@ -49,7 +49,11 @@ export async function verifyUpdateSigning(
     LOCAL_TAURI_KEY_FILENAME,
   )
 
-  if (!rawPrivateKey && !privateKeyPath && (distribution.id === "beta" || !existsSync(localPrivateKeyPath))) {
+  if (
+    !rawPrivateKey &&
+    !privateKeyPath &&
+    (distribution.id === "beta" || !existsSync(localPrivateKeyPath))
+  ) {
     throw new Error(
       "Missing updater signing key. Set TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH, or create ~/.config/buddy/tauri-updater.key.",
     )
@@ -61,7 +65,8 @@ export async function verifyUpdateSigning(
   try {
     const challenge = path.join(directory, "challenge.txt")
     await Bun.write(challenge, randomBytes(32))
-    if (!rawPrivateKey && !privateKeyPath) signerEnvironment.TAURI_SIGNING_PRIVATE_KEY_PATH = localPrivateKeyPath
+    if (!rawPrivateKey && !privateKeyPath)
+      signerEnvironment.TAURI_SIGNING_PRIVATE_KEY_PATH = localPrivateKeyPath
     await $`${signerPath} signer sign ${challenge}`.env(signerEnvironment)
     await verifyReleaseSignature(challenge, distribution)
     console.log(`Verified updater signer for ${distribution.productName}`)

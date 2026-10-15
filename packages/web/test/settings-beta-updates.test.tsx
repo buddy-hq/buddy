@@ -34,7 +34,11 @@ async function render(state: UpdateState, onCheck: UpdateState = state) {
   document.body.appendChild(container)
   root = createRoot(container)
   await act(async () => {
-    root?.render(<PlatformProvider value={platform}><UpdatesSettingsSection /></PlatformProvider>)
+    root?.render(
+      <PlatformProvider value={platform}>
+        <UpdatesSettingsSection />
+      </PlatformProvider>,
+    )
   })
 }
 
@@ -56,13 +60,21 @@ test("shows a fixed Beta channel without the Stable/Preview selector", async () 
 
 test("retains the prod Stable/Preview selector", async () => {
   await render(prodState)
-  expect(container?.querySelector('[data-action="settings-update-ring"]')?.textContent).toContain("Stable")
+  expect(container?.querySelector('[data-action="settings-update-ring"]')?.textContent).toContain(
+    "Stable",
+  )
   expect(container?.querySelector('[data-action="settings-update-beta"]')).toBeNull()
 })
 
 test("explains that Beta updates are not configured when its signing key is missing", async () => {
-  await render(betaState, { ...betaState, revision: 1, failure: { stage: "check", reason: "not-configured" } })
-  await act(async () => { container?.querySelector<HTMLButtonElement>('[data-action="settings-check-updates"]')?.click() })
+  await render(betaState, {
+    ...betaState,
+    revision: 1,
+    failure: { stage: "check", reason: "not-configured" },
+  })
+  await act(async () => {
+    container?.querySelector<HTMLButtonElement>('[data-action="settings-check-updates"]')?.click()
+  })
   const banner = container?.querySelector('[data-action="settings-update-banner"]')
   expect(banner?.textContent).toContain("Beta updates are not configured")
   expect(banner?.textContent).toContain("An update signing key has not been provisioned")

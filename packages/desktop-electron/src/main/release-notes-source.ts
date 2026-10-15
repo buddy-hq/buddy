@@ -38,7 +38,12 @@ export async function fetchReleaseNotes(input: {
 
   const inRange = releases.filter((release) => {
     if (release.draft === true) return false
-    if (distribution.id === "prod" && release.prerelease === true && input.ring !== UPDATE_RING_PREVIEW) return false
+    if (
+      distribution.id === "prod" &&
+      release.prerelease === true &&
+      input.ring !== UPDATE_RING_PREVIEW
+    )
+      return false
 
     const version = releaseVersion(release.tag_name)
     return (
@@ -68,13 +73,16 @@ async function fetchReleaseList(
   distribution: BuddyDistribution,
 ): Promise<readonly ReleaseRecord[]> {
   try {
-    const response = await fetch(`https://api.github.com/repos/${formatReleaseRepositorySlug(distribution)}/releases?per_page=${RELEASE_LIST_PAGE_SIZE}`, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "Buddy",
+    const response = await fetch(
+      `https://api.github.com/repos/${formatReleaseRepositorySlug(distribution)}/releases?per_page=${RELEASE_LIST_PAGE_SIZE}`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "Buddy",
+        },
+        signal: AbortSignal.timeout(RELEASE_REQUEST_TIMEOUT_MS),
       },
-      signal: AbortSignal.timeout(RELEASE_REQUEST_TIMEOUT_MS),
-    })
+    )
     if (!response.ok) {
       logger.warn("release notes request failed", { status: response.status })
       return []

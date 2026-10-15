@@ -351,10 +351,10 @@ describe("builds that cannot update themselves", () => {
   })
 })
 
-
 describe("Beta channel", () => {
   test("fixes the ring and leaves pending downloads intact when a ring change is requested", async () => {
-    const { service, persistedRings, published, getCheckCalls, getDiscardedReadyUpdates } = createHarness({ distribution: "beta", check: { kind: "available", version: "1.1.0" } })
+    const { service, persistedRings, published, getCheckCalls, getDiscardedReadyUpdates } =
+      createHarness({ distribution: "beta", check: { kind: "available", version: "1.1.0" } })
     expect(service.getState()).toMatchObject({ distribution: "beta", ring: "preview" })
     await service.check()
     await service.download()
@@ -364,15 +364,31 @@ describe("Beta channel", () => {
     expect(getDiscardedReadyUpdates()).toBe(0)
     expect(getCheckCalls()).toBe(1)
     await service.install()
-    expect(published.every((state) => state.distribution === "beta" && state.ring === "preview")).toBe(true)
+    expect(
+      published.every((state) => state.distribution === "beta" && state.ring === "preview"),
+    ).toBe(true)
   })
 
   test("reports missing signing configuration explicitly and keeps the distribution marker", async () => {
-    const { service } = createHarness({ distribution: "beta", check: { kind: "failed", reason: "not-configured" } })
-    expect(await service.check()).toMatchObject({ distribution: "beta", ring: "preview", activity: { status: "idle" }, failure: { stage: "check", reason: "not-configured" } })
+    const { service } = createHarness({
+      distribution: "beta",
+      check: { kind: "failed", reason: "not-configured" },
+    })
+    expect(await service.check()).toMatchObject({
+      distribution: "beta",
+      ring: "preview",
+      activity: { status: "idle" },
+      failure: { stage: "check", reason: "not-configured" },
+    })
   })
 
   test("keeps the prod initial state shape unchanged", () => {
-    expect(createHarness({}).service.getState()).toEqual({ revision: 0, ring: "stable", currentVersion: "1.0.0", activity: { status: "idle" }, releaseNotes: [] })
+    expect(createHarness({}).service.getState()).toEqual({
+      revision: 0,
+      ring: "stable",
+      currentVersion: "1.0.0",
+      activity: { status: "idle" },
+      releaseNotes: [],
+    })
   })
 })

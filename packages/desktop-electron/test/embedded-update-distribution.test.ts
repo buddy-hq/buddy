@@ -37,14 +37,17 @@ test.each(["prod", "beta"] as const)(
   async (channel) => {
     const root = await mkdtemp(join(tmpdir(), "buddy-embedded-update-test-"))
     try {
-      const child = Bun.spawn([
-        process.execPath,
-        "-e",
-        COMPILE_AND_READ,
-        resolve(import.meta.dir, "../src/main/update-common.ts"),
-        channel,
-        join(root, "updater.mjs"),
-      ], { stdout: "pipe", stderr: "pipe" })
+      const child = Bun.spawn(
+        [
+          process.execPath,
+          "-e",
+          COMPILE_AND_READ,
+          resolve(import.meta.dir, "../src/main/update-common.ts"),
+          channel,
+          join(root, "updater.mjs"),
+        ],
+        { stdout: "pipe", stderr: "pipe" },
+      )
       const [output, errors, exitCode] = await Promise.all([
         new Response(child.stdout).text(),
         new Response(child.stderr).text(),

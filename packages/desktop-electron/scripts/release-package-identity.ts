@@ -18,27 +18,39 @@ export async function verifyReleasePackageIdentity(input: {
       "Contents",
       "Info.plist",
     )
-    const appId = execFileSync("plutil", ["-extract", "CFBundleIdentifier", "raw", "-o", "-", plist], {
-      encoding: "utf8",
-      env: { ...process.env },
-    }).trim()
+    const appId = execFileSync(
+      "plutil",
+      ["-extract", "CFBundleIdentifier", "raw", "-o", "-", plist],
+      {
+        encoding: "utf8",
+        env: { ...process.env },
+      },
+    ).trim()
     if (appId !== input.distribution.appId) {
       throw new Error(`Packaged bundle id ${appId} does not match ${input.distribution.appId}`)
     }
     return
   }
   const resources = path.join(input.directory, "win-unpacked", "resources")
-  const update = z.object({ owner: z.string(), repo: z.string() }).parse(
-    Bun.YAML.parse(await Bun.file(path.join(resources, "app-update.yml")).text()),
-  )
+  const update = z
+    .object({ owner: z.string(), repo: z.string() })
+    .parse(Bun.YAML.parse(await Bun.file(path.join(resources, "app-update.yml")).text()))
   if (
     update.owner !== input.distribution.releaseOwner ||
     update.repo !== input.distribution.releaseRepository
   ) {
-    throw new Error(`Packaged Windows updater destination does not match ${input.distribution.productName}`)
+    throw new Error(
+      `Packaged Windows updater destination does not match ${input.distribution.productName}`,
+    )
   }
-  const executable = path.join(input.directory, "win-unpacked", `${input.distribution.productName}.exe`)
+  const executable = path.join(
+    input.directory,
+    "win-unpacked",
+    `${input.distribution.productName}.exe`,
+  )
   if (!(await Bun.file(executable).exists())) {
-    throw new Error(`Packaged Windows product name does not match ${input.distribution.productName}`)
+    throw new Error(
+      `Packaged Windows product name does not match ${input.distribution.productName}`,
+    )
   }
 }

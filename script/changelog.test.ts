@@ -70,7 +70,6 @@ describe("changelog release version helpers", () => {
   })
 })
 
-
 test("keeps Beta changelog provenance in its source tag namespace", () => {
   expect(changelogSourceRef("v1.2.3", undefined, {})).toBe("v1.2.3")
   expect(changelogSourceRef("0.1.0", undefined, { BUDDY_CHANNEL: "beta" })).toBe("beta-v0.1.0")

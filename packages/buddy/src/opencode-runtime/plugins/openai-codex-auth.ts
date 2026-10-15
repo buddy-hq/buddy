@@ -274,9 +274,8 @@ async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: Pk
 
 /** Render the OAuth success page, accepting only the callback scheme for this distribution. */
 export function buildBuddyCodexSuccessHtml() {
-  const distribution = process.env[BUDDY_CHANNEL_ENV] === "beta"
-    ? BUDDY_DISTRIBUTIONS.beta
-    : BUDDY_DISTRIBUTIONS.prod
+  const distribution =
+    process.env[BUDDY_CHANNEL_ENV] === "beta" ? BUDDY_DISTRIBUTIONS.beta : BUDDY_DISTRIBUTIONS.prod
   const configuredCallbackUrl = process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]?.trim()
   const callbackUrl = configuredCallbackUrl
     ? (() => {

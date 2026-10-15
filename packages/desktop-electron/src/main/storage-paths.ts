@@ -205,8 +205,7 @@ export function resolveDesktopStoragePlan(input: DesktopStoragePlanInput): Deskt
       ? pathApi.join(input.userDataPath, DEV_XDG_DIRECTORY_NAME, RUNTIME_ROOT_SEGMENTS.data)
       : pathApi.join(input.home, ...XDG_DEFAULT_SEGMENTS.data))
   const buddyDataDir =
-    resolveConfiguredDesktopPath(input.envBuddyDataDir) ??
-    pathApi.join(dataHome, BUDDY_APP_NAME)
+    resolveConfiguredDesktopPath(input.envBuddyDataDir) ?? pathApi.join(dataHome, BUDDY_APP_NAME)
   return {
     kind: development ? "development" : "production",
     notebookHome: pathApi.join(input.home, ...DEFAULT_NOTEBOOK_HOME_SEGMENTS),
@@ -280,7 +279,9 @@ export function pinBackendChannel(
 }
 
 /** Resolve the startup database without inspecting another distribution's data. */
-export function resolveOpenCodeSqlitePath(input: Omit<DesktopStoragePlanInput, "readDocumentsPath">): string {
+export function resolveOpenCodeSqlitePath(
+  input: Omit<DesktopStoragePlanInput, "readDocumentsPath">,
+): string {
   return resolveDesktopStoragePlan({
     ...input,
     readDocumentsPath: () => (input.pathApi ?? path).join(input.home, "Documents"),
@@ -290,7 +291,10 @@ export function resolveOpenCodeSqlitePath(input: Omit<DesktopStoragePlanInput, "
 class DesktopStoragePathError extends Error {
   readonly _tag = "DesktopStoragePathError" as const
 
-  constructor(readonly directory: string, cause: unknown) {
+  constructor(
+    readonly directory: string,
+    cause: unknown,
+  ) {
     super(`Buddy storage directory is not writable: ${directory}`, { cause })
   }
 }

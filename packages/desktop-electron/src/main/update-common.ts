@@ -244,7 +244,10 @@ export async function fetchSignedText(input: {
   publicKey?: string
   url: string
 }): Promise<string> {
-  const publicKey = resolveUpdateVerificationPublicKey(input.distribution ?? UPDATE_DISTRIBUTION, input.publicKey)
+  const publicKey = resolveUpdateVerificationPublicKey(
+    input.distribution ?? UPDATE_DISTRIBUTION,
+    input.publicKey,
+  )
   const [contentResponse, signatureResponse] = await Promise.all([
     fetch(input.url, {
       headers: {

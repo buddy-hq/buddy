@@ -167,27 +167,29 @@ export function UpdatesSettingsSection() {
         description={language.t(
           beta ? "settings.updates.channelBetaDescription" : RING_DESCRIPTION_KEYS[state.ring],
         )}
-        control={beta ? (
-          <span data-action="settings-update-beta" className="text-xs text-text-weak">
-            {language.t("settings.updates.channelBeta")}
-          </span>
-        ) : (
-          <Select
-            value={state.ring}
-            disabled={!supported || busy}
-            onValueChange={(value) => {
-              if (isUpdateRing(value)) void setRing(value)
-            }}
-          >
-            <SelectTrigger data-action="settings-update-ring" className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="stable">{language.t(RING_LABEL_KEYS.stable)}</SelectItem>
-              <SelectItem value="preview">{language.t(RING_LABEL_KEYS.preview)}</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
+        control={
+          beta ? (
+            <span data-action="settings-update-beta" className="text-xs text-text-weak">
+              {language.t("settings.updates.channelBeta")}
+            </span>
+          ) : (
+            <Select
+              value={state.ring}
+              disabled={!supported || busy}
+              onValueChange={(value) => {
+                if (isUpdateRing(value)) void setRing(value)
+              }}
+            >
+              <SelectTrigger data-action="settings-update-ring" className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="stable">{language.t(RING_LABEL_KEYS.stable)}</SelectItem>
+                <SelectItem value="preview">{language.t(RING_LABEL_KEYS.preview)}</SelectItem>
+              </SelectContent>
+            </Select>
+          )
+        }
       />
 
       <SettingsRow

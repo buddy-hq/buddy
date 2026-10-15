@@ -40,24 +40,33 @@ describe("release repositories", () => {
   })
 })
 
-
 describe("distribution release repositories", () => {
   test("selects beta independently of the source repository", () => {
-    expect(releaseRepository({ BUDDY_CHANNEL: "beta", GITHUB_REPOSITORY: "buddy-hq/buddy" })).toBe("prashantbhudwal/buddy-beta-releases")
+    expect(releaseRepository({ BUDDY_CHANNEL: "beta", GITHUB_REPOSITORY: "buddy-hq/buddy" })).toBe(
+      "prashantbhudwal/buddy-beta-releases",
+    )
   })
 
   test.each(["BUDDY_RELEASE_REPO", "GH_REPO"])("rejects cross-stream %s overrides", (key) => {
-    expect(() => releaseRepository({ BUDDY_CHANNEL: "beta", [key]: "prashantbhudwal/buddy-releases" })).toThrow("conflicts with beta")
-    expect(() => releaseRepository({ [key]: "prashantbhudwal/buddy-beta-releases" })).toThrow("conflicts with prod")
-    expect(() => releaseRepository({ [key]: "example/releases" })).toThrow("expected prashantbhudwal/buddy-releases")
+    expect(() =>
+      releaseRepository({ BUDDY_CHANNEL: "beta", [key]: "prashantbhudwal/buddy-releases" }),
+    ).toThrow("conflicts with beta")
+    expect(() => releaseRepository({ [key]: "prashantbhudwal/buddy-beta-releases" })).toThrow(
+      "conflicts with prod",
+    )
+    expect(() => releaseRepository({ [key]: "example/releases" })).toThrow(
+      "expected prashantbhudwal/buddy-releases",
+    )
   })
 
   test("checks both overrides, including a shadowed conflicting value", () => {
-    expect(() => releaseRepository({
-      BUDDY_CHANNEL: "beta",
-      BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-beta-releases",
-      GH_REPO: "prashantbhudwal/buddy-releases",
-    })).toThrow("conflicts with beta")
+    expect(() =>
+      releaseRepository({
+        BUDDY_CHANNEL: "beta",
+        BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-beta-releases",
+        GH_REPO: "prashantbhudwal/buddy-releases",
+      }),
+    ).toThrow("conflicts with beta")
   })
 
   test.each(["dev", "preview", "betaa"])("rejects unpublishable channel %s", (channel) => {

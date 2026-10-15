@@ -10,7 +10,9 @@ import {
 import { highestPublishedBetaVersion } from "./beta-publication"
 
 /** Release commands default to prod; dev and unknown channels are never publishable. */
-export function releaseDistribution(environment: NodeJS.ProcessEnv = process.env): BuddyDistribution {
+export function releaseDistribution(
+  environment: NodeJS.ProcessEnv = process.env,
+): BuddyDistribution {
   const channel = environment.BUDDY_CHANNEL?.trim() || "prod"
   if (!isBuddyDistributionId(channel)) {
     throw new Error(`Release channel must be prod or beta, received ${channel}`)

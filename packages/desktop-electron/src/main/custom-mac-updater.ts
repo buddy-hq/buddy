@@ -351,7 +351,8 @@ async function resolveManifestUrls(
   options: CreateCustomMacUpdaterOptions,
 ): Promise<readonly string[]> {
   if (options.metadataUrl) return [options.metadataUrl]
-  if (target.kind === "latest") return [await resolveDefaultMacMetadataUrl(target.ring, options.distribution)]
+  if (target.kind === "latest")
+    return [await resolveDefaultMacMetadataUrl(target.ring, options.distribution)]
   return resolveMacVersionedMetadataUrls(target.version, options.distribution)
 }
 

@@ -8,7 +8,11 @@ export function signedUpdateFixture(content: string) {
   const publicKey = Buffer.concat([Buffer.from("Ed"), keyID, rawPublicKey]).toString("base64")
   const signature = sign(null, Buffer.from(content), keys.privateKey)
   const trustedComment = "fixture"
-  const globalSignature = sign(null, Buffer.concat([signature, Buffer.from(trustedComment)]), keys.privateKey)
+  const globalSignature = sign(
+    null,
+    Buffer.concat([signature, Buffer.from(trustedComment)]),
+    keys.privateKey,
+  )
   const signatureText = `untrusted comment: fixture\n${Buffer.concat([Buffer.from("Ed"), keyID, signature]).toString("base64")}\ntrusted comment: ${trustedComment}\n${globalSignature.toString("base64")}\n`
   return { publicKey, signature: Buffer.from(signatureText).toString("base64") }
 }

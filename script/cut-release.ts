@@ -14,10 +14,21 @@ import { RELEASE_GATE_COMMAND_PLAN } from "./release-required-gates.ts"
 import { parseReleasePlan, RELEASE_PLAN_FILENAME, type ReleasePlan } from "./release/plan"
 import { assertGreenReleaseSource } from "./release/preflight"
 import { releaseRepository, sourceRepository } from "./release-repositories"
-import { assertReleaseBranch, releaseDistribution, assertReleaseRecordChannel } from "./release/distribution-guard"
+import {
+  assertReleaseBranch,
+  releaseDistribution,
+  assertReleaseRecordChannel,
+} from "./release/distribution-guard"
 import { RELEASE_FREEZE_FILENAME } from "./release/constants"
-import { assertBetaVersionMovesForward, highestPublishedBetaVersion } from "./release/beta-publication"
-import { BUDDY_DISTRIBUTIONS, requireUpdaterPublicKey, type BuddyDistributionId } from "@buddy/script/distribution"
+import {
+  assertBetaVersionMovesForward,
+  highestPublishedBetaVersion,
+} from "./release/beta-publication"
+import {
+  BUDDY_DISTRIBUTIONS,
+  requireUpdaterPublicKey,
+  type BuddyDistributionId,
+} from "@buddy/script/distribution"
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
 const FAST_SKIP_FLAG = "--fs"
@@ -267,10 +278,11 @@ async function currentHeadSha(ref: string) {
 }
 
 async function syncState() {
-  const counts = await $`git rev-list --left-right --count HEAD...origin/${releaseDistribution().releaseBranch}`
-    .cwd(ROOT_DIR)
-    .text()
-    .then((output) => output.trim())
+  const counts =
+    await $`git rev-list --left-right --count HEAD...origin/${releaseDistribution().releaseBranch}`
+      .cwd(ROOT_DIR)
+      .text()
+      .then((output) => output.trim())
 
   const [aheadText, behindText] = counts.split(/\s+/)
   const ahead = Number.parseInt(aheadText ?? "0", 10)
@@ -309,7 +321,9 @@ async function alignWithOriginReleaseBranch(rl: ReleaseReadline) {
     }
 
     if (state.state === "behind") {
-      console.log(`Local ${releaseBranch} is behind origin/${releaseBranch} by ${state.behind} commit(s).`)
+      console.log(
+        `Local ${releaseBranch} is behind origin/${releaseBranch} by ${state.behind} commit(s).`,
+      )
       if (!(await confirm(rl, `Fast-forward local ${releaseBranch} now?`, true))) {
         throw new Error(`Release aborted before syncing local ${releaseBranch}`)
       }
@@ -318,7 +332,9 @@ async function alignWithOriginReleaseBranch(rl: ReleaseReadline) {
     }
 
     if (state.state === "ahead") {
-      console.log(`Local ${releaseBranch} is ahead of origin/${releaseBranch} by ${state.ahead} commit(s).`)
+      console.log(
+        `Local ${releaseBranch} is ahead of origin/${releaseBranch} by ${state.ahead} commit(s).`,
+      )
       if (!(await confirm(rl, `Push local ${releaseBranch} to origin now?`, true))) {
         throw new Error(`Release aborted before pushing local ${releaseBranch}`)
       }
@@ -365,7 +381,9 @@ async function chooseVersion(rl: ReleaseReadline, fast = false) {
   const majorSuggestion = versionBase ? bumpVersion(versionBase, "major") : "1.0.0"
   const versionContext = versionBase
     ? [
-        latestStable ? `Latest ${releaseDistribution().id === "beta" ? "Beta" : "stable"} release: v${latestStable}` : "No prior stable release found.",
+        latestStable
+          ? `Latest ${releaseDistribution().id === "beta" ? "Beta" : "stable"} release: v${latestStable}`
+          : "No prior stable release found.",
         `Highest published release tag: v${versionBase}`,
       ].join("\n")
     : "No prior published release found."
@@ -452,7 +470,8 @@ async function ensureVersionIsAvailable(version: string) {
   if (releaseDistribution().id === "beta") {
     assertBetaVersionMovesForward(version, await highestPublishedBetaVersion(releaseRepository()))
   }
-  const frozenBeta = releaseDistribution().id === "beta" &&
+  const frozenBeta =
+    releaseDistribution().id === "beta" &&
     existing?.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
   if (existing && !existing.isDraft && !frozenBeta) {
     throw new Error(`Release ${tag} already exists: ${existing.url}`)
@@ -504,8 +523,17 @@ async function editReleaseDraft(
   fast = false,
 ) {
   const tag = `v${version}`
-  if (existingDraft && releaseDistribution().id === "beta" && existingDraft.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)) {
-    return { body: existingDraft.body, notesPath: undefined, tempDir: undefined, title: existingDraft.name }
+  if (
+    existingDraft &&
+    releaseDistribution().id === "beta" &&
+    existingDraft.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
+  ) {
+    return {
+      body: existingDraft.body,
+      notesPath: undefined,
+      tempDir: undefined,
+      title: existingDraft.name,
+    }
   }
   const title = fast ? tag : await promptLine(rl, "Release title", existingDraft?.name || tag)
   const initialBody = await initialReleaseBody(version, existingDraft)
@@ -569,7 +597,8 @@ async function upsertDraftRelease(
   targetSha: string,
   existingDraft: ReleaseSummary | undefined,
 ) {
-  if (existingDraft && releaseDistribution().id === "beta" && !existingDraft.isDraft) return existingDraft
+  if (existingDraft && releaseDistribution().id === "beta" && !existingDraft.isDraft)
+    return existingDraft
   const tag = `v${version}`
   printStep("Draft Release", `Creating or updating draft release ${tag}.`)
   const releaseRepo = releaseRepository()
@@ -634,7 +663,8 @@ export function selectWorkflowRunUrls(
     (run) =>
       run.event === "workflow_dispatch" &&
       run.headBranch === releaseBranch &&
-      run.displayTitle === `${channel === "beta" ? "beta release" : "preview candidate"} v${version}`,
+      run.displayTitle ===
+        `${channel === "beta" ? "beta release" : "preview candidate"} v${version}`,
   )
   const fallback = runs.find(
     (run) => run.event === "workflow_dispatch" && run.headBranch === releaseBranch,
@@ -942,8 +972,11 @@ async function main() {
   const targets = flags.targets ?? (await chooseReleaseTargets())
   ensureGithubAuth()
   await ensureReleaseSecrets()
-  if (flags.channel === "beta" && !(await getLatestPublishedRelease()) &&
-    (!targets.macosArm64 || !targets.macosX64 || !targets.windowsX64)) {
+  if (
+    flags.channel === "beta" &&
+    !(await getLatestPublishedRelease()) &&
+    (!targets.macosArm64 || !targets.macosX64 || !targets.windowsX64)
+  ) {
     throw new Error("The first Beta release requires all three targets")
   }
 
@@ -953,7 +986,10 @@ async function main() {
     const targetSha = await alignWithOriginReleaseBranch(rl)
     await ensureCleanTree()
 
-    printStep(flags.channel === "beta" ? "Green Beta" : "Green Main", `Verifying required CI checks for ${targetSha.slice(0, 12)}.`)
+    printStep(
+      flags.channel === "beta" ? "Green Beta" : "Green Main",
+      `Verifying required CI checks for ${targetSha.slice(0, 12)}.`,
+    )
     await assertGreenReleaseSource({
       repository: sourceRepository(),
       sourceSha: targetSha,
@@ -1051,7 +1087,9 @@ async function main() {
 
       const published = await loadRelease(tag)
       if (published && !published.isDraft) {
-        console.log(`${flags.channel === "beta" ? "Beta release" : "Preview release candidate"} published: ${published.url}`)
+        console.log(
+          `${flags.channel === "beta" ? "Beta release" : "Preview release candidate"} published: ${published.url}`,
+        )
       } else {
         console.log(`Release draft: ${release.url}`)
       }

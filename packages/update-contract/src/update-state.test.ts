@@ -189,25 +189,45 @@ describe("published state ordering", () => {
   })
 })
 
-
 describe("Beta state", () => {
   test("retains its marker through success and failure transitions and fixes the ring", () => {
-    let state = createUpdateState({ distribution: "beta", currentVersion: "1.0.0", ring: "stable", supported: true })
+    let state = createUpdateState({
+      distribution: "beta",
+      currentVersion: "1.0.0",
+      ring: "stable",
+      supported: true,
+    })
     expect(state.ring).toBe("preview")
     expect(selectRing(state, "stable")).toBe(state)
     const states = [state]
-    state = beginCheck(state); states.push(state)
-    state = failCheck(state, { checkedAt: CHECKED_AT, reason: "not-configured" }); states.push(state)
-    state = completeCheckAvailable(state, { version: "1.1.0", checkedAt: CHECKED_AT }); states.push(state)
-    state = beginDownload(state, { version: "1.1.0" }); states.push(state)
-    state = failDownload(state); states.push(state)
-    state = completeDownload(state, { version: "1.1.0" }); states.push(state)
-    state = failInstall(state); states.push(state)
-    state = completeCheckUpToDate(state, { checkedAt: LATER }); states.push(state)
-    expect(states.every((value) => value.distribution === "beta" && value.ring === "preview")).toBe(true)
+    state = beginCheck(state)
+    states.push(state)
+    state = failCheck(state, { checkedAt: CHECKED_AT, reason: "not-configured" })
+    states.push(state)
+    state = completeCheckAvailable(state, { version: "1.1.0", checkedAt: CHECKED_AT })
+    states.push(state)
+    state = beginDownload(state, { version: "1.1.0" })
+    states.push(state)
+    state = failDownload(state)
+    states.push(state)
+    state = completeDownload(state, { version: "1.1.0" })
+    states.push(state)
+    state = failInstall(state)
+    states.push(state)
+    state = completeCheckUpToDate(state, { checkedAt: LATER })
+    states.push(state)
+    expect(states.every((value) => value.distribution === "beta" && value.ring === "preview")).toBe(
+      true,
+    )
   })
 
   test("does not add a marker to prod state", () => {
-    expect(idleState()).toEqual({ revision: 0, ring: "stable", currentVersion: "1.0.0", activity: { status: "idle" }, releaseNotes: [] })
+    expect(idleState()).toEqual({
+      revision: 0,
+      ring: "stable",
+      currentVersion: "1.0.0",
+      activity: { status: "idle" },
+      releaseNotes: [],
+    })
   })
 })

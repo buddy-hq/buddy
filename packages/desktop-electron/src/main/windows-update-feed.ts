@@ -84,7 +84,9 @@ export async function fetchWindowsUpdateManifest(input: {
       })
     }
   }
-  throw lastError instanceof Error ? lastError : new Error("Failed to fetch Windows update manifest")
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Failed to fetch Windows update manifest")
 }
 
 export type WindowsUpdateFeed = {

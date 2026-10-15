@@ -28,7 +28,9 @@ async function publishedFeedFixture(previousTag: string) {
     await Bun.write(path.join(current, MANIFEST), MANIFEST_BYTES)
     await Bun.write(path.join(current, `${MANIFEST}.sig`), SIGNATURE_BYTES)
     const gh = path.join(bin, "gh")
-    await Bun.write(gh, `#!${process.execPath}
+    await Bun.write(
+      gh,
+      `#!${process.execPath}
 import { copyFileSync, readFileSync } from "node:fs"
 import { createHash } from "node:crypto"
 import path from "node:path"
@@ -53,7 +55,8 @@ if (args[0] === "api" && args.includes("--slurp")) {
     copyFileSync(path.join(process.env.FIXTURE_DIRECTORY, args[2], name), path.join(output, name))
   }
 } else { throw new Error("Unexpected GitHub command: " + args.join(" ")) }
-`)
+`,
+    )
     await chmod(gh, 0o755)
     return {
       directory,
@@ -84,50 +87,74 @@ if (args[0] === "api" && args.includes("--slurp")) {
 }
 
 function verifyFeed(fixture: Awaited<ReturnType<typeof publishedFeedFixture>>, currentTag: string) {
-  const input = { currentTag, directory: fixture.current, manifestName: MANIFEST, repository: REPOSITORY }
-  return spawnSync(process.execPath, ["--eval", `import { assertOmittedManifestUsesNewestPublishedFeed } from ${JSON.stringify(path.join(ROOT, "script/verify-release-assets.ts"))}; await assertOmittedManifestUsesNewestPublishedFeed(${JSON.stringify(input)}); console.log("Verified carried-forward feed")`], {
-    env: fixture.environment,
-    encoding: "utf8",
-  })
+  const input = {
+    currentTag,
+    directory: fixture.current,
+    manifestName: MANIFEST,
+    repository: REPOSITORY,
+  }
+  return spawnSync(
+    process.execPath,
+    [
+      "--eval",
+      `import { assertOmittedManifestUsesNewestPublishedFeed } from ${JSON.stringify(path.join(ROOT, "script/verify-release-assets.ts"))}; await assertOmittedManifestUsesNewestPublishedFeed(${JSON.stringify(input)}); console.log("Verified carried-forward feed")`,
+    ],
+    {
+      env: fixture.environment,
+      encoding: "utf8",
+    },
+  )
 }
 
 describe("omitted target feeds", () => {
   test.each([
     { currentTag: "v0.1.1", previousTag: "v0.1.0" },
     { currentTag: "v0.1.2", previousTag: "v0.1.1" },
-  ])("verifies $currentTag against $previousTag while artifacts still point at v0.1.0", async ({ currentTag, previousTag }) => {
-    const fixture = await publishedFeedFixture(previousTag)
-    try {
-      const result = verifyFeed(fixture, currentTag)
-      expect(result.stderr).toBe("")
-      expect(result.status).toBe(0)
-      expect(result.stdout).toContain("Verified carried-forward feed")
-    } finally {
-      await rm(fixture.directory, { recursive: true, force: true })
-    }
-  })
+  ])(
+    "verifies $currentTag against $previousTag while artifacts still point at v0.1.0",
+    async ({ currentTag, previousTag }) => {
+      const fixture = await publishedFeedFixture(previousTag)
+      try {
+        const result = verifyFeed(fixture, currentTag)
+        expect(result.stderr).toBe("")
+        expect(result.status).toBe(0)
+        expect(result.stdout).toContain("Verified carried-forward feed")
+      } finally {
+        await rm(fixture.directory, { recursive: true, force: true })
+      }
+    },
+  )
 
-  test.each([MANIFEST, `${MANIFEST}.sig`])("rejects changed %s bytes even when artifact URLs point at the previous release", async (filename) => {
-    const fixture = await publishedFeedFixture("v0.1.0")
-    try {
-      const file = path.join(fixture.current, filename)
-      await Bun.write(file, Buffer.concat([await readFile(file), Buffer.from("\n")]))
-      const result = verifyFeed(fixture, "v0.1.1")
-      expect(result.status).toBe(1)
-      expect(result.stderr).toContain(`${filename} does not carry forward newest compatible feed v0.1.0 byte-for-byte`)
-    } finally {
-      await rm(fixture.directory, { recursive: true, force: true })
-    }
-  })
+  test.each([MANIFEST, `${MANIFEST}.sig`])(
+    "rejects changed %s bytes even when artifact URLs point at the previous release",
+    async (filename) => {
+      const fixture = await publishedFeedFixture("v0.1.0")
+      try {
+        const file = path.join(fixture.current, filename)
+        await Bun.write(file, Buffer.concat([await readFile(file), Buffer.from("\n")]))
+        const result = verifyFeed(fixture, "v0.1.1")
+        expect(result.status).toBe(1)
+        expect(result.stderr).toContain(
+          `${filename} does not carry forward newest compatible feed v0.1.0 byte-for-byte`,
+        )
+      } finally {
+        await rm(fixture.directory, { recursive: true, force: true })
+      }
+    },
+  )
 
   test("the target finalizer downloads a previous partial release's manifest and signature without rewriting them", async () => {
     const fixture = await publishedFeedFixture("v0.1.1")
     try {
       await rm(fixture.current, { recursive: true })
-      const result = spawnSync(process.execPath, [path.join(ROOT, "packages/desktop-electron/scripts/finalize-target-update-manifests.ts")], {
-        env: fixture.environment,
-        encoding: "utf8",
-      })
+      const result = spawnSync(
+        process.execPath,
+        [path.join(ROOT, "packages/desktop-electron/scripts/finalize-target-update-manifests.ts")],
+        {
+          env: fixture.environment,
+          encoding: "utf8",
+        },
+      )
       expect(result.status).toBe(0)
       expect(result.stdout).toContain("previous per-target manifest exists")
       expect(await readFile(path.join(fixture.current, MANIFEST))).toEqual(MANIFEST_BYTES)

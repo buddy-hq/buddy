@@ -25,7 +25,9 @@ async function signingFixture() {
     const latest = path.join(directory, "latest-yml-x86_64-pc-windows-msvc")
     await Promise.all([mkdir(bin), mkdir(output), mkdir(latest)])
     const signer = path.join(bin, "tauri")
-    await Bun.write(signer, `#!${process.execPath}
+    await Bun.write(
+      signer,
+      `#!${process.execPath}
 import { readFileSync, writeFileSync } from "node:fs"
 import { sign } from "node:crypto"
 const args = process.argv.slice(2)
@@ -46,18 +48,25 @@ const signatureFile = [
   sign(null, Buffer.concat([signature, Buffer.from(comment)]), privateKey).toString("base64"),
 ].join("\\n") + "\\n"
 writeFileSync(file + ".sig", signatureFile)
-`)
+`,
+    )
     await chmod(signer, 0o755)
     const uploadLog = path.join(directory, "uploads.txt")
     const gh = path.join(bin, "gh")
-    await Bun.write(gh, `#!${process.execPath}
+    await Bun.write(
+      gh,
+      `#!${process.execPath}
 import { appendFileSync } from "node:fs"
 appendFileSync(process.env.FIXTURE_UPLOADS, process.argv.slice(2).join(" ") + "\\n")
 throw new Error("Unexpected GitHub command")
-`)
+`,
+    )
     await chmod(gh, 0o755)
     await Bun.write(path.join(directory, "buddy-v0.1.0-macos-apple-silicon.zip"), "macOS artifact")
-    await Bun.write(path.join(latest, "latest.yml"), "version: 0.1.0\nfiles:\n  - url: buddy-v0.1.0-windows-x64.exe\n    sha512: fixture\n    size: 1\nreleaseDate: '2026-01-01T00:00:00Z'\n")
+    await Bun.write(
+      path.join(latest, "latest.yml"),
+      "version: 0.1.0\nfiles:\n  - url: buddy-v0.1.0-windows-x64.exe\n    sha512: fixture\n    size: 1\nreleaseDate: '2026-01-01T00:00:00Z'\n",
+    )
     return {
       directory,
       publicKey,
@@ -96,10 +105,17 @@ describe("release signing scripts", () => {
     try {
       const script = path.join(SCRIPTS, "verify-update-signing.ts")
       const distribution = { ...BUDDY_DISTRIBUTIONS.prod, updaterPublicKey: fixture.publicKey }
-      const result = spawnSync(process.execPath, ["--eval", `import { verifyUpdateSigning } from ${JSON.stringify(script)}; await verifyUpdateSigning(${JSON.stringify(distribution)})`], {
-        env: fixture.environment,
-        encoding: "utf8",
-      })
+      const result = spawnSync(
+        process.execPath,
+        [
+          "--eval",
+          `import { verifyUpdateSigning } from ${JSON.stringify(script)}; await verifyUpdateSigning(${JSON.stringify(distribution)})`,
+        ],
+        {
+          env: fixture.environment,
+          encoding: "utf8",
+        },
+      )
       expect(result.stderr).toBe("")
       expect(result.status).toBe(0)
       expect(result.stdout).toContain("Verified updater signer for Buddy")
@@ -123,18 +139,21 @@ describe("release signing scripts", () => {
     expect(environment.TAURI_SIGNING_PRIVATE_KEY_PATH).toBe("  ")
   })
 
-  test.each(["finalize-latest-mac-json.ts", "finalize-latest-yml.ts"])("%s rejects another distribution's key before uploading", async (filename) => {
-    const fixture = await signingFixture()
-    try {
-      const result = spawnSync(process.execPath, [path.join(SCRIPTS, filename)], {
-        env: fixture.environment,
-        encoding: "utf8",
-      })
-      expect(result.status).toBe(1)
-      expect(result.stderr).toContain("Updater signing key does not match Buddy")
-      expect(await Bun.file(fixture.uploadLog).exists()).toBe(false)
-    } finally {
-      await rm(fixture.directory, { recursive: true, force: true })
-    }
-  })
+  test.each(["finalize-latest-mac-json.ts", "finalize-latest-yml.ts"])(
+    "%s rejects another distribution's key before uploading",
+    async (filename) => {
+      const fixture = await signingFixture()
+      try {
+        const result = spawnSync(process.execPath, [path.join(SCRIPTS, filename)], {
+          env: fixture.environment,
+          encoding: "utf8",
+        })
+        expect(result.status).toBe(1)
+        expect(result.stderr).toContain("Updater signing key does not match Buddy")
+        expect(await Bun.file(fixture.uploadLog).exists()).toBe(false)
+      } finally {
+        await rm(fixture.directory, { recursive: true, force: true })
+      }
+    },
+  )
 })

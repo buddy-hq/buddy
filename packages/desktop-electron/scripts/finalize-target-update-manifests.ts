@@ -121,7 +121,9 @@ const electronDistDir =
 const outputDirectory =
   process.env[UPDATE_OUTPUT_DIR_ENV_KEY]?.trim() ||
   process.env.RUNNER_TEMP ||
-  (distribution.id === "beta" ? path.join(DEFAULT_OUTPUT_DIRECTORY, "buddy-beta-release") : DEFAULT_OUTPUT_DIRECTORY)
+  (distribution.id === "beta"
+    ? path.join(DEFAULT_OUTPUT_DIRECTORY, "buddy-beta-release")
+    : DEFAULT_OUTPUT_DIRECTORY)
 
 const releaseTargets: readonly ReleaseTarget[] = [
   {
@@ -252,7 +254,9 @@ async function resolveOmittedTargetManifest(
   }
 
   if (distribution.id === "beta") {
-    throw new Error(`Beta cannot bootstrap ${target.manifestFilename}; the first Beta release requires all three targets`)
+    throw new Error(
+      `Beta cannot bootstrap ${target.manifestFilename}; the first Beta release requires all three targets`,
+    )
   }
   const previousStableTag = await resolvePreviousStableReleaseTag()
   const bootstrapped =
@@ -288,7 +292,8 @@ async function downloadPreviousTargetManifest(
   if (distribution.id === "beta") {
     await verifyReleaseSignature(manifestPath)
     const content = await Bun.file(manifestPath).text()
-    const manifest = target.platform === "macos" ? parseMacOsManifest(content) : parseWindowsManifest(content)
+    const manifest =
+      target.platform === "macos" ? parseMacOsManifest(content) : parseWindowsManifest(content)
     const prefix = `https://github.com/${repo}/releases/download/`
     if (manifest.files.some((file) => !file.url.startsWith(prefix))) {
       throw new Error(`Carried-forward Beta manifest contains an URL outside ${repo}`)

@@ -15,32 +15,21 @@ describe.each([
     acceptedSchemes: ["buddy-beta", "BUDDY-BETA", "BuDdY-BeTa"],
     rejectedSchemes: ["buddy", "BUDDY", "BuDdY"],
   },
-])(
-  "$productName deep links",
-  ({ distribution, acceptedSchemes, rejectedSchemes }) => {
-    test.each([...acceptedSchemes])(
-      "accepts the %s scheme",
-      (scheme) => {
-        expect(
-          isAppDeepLink(`${scheme}://chat/ses_1?message=msg_1`, distribution.protocol),
-        ).toBe(true)
-      },
-    )
+])("$productName deep links", ({ distribution, acceptedSchemes, rejectedSchemes }) => {
+  test.each([...acceptedSchemes])("accepts the %s scheme", (scheme) => {
+    expect(isAppDeepLink(`${scheme}://chat/ses_1?message=msg_1`, distribution.protocol)).toBe(true)
+  })
 
-    test.each([...rejectedSchemes])(
-      "rejects the other distribution's %s scheme",
-      (scheme) => {
-        expect(
-          isAppDeepLink(`${scheme}://chat/ses_1?message=msg_1`, distribution.protocol),
-        ).toBe(false)
-      },
-    )
+  test.each([...rejectedSchemes])("rejects the other distribution's %s scheme", (scheme) => {
+    expect(isAppDeepLink(`${scheme}://chat/ses_1?message=msg_1`, distribution.protocol)).toBe(false)
+  })
 
-    test.each(["/Applications/Buddy.app", "--some-flag", "https://example.com", "buddy-beta-bad://chat/ses_1"])(
-      "ignores an argv value or unrelated URL: %s",
-      (value) => {
-        expect(isAppDeepLink(value, distribution.protocol)).toBe(false)
-      },
-    )
-  },
-)
+  test.each([
+    "/Applications/Buddy.app",
+    "--some-flag",
+    "https://example.com",
+    "buddy-beta-bad://chat/ses_1",
+  ])("ignores an argv value or unrelated URL: %s", (value) => {
+    expect(isAppDeepLink(value, distribution.protocol)).toBe(false)
+  })
+})

@@ -21,14 +21,15 @@ async function installFixture(
     await mkdir(installed, { recursive: true })
     await Bun.write(path.join(installed, "keep.txt"), "existing Beta")
     const programs = {
-      uname: '#!/bin/bash\necho arm64\n',
+      uname: "#!/bin/bash\necho arm64\n",
       gh: '#!/bin/bash\nprintf "%s\\n" "$*" >> "$FIXTURE_LOG"\nif [[ "$1 $2" == "release view" ]]; then printf "false\\t%s\\n" "$FIXTURE_PRERELEASE"; else while [[ $# -gt 0 ]]; do case "$1" in --dir) dir="$2"; shift 2;; --pattern) asset="$2"; shift 2;; *) shift;; esac; done; touch "$dir/$asset"; fi\n',
-      hdiutil: '#!/bin/bash\nif [[ "$1" == "attach" ]]; then while [[ $# -gt 0 ]]; do if [[ "$1" == "-mountpoint" ]]; then mkdir -p "$2/$FIXTURE_APP_NAME.app/Contents"; touch "$2/$FIXTURE_APP_NAME.app/Contents/Info.plist"; break; fi; shift; done; fi\n',
+      hdiutil:
+        '#!/bin/bash\nif [[ "$1" == "attach" ]]; then while [[ $# -gt 0 ]]; do if [[ "$1" == "-mountpoint" ]]; then mkdir -p "$2/$FIXTURE_APP_NAME.app/Contents"; touch "$2/$FIXTURE_APP_NAME.app/Contents/Info.plist"; break; fi; shift; done; fi\n',
       plutil: '#!/bin/bash\necho "$FIXTURE_BUNDLE_ID"\n',
       ditto: '#!/bin/bash\ncp -R "$1" "$2"\n',
-      xattr: '#!/bin/bash\nexit 0\n',
-      defaults: '#!/bin/bash\necho 0.1.0\n',
-      mount: '#!/bin/bash\nexit 0\n',
+      xattr: "#!/bin/bash\nexit 0\n",
+      defaults: "#!/bin/bash\necho 0.1.0\n",
+      mount: "#!/bin/bash\nexit 0\n",
     }
     for (const [name, source] of Object.entries(programs)) {
       const file = path.join(bin, name)
@@ -56,7 +57,7 @@ async function installFixture(
     return {
       result,
       preserved: await Bun.file(path.join(installed, "keep.txt")).exists(),
-      commands: await Bun.file(log).exists() ? await Bun.file(log).text() : "",
+      commands: (await Bun.file(log).exists()) ? await Bun.file(log).text() : "",
     }
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -80,7 +81,11 @@ describe("Beta installer boundary", () => {
   })
 
   test("rejects conflicting repo overrides before downloads or replacement", async () => {
-    const { result, preserved, commands } = await installFixture("ai.buddy.desktop.beta", undefined, { BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases" })
+    const { result, preserved, commands } = await installFixture(
+      "ai.buddy.desktop.beta",
+      undefined,
+      { BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases" },
+    )
     expect(result.status).toBe(1)
     expect(result.stderr).toContain("must match beta")
     expect(commands).toBe("")
@@ -92,13 +97,17 @@ describe("Beta installer boundary", () => {
     expect(prod.result.status).toBe(0)
     expect(prod.commands).toContain("--repo prashantbhudwal/buddy-releases")
     expect(prod.result.stdout).toContain("Installed Buddy")
-    const preview = await installFixture("ai.buddy.desktop", ["v0.1.0"], { BUDDY_INSTALL_RELEASE_KIND: "preview" })
+    const preview = await installFixture("ai.buddy.desktop", ["v0.1.0"], {
+      BUDDY_INSTALL_RELEASE_KIND: "preview",
+    })
     expect(preview.result.status).toBe(0)
     expect(preview.commands).toContain("--repo prashantbhudwal/buddy-releases")
   })
 
   test("rejects Beta preview and unsupported channel flags", async () => {
-    const preview = await installFixture("ai.buddy.desktop.beta", undefined, { BUDDY_INSTALL_RELEASE_KIND: "preview" })
+    const preview = await installFixture("ai.buddy.desktop.beta", undefined, {
+      BUDDY_INSTALL_RELEASE_KIND: "preview",
+    })
     expect(preview.result.status).toBe(1)
     expect(preview.result.stderr).toContain("Preview is only available for prod")
     const invalid = await installFixture("ai.buddy.desktop.beta", ["--channel", "dev"])

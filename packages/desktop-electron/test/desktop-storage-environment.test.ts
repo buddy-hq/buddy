@@ -75,9 +75,9 @@ describe("desktop storage environment", () => {
         ).toEqual([key])
       }
       for (const key of injectionKeys) {
-        expect(
-          Object.keys(environment).some((candidate) => candidate.toUpperCase() === key),
-        ).toBe(false)
+        expect(Object.keys(environment).some((candidate) => candidate.toUpperCase() === key)).toBe(
+          false,
+        )
       }
       for (const key of ["HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA"] as const) {
         expect(environment[key]).toBe(app[key])

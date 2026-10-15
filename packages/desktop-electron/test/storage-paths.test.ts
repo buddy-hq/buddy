@@ -185,76 +185,79 @@ describe("desktop storage plan", () => {
       documents: "D:\\Cloud\\Documents",
       separator: "\\",
     },
-  ])("pins exact Beta layout using $separator paths and redirected Documents", ({ pathApi, userData, documents, separator }) => {
-    const plan = resolveDesktopStoragePlan({
-      channel: "beta",
-      isPackaged: true,
-      home: "/sandbox/home",
-      readDocumentsPath: () => documents,
-      userDataPath: userData,
-      pathApi,
-      envBuddyDataDir: "/sandbox/stable/data",
-      envXdgDataHome: "/sandbox/stable/xdg",
-    })
-    const u = userData
-    const n = `${documents}${separator}Buddy Beta`
-    const at = (suffix: string) => `${u}${separator}${suffix.replaceAll("/", separator)}`
-    expect(plan.environmentOverrides).toEqual({
-      XDG_DATA_HOME: at("xdg/data"),
-      XDG_CACHE_HOME: at("xdg/cache"),
-      XDG_CONFIG_HOME: at("xdg/config"),
-      XDG_STATE_HOME: at("xdg/state"),
-      BUDDY_DATA_DIR: at("xdg/data/buddy"),
-      BUDDY_CACHE_DIR: at("xdg/cache/buddy"),
-      BUDDY_GLOBAL_CONFIG_DIR: at("xdg/config/buddy"),
-      BUDDY_STATE_DIR: at("xdg/state/buddy"),
-      BUDDY_MANAGED_HOME_DIR: at("xdg/config/buddy"),
-      BUDDY_DEFAULT_NOTEBOOK_HOME: n,
-      BUDDY_OPENCODE_SKILL_CACHE_DIR: at("xdg/cache/buddy/opencode/skills"),
-      BUDDY_DIRECTORY_BASE: n,
-      BUDDY_ALLOWED_DIRECTORY_ROOTS: n,
-      TMPDIR: at("xdg/tmp"),
-      TMP: at("xdg/tmp"),
-      TEMP: at("xdg/tmp"),
-      OPENCODE_CONFIG_DIR: at("xdg/config/buddy"),
-      OPENCODE_DB: "opencode.db",
-      BUDDY_CHANNEL: "beta",
-      BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-beta-releases",
-    })
-    expect(plan.electronPaths).toEqual({
-      sessionData: u,
-      temp: at("xdg/tmp"),
-      logs: at("logs"),
-      crashDumps: at("crash-dumps"),
-    })
-    expect(plan.storeCwd).toBe(u)
-    expect(plan.openCodeSqlitePath).toBe(at("xdg/data/buddy/opencode/opencode.db"))
-    expect(
-      resolveDesktopStoragePlan({
+  ])(
+    "pins exact Beta layout using $separator paths and redirected Documents",
+    ({ pathApi, userData, documents, separator }) => {
+      const plan = resolveDesktopStoragePlan({
         channel: "beta",
         isPackaged: true,
         home: "/sandbox/home",
-        userDataPath: u,
+        readDocumentsPath: () => documents,
+        userDataPath: userData,
         pathApi,
         envBuddyDataDir: "/sandbox/stable/data",
         envXdgDataHome: "/sandbox/stable/xdg",
-        readDocumentsPath: () => "/sandbox/documents",
-      }).buddyDataDir,
-    ).toBe(at("xdg/data/buddy"))
-    for (const directory of [
-      u,
-      n,
-      at("xdg/tmp"),
-      at("logs"),
-      at("crash-dumps"),
-      at("xdg/data/buddy"),
-      at("xdg/cache/buddy/opencode/skills"),
-      at("xdg/config/buddy"),
-      at("xdg/state/buddy"),
-    ]) {
-      expect(plan.directoriesToCreate).toContain(directory)
-    }
-  })
+      })
+      const u = userData
+      const n = `${documents}${separator}Buddy Beta`
+      const at = (suffix: string) => `${u}${separator}${suffix.replaceAll("/", separator)}`
+      expect(plan.environmentOverrides).toEqual({
+        XDG_DATA_HOME: at("xdg/data"),
+        XDG_CACHE_HOME: at("xdg/cache"),
+        XDG_CONFIG_HOME: at("xdg/config"),
+        XDG_STATE_HOME: at("xdg/state"),
+        BUDDY_DATA_DIR: at("xdg/data/buddy"),
+        BUDDY_CACHE_DIR: at("xdg/cache/buddy"),
+        BUDDY_GLOBAL_CONFIG_DIR: at("xdg/config/buddy"),
+        BUDDY_STATE_DIR: at("xdg/state/buddy"),
+        BUDDY_MANAGED_HOME_DIR: at("xdg/config/buddy"),
+        BUDDY_DEFAULT_NOTEBOOK_HOME: n,
+        BUDDY_OPENCODE_SKILL_CACHE_DIR: at("xdg/cache/buddy/opencode/skills"),
+        BUDDY_DIRECTORY_BASE: n,
+        BUDDY_ALLOWED_DIRECTORY_ROOTS: n,
+        TMPDIR: at("xdg/tmp"),
+        TMP: at("xdg/tmp"),
+        TEMP: at("xdg/tmp"),
+        OPENCODE_CONFIG_DIR: at("xdg/config/buddy"),
+        OPENCODE_DB: "opencode.db",
+        BUDDY_CHANNEL: "beta",
+        BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-beta-releases",
+      })
+      expect(plan.electronPaths).toEqual({
+        sessionData: u,
+        temp: at("xdg/tmp"),
+        logs: at("logs"),
+        crashDumps: at("crash-dumps"),
+      })
+      expect(plan.storeCwd).toBe(u)
+      expect(plan.openCodeSqlitePath).toBe(at("xdg/data/buddy/opencode/opencode.db"))
+      expect(
+        resolveDesktopStoragePlan({
+          channel: "beta",
+          isPackaged: true,
+          home: "/sandbox/home",
+          userDataPath: u,
+          pathApi,
+          envBuddyDataDir: "/sandbox/stable/data",
+          envXdgDataHome: "/sandbox/stable/xdg",
+          readDocumentsPath: () => "/sandbox/documents",
+        }).buddyDataDir,
+      ).toBe(at("xdg/data/buddy"))
+      for (const directory of [
+        u,
+        n,
+        at("xdg/tmp"),
+        at("logs"),
+        at("crash-dumps"),
+        at("xdg/data/buddy"),
+        at("xdg/cache/buddy/opencode/skills"),
+        at("xdg/config/buddy"),
+        at("xdg/state/buddy"),
+      ]) {
+        expect(plan.directoriesToCreate).toContain(directory)
+      }
+    },
+  )
 
   test("fails closed when a Beta root cannot be created", () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "buddy-beta-storage-"))

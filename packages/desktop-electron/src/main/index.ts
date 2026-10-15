@@ -94,11 +94,7 @@ import {
   resolveDesktopStoragePlan,
   resolveOpenCodeSqlitePath,
 } from "./storage-paths"
-import {
-  UPDATE_DISTRIBUTION,
-  UpdatesNotConfiguredError,
-  RELEASE_REPOSITORY,
-} from "./update-common"
+import { UPDATE_DISTRIBUTION, UpdatesNotConfiguredError, RELEASE_REPOSITORY } from "./update-common"
 import { createReadyUpdateStore, isReadyUpdateCurrent } from "./update-ready-store"
 import { compareVersions } from "./recovery-policy-core"
 import { watchBackendDevelopmentReloadSignal } from "./backend-development-reload"

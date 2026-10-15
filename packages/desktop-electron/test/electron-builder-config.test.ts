@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { createElectronBuilderConfiguration } from "../electron-builder-config"
+import { resolveMacOsReleaseArtifactPattern } from "../src/shared/release-asset-names"
 
 describe("electron-builder config", () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url))
@@ -12,7 +13,12 @@ describe("electron-builder config", () => {
     expect(config.appId).toBe("ai.buddy.desktop")
     expect(config.productName).toBe("Buddy")
     expect(config.protocols).toEqual({ name: "Buddy", schemes: ["buddy"] })
-    expect(config.publish).toEqual({ provider: "github", owner: "prashantbhudwal", repo: "buddy-releases", channel: "latest" })
+    expect(config.publish).toEqual({
+      provider: "github",
+      owner: "prashantbhudwal",
+      repo: "buddy-releases",
+      channel: "latest",
+    })
     expect(config.extraMetadata).not.toHaveProperty("name")
     expect(config.nsis).toEqual({
       oneClick: false,
@@ -27,7 +33,12 @@ describe("electron-builder config", () => {
     expect(beta.appId).toBe("ai.buddy.desktop.beta")
     expect(beta.productName).toBe("Buddy Beta")
     expect(beta.protocols).toEqual({ name: "Buddy Beta", schemes: ["buddy-beta"] })
-    expect(beta.publish).toEqual({ provider: "github", owner: "prashantbhudwal", repo: "buddy-beta-releases", channel: "latest" })
+    expect(beta.publish).toEqual({
+      provider: "github",
+      owner: "prashantbhudwal",
+      repo: "buddy-beta-releases",
+      channel: "latest",
+    })
     expect(beta.extraMetadata).toEqual({ ...config.extraMetadata, name: "buddy-desktop-beta" })
     expect(beta.nsis).toEqual(config.nsis)
   })
@@ -50,7 +61,8 @@ describe("electron-builder config", () => {
   test("preserves Stable macOS packaging identity and ad-hoc signing", () => {
     expect(config.forceCodeSigning).toBeUndefined()
     expect(config.mac).toEqual({
-      artifactName: "buddy-v${version}-macos-apple-silicon.${ext}",
+      // The artifact label follows the configured or host target arch.
+      artifactName: resolveMacOsReleaseArtifactPattern(),
       category: "public.app-category.developer-tools",
       forceCodeSigning: true,
       icon: "resources/icons/icon.icns",
@@ -67,9 +79,7 @@ describe("electron-builder config", () => {
 
   test("keeps unsigned Windows NSIS updates compatible with the signed manifest updater", () => {
     expect(config.win?.target).toEqual(["nsis"])
-    expect(config.win?.artifactName).toBe(
-      "buddy-v${version}-windows-x64.${ext}",
-    )
+    expect(config.win?.artifactName).toBe("buddy-v${version}-windows-x64.${ext}")
     expect(config.win?.icon).toBe("resources/icons/icon.ico")
     expect(config.win?.verifyUpdateCodeSignature).toBe(false)
   })
