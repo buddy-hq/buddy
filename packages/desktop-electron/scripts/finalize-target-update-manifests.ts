@@ -100,7 +100,7 @@ requireUpdaterPublicKey(distribution)
 
 const tag = process.env[RELEASE_TAG_ENV_KEY]?.trim() || ""
 if (!/^v\d+\.\d+\.\d+$/u.test(tag)) {
-  throw new Error(`${RELEASE_TAG_ENV_KEY} is required`)
+  throw new Error(`${RELEASE_TAG_ENV_KEY} must match vX.Y.Z, received "${tag}"`)
 }
 
 const releaseVersion = process.env[VERSION_ENV_KEY]?.trim() || ""
