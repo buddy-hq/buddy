@@ -8,6 +8,17 @@ import { Script } from "@buddy/script"
 import { buildNotes, getLatestRelease } from "./changelog.ts"
 import { releaseRepository, sourceRepository } from "./release-repositories"
 import { appendGithubOutputs } from "./release/github-output"
+import { releaseDistribution } from "./release/distribution-guard"
+import { RELEASE_FREEZE_FILENAME } from "./release/freeze"
+import { requireUpdaterPublicKey } from "@buddy/script/distribution"
+import {
+  assertBetaVersionMovesForward,
+  highestPublishedBetaVersion,
+} from "./release/beta-publication"
+
+const distribution = releaseDistribution()
+const releaseRepo = releaseRepository()
+requireUpdaterPublicKey(distribution)
 
 const DRY_RUN_ENV_KEY = "BUDDY_RELEASE_DRY_RUN"
 const TRUE_ENV_VALUE = "1"
@@ -16,6 +27,7 @@ const DRY_RUN_RELEASE_ID = "dry-run"
 type CreatedRelease = {
   databaseId: number | string
   isDraft?: boolean
+  isPrerelease?: boolean
   tagName: string
 }
 
@@ -43,14 +55,15 @@ const dryRun = process.env[DRY_RUN_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 const branch = await currentBranch()
 if (!dryRun && branch !== "main") {
   throw new Error(
-    `Preview release candidates must be cut from main, received '${branch || "detached"}'`,
+    `${distribution.id === "beta" ? "Beta releases" : "Preview release candidates"} must be cut from main, received '${branch || "detached"}'`,
   )
 }
 if (!process.env.BUDDY_VERSION?.trim()) {
-  throw new Error("Preview release candidates require an explicit BUDDY_VERSION")
+  throw new Error(
+    `${distribution.id === "beta" ? "Beta releases" : "Preview release candidates"} require an explicit BUDDY_VERSION`,
+  )
 }
 
-const releaseRepo = releaseRepository()
 const sourceRepo = sourceRepository()
 const tag = `v${Script.version}`
 
@@ -80,17 +93,29 @@ if (dryRun) {
     tagName: tag,
   }
 } else {
+  if (distribution.id === "beta") {
+    assertBetaVersionMovesForward(Script.version, await highestPublishedBetaVersion(releaseRepo))
+  }
   const existing = await $`gh release view ${tag} --repo ${releaseRepo}`.quiet().nothrow()
   if (existing.exitCode === 0) {
     const releasePayload =
       await $`gh release view ${tag} --json tagName,databaseId,isDraft,isPrerelease --repo ${releaseRepo}`.json()
     release = ExistingReleaseSchema.parse(releasePayload)
 
-    if (!release.isDraft && !release.isPrerelease) {
+    if (distribution.id === "beta" && !release.isDraft) {
+      const assets = await $`gh release view ${tag} --json assets --repo ${releaseRepo}`.json()
+      const frozen = z.object({ assets: z.array(z.object({ name: z.string() })) }).parse(assets)
+      if (
+        release.isPrerelease ||
+        !frozen.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
+      ) {
+        throw new Error(`Published Beta ${tag} must be non-prerelease and frozen to retry`)
+      }
+    } else if (!release.isDraft && !release.isPrerelease) {
       throw new Error(`Stable release ${tag} already exists`)
     }
   } else {
-    const previous = await getLatestRelease(undefined)
+    const previous = await getLatestRelease(distribution.id === "beta" ? Script.version : undefined)
     const notes = await buildNotes(previous, "HEAD")
     const body = notes.join("\n") || "No notable changes"
     const file = path.join(

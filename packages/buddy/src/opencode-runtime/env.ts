@@ -162,13 +162,18 @@ export function resolveOpenCodeEnvironmentPlan(
       ) ?? path.join(xdg.state, BUDDY_APP_NAME),
     tmpParent,
     tmp: path.join(tmpParent, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
-    defaultGlobalConfig: path.join(
+    defaultGlobalConfig:
       resolveConfiguredPathFromEnvironment(
-        input.environment[BUDDY_ENV.TEST_HOME],
+        input.environment[BUDDY_ENV.MANAGED_HOME_DIR],
         input.workingDirectory,
-      ) ?? input.homeDirectory,
-      BUDDY_HOME_DIRECTORY_NAME,
-    ),
+      ) ??
+      path.join(
+        resolveConfiguredPathFromEnvironment(
+          input.environment[BUDDY_ENV.TEST_HOME],
+          input.workingDirectory,
+        ) ?? input.homeDirectory,
+        BUDDY_HOME_DIRECTORY_NAME,
+      ),
   }
   const configDirectory =
     resolveConfiguredPathFromEnvironment(

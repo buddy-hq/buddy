@@ -1,0 +1,306 @@
+[
+  {
+    "draft": true,
+    "targets": {
+      "macosArm64": true,
+      "macosX64": true,
+      "windowsX64": true
+    },
+    "inventory": [
+      {
+        "label": "buddy-v1.2.3-macos-apple-silicon.dmg",
+        "matcher": "buddy-v1.2.3-macos-apple-silicon.dmg"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-apple-silicon.dmg.blockmap",
+        "matcher": "buddy-v1.2.3-macos-apple-silicon.dmg.blockmap"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-apple-silicon.zip",
+        "matcher": "buddy-v1.2.3-macos-apple-silicon.zip"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-apple-silicon.zip.blockmap",
+        "matcher": "buddy-v1.2.3-macos-apple-silicon.zip.blockmap"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-intel.dmg",
+        "matcher": "buddy-v1.2.3-macos-intel.dmg"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-intel.dmg.blockmap",
+        "matcher": "buddy-v1.2.3-macos-intel.dmg.blockmap"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-intel.zip",
+        "matcher": "buddy-v1.2.3-macos-intel.zip"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-intel.zip.blockmap",
+        "matcher": "buddy-v1.2.3-macos-intel.zip.blockmap"
+      },
+      {
+        "label": "buddy-v1.2.3-windows-x64.exe",
+        "matcher": "buddy-v1.2.3-windows-x64.exe"
+      },
+      {
+        "label": "buddy-v1.2.3-windows-x64.exe.blockmap",
+        "matcher": "buddy-v1.2.3-windows-x64.exe.blockmap"
+      },
+      {
+        "label": "latest-macos-arm64.json",
+        "matcher": "latest-macos-arm64.json"
+      },
+      {
+        "label": "latest-macos-arm64.json.sig",
+        "matcher": "latest-macos-arm64.json.sig"
+      },
+      {
+        "label": "latest-macos-x64.json",
+        "matcher": "latest-macos-x64.json"
+      },
+      {
+        "label": "latest-macos-x64.json.sig",
+        "matcher": "latest-macos-x64.json.sig"
+      },
+      {
+        "label": "latest-windows-x64.yml",
+        "matcher": "latest-windows-x64.yml"
+      },
+      {
+        "label": "latest-windows-x64.yml.sig",
+        "matcher": "latest-windows-x64.yml.sig"
+      },
+      {
+        "label": "learning-commons-knowledge-graph.db.json",
+        "matcher": "learning-commons-knowledge-graph.db.json"
+      },
+      {
+        "label": "learning-commons-knowledge-graph.db.zst",
+        "matcher": "learning-commons-knowledge-graph.db.zst"
+      },
+      {
+        "label": "learning-commons-knowledge-graph.db.zst.sha256",
+        "matcher": "learning-commons-knowledge-graph.db.zst.sha256"
+      },
+      {
+        "label": "recovery-policy.json",
+        "matcher": "recovery-policy.json"
+      },
+      {
+        "label": "recovery-policy.json.sig",
+        "matcher": "recovery-policy.json.sig"
+      },
+      {
+        "label": "install-buddy-macos.sh",
+        "matcher": "install-buddy-macos.sh"
+      },
+      {
+        "label": "install-buddy-windows.ps1",
+        "matcher": "install-buddy-windows.ps1"
+      },
+      {
+        "label": "buddy-release-plan.json",
+        "matcher": "buddy-release-plan.json"
+      },
+      {
+        "label": "buddy-release-source.json",
+        "matcher": "buddy-release-source.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-electron-macos-arm64.json",
+        "matcher": "buddy-release-checkpoint-electron-macos-arm64.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-advanced-math-macos-arm64.json",
+        "matcher": "buddy-release-checkpoint-advanced-math-macos-arm64.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-electron-macos-x64.json",
+        "matcher": "buddy-release-checkpoint-electron-macos-x64.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-advanced-math-macos-x64.json",
+        "matcher": "buddy-release-checkpoint-advanced-math-macos-x64.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-electron-windows-x64.json",
+        "matcher": "buddy-release-checkpoint-electron-windows-x64.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-standards.json",
+        "matcher": "buddy-release-checkpoint-standards.json"
+      },
+      {
+        "label": "advanced math bundle (aarch64-apple-darwin)",
+        "matcher": "/^buddy-advanced-math-v.+-aarch64-apple-darwin\\.zip$/u"
+      },
+      {
+        "label": "advanced math checksum (aarch64-apple-darwin)",
+        "matcher": "/^buddy-advanced-math-v.+-aarch64-apple-darwin\\.zip\\.sha256$/u"
+      },
+      {
+        "label": "advanced math bundle (x86_64-apple-darwin)",
+        "matcher": "/^buddy-advanced-math-v.+-x86_64-apple-darwin\\.zip$/u"
+      },
+      {
+        "label": "advanced math checksum (x86_64-apple-darwin)",
+        "matcher": "/^buddy-advanced-math-v.+-x86_64-apple-darwin\\.zip\\.sha256$/u"
+      }
+    ]
+  },
+  {
+    "draft": false,
+    "targets": {
+      "macosArm64": true,
+      "macosX64": true,
+      "windowsX64": true
+    },
+    "inventory": [
+      {
+        "label": "buddy-v1.2.3-macos-apple-silicon.dmg",
+        "matcher": "buddy-v1.2.3-macos-apple-silicon.dmg"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-apple-silicon.dmg.blockmap",
+        "matcher": "buddy-v1.2.3-macos-apple-silicon.dmg.blockmap"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-apple-silicon.zip",
+        "matcher": "buddy-v1.2.3-macos-apple-silicon.zip"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-apple-silicon.zip.blockmap",
+        "matcher": "buddy-v1.2.3-macos-apple-silicon.zip.blockmap"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-intel.dmg",
+        "matcher": "buddy-v1.2.3-macos-intel.dmg"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-intel.dmg.blockmap",
+        "matcher": "buddy-v1.2.3-macos-intel.dmg.blockmap"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-intel.zip",
+        "matcher": "buddy-v1.2.3-macos-intel.zip"
+      },
+      {
+        "label": "buddy-v1.2.3-macos-intel.zip.blockmap",
+        "matcher": "buddy-v1.2.3-macos-intel.zip.blockmap"
+      },
+      {
+        "label": "buddy-v1.2.3-windows-x64.exe",
+        "matcher": "buddy-v1.2.3-windows-x64.exe"
+      },
+      {
+        "label": "buddy-v1.2.3-windows-x64.exe.blockmap",
+        "matcher": "buddy-v1.2.3-windows-x64.exe.blockmap"
+      },
+      {
+        "label": "latest-macos-arm64.json",
+        "matcher": "latest-macos-arm64.json"
+      },
+      {
+        "label": "latest-macos-arm64.json.sig",
+        "matcher": "latest-macos-arm64.json.sig"
+      },
+      {
+        "label": "latest-macos-x64.json",
+        "matcher": "latest-macos-x64.json"
+      },
+      {
+        "label": "latest-macos-x64.json.sig",
+        "matcher": "latest-macos-x64.json.sig"
+      },
+      {
+        "label": "latest-windows-x64.yml",
+        "matcher": "latest-windows-x64.yml"
+      },
+      {
+        "label": "latest-windows-x64.yml.sig",
+        "matcher": "latest-windows-x64.yml.sig"
+      },
+      {
+        "label": "learning-commons-knowledge-graph.db.json",
+        "matcher": "learning-commons-knowledge-graph.db.json"
+      },
+      {
+        "label": "learning-commons-knowledge-graph.db.zst",
+        "matcher": "learning-commons-knowledge-graph.db.zst"
+      },
+      {
+        "label": "learning-commons-knowledge-graph.db.zst.sha256",
+        "matcher": "learning-commons-knowledge-graph.db.zst.sha256"
+      },
+      {
+        "label": "recovery-policy.json",
+        "matcher": "recovery-policy.json"
+      },
+      {
+        "label": "recovery-policy.json.sig",
+        "matcher": "recovery-policy.json.sig"
+      },
+      {
+        "label": "install-buddy-macos.sh",
+        "matcher": "install-buddy-macos.sh"
+      },
+      {
+        "label": "install-buddy-windows.ps1",
+        "matcher": "install-buddy-windows.ps1"
+      },
+      {
+        "label": "buddy-release-plan.json",
+        "matcher": "buddy-release-plan.json"
+      },
+      {
+        "label": "buddy-release-source.json",
+        "matcher": "buddy-release-source.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-electron-macos-arm64.json",
+        "matcher": "buddy-release-checkpoint-electron-macos-arm64.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-advanced-math-macos-arm64.json",
+        "matcher": "buddy-release-checkpoint-advanced-math-macos-arm64.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-electron-macos-x64.json",
+        "matcher": "buddy-release-checkpoint-electron-macos-x64.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-advanced-math-macos-x64.json",
+        "matcher": "buddy-release-checkpoint-advanced-math-macos-x64.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-electron-windows-x64.json",
+        "matcher": "buddy-release-checkpoint-electron-windows-x64.json"
+      },
+      {
+        "label": "buddy-release-checkpoint-standards.json",
+        "matcher": "buddy-release-checkpoint-standards.json"
+      },
+      {
+        "label": "buddy-release-freeze.json",
+        "matcher": "buddy-release-freeze.json"
+      },
+      {
+        "label": "advanced math bundle (aarch64-apple-darwin)",
+        "matcher": "/^buddy-advanced-math-v.+-aarch64-apple-darwin\\.zip$/u"
+      },
+      {
+        "label": "advanced math checksum (aarch64-apple-darwin)",
+        "matcher": "/^buddy-advanced-math-v.+-aarch64-apple-darwin\\.zip\\.sha256$/u"
+      },
+      {
+        "label": "advanced math bundle (x86_64-apple-darwin)",
+        "matcher": "/^buddy-advanced-math-v.+-x86_64-apple-darwin\\.zip$/u"
+      },
+      {
+        "label": "advanced math checksum (x86_64-apple-darwin)",
+        "matcher": "/^buddy-advanced-math-v.+-x86_64-apple-darwin\\.zip\\.sha256$/u"
+      }
+    ]
+  }
+]

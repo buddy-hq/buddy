@@ -8,6 +8,7 @@
     "./branding": "./src/branding.ts",
     "./backend-node-runtime": "./src/backend-node-runtime.ts",
     "./channel": "./src/channel.ts",
+    "./distribution": "./src/distribution.ts",
     "./chemfig-runtime": "./src/chemfig-runtime.ts",
     "./minisign": "./src/minisign.ts",
     "./release-version": "./src/release-version.ts",
@@ -17,6 +18,7 @@
     "lint": "oxlint",
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
     "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit",
+    "test:release-version": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts src/release-version.test.ts",
     "test": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts src"
   },
   "dependencies": {

@@ -1,5 +1,7 @@
+import { formatReleaseRepositorySlug } from "@buddy/script/distribution"
+import { assertReleaseDestination, releaseDistribution } from "./release/distribution-guard"
+
 const DEFAULT_SOURCE_REPOSITORY = "buddy-hq/buddy"
-const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
 
 export type RepositoryParts = {
   owner: string
@@ -20,7 +22,9 @@ export function sourceRepository(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 export function releaseRepository(env: NodeJS.ProcessEnv = process.env): string {
-  return cleanRepository(env.BUDDY_RELEASE_REPO) || DEFAULT_RELEASE_REPOSITORY
+  const repository = formatReleaseRepositorySlug(releaseDistribution(env))
+  assertReleaseDestination(repository, env)
+  return repository
 }
 
 export function repositoryParts(repository: string): RepositoryParts {

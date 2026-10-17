@@ -11,6 +11,22 @@ import { verifyReleaseFreeze } from "./release/freeze"
 import { parseReleasePlan, RELEASE_PLAN_FILENAME, type ReleasePlan } from "./release/plan"
 import { releaseRepository, repositoryParts } from "./release-repositories"
 
+import { BUDDY_DISTRIBUTIONS, formatReleaseRepositorySlug } from "@buddy/script/distribution"
+import { assertReleaseDestination, releaseDistribution } from "./release/distribution-guard"
+
+export function assertPromotionDestination(
+  repo: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): void {
+  if (
+    releaseDistribution(environment).id === "beta" ||
+    repo === formatReleaseRepositorySlug(BUDDY_DISTRIBUTIONS.beta)
+  ) {
+    throw new Error("Beta releases publish directly as latest; promotion is not supported")
+  }
+  assertReleaseDestination(repo, environment)
+}
+
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
 const RELEASE_TAG_PATTERN = /^v\d+\.\d+\.\d+$/u
 
@@ -199,6 +215,7 @@ function releaseVerificationTargetArguments(plan: ReleasePlan): string[] {
 }
 
 export async function promoteRelease(input: { repo: string; tag: string }): Promise<void> {
+  assertPromotionDestination(input.repo)
   const release = await readRelease(input.repo, input.tag)
   assertPromotableRelease(release, input.tag)
   const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "buddy-release-promote-"))

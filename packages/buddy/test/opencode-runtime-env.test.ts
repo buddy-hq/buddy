@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import os from "node:os"
+import fs from "node:fs/promises"
 import path from "node:path"
 import {
   configureOpenCodeEnvironment,
@@ -439,6 +440,187 @@ describe("opencode runtime env", () => {
     expect(parsed.db).toBe(path.join(expectedOpenCodeData, BUDDY_OPENCODE_DB_FILENAME))
   })
 
+  test("packaged Beta bootstraps only sandbox roots and preserves Stable captures", async () => {
+    await using root = await temporaryDirectory({ prefix: "buddy-beta-bootstrap-" })
+    const home = path.join(root.path, "os-home")
+    const userData = path.join(root.path, "beta")
+    const documents = path.join(root.path, "redirected-documents")
+    const stableTmp = path.join(root.path, "stable-temp")
+    const stableCapture = path.join(stableTmp, "buddy", "opencode", "bench-captures", "stable.png")
+    const stableAuth = path.join(home, ".local", "share", "buddy", "opencode", "auth.json")
+    await fs.mkdir(path.dirname(stableCapture), { recursive: true })
+    await fs.mkdir(path.dirname(stableAuth), { recursive: true })
+    await fs.writeFile(stableCapture, "stable capture survives")
+    await fs.writeFile(
+      stableAuth,
+      JSON.stringify({ stable: { type: "api", key: "sandbox-stable-key" } }),
+    )
+    // User-authored OpenCode config is shared on purpose, like ~/.claude and ~/.agents.
+    const userOpenCodeConfig = path.join(home, ".opencode")
+    await fs.mkdir(userOpenCodeConfig, { recursive: true })
+    // The environment packaged Beta's desktop shell hands the backend (see desktop storage-paths).
+    const notebookHome = path.join(documents, "Buddy Beta")
+    const xdg = (category: string, ...rest: string[]) =>
+      path.join(userData, "xdg", category, ...rest)
+    const betaEnvironment = {
+      XDG_DATA_HOME: xdg("data"),
+      XDG_CACHE_HOME: xdg("cache"),
+      XDG_CONFIG_HOME: xdg("config"),
+      XDG_STATE_HOME: xdg("state"),
+      [BUDDY_ENV.DATA_DIR]: xdg("data", "buddy"),
+      [BUDDY_ENV.CACHE_DIR]: xdg("cache", "buddy"),
+      [BUDDY_ENV.GLOBAL_CONFIG_DIR]: xdg("config", "buddy"),
+      [BUDDY_ENV.STATE_DIR]: xdg("state", "buddy"),
+      [BUDDY_ENV.MANAGED_HOME_DIR]: xdg("config", "buddy"),
+      [BUDDY_ENV.DEFAULT_NOTEBOOK_HOME]: notebookHome,
+      [BUDDY_ENV.OPENCODE_SKILL_CACHE_DIR]: xdg("cache", "buddy", "opencode", "skills"),
+      [BUDDY_ENV.DIRECTORY_BASE]: notebookHome,
+      [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: notebookHome,
+      TMPDIR: xdg("tmp"),
+      TMP: xdg("tmp"),
+      TEMP: xdg("tmp"),
+      OPENCODE_CONFIG_DIR: xdg("config", "buddy"),
+      OPENCODE_DB: BUDDY_OPENCODE_DB_FILENAME,
+      BUDDY_CHANNEL: "beta",
+    }
+    for (const directory of [notebookHome, xdg("tmp"), xdg("state", "buddy")]) {
+      await fs.mkdir(directory, { recursive: true })
+    }
+    const betaCapture = path.join(
+      userData,
+      "xdg",
+      "tmp",
+      "buddy",
+      "opencode",
+      "bench-captures",
+      "stale.png",
+    )
+    await fs.mkdir(path.dirname(betaCapture), { recursive: true })
+    await fs.writeFile(betaCapture, "Beta's old capture should be removed")
+    const envModulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
+    const storageModulePath = path.resolve(import.meta.dir, "../src/storage/global.ts")
+    const skillsModulePath = path.resolve(
+      import.meta.dir,
+      "../src/learning/skill-management/service/paths.ts",
+    )
+    const captureModulePath = path.resolve(
+      import.meta.dir,
+      "../src/learning/features/bench/captures.ts",
+    )
+    const flockModulePath = path.resolve(
+      import.meta.dir,
+      "../../../vendor/opencode/packages/core/src/util/flock.ts",
+    )
+    const locks = path.join(userData, "xdg", "state", "buddy", "opencode", "locks")
+    const script = `
+      await import(${JSON.stringify(envModulePath)});
+      const { Global: opencode } = await import("@buddy/opencode-adapter/global");
+      const { Global: buddy } = await import(${JSON.stringify(storageModulePath)});
+      const { DatabasePath } = await import("@buddy/opencode-adapter/storage-db");
+      const skills = await import(${JSON.stringify(skillsModulePath)});
+      const { Auth } = await import("@buddy/opencode-adapter/auth");
+      const { McpAuth } = await import("opencode/mcp/auth");
+      const { EffectFlock } = await import("@opencode-ai/core/util/effect-flock");
+      const { AppNodeBuilderV1 } = await import("opencode/effect/app-node-builder-v1");
+      const { makeRuntime } = await import("opencode/effect/run-service");
+      const { Effect } = await import("effect");
+      const { ConfigPaths } = await import("opencode/config/paths");
+      const { FSUtil } = await import("@opencode-ai/core/fs-util");
+      const discoveredConfigDirectories = await Effect.runPromise(
+        ConfigPaths.directories(${JSON.stringify(notebookHome)}).pipe(
+          Effect.provide(AppNodeBuilderV1.build(FSUtil.node))));
+      const fs = await import("node:fs/promises");
+      const { Flock } = await import(${JSON.stringify(flockModulePath)});
+      const initialAuth = await Auth.all();
+      await Auth.set("beta", { type: "api", key: "sandbox-beta-key" });
+      const mcp = makeRuntime(McpAuth.Service, AppNodeBuilderV1.build(McpAuth.node));
+      await mcp.runPromise((svc) => svc.set("beta", { tokens: { accessToken: "sandbox-beta-token" } }));
+      const lease = await Flock.acquire("beta-bootstrap-classic");
+      const classicLocks = await fs.readdir(${JSON.stringify(locks)});
+      await lease.release();
+      const flock = makeRuntime(EffectFlock.Service, AppNodeBuilderV1.build(EffectFlock.node));
+      const effectLocks = await flock.runPromise((svc) => svc.withLock(
+        Effect.promise(() => fs.readdir(${JSON.stringify(locks)})), "beta-bootstrap-effect"));
+      const { initializeBenchCaptureStorage } = await import(${JSON.stringify(captureModulePath)});
+      await initializeBenchCaptureStorage();
+      console.log(JSON.stringify({
+        buddy: { data: buddy.Path.data, cache: buddy.Path.cache, config: buddy.Path.config, state: buddy.Path.state },
+        opencode: { home: opencode.Path.home, data: opencode.Path.data, cache: opencode.Path.cache,
+          config: opencode.Path.config, state: opencode.Path.state, tmp: opencode.Path.tmp },
+        db: DatabasePath(), initialAuth, classicLocks, effectLocks, discoveredConfigDirectories,
+        skillCache: skills.OPENCODE_SKILL_CACHE_ROOT, managedHome: skills.buddyHomeRoot(),
+        tmp: (await import("node:os")).tmpdir()
+      }));
+      process.exit(0);
+    `
+    const inheritedEnvironment = childEnv({
+      HOME: home,
+      USERPROFILE: home,
+      NODE_ENV: "production",
+      TMPDIR: stableTmp,
+      TMP: stableTmp,
+      TEMP: stableTmp,
+      [BUDDY_ENV.TEST_HOME]: path.join(root.path, "inherited-stable-home"),
+      [BUDDY_ENV.RUNTIME_ROOT]: path.join(root.path, "inherited-stable-runtime"),
+      OPENCODE_TEST_HOME: path.join(root.path, "inherited-opencode-home"),
+      OPENCODE_AUTH_CONTENT: JSON.stringify({
+        stable: { type: "api", key: "sandbox-inherited-key" },
+      }),
+    })
+    const environment = Object.fromEntries(
+      Object.entries(inheritedEnvironment).filter(
+        (entry): entry is [string, string] => entry[1] !== undefined,
+      ),
+    )
+    const result = spawnSync(bunExecutable, ["-e", script], {
+      // Resolve OpenCode-only dependencies at the adapter package boundary.
+      cwd: path.resolve(import.meta.dir, "../../opencode-adapter"),
+      env: betaBackendEnvironment(environment, betaEnvironment),
+      encoding: "utf8",
+      timeout: 30_000,
+    })
+    expect(result.stderr).toBe("")
+    expect(result.status).toBe(0)
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
+    expect(parsed.buddy).toEqual({
+      data: path.join(userData, "xdg", "data", "buddy"),
+      cache: path.join(userData, "xdg", "cache", "buddy"),
+      config: path.join(userData, "xdg", "config", "buddy"),
+      state: path.join(userData, "xdg", "state", "buddy"),
+    })
+    expect(parsed.opencode).toEqual({
+      home,
+      data: path.join(userData, "xdg", "data", "buddy", "opencode"),
+      cache: path.join(userData, "xdg", "cache", "buddy", "opencode"),
+      config: path.join(userData, "xdg", "config", "buddy"),
+      state: path.join(userData, "xdg", "state", "buddy", "opencode"),
+      tmp: path.join(userData, "xdg", "tmp", "buddy", "opencode"),
+    })
+    expect(parsed.db).toBe(path.join(userData, "xdg", "data", "buddy", "opencode", "opencode.db"))
+    expect(parsed.skillCache).toBe(
+      path.join(userData, "xdg", "cache", "buddy", "opencode", "skills"),
+    )
+    expect(parsed.managedHome).toBe(path.join(userData, "xdg", "config", "buddy"))
+    expect(parsed.tmp).toBe(path.join(userData, "xdg", "tmp"))
+    expect(parsed.initialAuth).toEqual({})
+    expect(parsed.discoveredConfigDirectories).toContain(userOpenCodeConfig)
+    expect(parsed.classicLocks).toEqual([expect.stringMatching(/\.lock$/)])
+    expect(parsed.effectLocks).toEqual([expect.stringMatching(/\.lock$/)])
+    const betaAuth = path.join(userData, "xdg", "data", "buddy", "opencode", "auth.json")
+    const betaMcpAuth = path.join(userData, "xdg", "data", "buddy", "opencode", "mcp-auth.json")
+    expect(JSON.parse(await fs.readFile(betaAuth, "utf8"))).toEqual({
+      beta: { type: "api", key: "sandbox-beta-key" },
+    })
+    expect(JSON.parse(await fs.readFile(betaMcpAuth, "utf8"))).toEqual({
+      beta: { tokens: { accessToken: "sandbox-beta-token" } },
+    })
+    expect(await fs.readFile(stableCapture, "utf8")).toBe("stable capture survives")
+    expect(JSON.parse(await fs.readFile(stableAuth, "utf8"))).toEqual({
+      stable: { type: "api", key: "sandbox-stable-key" },
+    })
+    expect(await Bun.file(betaCapture).exists()).toBe(false)
+  }, 45_000)
+
   test("keeps migration env vars unset when repo paths cannot be resolved", async () => {
     await using outsideRepo = await temporaryDirectory({ prefix: "buddy-env-outside-repo-" })
 
@@ -543,3 +725,18 @@ describe("opencode runtime env", () => {
     expect(result.stderr).toContain("outside isolated test roots")
   })
 })
+
+/** Mirror the desktop shell: strip inherited storage injection, then apply Beta's roots. */
+function betaBackendEnvironment(inherited: Record<string, string>, beta: Record<string, string>) {
+  const environment = { ...inherited }
+  for (const key of [
+    BUDDY_ENV.TEST_HOME,
+    BUDDY_ENV.TEST_XDG_ROOT,
+    BUDDY_ENV.RUNTIME_ROOT,
+    "OPENCODE_TEST_HOME",
+    "OPENCODE_AUTH_CONTENT",
+  ]) {
+    delete environment[key]
+  }
+  return { ...environment, ...beta }
+}

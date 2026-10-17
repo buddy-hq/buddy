@@ -6,6 +6,9 @@ import path from "node:path"
 import { z } from "zod"
 import { RELEASE_FREEZE_FILENAME } from "./constants"
 
+import { requireUpdaterPublicKey } from "@buddy/script/distribution"
+import { assertReleaseDestination } from "./distribution-guard"
+
 const SHA256_DIGEST_PREFIX = "sha256:"
 const ASSET_DIGEST_ATTEMPTS = 5
 const ASSET_DIGEST_RETRY_DELAY_MS = 2_000
@@ -167,6 +170,7 @@ export async function uploadReleaseAssetSafely(input: {
   repository: string
   tag: string
 }): Promise<ReleaseAssetDigest> {
+  requireUpdaterPublicKey(assertReleaseDestination(input.repository))
   const local = await localReleaseAssetDigest(input.filePath)
   let release = await readGithubReleaseState(input.repository, input.tag)
   let existing = release.assets.find((asset) => asset.name === local.name)

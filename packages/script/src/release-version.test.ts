@@ -29,3 +29,15 @@ describe("script release version selection", () => {
     ).toBe("1.4.0")
   })
 })
+
+test("Beta numeric release tags use the same selector and reject source/prerelease tags", () => {
+  expect(
+    latestReleaseVersionFromReleases([
+      { tagName: "v0.1.0", isDraft: false, isPrerelease: false },
+      { tagName: "v0.2.0", isDraft: false, isPrerelease: false },
+      { tagName: "beta-v9.0.0", isDraft: false, isPrerelease: false },
+      { tagName: "v9.0.0-beta.1", isDraft: false, isPrerelease: false },
+      { tagName: "v9.0.0", isDraft: true, isPrerelease: false },
+    ]),
+  ).toBe("0.2.0")
+})

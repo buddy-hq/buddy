@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { assertLegacyProdRelease } from "../../../script/release/distribution-guard"
 import { createHash } from "node:crypto"
 import { access, readFile, stat } from "node:fs/promises"
 import path from "node:path"
@@ -10,6 +11,8 @@ import {
 } from "../src/shared/release-asset-names"
 import { parseTNumber, parseTString } from "../src/shared/parse-external"
 import { resolveTauriSignerBinaryPath } from "./utils"
+
+assertLegacyProdRelease()
 
 const rawLatestYmlDir = process.env.LATEST_YML_DIR
 if (!rawLatestYmlDir) {

@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import {
   assertPrereleasePromotionMovesForward,
+  assertPromotionDestination,
+  promoteRelease,
   assertPromotableRelease,
   latestReleaseTagFromCommandResult,
   normalizePromotionTag,
@@ -112,4 +114,16 @@ describe("promote release", () => {
     expect(latestReleaseTagFromCommandResult({ exitCode: 1, output: "" })).toBeUndefined()
     expect(latestReleaseTagFromCommandResult({ exitCode: 0, output: "v1.2.3\n" })).toBe("v1.2.3")
   })
+})
+
+test("rejects Beta promotion before reading or editing releases", async () => {
+  expect(() => assertPromotionDestination("prashantbhudwal/buddy-beta-releases")).toThrow(
+    "promotion is not supported",
+  )
+  expect(() =>
+    assertPromotionDestination("prashantbhudwal/buddy-releases", { BUDDY_CHANNEL: "beta" }),
+  ).toThrow("promotion is not supported")
+  await expect(
+    promoteRelease({ repo: "prashantbhudwal/buddy-beta-releases", tag: "v0.1.0" }),
+  ).rejects.toThrow("promotion is not supported")
 })

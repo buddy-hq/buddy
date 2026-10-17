@@ -15,8 +15,14 @@ import { readDesktopPackageVersion, updateDesktopPackageVersion } from "./utils"
 import { buildElectronPackageAndSmoke } from "./package-electron"
 import { verifyMacUpdateArchive } from "./verify-mac-update-archive"
 
+import { requireUpdaterPublicKey } from "@buddy/script/distribution"
+import { releaseDistribution } from "../../../script/release/distribution-guard"
+import { verifyReleasePackageIdentity } from "./release-package-identity"
+
+const distribution = releaseDistribution()
+requireUpdaterPublicKey(distribution)
+
 const TARGET_FLAG = "--target"
-const PRODUCTION_CHANNEL = "prod"
 const packageDirectory = path.resolve(import.meta.dir, "..")
 const repositoryRoot = path.resolve(packageDirectory, "../..")
 
@@ -46,15 +52,11 @@ if (!version) {
   throw new Error("BUDDY_VERSION is required")
 }
 
-if (process.env.BUDDY_CHANNEL?.trim() !== PRODUCTION_CHANNEL) {
-  throw new Error(`Release target builds require BUDDY_CHANNEL=${PRODUCTION_CHANNEL}`)
-}
-
 const originalVersion = readDesktopPackageVersion()
 const environment = {
   ...process.env,
   ...releaseTargetEnvironment(rawTargetName),
-  BUDDY_CHANNEL: PRODUCTION_CHANNEL,
+  BUDDY_CHANNEL: distribution.id,
   BUDDY_VERSION: version,
 }
 
@@ -66,6 +68,12 @@ try {
   await buildElectronPackageAndSmoke({
     electronBuilderArguments: [...target.electronBuilderArguments, "--publish", "never"],
     environment,
+  })
+  await verifyReleasePackageIdentity({
+    architecture: target.architecture,
+    directory: path.join(packageDirectory, "dist"),
+    distribution,
+    platform: target.platform,
   })
   if (target.platform === "darwin") {
     if (!isMacOsReleaseArch(target.architecture)) {
@@ -85,4 +93,4 @@ try {
   }
 }
 
-console.log(`Built and smoke-tested production Electron target ${rawTargetName}`)
+console.log(`Built and smoke-tested ${distribution.id} Electron target ${rawTargetName}`)

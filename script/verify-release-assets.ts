@@ -8,7 +8,13 @@ import os from "node:os"
 import path from "node:path"
 import { verifySignedMessage } from "@buddy/script/minisign"
 import { z } from "zod"
-import { BUDDY_MINISIGN_PUBLIC_KEY } from "../packages/desktop-electron/src/main/update-common"
+import { requireUpdaterPublicKey } from "@buddy/script/distribution"
+import {
+  assertReleaseDestination,
+  assertReleaseRecordChannel,
+  releaseDistribution,
+  sourceReleaseTag,
+} from "./release/distribution-guard"
 import {
   resolveMacOsReleaseArtifactFilename,
   resolveMacOsUpdateManifestFilename,
@@ -41,6 +47,9 @@ import {
 } from "./release-source-metadata"
 import { releaseRepository } from "./release-repositories"
 import { resolveGithubSourceTag } from "./release-source-tag"
+
+const distribution = releaseDistribution()
+const publicKey = requireUpdaterPublicKey(distribution)
 
 const VERIFICATION_DIRECTORY_PREFIX = "buddy-release-verify-"
 const PUBLIC_VERIFICATION_ATTEMPTS = 5
@@ -191,7 +200,7 @@ function checkpointTargets(targets: ReleaseTargetSelection): ReleaseCheckpointTa
   ]
 }
 
-function requiredAssetsForRelease(options: VerifyArguments): RequiredAsset[] {
+export function requiredAssetsForRelease(options: VerifyArguments): RequiredAsset[] {
   const version = releaseVersionFromTag(options.tag)
   const exactNames = [
     ...(options.targets.macosArm64
@@ -309,7 +318,7 @@ async function verifyDownloadedDigests(
       throw new Error(`Downloaded asset size mismatch: ${asset.name}`)
     }
     const digest = await sha256File(filePath)
-    if (digest !== normalizeSha256Digest(asset.digest)) {
+    if (!asset.digest || digest !== normalizeSha256Digest(asset.digest)) {
       throw new Error(`Downloaded asset SHA-256 mismatch: ${asset.name}`)
     }
   }
@@ -324,7 +333,7 @@ async function sha512File(filePath: string): Promise<string> {
 async function verifySignedFile(directory: string, filename: string): Promise<void> {
   const verified = await verifySignedMessage({
     message: await Bun.file(path.join(directory, filename)).bytes(),
-    publicKey: BUDDY_MINISIGN_PUBLIC_KEY,
+    publicKey,
     signatureFileText: await Bun.file(path.join(directory, `${filename}.sig`)).text(),
   })
   if (!verified) throw new Error(`Signature verification failed: ${filename}`)
@@ -406,6 +415,7 @@ async function verifyProvenance(input: {
   const plan = parseReleasePlan(
     JSON.parse(await Bun.file(path.join(input.directory, RELEASE_PLAN_FILENAME)).text()),
   )
+  assertReleaseRecordChannel(plan, distribution.id)
   const planDigest = releasePlanDigest(plan)
   const source = parseReleaseSourceMetadata(
     JSON.parse(await Bun.file(path.join(input.directory, RELEASE_SOURCE_METADATA_FILENAME)).text()),
@@ -460,6 +470,7 @@ async function verifyProvenance(input: {
     const freeze = parseReleaseFreeze(
       JSON.parse(await Bun.file(path.join(input.directory, RELEASE_FREEZE_FILENAME)).text()),
     )
+    assertReleaseRecordChannel(freeze, distribution.id)
     if (
       freeze.planDigest !== planDigest ||
       freeze.sourceRepository !== plan.sourceRepository ||
@@ -478,11 +489,11 @@ async function verifyProvenance(input: {
     })
     const sourceTag = await resolveGithubSourceTag({
       repository: plan.sourceRepository,
-      tag: plan.tag,
+      tag: sourceReleaseTag(plan.version),
     })
     if (sourceTag?.type !== "commit" || sourceTag.sha !== plan.sourceSha) {
       throw new Error(
-        `Source tag ${plan.sourceRepository}@${plan.tag} does not resolve to ${plan.sourceSha}`,
+        `Source tag ${plan.sourceRepository}@${sourceReleaseTag(plan.version)} does not resolve to ${plan.sourceSha}`,
       )
     }
   }
@@ -526,6 +537,7 @@ async function assertOmittedManifestUsesNewestPublishedFeed(input: {
 
 async function main(): Promise<void> {
   const options = parseArgs()
+  assertReleaseDestination(options.repo)
   const allAssets = await readGithubReleaseAssets(options.repo, options.tag)
   const requiredAssets = requiredAssetsForRelease(options).map((required) =>
     findAsset(allAssets, required),
@@ -648,4 +660,4 @@ async function main(): Promise<void> {
   }
 }
 
-await main()
+if (import.meta.main) await main()
