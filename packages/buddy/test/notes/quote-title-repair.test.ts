@@ -273,3 +273,11 @@ describe("Legacy quote title repair", () => {
     }
   })
 })
+
+test("recognizes Beta quote links while preserving their persisted scheme and all other bytes", () => {
+  const betaLegacy = LEGACY_CHAT_NOTE.replaceAll("buddy://", "buddy-beta://")
+  expect(repairLegacyQuoteTitles(betaLegacy)).toBe(
+    REPAIRED_CHAT_NOTE.replaceAll("buddy://", "buddy-beta://"),
+  )
+  expect(repairLegacyQuoteTitles(REPAIRED_CHAT_NOTE)).toBe(REPAIRED_CHAT_NOTE)
+})

@@ -1,5 +1,6 @@
 import { app } from "electron"
 import { BUDDY_BRANDING } from "@buddy/script/branding"
+import { resolveBuddyDistribution } from "@buddy/script/distribution"
 import {
   BUDDY_PACKAGED_FALLBACK_CHANNEL,
   type BuddyReleaseChannel,
@@ -44,19 +45,11 @@ export const CHANNEL: ReleaseChannel = isBuddyReleaseChannel(rawChannel)
     ? resolvePackagedChannelFallback()
     : "dev"
 
-const APP_NAMES = {
-  dev: BUDDY_DEV_APP_NAME,
-  beta: "Buddy Beta",
-  prod: "Buddy",
-} satisfies Record<ReleaseChannel, string>
+const distribution = resolveBuddyDistribution(CHANNEL)
 
-const APP_IDS = {
-  dev: "ai.buddy.desktop.dev",
-  beta: "ai.buddy.desktop.beta",
-  prod: "ai.buddy.desktop",
-} satisfies Record<ReleaseChannel, string>
-
-export const APP_PROTOCOL = BUDDY_BRANDING.appProtocol
+/** Product label used by menus and dialogs, retaining Buddy's development copy. */
+export const APP_PRODUCT_NAME = distribution?.productName ?? BUDDY_BRANDING.productName
+export const APP_PROTOCOL = distribution?.protocol ?? BUDDY_BRANDING.appProtocol
 export const BACKEND_SERVER_USERNAME = "buddy"
 export const SETTINGS_STORE = "buddy.settings"
 export const DEFAULT_SERVER_URL_KEY = "defaultServerUrl"
@@ -70,10 +63,10 @@ export const UPDATER_ENABLED = app.isPackaged && CHANNEL !== "dev"
 export function resolveAppName(packaged: boolean) {
   const devInstanceName = process.env[BUDDY_DEV_INSTANCE_NAME_ENV]?.trim()
   if (!packaged) return formatBuddyDevAppName(devInstanceName)
-  return APP_NAMES[CHANNEL]
+  return distribution?.productName ?? BUDDY_DEV_APP_NAME
 }
 
 export function resolveAppId(packaged: boolean) {
-  if (!packaged) return APP_IDS.dev
-  return APP_IDS[CHANNEL]
+  if (!packaged) return "ai.buddy.desktop.dev"
+  return distribution?.appId ?? "ai.buddy.desktop.dev"
 }

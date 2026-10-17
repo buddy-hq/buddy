@@ -7,6 +7,7 @@ APP_PATH="$3"
 APP_NAME="$4"
 LOG_PATH="$5"
 RESULT_PATH="${6:-}"
+EXPECTED_APP_ID="${7:?Expected app bundle identifier is required}"
 TMP_DIR=""
 
 log() {
@@ -118,8 +119,27 @@ read_team_identifier() {
   /usr/bin/codesign -dv "$app_path" 2>&1 | /usr/bin/awk -F= '/^TeamIdentifier=/{print $2; exit}'
 }
 
+read_bundle_identifier() {
+  local app_path="$1"
+  /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Contents/Info.plist" 2>/dev/null
+}
+
+verify_app_identity() {
+  local source_app="$1"
+  local target_id source_id
+  target_id="$(read_bundle_identifier "$APP_PATH" || true)"
+  source_id="$(read_bundle_identifier "$source_app" || true)"
+
+  if [[ "$target_id" != "$EXPECTED_APP_ID" || "$source_id" != "$EXPECTED_APP_ID" ]]; then
+    log "app bundle identity mismatch: expected $EXPECTED_APP_ID, installed ${target_id:-none}, extracted ${source_id:-none}"
+    exit 1
+  fi
+}
+
 verify_app_signature() {
   local source_app="$1"
+
+  verify_app_identity "$source_app"
 
   log "verifying extracted app signature"
   /usr/bin/codesign --verify --deep --strict "$source_app" >> "$LOG_PATH" 2>&1
@@ -165,12 +185,16 @@ main() {
   log "unpacking archive $ARCHIVE_PATH"
   /usr/bin/ditto -x -k "$ARCHIVE_PATH" "$unpacked_dir"
 
+  local source_apps=()
   local source_app
-  source_app="$(find "$unpacked_dir" -maxdepth 1 -type d -name "*.app" | head -n 1)"
-  if [[ -z "$source_app" ]]; then
-    log "failed to find app bundle in archive"
+  while IFS= read -r -d '' source_app; do
+    source_apps+=("$source_app")
+  done < <(find "$unpacked_dir" -maxdepth 1 -type d -name "*.app" -print0)
+  if [[ "${#source_apps[@]}" -ne 1 ]]; then
+    log "expected exactly one app bundle in archive, found ${#source_apps[@]}"
     exit 1
   fi
+  source_app="${source_apps[0]}"
 
   verify_app_signature "$source_app"
 

@@ -2,7 +2,8 @@ import { z } from "zod"
 import type { UpdateReleaseNote, UpdateRing } from "@buddy/update-contract"
 import { UPDATE_RING_PREVIEW } from "@buddy/update-contract"
 import { MAX_RELEASE_NOTES, parseReleaseNote } from "@buddy/update-contract/release-notes"
-import { RELEASE_REPOSITORY_OWNER, RELEASE_REPOSITORY_NAME } from "./update-common"
+import { UPDATE_DISTRIBUTION } from "./update-common"
+import { formatReleaseRepositorySlug, type BuddyDistribution } from "@buddy/script/distribution"
 import { compareVersions } from "./recovery-policy-core"
 
 const RELEASE_LIST_PAGE_SIZE = 20
@@ -17,7 +18,6 @@ const ReleaseBoundarySchema = z.object({
   prerelease: z.boolean().nullish(),
 })
 const ReleaseListBoundarySchema = z.array(ReleaseBoundarySchema)
-const RELEASE_LIST_URL = `https://api.github.com/repos/${RELEASE_REPOSITORY_OWNER}/${RELEASE_REPOSITORY_NAME}/releases`
 
 type ReleaseRecord = z.infer<typeof ReleaseBoundarySchema>
 
@@ -27,16 +27,23 @@ type LoggerLike = {
 
 /** Release-note failures are non-fatal because signed manifests authorize updates. */
 export async function fetchReleaseNotes(input: {
+  readonly distribution?: BuddyDistribution
   readonly currentVersion: string
   readonly targetVersion: string
   readonly ring: UpdateRing
   readonly logger: LoggerLike
 }): Promise<readonly UpdateReleaseNote[]> {
-  const releases = await fetchReleaseList(input.logger)
+  const distribution = input.distribution ?? UPDATE_DISTRIBUTION
+  const releases = await fetchReleaseList(input.logger, distribution)
 
   const inRange = releases.filter((release) => {
     if (release.draft === true) return false
-    if (release.prerelease === true && input.ring !== UPDATE_RING_PREVIEW) return false
+    if (
+      distribution.id === "prod" &&
+      release.prerelease === true &&
+      input.ring !== UPDATE_RING_PREVIEW
+    )
+      return false
 
     const version = releaseVersion(release.tag_name)
     return (
@@ -61,15 +68,21 @@ function releaseVersion(tagName: string): string {
   return tagName.startsWith(RELEASE_TAG_PREFIX) ? tagName.slice(RELEASE_TAG_PREFIX.length) : tagName
 }
 
-async function fetchReleaseList(logger: LoggerLike): Promise<readonly ReleaseRecord[]> {
+async function fetchReleaseList(
+  logger: LoggerLike,
+  distribution: BuddyDistribution,
+): Promise<readonly ReleaseRecord[]> {
   try {
-    const response = await fetch(`${RELEASE_LIST_URL}?per_page=${RELEASE_LIST_PAGE_SIZE}`, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "Buddy",
+    const response = await fetch(
+      `https://api.github.com/repos/${formatReleaseRepositorySlug(distribution)}/releases?per_page=${RELEASE_LIST_PAGE_SIZE}`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "Buddy",
+        },
+        signal: AbortSignal.timeout(RELEASE_REQUEST_TIMEOUT_MS),
       },
-      signal: AbortSignal.timeout(RELEASE_REQUEST_TIMEOUT_MS),
-    })
+    )
     if (!response.ok) {
       logger.warn("release notes request failed", { status: response.status })
       return []

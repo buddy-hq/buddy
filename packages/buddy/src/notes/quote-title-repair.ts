@@ -1,3 +1,4 @@
+import { readChatMessageLink, withoutBuddyMarkdownLinks } from "@buddy/citation-contract/chat-links"
 import fsp from "node:fs/promises"
 import { writeTextFileAtomic } from "../storage/atomic-file"
 import { withFileLock } from "../storage/file-lock"
@@ -10,8 +11,7 @@ import { fenceLine, messageQuoteTitleLine, quotedMessageBody } from "./presentat
 const SESSION_NOTE_TYPE = "buddy-session-note" as const
 const LEGACY_QUOTE_TITLE_LENGTH = 120
 const QUOTE_TITLE_MARKER = /^> \[!quote\]([+-])/u
-const QUOTE_MESSAGE_LINK_LINE =
-  /^> \[Open message\]\(buddy:\/\/chat\/[^\s()?]+\?message=[^\s()]+\)$/u
+const QUOTE_MESSAGE_LINK_LINE = /^> \[Open message\]\(([^\s()]+)\)$/u
 const QUOTE_BODY_SEPARATOR_LINE = ">" as const
 const QUOTE_LINE_PREFIX_LENGTH = 2
 
@@ -20,14 +20,14 @@ function errorMessage<TError>(error: TError): string {
 }
 
 function legacyMessageQuoteTitleLine(input: { text: string; expanded: boolean }) {
-  const plain = input.text
+  const withoutCaptureMetadata = input.text
     .replace(/^---(?:yaml|yml)?[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/u, "")
     .replace(/^[ \t]*>[ \t]*\[!quote\][+-]?.*$/gimu, "")
     .replace(/^([ \t]*>[ \t]*)\[![a-z0-9_-]+\][+-]?[ \t]*/gimu, "$1")
     .replace(/^\*\*[A-Z][a-z]+ \d{1,2}, \d{4}\*\*[ \t]*$/gmu, "")
     .replace(/^\*\d{2}:\d{2}\*[ \t]*$/gmu, "")
     .replace(/^#{1,6}[ \t]+(?:Note|Annotation)[ \t]+—[ \t].*$/gmu, "")
-    .replace(/\[[^\]]*\]\(buddy:\/\/[^)]*\)/gu, "")
+  const plain = withoutBuddyMarkdownLinks(withoutCaptureMetadata)
     .replace(/!\[[^\]]*\]\([^)]*\)/gu, "")
     .replace(/\[([^\]]*)\]\([^)]*\)/gu, "$1")
     .replace(/<[^>]*>/gu, "")
@@ -57,7 +57,7 @@ function repairedQuoteTitleLine(callout: readonly string[]): string | undefined 
   if (
     !marker ||
     quoted.at(-2) !== QUOTE_BODY_SEPARATOR_LINE ||
-    !QUOTE_MESSAGE_LINK_LINE.test(quoted.at(-1) ?? "")
+    !readChatMessageLink(QUOTE_MESSAGE_LINK_LINE.exec(quoted.at(-1) ?? "")?.[1] ?? "")
   ) {
     return undefined
   }

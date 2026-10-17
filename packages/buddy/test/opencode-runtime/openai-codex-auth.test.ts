@@ -1,3 +1,4 @@
+import { BUDDY_CHANNEL_ENV } from "@buddy/script/channel"
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
@@ -17,6 +18,7 @@ import {
 import { traceOpenAIAuth } from "../../src/opencode-runtime/plugins/openai-auth-trace"
 import { temporaryDirectory } from "../helpers/temporary-directory"
 
+const originalBuddyChannel = process.env[BUDDY_CHANNEL_ENV]
 const originalFetch = globalThis.fetch
 const originalDesktopCallbackUrl = process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]
 const originalOpenAIAuthTraceFile = process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE]
@@ -31,11 +33,13 @@ function restoreEnvironmentVariable(name: string, value: string | undefined): vo
 }
 
 beforeEach(() => {
+  delete process.env[BUDDY_CHANNEL_ENV]
   delete process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]
   delete process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE]
 })
 
 afterEach(() => {
+  restoreEnvironmentVariable(BUDDY_CHANNEL_ENV, originalBuddyChannel)
   // Cancelling traces the attempt, so drop the scoped trace file first: its
   // directory is already disposed and tracing would recreate it.
   restoreEnvironmentVariable(BUDDY_ENV.OPENAI_AUTH_TRACE_FILE, originalOpenAIAuthTraceFile)
@@ -120,6 +124,21 @@ describe("OpenAI Codex auth hook", () => {
     const entry: unknown = JSON.parse((await fs.readFile(traceFile, "utf8")).trim())
 
     expect(entry).toMatchObject({ event: "test_event", status: 200, ok: true })
+  })
+
+  test("returns Beta OAuth to its own app scheme and rejects a prod callback", () => {
+    process.env[BUDDY_CHANNEL_ENV] = "beta"
+    process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL] = "buddy-beta://auth/callback"
+    const html = buildBuddyCodexSuccessHtml()
+    expect(html).toContain('href="buddy-beta://auth/callback"')
+    expect(html).toContain('window.location.href = "buddy-beta://auth/callback"')
+    process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL] = "buddy://auth/callback"
+    expect(buildBuddyCodexSuccessHtml()).not.toContain("window.location.href")
+  })
+
+  test("does not accept a Beta callback in prod", () => {
+    process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL] = "buddy-beta://auth/callback"
+    expect(buildBuddyCodexSuccessHtml()).not.toContain("window.location.href")
   })
 
   test("brands the success callback page for Buddy", () => {

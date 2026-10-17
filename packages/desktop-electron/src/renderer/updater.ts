@@ -4,6 +4,7 @@ import { readBuddyRendererGlobals } from "../shared/parse-external"
 
 function unsupportedState(): UpdateState {
   return createUpdateState({
+    distribution: readBuddyRendererGlobals(window)?.distribution,
     currentVersion: window.api.getAppVersion() ?? "",
     ring: UPDATE_RING_STABLE,
     supported: false,

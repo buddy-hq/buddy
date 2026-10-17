@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import type { TitlebarTheme } from "../preload/types"
 import { BUDDY_DEV_INSTANCE_NAME_ENV } from "../shared/dev-app-name"
 import { encodeBuddyWindowVersionArg } from "../shared/window-preload-args"
+import { CHANNEL } from "./constants"
 import { wireContextMenu } from "./context-menu"
 import { wireAppWindowExternalLinks } from "./external-links"
 import { wireInAppBrowser } from "./in-app-browser"
@@ -222,6 +223,7 @@ function injectGlobals(win: BrowserWindow, globals: WindowGlobals) {
           ? undefined
           : process.env[BUDDY_DEV_INSTANCE_NAME_ENV]?.trim() || undefined,
       },
+      CHANNEL === "beta" ? { distribution: "beta" as const } : undefined,
       globals.iconUrl || resolvedIconUrl
         ? { iconUrl: globals.iconUrl ?? resolvedIconUrl }
         : undefined,

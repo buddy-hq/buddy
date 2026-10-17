@@ -1,9 +1,11 @@
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
 import { afterEach, describe, expect, test } from "bun:test"
 import {
   createCustomMacUpdater,
   isMacUpdateAvailable,
   parseMacInstallerResult,
   resolveDefaultMacMetadataUrl,
+  resolveCustomMacUpdaterOptions,
   resolveMacVersionedMetadataUrls,
 } from "../src/main/custom-mac-updater"
 import { createSerialRunner } from "../src/main/serial-runner"
@@ -371,5 +373,63 @@ describe("parseMacInstallerResult", () => {
         }),
       ),
     ).toThrow("Invalid mac installer result exitCode")
+  })
+})
+
+describe("Beta macOS updater", () => {
+  test("resolves only Beta target manifests without legacy filename fallback", () => {
+    expect(resolveMacVersionedMetadataUrls("2.0.0", BUDDY_DISTRIBUTIONS.beta)).toEqual([
+      `https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-macos-${process.arch}.json`,
+    ])
+  })
+
+  test("ignores ambient metadata and key overrides and exposes a not-configured outcome", async () => {
+    const oldMetadata = process.env.BUDDY_UPDATE_METADATA_URL
+    const oldKey = process.env.BUDDY_UPDATE_PUBLIC_KEY
+    const requested: string[] = []
+    try {
+      process.env.BUDDY_UPDATE_METADATA_URL =
+        "https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/latest-mac.json"
+      process.env.BUDDY_UPDATE_PUBLIC_KEY = BUDDY_DISTRIBUTIONS.prod.updaterPublicKey
+      expect(resolveCustomMacUpdaterOptions(BUDDY_DISTRIBUTIONS.beta)).toEqual({
+        metadataUrl: undefined,
+        publicKey: undefined,
+      })
+      expect(resolveCustomMacUpdaterOptions(BUDDY_DISTRIBUTIONS.prod)).toEqual({
+        metadataUrl: process.env.BUDDY_UPDATE_METADATA_URL,
+        publicKey: process.env.BUDDY_UPDATE_PUBLIC_KEY,
+      })
+      globalThis.fetch = createTestFetch(async (url) => {
+        requested.push(String(url))
+        return Response.json([{ draft: false, prerelease: true, tag_name: "v2.1.0" }])
+      })
+      const updater = createCustomMacUpdater({
+        distribution: BUDDY_DISTRIBUTIONS.beta,
+        ...resolveCustomMacUpdaterOptions(BUDDY_DISTRIBUTIONS.beta),
+        appName: "Buddy Beta",
+        appPath: "/test/Buddy Beta.app",
+        appRootPath: "/test",
+        cachePath: "/test/cache",
+        currentVersion: "2.0.0",
+        execPath: "/test/Buddy Beta.app/Contents/MacOS/Buddy Beta",
+        logsPath: "/test/logs",
+        packaged: true,
+        quit: () => undefined,
+        resourcesPath: "/test/resources",
+        stopBackend: () => undefined,
+        logger: { warn: () => undefined, info: () => undefined, error: () => undefined },
+      })
+      expect(await updater.checkForUpdate({ ring: "stable" })).toEqual({
+        updateAvailable: false,
+        failed: true,
+        notConfigured: true,
+      })
+      expect(requested).toEqual([])
+    } finally {
+      if (oldMetadata === undefined) delete process.env.BUDDY_UPDATE_METADATA_URL
+      else process.env.BUDDY_UPDATE_METADATA_URL = oldMetadata
+      if (oldKey === undefined) delete process.env.BUDDY_UPDATE_PUBLIC_KEY
+      else process.env.BUDDY_UPDATE_PUBLIC_KEY = oldKey
+    }
   })
 })

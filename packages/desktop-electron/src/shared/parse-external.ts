@@ -5,6 +5,7 @@ export type TJsonValue = TJsonPrimitive | readonly TJsonValue[] | TJsonObject
 export type TJsonObject = { readonly [key: string]: TJsonValue }
 
 export type TBuddyRendererGlobals = {
+  distribution?: "beta"
   assetBaseUrl?: string
   deepLinks?: string[]
   devInstanceName?: string
@@ -24,6 +25,7 @@ const numberSchema = z.number()
 const booleanSchema = z.boolean()
 const functionSchema = z.function()
 const buddyRendererGlobalsSchema = z.object({
+  distribution: z.literal("beta").optional(),
   assetBaseUrl: z.string().optional(),
   deepLinks: z.array(z.string()).optional(),
   devInstanceName: z.string().optional(),
