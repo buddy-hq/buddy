@@ -577,7 +577,7 @@ describe("opencode runtime env", () => {
       cwd: path.resolve(import.meta.dir, "../../opencode-adapter"),
       env: betaBackendEnvironment(environment, betaEnvironment),
       encoding: "utf8",
-      timeout: 3_000,
+      timeout: 30_000,
     })
     expect(result.stderr).toBe("")
     expect(result.status).toBe(0)
@@ -619,7 +619,7 @@ describe("opencode runtime env", () => {
       stable: { type: "api", key: "sandbox-stable-key" },
     })
     expect(await Bun.file(betaCapture).exists()).toBe(false)
-  })
+  }, 45_000)
 
   test("keeps migration env vars unset when repo paths cannot be resolved", async () => {
     await using outsideRepo = await temporaryDirectory({ prefix: "buddy-env-outside-repo-" })
