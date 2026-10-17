@@ -8,7 +8,7 @@ import { Script } from "@buddy/script"
 import { buildNotes, getLatestRelease } from "./changelog.ts"
 import { releaseRepository, sourceRepository } from "./release-repositories"
 import { appendGithubOutputs } from "./release/github-output"
-import { releaseDistribution } from "./release/distribution-guard"
+import { assertReleaseBranch, releaseDistribution } from "./release/distribution-guard"
 import { RELEASE_FREEZE_FILENAME } from "./release/freeze"
 import { requireUpdaterPublicKey } from "@buddy/script/distribution"
 import {
@@ -53,11 +53,7 @@ async function currentBranch() {
 
 const dryRun = process.env[DRY_RUN_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 const branch = await currentBranch()
-if (!dryRun && branch !== "main") {
-  throw new Error(
-    `${distribution.id === "beta" ? "Beta releases" : "Preview release candidates"} must be cut from main, received '${branch || "detached"}'`,
-  )
-}
+if (!dryRun) assertReleaseBranch(branch || "detached", distribution)
 if (!process.env.BUDDY_VERSION?.trim()) {
   throw new Error(
     `${distribution.id === "beta" ? "Beta releases" : "Preview release candidates"} require an explicit BUDDY_VERSION`,

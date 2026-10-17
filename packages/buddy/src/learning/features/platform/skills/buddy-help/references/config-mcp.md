@@ -19,13 +19,14 @@ Goal for the agent: make a named MCP **enabled for a notebook** by editing Buddy
 
 | Scope | Path | Role |
 | --- | --- | --- |
-| Global definitions | Default packaged path: `~/.buddy/buddy.jsonc` (or existing `buddy.json`) | Full definitions here appear in **Settings → MCPs** and notebook settings. |
+| Global definitions | `<global-config-root>/buddy.jsonc` (or existing `buddy.json`); Stable default: `~/.buddy` | Full definitions here appear in **Settings → MCPs** and notebook settings. |
 | Notebook / project | `<notebook-root>/.buddy/buddy.jsonc` (or existing `.json`) | Per-notebook enable overrides **or** full notebook-only definitions; these appear in notebook settings. |
 
-- Create parent `.buddy/` if missing.
+- Create the config directory if missing.
 - Prefer **jsonc** when creating new files.
 - Notebook root = workspace folder the notebook opened (not Home/Inbox magic alone — use the open directory path).
-- Dev builds and configured runtimes can relocate the global config. Check the running Buddy environment's `BUDDY_GLOBAL_CONFIG_DIR` before assuming `~/.buddy` is live.
+- Before editing global config, resolve the running Buddy environment's `BUDDY_GLOBAL_CONFIG_DIR`; Stable defaults to `~/.buddy` when unset. Dev builds and configured runtimes can relocate it.
+- Packaged **Buddy Beta** always uses its own managed config root: macOS `~/Library/Application Support/ai.buddy.desktop.beta/xdg/config/buddy`; Windows `%APPDATA%\ai.buddy.desktop.beta\xdg\config\buddy`.
 
 ### Where definitions appear
 
@@ -134,7 +135,7 @@ For a notebook-only server, use a full local or remote definition here. It will 
 ## Agent procedure (add / enable for current notebook)
 
 1. Identify **notebook directory** (open workspace path).
-2. Resolve and read the live global Buddy config (packaged default `~/.buddy/buddy.jsonc`; check `BUDDY_GLOBAL_CONFIG_DIR`). Merge — never wipe unrelated keys (`permission`, `model`, `personalization`, etc.).
+2. Resolve `BUDDY_GLOBAL_CONFIG_DIR` before reading or editing global `buddy.jsonc` (or existing `buddy.json`); Stable default: `~/.buddy`. Merge — never wipe unrelated keys (`permission`, `model`, `personalization`, etc.).
 3. If server missing under global `mcp`, write a **full** entry there when it should be globally managed, or in the notebook config when it belongs only to this notebook. Ask for URL/command; never invent secrets.
 4. Only if global default is off and this notebook should be on: open/create `<notebook>/.buddy/buddy.jsonc` and set thin `mcp.<name>.enabled: true`.
 5. If global has `enabled: true` and no notebook override needed, **skip** notebook file (or leave thin enable only).
@@ -143,7 +144,7 @@ For a notebook-only server, use a full local or remote definition here. It will 
 
 ## Linear remote example (global)
 
-`~/.buddy/buddy.jsonc` (merge into existing object):
+`<global-config-root>/buddy.jsonc` (resolve `BUDDY_GLOBAL_CONFIG_DIR` first; merge into existing object):
 
 ```jsonc
 {

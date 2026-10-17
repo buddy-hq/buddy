@@ -82,14 +82,19 @@ Inspect logs in `~/Library/Logs/Buddy/main.log` and `update-installer.log`.
 
 Buddy Beta is a separate installation and release stream. Its independent numeric versions start at `0.1.0`. Release assets live in `prashantbhudwal/buddy-beta-releases` under `vX.Y.Z`; source provenance lives in `buddy-hq/buddy` under `beta-vX.Y.Z`. Artifact filenames stay the same because the repositories provide the namespace.
 
+Beta is cut from the long-lived `beta` branch: `main` plus upcoming work, including the OpenCode v2 upgrade. Stable continues to be cut from `main`. Land fixes on `main` first and regularly merge `main` → `beta`. When Beta's work is ready for Stable, merge `beta` → `main`.
+
 Before the first cut, the owner must:
 
-1. Create the public `prashantbhudwal/buddy-beta-releases` repository.
-2. Generate a separate minisign updater keypair. Commit its public key in `BUDDY_DISTRIBUTIONS.beta.updaterPublicKey` in `packages/script/src/distribution.ts`. Keep the private key outside the repository. Beta signing and publication fail closed while the public key is `null`.
-3. Add `BUDDY_BETA_RELEASE_TOKEN`, `BUDDY_BETA_UPDATER_PRIVATE_KEY`, and `BUDDY_BETA_UPDATER_PRIVATE_KEY_PASSWORD` to the source repository's Actions secrets. The token must write only the Beta releases repository. Scope the production release token only to the production releases repository, so neither token can write to the other stream.
-4. Complete the Beta runtime and packaging identity work: product `Buddy Beta`, app id `ai.buddy.desktop.beta`, protocol `buddy-beta`, separate user state and Windows updater cache, and Beta-only updater repository/key. Run the side-by-side checks in [qa-checklist.md](qa-checklist.md).
+1. Create `beta` from `main` after the Beta workflows land, so `publish-beta.yml` exists on both branches. Give `beta` the same branch protection and required `Check` and `vendor-guard` checks as `main`.
+2. Create the public `prashantbhudwal/buddy-beta-releases` repository, initialized with a README. Release creation tags the default branch, so an empty repository cannot receive its first release.
+3. Generate a separate minisign updater keypair. Commit its public key in `BUDDY_DISTRIBUTIONS.beta.updaterPublicKey` in `packages/script/src/distribution.ts`. Keep the private key outside the repository. Beta signing and publication fail closed while the public key is `null`.
+4. Add `BUDDY_BETA_RELEASE_TOKEN`, `BUDDY_BETA_UPDATER_PRIVATE_KEY`, and `BUDDY_BETA_UPDATER_PRIVATE_KEY_PASSWORD` to the source repository's Actions secrets. The token must write only the Beta releases repository. Scope the production release token only to the production releases repository, so neither token can write to the other stream.
+5. After the first cut, run the side-by-side checks in [qa-checklist.md](qa-checklist.md) on macOS ARM64, macOS Intel, and Windows x64.
 
-From clean, green `main`, run:
+CI runs on pushes to both branches. As on `main`, a push that changes `vendor/opencode` fails `vendor-guard`; cut Beta from a later green `beta` commit.
+
+From clean, green `beta`, run:
 
 ```sh
 bun run release:cut:beta --targets all

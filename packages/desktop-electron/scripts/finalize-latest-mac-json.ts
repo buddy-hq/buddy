@@ -2,6 +2,7 @@
 
 import { $ } from "bun"
 import { assertLegacyProdRelease } from "../../../script/release/distribution-guard"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
 import path from "node:path"
 import { createHash } from "node:crypto"
 import { access, mkdir, readFile, stat } from "node:fs/promises"
@@ -11,7 +12,8 @@ import {
   resolveMacOsUpdateManifestFilename,
 } from "../src/shared/release-asset-names"
 import { parseTNumber, parseTString } from "../src/shared/parse-external"
-import { resolveTauriSignerBinaryPath } from "./utils"
+import { resolveSignerEnvironment, resolveTauriSignerBinaryPath } from "./utils"
+import { verifyReleaseSignature } from "./verify-release-signature"
 
 assertLegacyProdRelease()
 
@@ -254,6 +256,7 @@ ensureTauriSigningKeyPresent()
 const tauriSigner = await requireTauriSignerBinaryPath()
 
 await $`${tauriSigner} signer sign ${outputPath}`.env(resolveSignerEnvironment())
+await verifyReleaseSignature(outputPath, BUDDY_DISTRIBUTIONS.prod)
 
 if (!skipUpload) {
   if (!repo) {
@@ -264,21 +267,3 @@ if (!skipUpload) {
 }
 
 console.log(`finalized ${outputFilename}`)
-
-function resolveSignerEnvironment() {
-  const environment = { ...process.env }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PATH?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY_PATH
-  }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY
-  }
-
-  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD?.trim()) {
-    delete environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-  }
-
-  return environment
-}

@@ -9,7 +9,7 @@ on:
         required: true
         type: string
       source_sha:
-        description: "Exact green main commit to package"
+        description: "Exact green beta commit to package"
         required: true
         type: string
       build_macos_arm64:

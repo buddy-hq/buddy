@@ -3,7 +3,7 @@
 import { $ } from "bun"
 import { createHash } from "node:crypto"
 import { createReadStream } from "node:fs"
-import { mkdir, mkdtemp, rm } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { verifySignedMessage } from "@buddy/script/minisign"
@@ -513,9 +513,10 @@ async function assertPubliclyReachable(url: string, label: string): Promise<void
   }
 }
 
-async function assertOmittedManifestUsesNewestPublishedFeed(input: {
+/** Omitted targets retain the previous signed feed bytes, including their original artifact URLs. */
+export async function assertOmittedManifestUsesNewestPublishedFeed(input: {
   currentTag: string
-  manifest: UpdateManifest
+  directory: string
   manifestName: string
   repository: string
 }): Promise<void> {
@@ -525,13 +526,26 @@ async function assertOmittedManifestUsesNewestPublishedFeed(input: {
     requiredAssetNames: [input.manifestName, `${input.manifestName}.sig`],
   })
   if (!previous) return
-  const expectedPathSegment = `/releases/download/${previous.tag}/`
-  if (
-    input.manifest.files.some((file) => !new URL(file.url).pathname.includes(expectedPathSegment))
-  ) {
-    throw new Error(
-      `${input.manifestName} does not carry forward newest compatible feed ${previous.tag}`,
+  const directory = await mkdtemp(path.join(os.tmpdir(), VERIFICATION_DIRECTORY_PREFIX))
+  try {
+    const previousAssets = await readGithubReleaseAssets(input.repository, previous.tag)
+    const assets = [input.manifestName, `${input.manifestName}.sig`].map((name) =>
+      findAsset(previousAssets, { label: name, matcher: name }),
     )
+    await downloadAssets({ assets, directory, repo: input.repository, tag: previous.tag })
+    for (const asset of assets) {
+      const [currentBytes, previousBytes] = await Promise.all([
+        readFile(path.join(input.directory, asset.name)),
+        readFile(path.join(directory, asset.name)),
+      ])
+      if (!currentBytes.equals(previousBytes)) {
+        throw new Error(
+          `${asset.name} does not carry forward newest compatible feed ${previous.tag} byte-for-byte`,
+        )
+      }
+    }
+  } finally {
+    await rm(directory, { force: true, recursive: true })
   }
 }
 
@@ -589,7 +603,7 @@ async function main(): Promise<void> {
       if (!selected) {
         await assertOmittedManifestUsesNewestPublishedFeed({
           currentTag: options.tag,
-          manifest,
+          directory,
           manifestName,
           repository: options.repo,
         })
