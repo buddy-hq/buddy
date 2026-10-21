@@ -14,7 +14,7 @@ usage() {
 Usage: bash scripts/release-download-count.sh [--all-assets] [--release-repo OWNER/REPOSITORY]
 
 Shows GitHub's lifetime download counts for installer assets from the three most
-recently published Buddy releases. By default, this includes the macOS DMGs and
+recently published production Buddy releases. By default, this includes the macOS DMGs and
 Windows EXE selected by the Buddy install scripts.
 
 Options:
@@ -89,7 +89,7 @@ jq -r \
       ];
 
     add
-    | map(select(.draft | not) | select(.published_at != null))
+    | map(select(.draft | not) | select(.published_at != null) | select(.tag_name | test("^v[0-9]+[.][0-9]+[.][0-9]+$")))
     | sort_by(.published_at)
     | reverse
     | .[0:$release_count] as $releases

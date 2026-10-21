@@ -242,6 +242,10 @@ resolve_release_tag() {
   local asset_names
 
   if [[ -n "${release_tag}" ]]; then
+    if ! [[ "${release_tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      fail "Production cleanup requires a vX.Y.Z release tag, got: ${release_tag}"
+      exit 1
+    fi
     printf "%s\n" "${release_tag}"
     return
   fi
@@ -251,8 +255,8 @@ resolve_release_tag() {
   fi
 
   candidate_tags="$(
-    gh api "repos/${RELEASE_REPO}/releases?per_page=100" \
-      --jq ".[] | select(.draft == false and .prerelease == ${desired_prerelease}) | .tag_name"
+    gh api --paginate "repos/${RELEASE_REPO}/releases?per_page=100" \
+      --jq ".[] | select(.draft == false and .prerelease == ${desired_prerelease}) | select(.tag_name | test(\"^v[0-9]+[.][0-9]+[.][0-9]+$\")) | .tag_name"
   )"
 
   while IFS= read -r candidate_tag; do
@@ -281,6 +285,11 @@ preflight_release() {
   local supported_asset
 
   info "Preflight: validating ${release_kind} release ${release_tag}"
+
+  if ! [[ "${release_tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    fail "Production cleanup requires a vX.Y.Z release tag, got: ${release_tag}"
+    exit 1
+  fi
 
   release_state="$(
     gh release view "${release_tag}" \

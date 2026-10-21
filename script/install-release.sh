@@ -4,12 +4,12 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./script/install-release.sh [--channel prod|beta] [tag]
+  ./script/install-release.sh [--channel prod|beta] [--tag tag | tag]
 
 Examples:
   ./script/install-release.sh
   ./script/install-release.sh v0.0.5
-  ./script/install-release.sh --channel beta v0.1.0
+  ./script/install-release.sh --channel beta beta-v0.1.0
   BUDDY_INSTALL_RELEASE_KIND=preview ./script/install-release.sh
 
 Environment overrides:
@@ -33,6 +33,11 @@ while [[ $# -gt 0 ]]; do
       usage
       exit 0
       ;;
+    --tag)
+      if [[ $# -lt 2 || -n "$TAG" ]]; then echo "--tag requires one release tag" >&2; exit 1; fi
+      TAG="$2"
+      shift 2
+      ;;
     --*) echo "Unknown argument: $1" >&2; exit 1 ;;
     *)
       if [[ -n "$TAG" ]]; then echo "Only one release tag is allowed" >&2; exit 1; fi
@@ -48,7 +53,7 @@ case "$CHANNEL" in
     EXPECTED_APP_ID="ai.buddy.desktop"
     ;;
   beta)
-    EXPECTED_REPO="prashantbhudwal/buddy-beta-releases"
+    EXPECTED_REPO="prashantbhudwal/buddy-releases"
     EXPECTED_APP_NAME="Buddy Beta"
     EXPECTED_APP_ID="ai.buddy.desktop.beta"
     ;;
@@ -79,7 +84,7 @@ if ! command -v hdiutil >/dev/null 2>&1; then
 fi
 
 if [[ "$CHANNEL" == "beta" && "$RELEASE_KIND" != "stable" ]]; then
-  echo "Beta installs published non-prerelease releases; Preview is only available for prod." >&2
+  echo "Preview is only available for prod; Beta installs published Beta prereleases." >&2
   exit 1
 fi
 
@@ -109,26 +114,43 @@ case "$ARCH" in
     ;;
 esac
 
+TAG_PATTERN='^v[0-9]+[.][0-9]+[.][0-9]+$'
+DESIRED_PRERELEASE=false
+RELEASE_LABEL="$RELEASE_KIND"
+if [[ "$CHANNEL" == "beta" ]]; then
+  TAG_PATTERN='^beta-v[0-9]+[.][0-9]+[.][0-9]+$'
+  DESIRED_PRERELEASE=true
+  RELEASE_LABEL="Beta prerelease"
+elif [[ "$RELEASE_KIND" == "preview" ]]; then
+  DESIRED_PRERELEASE=true
+  RELEASE_LABEL="Preview prerelease"
+fi
+
+published_release_tags() {
+  gh api --paginate "repos/$REPO/releases?per_page=100" \
+    --jq ".[] | select(.draft == false and .prerelease == $DESIRED_PRERELEASE) | select(.tag_name | test(\"$TAG_PATTERN\")) | .tag_name"
+}
+
+if [[ -z "$TAG" && "$CHANNEL" == "prod" && "$RELEASE_KIND" == "stable" ]]; then
+  if ! TAG="$(gh api "repos/$REPO/releases/latest" --jq '.tag_name')"; then TAG=""; fi
+  if ! [[ "$TAG" =~ $TAG_PATTERN ]]; then TAG=""; fi
+fi
+
 if [[ -z "$TAG" ]]; then
-  RELEASE_LABEL="stable"
-  if [[ "$RELEASE_KIND" == "preview" ]]; then
-    RELEASE_LABEL="Preview prerelease"
-    TAG="$(
-      gh api "repos/$REPO/releases" \
-        --jq "map(select(.draft == false and .prerelease == true))[0].tag_name"
-    )"
+  if [[ "$CHANNEL" == "beta" ]]; then
+    TAG="$(published_release_tags | sort -t. -k1.7,1n -k2,2n -k3,3n | tail -1)"
   else
-    if ! TAG="$(
-      gh api "repos/$REPO/releases/latest" \
-        --jq ".tag_name"
-    )"; then
-      TAG=""
-    fi
+    TAG="$(published_release_tags | sed -n '1p')"
   fi
 fi
 
 if [[ -z "$TAG" || "$TAG" == "null" ]]; then
   echo "Could not resolve the latest ${RELEASE_LABEL:-release} tag for $REPO." >&2
+  exit 1
+fi
+
+if ! [[ "$TAG" =~ $TAG_PATTERN ]]; then
+  echo "Release tag $TAG does not belong to $CHANNEL; expected ${CHANNEL/prod/v} release namespace." >&2
   exit 1
 fi
 
@@ -145,18 +167,20 @@ if [[ "$IS_DRAFT" != "false" ]]; then
   exit 1
 fi
 
-if [[ "$RELEASE_KIND" == "preview" && "$IS_PRERELEASE" != "true" ]]; then
-  echo "Release $REPO@$TAG is not a Preview prerelease." >&2
+if [[ "$DESIRED_PRERELEASE" == "true" && "$IS_PRERELEASE" != "true" ]]; then
+  echo "Release $REPO@$TAG is not a published $RELEASE_LABEL." >&2
   exit 1
 fi
 
-if [[ "$RELEASE_KIND" == "stable" && "$IS_PRERELEASE" != "false" ]]; then
+if [[ "$DESIRED_PRERELEASE" == "false" && "$IS_PRERELEASE" != "false" ]]; then
   echo "Release $REPO@$TAG is not a stable release." >&2
   exit 1
 fi
 
+VERSION="${TAG#v}"
+if [[ "$CHANNEL" == "beta" ]]; then VERSION="${TAG#beta-v}"; fi
 ASSET_CANDIDATES=(
-  "buddy-v${TAG#v}-macos-${RELEASE_ARCH_FRIENDLY}.dmg"
+  "buddy-v${VERSION}-macos-${RELEASE_ARCH_FRIENDLY}.dmg"
   "buddy-electron-mac-${RELEASE_ARCH_ELECTRON}.dmg"
   "buddy-electron-darwin-${RELEASE_ARCH_LEGACY}.dmg"
   "buddy-desktop-darwin-${RELEASE_ARCH_LEGACY}.dmg"
@@ -199,6 +223,10 @@ if [[ -z "$ASSET" ]]; then
       ASSET="$(basename "${PINNED_ARCHIVE_URL%%\?*}")"
       ASSET_PATH="$TMP_DIR/$ASSET"
       if [[ "$PINNED_ARCHIVE_URL" == http://* || "$PINNED_ARCHIVE_URL" == https://* ]]; then
+        if [[ "$CHANNEL" == "beta" ]] && ! [[ "$PINNED_ARCHIVE_URL" =~ ^https://github\.com/prashantbhudwal/buddy-releases/releases/download/beta-v[0-9]+\.[0-9]+\.[0-9]+/[^/?#]+$ ]]; then
+          echo "Beta manifest URL must stay inside a Beta release of $EXPECTED_REPO." >&2
+          exit 1
+        fi
         curl -fL --show-error --silent "$PINNED_ARCHIVE_URL" -o "$ASSET_PATH"
       elif ! gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir "$TMP_DIR" >/dev/null 2>&1; then
         ASSET=""
