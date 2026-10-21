@@ -55,9 +55,7 @@ test.each(["prod", "beta"] as const)(
       ])
       expect({ exitCode, errors }).toEqual({ exitCode: 0, errors: "" })
       const result = JSON.parse(output)
-      expect(result.repository).toBe(
-        `prashantbhudwal/${channel === "beta" ? "buddy-beta-releases" : "buddy-releases"}`,
-      )
+      expect(result.repository).toBe("prashantbhudwal/buddy-releases")
       expect(result.key).toBe(BUDDY_DISTRIBUTIONS[channel].updaterPublicKey)
       if (channel === "beta") {
         expect(result.verificationError).toBe("Buddy Beta updates are not configured.")

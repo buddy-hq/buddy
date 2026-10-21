@@ -1,4 +1,8 @@
 import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
+import { createHash } from "node:crypto"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { afterEach, describe, expect, test } from "bun:test"
 import {
   createCustomMacUpdater,
@@ -380,7 +384,7 @@ describe("parseMacInstallerResult", () => {
 describe("Beta macOS updater", () => {
   test("resolves only Beta target manifests without legacy filename fallback", () => {
     expect(resolveMacVersionedMetadataUrls("2.0.0", BUDDY_DISTRIBUTIONS.beta)).toEqual([
-      `https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-macos-${process.arch}.json`,
+      `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/latest-macos-${process.arch}.json`,
     ])
   })
 
@@ -435,55 +439,146 @@ describe("Beta macOS updater", () => {
     }
   })
 
-  test("checks a signed macOS manifest with a provisioned Beta test key", async () => {
-    const architecture = process.arch
-    if (architecture !== "arm64" && architecture !== "x64") {
-      throw new Error(`Unsupported test architecture: ${architecture}`)
-    }
-    const content = JSON.stringify({
-      version: NEXT_VERSION,
-      files: [
-        {
-          url: resolveMacOsReleaseArtifactFilename(NEXT_VERSION, architecture, "zip"),
-          sha512: "test",
-          size: 1,
-        },
-      ],
-    })
-    const fixture = signedUpdateFixture(content)
-    const requested: string[] = []
-    globalThis.fetch = createTestFetch(async (url) => {
-      requested.push(String(url))
-      if (String(url).startsWith("https://api.github.com/")) {
-        return Response.json([{ draft: false, prerelease: true, tag_name: `v${NEXT_VERSION}` }])
+  test.each([
+    { selectedVersion: NEXT_VERSION, assetTag: undefined, available: true },
+    { selectedVersion: "2.2.0", assetTag: `beta-v${NEXT_VERSION}`, available: true },
+    { selectedVersion: "2.2.0", assetTag: "beta-v1.9.0", available: true },
+    { selectedVersion: NEXT_VERSION, assetTag: `v${NEXT_VERSION}`, available: false },
+  ])(
+    "checks a signed Beta macOS manifest selected at $selectedVersion with asset tag $assetTag",
+    async ({ selectedVersion, assetTag, available }) => {
+      const architecture = process.arch
+      if (architecture !== "arm64" && architecture !== "x64") {
+        throw new Error(`Unsupported test architecture: ${architecture}`)
       }
-      return new Response(String(url).endsWith(".sig") ? fixture.signature : content)
-    })
-    const distribution = { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey }
-    const updater = createCustomMacUpdater({
-      distribution,
-      ...resolveCustomMacUpdaterOptions(distribution),
-      appName: "Buddy Beta",
-      appPath: "/test/Buddy Beta.app",
-      appRootPath: "/test",
-      cachePath: "/test/cache",
-      currentVersion: CURRENT_VERSION,
-      execPath: "/test/Buddy Beta.app/Contents/MacOS/Buddy Beta",
-      logsPath: "/test/logs",
-      packaged: true,
-      quit: () => undefined,
-      resourcesPath: "/test/resources",
-      stopBackend: () => undefined,
-      logger: { warn: () => undefined, info: () => undefined, error: () => undefined },
-    })
-    await expect(updater.checkForUpdate({ ring: "stable" })).resolves.toEqual({
-      updateAvailable: true,
-      version: NEXT_VERSION,
-    })
-    expect(requested.toSorted()).toEqual([
-      "https://api.github.com/repos/prashantbhudwal/buddy-beta-releases/releases?per_page=100",
-      `https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v${NEXT_VERSION}/latest-macos-${process.arch}.json`,
-      `https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v${NEXT_VERSION}/latest-macos-${process.arch}.json.sig`,
-    ])
+      const content = JSON.stringify({
+        version: NEXT_VERSION,
+        files: [
+          {
+            url: `${assetTag ? `https://github.com/prashantbhudwal/buddy-releases/releases/download/${assetTag}/` : ""}${resolveMacOsReleaseArtifactFilename(NEXT_VERSION, architecture, "zip")}`,
+            sha512: "test",
+            size: 1,
+          },
+        ],
+      })
+      const fixture = signedUpdateFixture(content)
+      const requested: string[] = []
+      globalThis.fetch = createTestFetch(async (url) => {
+        requested.push(String(url))
+        if (String(url).startsWith("https://api.github.com/")) {
+          return Response.json([
+            { draft: false, prerelease: true, tag_name: "v99.0.0" },
+            { draft: false, prerelease: true, tag_name: `beta-v${selectedVersion}` },
+          ])
+        }
+        return new Response(String(url).endsWith(".sig") ? fixture.signature : content)
+      })
+      const distribution = { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey }
+      const updater = createCustomMacUpdater({
+        distribution,
+        ...resolveCustomMacUpdaterOptions(distribution),
+        appName: "Buddy Beta",
+        appPath: "/test/Buddy Beta.app",
+        appRootPath: "/test",
+        cachePath: "/test/cache",
+        currentVersion: CURRENT_VERSION,
+        execPath: "/test/Buddy Beta.app/Contents/MacOS/Buddy Beta",
+        logsPath: "/test/logs",
+        packaged: true,
+        quit: () => undefined,
+        resourcesPath: "/test/resources",
+        stopBackend: () => undefined,
+        logger: { warn: () => undefined, info: () => undefined, error: () => undefined },
+      })
+      await expect(updater.checkForUpdate({ ring: "stable" })).resolves.toEqual(
+        available
+          ? {
+              updateAvailable: true,
+              version: NEXT_VERSION,
+            }
+          : { updateAvailable: false, failed: true },
+      )
+      expect(requested.toSorted()).toEqual([
+        "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
+        `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v${selectedVersion}/latest-macos-${process.arch}.json`,
+        `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v${selectedVersion}/latest-macos-${process.arch}.json.sig`,
+      ])
+      if (assetTag === "beta-v1.9.0") {
+        requested.length = 0
+        await expect(updater.downloadUpdate({ version: NEXT_VERSION })).resolves.toEqual({
+          updateAvailable: false,
+          failed: true,
+        })
+        expect(requested).toEqual([
+          `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v${NEXT_VERSION}/latest-macos-${process.arch}.json`,
+          `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v${NEXT_VERSION}/latest-macos-${process.arch}.json.sig`,
+        ])
+      }
+    },
+  )
+
+  test("downloads an accepted carried-forward Beta version from its pinned Beta tag", async () => {
+    const architecture = process.arch
+    if (architecture !== "arm64" && architecture !== "x64")
+      throw new Error("Unsupported test architecture")
+    const root = await mkdtemp(join(tmpdir(), "buddy-beta-mac-download-"))
+    try {
+      const archive = Buffer.from("Beta archive fixture")
+      const filename = resolveMacOsReleaseArtifactFilename(NEXT_VERSION, architecture, "zip")
+      const content = JSON.stringify({
+        version: NEXT_VERSION,
+        files: [
+          {
+            url: `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v${NEXT_VERSION}/${filename}`,
+            sha512: createHash("sha512").update(archive).digest("base64"),
+            size: archive.length,
+          },
+        ],
+      })
+      const fixture = signedUpdateFixture(content)
+      const requested: string[] = []
+      globalThis.fetch = createTestFetch(async (url) => {
+        requested.push(String(url))
+        if (String(url).startsWith("https://api.github.com/")) {
+          return Response.json([{ draft: false, prerelease: true, tag_name: "beta-v2.2.0" }])
+        }
+        if (String(url).endsWith(".zip")) return new Response(archive)
+        return new Response(String(url).endsWith(".sig") ? fixture.signature : content)
+      })
+      const updater = createCustomMacUpdater({
+        distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey },
+        appName: "Buddy Beta",
+        appPath: join(root, "Buddy Beta.app"),
+        appRootPath: root,
+        cachePath: join(root, "cache"),
+        logsPath: join(root, "logs"),
+        resourcesPath: root,
+        currentVersion: CURRENT_VERSION,
+        execPath: join(root, "Buddy Beta"),
+        packaged: true,
+        quit: () => undefined,
+        stopBackend: () => undefined,
+        logger: { warn: () => undefined, info: () => undefined, error: () => undefined },
+      })
+      await expect(updater.checkForUpdate()).resolves.toEqual({
+        updateAvailable: true,
+        version: NEXT_VERSION,
+      })
+      await expect(updater.downloadUpdate({ version: NEXT_VERSION })).resolves.toEqual({
+        updateAvailable: true,
+        version: NEXT_VERSION,
+      })
+      expect(updater.isUpdateReady(NEXT_VERSION)).toBe(true)
+      expect(requested).toEqual([
+        "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
+        `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.2.0/latest-macos-${architecture}.json`,
+        `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.2.0/latest-macos-${architecture}.json.sig`,
+        `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v${NEXT_VERSION}/latest-macos-${architecture}.json`,
+        `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v${NEXT_VERSION}/latest-macos-${architecture}.json.sig`,
+        `https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v${NEXT_VERSION}/${filename}`,
+      ])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 })

@@ -43,7 +43,7 @@ test("checks the Windows packaged updater destination and product name", async (
     await mkdir(path.join(unpacked, "resources"), { recursive: true })
     const update = path.join(unpacked, "resources/app-update.yml")
     const executable = path.join(unpacked, "Buddy Beta.exe")
-    await Bun.write(update, "provider: github\nowner: prashantbhudwal\nrepo: buddy-beta-releases\n")
+    await Bun.write(update, "provider: github\nowner: prashantbhudwal\nrepo: buddy-releases\n")
     await Bun.write(executable, "fixture")
     const input = {
       architecture: "x64" as const,
@@ -52,9 +52,9 @@ test("checks the Windows packaged updater destination and product name", async (
       distribution: BUDDY_DISTRIBUTIONS.beta,
     }
     await expect(verifyReleasePackageIdentity(input)).resolves.toBeUndefined()
-    await Bun.write(update, "provider: github\nowner: prashantbhudwal\nrepo: buddy-releases\n")
+    await Bun.write(update, "provider: github\nowner: prashantbhudwal\nrepo: wrong-releases\n")
     await expect(verifyReleasePackageIdentity(input)).rejects.toThrow("Windows updater destination")
-    await Bun.write(update, "provider: github\nowner: prashantbhudwal\nrepo: buddy-beta-releases\n")
+    await Bun.write(update, "provider: github\nowner: prashantbhudwal\nrepo: buddy-releases\n")
     await rm(executable)
     await expect(verifyReleasePackageIdentity(input)).rejects.toThrow("Windows product name")
   } finally {

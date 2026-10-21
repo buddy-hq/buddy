@@ -7,6 +7,8 @@ import { pipeline } from "node:stream/promises"
 import { fileURLToPath } from "node:url"
 import { createZstdDecompress } from "node:zlib"
 import z from "zod"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
+import { formatReleaseTag } from "@buddy/script/release-stream"
 import {
   parseKnowledgeGraphArtifactManifest,
   type KnowledgeGraphArtifactManifest,
@@ -165,7 +167,9 @@ function releaseAssetBaseUrl() {
     return configured.replace(/\/+$/, "")
   }
 
-  return `https://github.com/${releaseRepository()}/releases/download/v${releaseTagVersion()}`
+  const distribution =
+    process.env.BUDDY_CHANNEL === "beta" ? BUDDY_DISTRIBUTIONS.beta : BUDDY_DISTRIBUTIONS.prod
+  return `https://github.com/${releaseRepository()}/releases/download/${formatReleaseTag(distribution, releaseTagVersion())}`
 }
 
 function runtimeAssetUrl(filename: string) {

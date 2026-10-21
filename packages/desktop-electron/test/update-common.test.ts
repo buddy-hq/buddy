@@ -8,6 +8,7 @@ import {
   resolveUpdatePublicKeyOverride,
   resolveLatestRingAssetUrl,
   resolveVersionedReleaseAssetUrls,
+  resolveManualDownloadUrl,
   SignedUpdateFetchError,
 } from "../src/main/update-common"
 import { resolveWindowsUpdateManifestFilename } from "../src/shared/release-asset-names"
@@ -144,7 +145,7 @@ describe("update common", () => {
 
 describe("Beta update distribution", () => {
   test.each(["stable", "preview"] as const)(
-    "%s discovers only the highest non-draft numeric Beta release",
+    "%s discovers only published pre-releases in the Beta tag namespace",
     async (ring) => {
       const requested: string[] = []
       globalThis.fetch = createTestFetch(async (url) => {
@@ -153,6 +154,13 @@ describe("Beta update distribution", () => {
           { draft: true, prerelease: true, tag_name: "v9.0.0" },
           { draft: false, prerelease: false, tag_name: "v1.9.0" },
           { draft: false, prerelease: true, tag_name: "v2.0.0" },
+          { draft: false, prerelease: false, tag_name: "v99.0.0" },
+          { draft: false, prerelease: true, tag_name: "beta-v2.0.0" },
+          { draft: false, prerelease: true, tag_name: "beta-v1.9.0" },
+          { draft: false, prerelease: false, tag_name: "beta-v8.0.0" },
+          { draft: true, prerelease: true, tag_name: "beta-v9.0.0" },
+          { draft: false, prerelease: true, tag_name: "skill-artifacts" },
+          { draft: false, prerelease: true, tag_name: "beta-v3.0" },
           { draft: false, prerelease: true, tag_name: "beta-current" },
         ])
       })
@@ -163,10 +171,10 @@ describe("Beta update distribution", () => {
           ring,
         }),
       ).resolves.toBe(
-        "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml",
+        "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/latest-windows-x64.yml",
       )
       expect(requested).toEqual([
-        "https://api.github.com/repos/prashantbhudwal/buddy-beta-releases/releases?per_page=100",
+        "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
       ])
     },
   )
@@ -188,7 +196,7 @@ describe("Beta update distribution", () => {
         version: "2.0.0",
       }),
     ).toEqual([
-      "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-mac-arm64.json",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/latest-mac-arm64.json",
     ])
   })
 
@@ -201,20 +209,21 @@ describe("Beta update distribution", () => {
     await expect(
       fetchSignedText({
         distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: null },
-        url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest.yml",
+        url: "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/latest.yml",
       }),
     ).rejects.toBeInstanceOf(UpdatesNotConfiguredError)
     expect(requested).toEqual([])
   })
 
-  test("rejects absolute assets from the prod repository", () => {
-    expect(() =>
-      resolveReleaseAssetUrl(
-        "2.0.0",
-        "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.0.0/update.zip",
-        BUDDY_DISTRIBUTIONS.beta,
-      ),
-    ).toThrow("Beta update assets")
+  test.each([
+    "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.0.0/update.zip",
+    "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v1.0.0/update.zip",
+    "../v2.0.0/update.zip",
+    "https://example.invalid/releases/download/beta-v2.0.0/update.zip",
+  ])("rejects Beta pinned assets outside their exact Beta tag: %s", (url) => {
+    expect(() => resolveReleaseAssetUrl("2.0.0", url, BUDDY_DISTRIBUTIONS.beta)).toThrow(
+      "Beta update assets",
+    )
   })
 
   test("ignores ambient key overrides for Beta while preserving prod overrides", () => {
@@ -234,7 +243,7 @@ test("Beta signed text supports an explicit test key without falling back to the
   const content = '{"version":"2.0.0"}'
   const fixture = signedUpdateFixture(content)
   const url =
-    "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/metadata.json"
+    "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/metadata.json"
   globalThis.fetch = createTestFetch(
     async (input) => new Response(String(input).endsWith(".sig") ? fixture.signature : content),
   )
@@ -262,11 +271,11 @@ test("Beta discovery includes higher numeric versions on later release pages", a
     requested.push(String(url))
     return Response.json(
       String(url).endsWith("&page=2")
-        ? [{ draft: false, prerelease: true, tag_name: "v3.0.0" }]
+        ? [{ draft: false, prerelease: true, tag_name: "beta-v3.0.0" }]
         : Array.from({ length: 100 }, (_, index) => ({
             draft: false,
-            prerelease: false,
-            tag_name: `v1.0.${index}`,
+            prerelease: true,
+            tag_name: index === 0 ? "beta-v2.0.0" : `v1.0.${index}`,
           })),
     )
   })
@@ -277,10 +286,147 @@ test("Beta discovery includes higher numeric versions on later release pages", a
       ring: "preview",
     }),
   ).resolves.toBe(
-    "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v3.0.0/latest-windows-x64.yml",
+    "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v3.0.0/latest-windows-x64.yml",
   )
   expect(requested).toEqual([
-    "https://api.github.com/repos/prashantbhudwal/buddy-beta-releases/releases?per_page=100",
-    "https://api.github.com/repos/prashantbhudwal/buddy-beta-releases/releases?per_page=100&page=2",
+    "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
+    "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100&page=2",
   ])
+})
+
+test.each(["prod", "beta"] as const)(
+  "%s discovery traverses several full mixed pages and an exactly-full final page",
+  async (id) => {
+    const requested: string[] = []
+    globalThis.fetch = createTestFetch(async (url) => {
+      requested.push(String(url))
+      const page = Number(new URL(String(url)).searchParams.get("page") ?? "1")
+      if (page === 5) return Response.json([])
+      return Response.json(
+        Array.from({ length: 100 }, (_, index) => ({
+          draft: false,
+          prerelease: true,
+          tag_name:
+            page < 3
+              ? id === "beta"
+                ? "v99.0.0"
+                : "beta-v99.0.0"
+              : index === 0
+                ? `${id === "beta" ? "beta-v" : "v"}${page}.0.0`
+                : "skill-artifacts",
+        })),
+      )
+    })
+    await expect(
+      resolveLatestRingAssetUrl({
+        distribution: BUDDY_DISTRIBUTIONS[id],
+        filename: "latest-windows-x64.yml",
+        ring: "preview",
+      }),
+    ).resolves.toBe(
+      `https://github.com/prashantbhudwal/buddy-releases/releases/download/${id === "beta" ? "beta-v" : "v"}4.0.0/latest-windows-x64.yml`,
+    )
+    expect(requested).toEqual([
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100&page=2",
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100&page=3",
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100&page=4",
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100&page=5",
+    ])
+  },
+)
+
+test.each(["network", "http", "json", "shape", "record"] as const)(
+  "Beta discovery rejects a partial winner after a later-page %s failure",
+  async (failure) => {
+    const requested: string[] = []
+    globalThis.fetch = createTestFetch(async (url) => {
+      requested.push(String(url))
+      if (String(url).includes("&page=2")) {
+        if (failure === "network") throw new Error("offline")
+        if (failure === "http") return new Response("unavailable", { status: 503 })
+        if (failure === "json") return new Response("not JSON")
+        return Response.json(failure === "shape" ? {} : [{ tag_name: "beta-v9.0.0" }])
+      }
+      return Response.json(
+        Array.from({ length: 100 }, () => ({
+          draft: false,
+          prerelease: true,
+          tag_name: "beta-v2.0.0",
+        })),
+      )
+    })
+    await expect(
+      resolveLatestRingAssetUrl({
+        distribution: BUDDY_DISTRIBUTIONS.beta,
+        filename: "recovery-policy.json",
+        ring: "stable",
+      }),
+    ).rejects.toThrow()
+    expect(requested).toEqual([
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100&page=2",
+    ])
+  },
+)
+
+test("release discovery refuses an endless release list instead of selecting from part of it", async () => {
+  let requests = 0
+  globalThis.fetch = createTestFetch(async () => {
+    requests += 1
+    return Response.json(
+      Array.from({ length: 100 }, () => ({
+        draft: false,
+        prerelease: true,
+        tag_name: "beta-v2.0.0",
+      })),
+    )
+  })
+  await expect(
+    resolveLatestRingAssetUrl({
+      distribution: BUDDY_DISTRIBUTIONS.beta,
+      filename: "recovery-policy.json",
+      ring: "stable",
+    }),
+  ).rejects.toThrow(/exceeded 50 pages/)
+  expect(requests).toBe(50)
+})
+
+test("prod Preview retains its latest fallback and prod assets retain absolute URL acceptance", async () => {
+  globalThis.fetch = createTestFetch(async () =>
+    Response.json([{ draft: false, prerelease: true, tag_name: "beta-v9.0.0" }]),
+  )
+  await expect(
+    resolveLatestRingAssetUrl({ filename: "latest.yml", ring: "preview" }),
+  ).resolves.toBe(
+    "https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/latest.yml",
+  )
+  expect(
+    resolveReleaseAssetUrl("2.0.0", "https://example.invalid/update.zip", BUDDY_DISTRIBUTIONS.prod),
+  ).toBe("https://example.invalid/update.zip")
+})
+
+test("manual downloads resolve Beta's newest page and preserve prod latest without discovery", async () => {
+  globalThis.fetch = createTestFetch(async () =>
+    Response.json([
+      { draft: false, prerelease: false, tag_name: "v99.0.0" },
+      { draft: false, prerelease: true, tag_name: "beta-v2.0.0" },
+    ]),
+  )
+  await expect(resolveManualDownloadUrl(BUDDY_DISTRIBUTIONS.beta)).resolves.toBe(
+    "https://github.com/prashantbhudwal/buddy-releases/releases/tag/beta-v2.0.0",
+  )
+  globalThis.fetch = createTestFetch(async () => {
+    throw new Error("offline")
+  })
+  await expect(resolveManualDownloadUrl(BUDDY_DISTRIBUTIONS.prod)).resolves.toBe(
+    "https://github.com/prashantbhudwal/buddy-releases/releases/latest",
+  )
+  await expect(resolveManualDownloadUrl(BUDDY_DISTRIBUTIONS.beta)).resolves.toBe(
+    "https://github.com/prashantbhudwal/buddy-releases/releases?q=beta-v",
+  )
+  globalThis.fetch = createTestFetch(async () => Response.json([]))
+  await expect(resolveManualDownloadUrl(BUDDY_DISTRIBUTIONS.beta)).resolves.toBe(
+    "https://github.com/prashantbhudwal/buddy-releases/releases?q=beta-v",
+  )
 })

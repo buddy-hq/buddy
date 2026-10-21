@@ -7,7 +7,9 @@ import {
   fetchSignedElectronUpdateManifest,
   resolveLatestRingAssetUrl,
   resolveReleaseAssetUrl,
-  resolveReleaseTagDownloadBaseUrl,
+  resolveReleaseDownloadBaseUrl,
+  resolveReleaseStreamAssetUrl,
+  isReleaseStreamAssetUrl,
   resolveVersionedReleaseAssetUrls,
   resolveUpdatePublicKeyOverride,
   resolveUpdateVerificationPublicKey,
@@ -67,11 +69,25 @@ export async function fetchWindowsUpdateManifest(input: {
   let lastError: unknown
   for (const [index, manifestUrl] of manifestUrls.entries()) {
     try {
-      return await fetchSignedElectronUpdateManifest({
+      const manifest = await fetchSignedElectronUpdateManifest({
         distribution,
         publicKey,
         url: manifestUrl,
       })
+      if (distribution.id === "beta") {
+        if (input.expectedVersion && manifest.version !== input.expectedVersion) {
+          throw new Error(
+            `Signed update manifest version mismatch: expected ${input.expectedVersion}, got ${manifest.version}`,
+          )
+        }
+        absolutizeManifestUrls(
+          manifest.content,
+          manifest.version,
+          distribution,
+          input.expectedVersion ? "version" : "stream",
+        )
+      }
+      return manifest
     } catch (error) {
       lastError = error
       const fallbackUrl = manifestUrls[index + 1]
@@ -116,10 +132,11 @@ export async function startWindowsUpdateFeed(input: {
   version: string
   distribution?: BuddyDistribution
 }): Promise<WindowsUpdateFeed> {
-  const manifestContent = absolutizeElectronUpdateManifestUrls(
+  const manifestContent = absolutizeManifestUrls(
     input.content,
     input.version,
-    input.distribution,
+    input.distribution ?? UPDATE_DISTRIBUTION,
+    "stream",
   )
   const server = createServer((request, response) => {
     const requestUrl = parseRequestUrl(request.url)
@@ -158,12 +175,21 @@ export function absolutizeElectronUpdateManifestUrls(
   version: string,
   distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
 ): string {
+  return absolutizeManifestUrls(content, version, distribution, "version")
+}
+
+function absolutizeManifestUrls(
+  content: string,
+  version: string,
+  distribution: BuddyDistribution,
+  scope: "stream" | "version",
+): string {
   const manifestContent = content
     .split(/\r?\n/u)
-    .map((line) => absolutizeElectronUpdateManifestUrlLine(line, version, distribution))
+    .map((line) => absolutizeElectronUpdateManifestUrlLine(line, version, distribution, scope))
     .join("\n")
   if (distribution.id === "beta") {
-    const releaseBaseUrl = resolveReleaseTagDownloadBaseUrl(`v${version}`, distribution)
+    const releaseBaseUrl = resolveReleaseDownloadBaseUrl(version, distribution)
     // The generic provider resolves against loopback; unrewritten relative URLs must fail closed.
     const feedBaseUrl = new URL(`http://${WINDOWS_UPDATE_FEED_HOSTNAME}/`)
     const updateInfo = parseUpdateInfo(
@@ -171,10 +197,14 @@ export function absolutizeElectronUpdateManifestUrls(
       WINDOWS_UPDATE_MANIFEST_FILENAME,
       new URL(WINDOWS_UPDATE_MANIFEST_PATHNAME, feedBaseUrl),
     )
+    const belongsToRelease = (url: URL) =>
+      scope === "version"
+        ? url.href.startsWith(releaseBaseUrl)
+        : isReleaseStreamAssetUrl(url, distribution)
     for (const file of resolveFiles(updateInfo, feedBaseUrl)) {
       if (
-        !file.url.href.startsWith(releaseBaseUrl) ||
-        (file.packageInfo && !file.packageInfo.path.startsWith(releaseBaseUrl))
+        !belongsToRelease(file.url) ||
+        (file.packageInfo && !belongsToRelease(new URL(file.packageInfo.path, feedBaseUrl)))
       ) {
         throw new Error("Beta update assets must belong to the Beta release repository and tag")
       }
@@ -187,6 +217,7 @@ function absolutizeElectronUpdateManifestUrlLine(
   line: string,
   version: string,
   distribution: BuddyDistribution,
+  scope: "stream" | "version",
 ): string {
   const match = line.match(/^(\s*(?:-\s*)?(?:url|path):\s*)(.+?)(\s*)$/u)
   if (!match) return line
@@ -198,7 +229,10 @@ function absolutizeElectronUpdateManifestUrlLine(
       ? rawValue[0]
       : undefined
   const value = quote ? rawValue.slice(1, -1) : rawValue
-  const absoluteUrl = resolveReleaseAssetUrl(version, value, distribution)
+  const absoluteUrl =
+    scope === "stream"
+      ? resolveReleaseStreamAssetUrl(version, value, distribution)
+      : resolveReleaseAssetUrl(version, value, distribution)
   if (absoluteUrl === value) return line
   return `${prefix}${quote ?? ""}${absoluteUrl}${quote ?? ""}${suffix}`
 }

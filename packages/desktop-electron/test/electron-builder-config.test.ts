@@ -36,7 +36,7 @@ describe("electron-builder config", () => {
     expect(beta.publish).toEqual({
       provider: "github",
       owner: "prashantbhudwal",
-      repo: "buddy-beta-releases",
+      repo: "buddy-releases",
       channel: "latest",
     })
     expect(beta.extraMetadata).toEqual({ ...config.extraMetadata, name: "buddy-desktop-beta" })

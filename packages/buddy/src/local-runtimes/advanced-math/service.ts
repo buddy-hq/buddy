@@ -6,6 +6,8 @@ import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import z from "zod"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
+import { formatReleaseTag } from "@buddy/script/release-stream"
 import { parseTJsonObject, parseTString, type TJsonObject } from "../../http/parse"
 import { BUDDY_ENV } from "../../storage"
 import { Global } from "../../storage/global"
@@ -176,7 +178,9 @@ function releaseAssetBaseUrl() {
     return configured.replace(/\/+$/, "")
   }
 
-  return `https://github.com/${releaseRepository()}/releases/download/v${releaseTagVersion()}`
+  const distribution =
+    process.env.BUDDY_CHANNEL === "beta" ? BUDDY_DISTRIBUTIONS.beta : BUDDY_DISTRIBUTIONS.prod
+  return `https://github.com/${releaseRepository()}/releases/download/${formatReleaseTag(distribution, releaseTagVersion())}`
 }
 
 function releaseBundleFilename() {
