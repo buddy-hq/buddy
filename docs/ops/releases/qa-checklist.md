@@ -141,10 +141,11 @@ Run these checks separately on macOS Apple Silicon, macOS Intel, and Windows x64
 - [ ] Windows: confirm separate Buddy and Buddy Beta install locations, Start menu entries, uninstall entries, and updater caches. The Beta installer must leave production Buddy available.
 - [ ] Open a fresh Beta notebook and set a distinct preference. Confirm production user state, credentials, notebooks, and preferences remain intact and separate; check persistence after quitting and relaunching each application.
 - [ ] Confirm `buddy://` opens production Buddy and `buddy-beta://` opens Buddy Beta, including when both applications are installed.
-- [ ] Publish a higher Beta version. On each platform, use Beta's update check to download, install, and restart into that version. Confirm updater manifest URLs point to `prashantbhudwal/buddy-beta-releases` and signatures use the Beta public key.
-- [ ] Confirm the production installation still runs its previous version and its update check uses `prashantbhudwal/buddy-releases`.
+- [ ] Publish a higher Beta version. On each platform, use Beta's update check to download, install, and restart into that version. Confirm updater manifest URLs point to a `beta-v` release in `prashantbhudwal/buddy-releases` and signatures use the Beta public key.
+- [ ] Confirm the production installation still runs its previous version and is offered no Beta release on either the Stable or the Preview ring.
+- [ ] After publishing Beta, confirm `gh release view --repo prashantbhudwal/buddy-releases` (latest) still shows the same Stable tag, and the Beta release is a pre-release with no visible notes.
 - [ ] Publish a later partial Beta release after the initial release has all three targets. For an omitted target, confirm its signed Beta feed is carried forward and still installs the previous compatible Beta artifact.
 - [ ] Retry a frozen Beta workflow and verify no asset bytes change. Confirm a lower-version cut and Beta promotion are rejected.
 - [ ] Roll forward to another higher Beta version and confirm Beta data survives the update on both platforms.
 
-**Pass:** Both distributions remain independently installable and update only within their own repository/key/identity boundary.
+**Pass:** Both distributions remain independently installable and update only within their own tag namespace, key, and app identity.
