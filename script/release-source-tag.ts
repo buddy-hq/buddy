@@ -1,7 +1,8 @@
 import { $ } from "bun"
 import { z } from "zod"
 
-import { sourceReleaseTag } from "./release/distribution-guard"
+import { assertReleaseTag } from "@buddy/script/release-stream"
+import { releaseDistribution, sourceReleaseTag } from "./release/distribution-guard"
 
 export type SourceTagState = "created" | "existing"
 
@@ -110,18 +111,12 @@ if (import.meta.main) {
   const repository = process.env.BUDDY_RELEASE_SOURCE_REPOSITORY?.trim()
   const releaseTag = process.env.BUDDY_RELEASE_TAG?.trim()
   const target = process.env.BUDDY_RELEASE_SOURCE_SHA?.trim().toLowerCase()
-  if (
-    !repository ||
-    !releaseTag ||
-    !/^v\d+\.\d+\.\d+$/u.test(releaseTag) ||
-    !target ||
-    !/^[0-9a-f]{40}$/u.test(target)
-  ) {
+  if (!repository || !releaseTag || !target || !/^[0-9a-f]{40}$/u.test(target)) {
     throw new Error(
       "BUDDY_RELEASE_SOURCE_REPOSITORY, BUDDY_RELEASE_TAG, and a full BUDDY_RELEASE_SOURCE_SHA are required",
     )
   }
-  const tag = sourceReleaseTag(releaseTag.slice(1))
+  const tag = sourceReleaseTag(assertReleaseTag(releaseDistribution(), releaseTag))
   const state = await ensureGithubSourceTag({ repository, tag, target })
   console.log(`Source tag ${repository}@${tag} is ${state} at ${target}`)
 }

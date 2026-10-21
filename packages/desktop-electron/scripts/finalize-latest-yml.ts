@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { formatReleaseTag } from "@buddy/script/release-stream"
 import { assertLegacyProdRelease } from "../../../script/release/distribution-guard"
 import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
 import { createHash } from "node:crypto"
@@ -233,7 +234,7 @@ if (!outputs["latest-mac.yml"]) {
   }
 }
 
-const tag = `v${releaseVersion}`
+const tag = formatReleaseTag(BUDDY_DISTRIBUTIONS.prod, releaseVersion)
 const tmp = process.env.RUNNER_TEMP ?? "/tmp"
 ensureTauriSigningKeyPresent()
 const tauriSigner = await requireTauriSignerBinaryPath()

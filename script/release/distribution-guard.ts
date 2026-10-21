@@ -7,6 +7,11 @@ import {
   type BuddyDistribution,
   type BuddyDistributionId,
 } from "@buddy/script/distribution"
+import {
+  assertReleaseTag,
+  assertReleaseTagVersion,
+  formatReleaseTag,
+} from "@buddy/script/release-stream"
 import { highestPublishedBetaVersion } from "./beta-publication"
 
 /** Release commands default to prod; dev and unknown channels are never publishable. */
@@ -46,6 +51,17 @@ export function assertReleaseDestination(
   return distribution
 }
 
+/** Require both the shared repository and the selected stream's release namespace. */
+export function assertReleaseTagDestination(
+  repository: string,
+  tag: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): BuddyDistribution {
+  const distribution = assertReleaseDestination(repository, environment)
+  assertReleaseTag(distribution, tag)
+  return distribution
+}
+
 export function sourceReleaseTag(
   version: string,
   environment: NodeJS.ProcessEnv = process.env,
@@ -60,11 +76,17 @@ export function releaseChannelIdentity(environment: NodeJS.ProcessEnv): { channe
 }
 
 export function assertReleaseRecordChannel(
-  record: { channel?: "beta" },
+  record: { channel?: "beta"; tag?: string; version?: string },
   channel: BuddyDistributionId,
 ): void {
   if ((record.channel ?? "prod") !== channel) {
     throw new Error(`Release record channel ${record.channel ?? "prod"} conflicts with ${channel}`)
+  }
+  if (record.tag !== undefined) {
+    assertReleaseTag(BUDDY_DISTRIBUTIONS[channel], record.tag)
+    if (record.version !== undefined) {
+      assertReleaseTagVersion(BUDDY_DISTRIBUTIONS[channel], record.tag, record.version)
+    }
   }
 }
 
@@ -72,12 +94,20 @@ export function assertLegacyProdRelease(environment: NodeJS.ProcessEnv = process
   const distribution = releaseDistribution(environment)
   if (distribution.id !== "prod") throw new Error("Legacy direct uploads do not support beta")
   assertReleaseDestination(formatReleaseRepositorySlug(distribution), environment)
+  const tag = environment.BUDDY_RELEASE_TAG?.trim()
+  if (tag) {
+    assertReleaseTag(distribution, tag)
+    const version = environment.BUDDY_VERSION?.trim()
+    if (version) assertReleaseTagVersion(distribution, tag, version)
+  }
 }
 
 if (import.meta.main) {
   const distribution = assertReleaseDestination(formatReleaseRepositorySlug(releaseDistribution()))
   const publicKey = requireUpdaterPublicKey(distribution)
   const version = process.env.BUDDY_VERSION?.trim() ?? ""
+  const tag = process.env.BUDDY_RELEASE_TAG?.trim() || formatReleaseTag(distribution, version)
+  assertReleaseTagVersion(distribution, tag, version)
   console.log(
     `Release destination: ${formatReleaseRepositorySlug(distribution)}; source tag: ${sourceReleaseTag(version)}; updater key: ${publicKey}`,
   )

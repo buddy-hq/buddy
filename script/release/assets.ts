@@ -7,7 +7,7 @@ import { z } from "zod"
 import { RELEASE_FREEZE_FILENAME } from "./constants"
 
 import { requireUpdaterPublicKey } from "@buddy/script/distribution"
-import { assertReleaseDestination } from "./distribution-guard"
+import { assertReleaseTagDestination } from "./distribution-guard"
 
 const SHA256_DIGEST_PREFIX = "sha256:"
 const ASSET_DIGEST_ATTEMPTS = 5
@@ -69,14 +69,17 @@ export function parseGithubReleaseAssets<TValue>(value: TValue): GithubReleaseAs
 export async function readGithubReleaseAssets(
   repository: string,
   tag: string,
+  environment: NodeJS.ProcessEnv = process.env,
 ): Promise<GithubReleaseAsset[]> {
-  return (await readGithubReleaseState(repository, tag)).assets
+  return (await readGithubReleaseState(repository, tag, environment)).assets
 }
 
 export async function readGithubReleaseState(
   repository: string,
   tag: string,
+  environment: NodeJS.ProcessEnv = process.env,
 ): Promise<GithubReleaseState> {
+  assertReleaseTagDestination(repository, tag, environment)
   const value =
     await $`gh release view ${tag} --repo ${repository} --json assets,isDraft,isPrerelease`
       .quiet()
@@ -97,9 +100,10 @@ async function readGithubReleaseStateWithSettledAssetDigest(
   repository: string,
   tag: string,
   assetName: string,
+  environment: NodeJS.ProcessEnv,
 ): Promise<GithubReleaseState> {
   for (let attempt = 1; attempt <= ASSET_DIGEST_ATTEMPTS; attempt += 1) {
-    const release = await readGithubReleaseState(repository, tag)
+    const release = await readGithubReleaseState(repository, tag, environment)
     const asset = release.assets.find((candidate) => candidate.name === assetName)
     if (asset?.digest || attempt === ASSET_DIGEST_ATTEMPTS) return release
     await Bun.sleep(ASSET_DIGEST_RETRY_DELAY_MS)
@@ -166,19 +170,22 @@ export function releaseAssetDigestNeedsSettlement(
 }
 
 export async function uploadReleaseAssetSafely(input: {
+  environment?: NodeJS.ProcessEnv
   filePath: string
   repository: string
   tag: string
 }): Promise<ReleaseAssetDigest> {
-  requireUpdaterPublicKey(assertReleaseDestination(input.repository))
+  const environment = input.environment ?? process.env
+  requireUpdaterPublicKey(assertReleaseTagDestination(input.repository, input.tag, environment))
   const local = await localReleaseAssetDigest(input.filePath)
-  let release = await readGithubReleaseState(input.repository, input.tag)
+  let release = await readGithubReleaseState(input.repository, input.tag, environment)
   let existing = release.assets.find((asset) => asset.name === local.name)
   if (releaseAssetDigestNeedsSettlement(release, local.name)) {
     release = await readGithubReleaseStateWithSettledAssetDigest(
       input.repository,
       input.tag,
       local.name,
+      environment,
     )
     existing = release.assets.find((asset) => asset.name === local.name)
   }
@@ -194,7 +201,12 @@ export async function uploadReleaseAssetSafely(input: {
 
   await $`gh release upload ${input.tag} ${input.filePath} --repo ${input.repository}`
   const uploaded = (
-    await readGithubReleaseStateWithSettledAssetDigest(input.repository, input.tag, local.name)
+    await readGithubReleaseStateWithSettledAssetDigest(
+      input.repository,
+      input.tag,
+      local.name,
+      environment,
+    )
   ).assets.find((asset) => asset.name === local.name)
   if (!uploaded || !releaseAssetDigestsEqual(githubAssetDigest(uploaded), local)) {
     throw new Error(`Uploaded release asset did not match local bytes: ${local.name}`)
@@ -204,11 +216,13 @@ export async function uploadReleaseAssetSafely(input: {
 }
 
 export async function downloadReleaseAsset(input: {
+  environment?: NodeJS.ProcessEnv
   directory: string
   name: string
   repository: string
   tag: string
 }): Promise<string> {
+  assertReleaseTagDestination(input.repository, input.tag, input.environment)
   await mkdir(input.directory, { recursive: true })
   const outputPath = path.join(input.directory, input.name)
   await rm(outputPath, { force: true })

@@ -29,16 +29,19 @@ import {
   type ReleasePlan,
 } from "./plan"
 
-import { assertReleaseDestination, releaseDistribution } from "./distribution-guard"
-import type { BuddyDistributionId } from "@buddy/script/distribution"
+import { assertReleaseTagDestination, releaseDistribution } from "./distribution-guard"
+import type { BuddyDistribution, BuddyDistributionId } from "@buddy/script/distribution"
+import { assertReleaseTagVersion, isPublishedStreamRelease } from "@buddy/script/release-stream"
 
 const TRUE_ENV_VALUE = "1"
 const REUSED_ARM64_OUTPUT = "reused_macos_arm64"
 const REUSED_X64_OUTPUT = "reused_macos_x64"
 
 const publishedReleaseSchema = z.object({
-  publishedAt: z.string().min(1),
-  tagName: z.string().min(1),
+  published_at: z.string().nullable(),
+  tag_name: z.string().min(1),
+  draft: z.boolean(),
+  prerelease: z.boolean(),
 })
 
 function requiredEnvironmentValue(environment: NodeJS.ProcessEnv, key: string): string {
@@ -86,17 +89,28 @@ function writeReuseOutputs(
 async function previousPublishedReleaseTags(
   repository: string,
   currentTag: string,
+  distribution: BuddyDistribution,
 ): Promise<string[]> {
   const value =
-    await Bun.$`gh release list --repo ${repository} --exclude-drafts --limit 100 --json tagName,publishedAt`
+    await Bun.$`gh api --paginate --slurp ${`repos/${repository}/releases?per_page=100`}`
       .quiet()
       .json()
   return z
-    .array(publishedReleaseSchema)
+    .array(z.array(publishedReleaseSchema))
     .parse(value)
-    .filter((release) => release.tagName !== currentTag)
-    .toSorted((left, right) => right.publishedAt.localeCompare(left.publishedAt))
-    .map((release) => release.tagName)
+    .flat()
+    .filter(
+      (release) =>
+        release.tag_name !== currentTag &&
+        release.published_at !== null &&
+        isPublishedStreamRelease(distribution, {
+          tagName: release.tag_name,
+          isDraft: release.draft,
+          isPrerelease: release.prerelease,
+        }),
+    )
+    .toSorted((left, right) => (right.published_at ?? "").localeCompare(left.published_at ?? ""))
+    .map((release) => release.tag_name)
 }
 
 async function downloadedRuntimeIsValid(directory: string, archiveName: string): Promise<boolean> {
@@ -151,6 +165,7 @@ async function tryReuseTarget(input: {
   try {
     for (const name of names) {
       await downloadReleaseAsset({
+        environment: input.environment,
         directory: input.temporaryDirectory,
         name,
         repository: input.repository,
@@ -204,11 +219,13 @@ async function readReusablePreviousPlan(input: {
   try {
     const previousDirectory = path.join(input.temporaryDirectory, "previous-release")
     const freeze = await verifyReleaseFreeze({
+      environment: input.environment,
       directory: previousDirectory,
       repository: input.repository,
       tag: input.previousTag,
     })
     const planPath = await downloadReleaseAsset({
+      environment: input.environment,
       directory: previousDirectory,
       name: RELEASE_PLAN_FILENAME,
       repository: input.repository,
@@ -242,11 +259,12 @@ async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void>
   }
 
   const repository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_REPO")
-  assertReleaseDestination(repository, environment)
   const tag = requiredEnvironmentValue(environment, "BUDDY_RELEASE_TAG")
+  const distribution = assertReleaseTagDestination(repository, tag, environment)
+  assertReleaseTagVersion(distribution, tag, requiredEnvironmentValue(environment, "BUDDY_VERSION"))
   const dryRun = environment.BUDDY_RELEASE_DRY_RUN?.trim() === TRUE_ENV_VALUE
   if (!dryRun) {
-    const release = await readGithubReleaseState(repository, tag)
+    const release = await readGithubReleaseState(repository, tag, environment)
     if (release.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)) {
       await writeReuseOutputs([], environment)
       console.log(`Advanced math reuse skipped for frozen release ${tag}`)
@@ -255,7 +273,7 @@ async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void>
     if (!release.isDraft) throw new Error(`Published release ${repository}@${tag} has no freeze`)
   }
 
-  const previousTags = await previousPublishedReleaseTags(repository, tag)
+  const previousTags = await previousPublishedReleaseTags(repository, tag, distribution)
   if (previousTags.length === 0) {
     await writeReuseOutputs([], environment)
     console.log("No previous published release can provide advanced math runtime assets")
@@ -272,7 +290,7 @@ async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void>
       }
     | undefined
   for (const previousTag of previousTags) {
-    const previousAssets = await readGithubReleaseAssets(repository, previousTag)
+    const previousAssets = await readGithubReleaseAssets(repository, previousTag, environment)
     const reusable = await readReusablePreviousPlan({
       environment,
       previousAssets,

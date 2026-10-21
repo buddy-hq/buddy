@@ -167,3 +167,45 @@ describe("omitted target feeds", () => {
     }
   })
 })
+
+describe("mixed repository feed selection", () => {
+  test.each(["prod", "beta"] as const)(
+    "%s selects its highest complete feed across every page",
+    async (channel) => {
+      const { BUDDY_DISTRIBUTIONS } = await import("@buddy/script/distribution")
+      const { selectNewestPublishedReleaseWithAssets } = await import("./published-manifest")
+      const release = (
+        tag: string,
+        input: { draft?: boolean; prerelease?: boolean; complete?: boolean } = {},
+      ) => ({
+        tag_name: tag,
+        draft: input.draft ?? false,
+        prerelease: input.prerelease ?? true,
+        published_at: "2026-01-01T00:00:00Z",
+        assets: (input.complete === false ? [MANIFEST] : [MANIFEST, `${MANIFEST}.sig`]).map(
+          (name) => ({ name }),
+        ),
+      })
+      const result = selectNewestPublishedReleaseWithAssets({
+        distribution: BUDDY_DISTRIBUTIONS[channel],
+        currentTag: channel === "prod" ? "v0.2.0" : "beta-v0.2.0",
+        requiredAssetNames: [MANIFEST, `${MANIFEST}.sig`],
+        value: [
+          [
+            ...Array.from({ length: 100 }, () => release("skill-artifacts")),
+            release("v99.0.0", { draft: true }),
+            release("beta-v99.0.0", { draft: true }),
+            release("beta-v98.0.0", { prerelease: false }),
+            release("beta-v1.0.0-rc.1"),
+            release("v1.0.0-rc.1"),
+            release("v0.1.1", { complete: false }),
+            release("beta-v0.1.1", { complete: false }),
+          ],
+          [release("v0.1.0", { prerelease: false }), release("beta-v0.1.0")],
+          [release("v0.1.2"), release("beta-v0.1.2")],
+        ],
+      })
+      expect(result?.tag).toBe(channel === "prod" ? "v0.1.2" : "beta-v0.1.2")
+    },
+  )
+})

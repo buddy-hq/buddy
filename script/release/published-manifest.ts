@@ -1,17 +1,24 @@
 import { $ } from "bun"
 import { z } from "zod"
+import type { BuddyDistribution } from "@buddy/script/distribution"
+import {
+  assertReleaseTag,
+  compareReleaseVersions,
+  isPublishedStreamRelease,
+} from "@buddy/script/release-stream"
+import { assertReleaseTagDestination, releaseDistribution } from "./distribution-guard"
 
 const GITHUB_RELEASE_PAGE_SIZE = 100
 
 const publishedReleaseSchema = z.object({
   assets: z.array(z.object({ name: z.string().min(1) })),
   draft: z.boolean(),
+  prerelease: z.boolean().default(false),
   published_at: z.string().nullable(),
   tag_name: z.string().min(1),
 })
 
 const publishedReleasePagesSchema = z.array(z.array(publishedReleaseSchema))
-const releaseTagPattern = /^v(\d+)\.(\d+)\.(\d+)$/u
 
 export type PublishedReleaseWithAssets = {
   assetNames: string[]
@@ -19,38 +26,27 @@ export type PublishedReleaseWithAssets = {
   tag: string
 }
 
-function releaseVersionParts(tag: string): readonly [number, number, number] | undefined {
-  const match = tag.match(releaseTagPattern)
-  if (!match) return undefined
-  return [Number(match[1]), Number(match[2]), Number(match[3])]
-}
-
-function compareReleaseTags(left: string, right: string): number {
-  const leftParts = releaseVersionParts(left)
-  const rightParts = releaseVersionParts(right)
-  if (!leftParts || !rightParts) return 0
-  for (let index = 0; index < leftParts.length; index += 1) {
-    const difference = (leftParts[index] ?? 0) - (rightParts[index] ?? 0)
-    if (difference !== 0) return difference
-  }
-  return 0
-}
-
 export function selectNewestPublishedReleaseWithAssets(input: {
+  distribution?: BuddyDistribution
   currentTag: string
   requiredAssetNames: readonly string[]
   value: unknown
 }): PublishedReleaseWithAssets | undefined {
+  const distribution = input.distribution ?? releaseDistribution()
+  assertReleaseTag(distribution, input.currentTag)
   const requiredNames = new Set(input.requiredAssetNames)
   return publishedReleasePagesSchema
     .parse(input.value)
     .flat()
     .filter(
       (release) =>
-        !release.draft &&
+        isPublishedStreamRelease(distribution, {
+          tagName: release.tag_name,
+          isDraft: release.draft,
+          isPrerelease: release.prerelease,
+        }) &&
         release.published_at !== null &&
         release.tag_name !== input.currentTag &&
-        releaseVersionParts(release.tag_name) !== undefined &&
         [...requiredNames].every((name) => release.assets.some((asset) => asset.name === name)),
     )
     .map((release) => ({
@@ -58,17 +54,28 @@ export function selectNewestPublishedReleaseWithAssets(input: {
       publishedAt: release.published_at ?? "",
       tag: release.tag_name,
     }))
-    .toSorted((left, right) => compareReleaseTags(right.tag, left.tag))[0]
+    .toSorted((left, right) =>
+      compareReleaseVersions(
+        assertReleaseTag(distribution, right.tag),
+        assertReleaseTag(distribution, left.tag),
+      ),
+    )[0]
 }
 
 export async function readNewestPublishedReleaseWithAssets(input: {
+  environment?: NodeJS.ProcessEnv
   currentTag: string
   repository: string
   requiredAssetNames: readonly string[]
 }): Promise<PublishedReleaseWithAssets | undefined> {
+  const distribution = assertReleaseTagDestination(
+    input.repository,
+    input.currentTag,
+    input.environment,
+  )
   const response =
     await $`gh api --paginate --slurp --method GET ${`repos/${input.repository}/releases`} -f ${`per_page=${GITHUB_RELEASE_PAGE_SIZE}`}`
       .quiet()
       .json()
-  return selectNewestPublishedReleaseWithAssets({ ...input, value: response })
+  return selectNewestPublishedReleaseWithAssets({ ...input, distribution, value: response })
 }

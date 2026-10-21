@@ -30,7 +30,7 @@ describe("release distribution boundary", () => {
           env: {
             ...process.env,
             BUDDY_CHANNEL: "beta",
-            BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-beta-releases",
+            BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases",
             GH_REPO: "",
             BUDDY_VERSION: "0.1.0",
           },
@@ -43,15 +43,16 @@ describe("release distribution boundary", () => {
   )
 
   test("guards explicit destinations before uploading", () => {
-    expect(() =>
-      assertReleaseDestination("prashantbhudwal/buddy-releases", { BUDDY_CHANNEL: "beta" }),
-    ).toThrow("conflicts with beta")
+    expect(
+      assertReleaseDestination("prashantbhudwal/buddy-releases", { BUDDY_CHANNEL: "beta" }).id,
+    ).toBe("beta")
     expect(() => assertReleaseDestination("prashantbhudwal/buddy-beta-releases", {})).toThrow(
       "conflicts with prod",
     )
-    expect(
-      assertReleaseDestination("prashantbhudwal/buddy-beta-releases", { BUDDY_CHANNEL: "beta" }).id,
-    ).toBe("beta")
+    expect(assertReleaseDestination("prashantbhudwal/buddy-releases", {}).id).toBe("prod")
+    expect(() =>
+      assertReleaseDestination("prashantbhudwal/buddy-beta-releases", { BUDDY_CHANNEL: "beta" }),
+    ).toThrow("conflicts with beta")
   })
 
   test("keeps release-repo versions numeric and source tags disjoint", () => {
@@ -80,10 +81,11 @@ describe("release distribution boundary", () => {
       ).text()
       expect(renderReleaseInstaller(source, "prod")).toBe(source)
       const beta = renderReleaseInstaller(source, "beta")
-      expect(beta).toContain("prashantbhudwal/buddy-beta-releases")
+      expect(beta).toContain("prashantbhudwal/buddy-releases")
       expect(beta).toContain("Downloads/buddy-beta-release")
       expect(beta).toContain("Buddy Beta installer")
-      expect(beta).not.toContain("prashantbhudwal/buddy-releases")
+      expect(beta).not.toContain("buddy-beta-releases")
+      expect(beta).not.toContain("/releases/latest")
       expect(beta).toContain("BUDDY_BETA_RELEASE_REPO")
       expect(beta).not.toContain("BUDDY_RELEASE_REPO")
       expect(beta).not.toContain("Buddy Beta Beta")

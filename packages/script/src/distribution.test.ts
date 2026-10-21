@@ -18,18 +18,19 @@ describe("Buddy distributions", () => {
     expect(requireUpdaterPublicKey(prod)).toStartWith("RW")
   })
 
-  test("beta shares no identity, scheme, repository, or tag namespace with prod", () => {
+  test("beta shares only the assets repository with prod, never an identity or tag namespace", () => {
     const { beta, prod } = BUDDY_DISTRIBUTIONS
     for (const key of [
       "productName",
       "appId",
       "protocol",
       "packageName",
-      "releaseRepository",
+      "releaseTagPrefix",
       "sourceTagPrefix",
     ] as const) {
       expect(beta[key]).not.toBe(prod[key])
     }
+    expect(formatReleaseRepositorySlug(beta)).toBe(formatReleaseRepositorySlug(prod))
     expect(formatSourceReleaseTag(beta, "0.1.0")).toBe("beta-v0.1.0")
     expect(beta.releaseBranch).toBe("beta")
   })

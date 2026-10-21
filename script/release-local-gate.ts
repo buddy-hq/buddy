@@ -11,6 +11,7 @@ import {
   resolveNativeReleaseSmokeTarget,
 } from "../packages/desktop-electron/scripts/release-smoke-target"
 import { releaseRepository } from "./release-repositories"
+import { assertReleaseTagVersion, formatReleaseTag } from "@buddy/script/release-stream"
 import { releaseDistribution } from "./release/distribution-guard"
 import { requireUpdaterPublicKey } from "@buddy/script/distribution"
 
@@ -175,7 +176,7 @@ function runProductionTargetSmoke(input: {
         BUDDY_RELEASE_DRY_RUN: "1",
         BUDDY_RELEASE_REPO: releaseRepository(),
         BUDDY_RELEASE_SELECTED_TARGETS_ONLY: "1",
-        BUDDY_RELEASE_TAG: `v${input.version}`,
+        BUDDY_RELEASE_TAG: formatReleaseTag(distribution, input.version),
         BUDDY_UPDATE_OUTPUT_DIR: manifestDirectory,
         ELECTRON_DIST_DIR: path.join(worktreeDirectory, "packages", "desktop-electron", "dist"),
       },
@@ -196,6 +197,11 @@ function runProductionTargetSmoke(input: {
 }
 
 const version = readRequiredFlag(VERSION_FLAG)
+const releaseTag = formatReleaseTag(distribution, version)
+if (process.env.BUDDY_RELEASE_TAG?.trim()) {
+  assertReleaseTagVersion(distribution, process.env.BUDDY_RELEASE_TAG.trim(), version)
+}
+assertReleaseTagVersion(distribution, releaseTag, version)
 const commit = resolveCommit(readRequiredFlag(COMMIT_FLAG))
 const selectedTargets = new Set(
   readRequiredFlag(SELECTED_TARGETS_FLAG)

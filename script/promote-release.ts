@@ -11,24 +11,25 @@ import { verifyReleaseFreeze } from "./release/freeze"
 import { parseReleasePlan, RELEASE_PLAN_FILENAME, type ReleasePlan } from "./release/plan"
 import { releaseRepository, repositoryParts } from "./release-repositories"
 
-import { BUDDY_DISTRIBUTIONS, formatReleaseRepositorySlug } from "@buddy/script/distribution"
-import { assertReleaseDestination, releaseDistribution } from "./release/distribution-guard"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
+import { assertReleaseTag, parseReleaseTag } from "@buddy/script/release-stream"
+import {
+  assertReleaseDestination,
+  assertReleaseRecordChannel,
+  releaseDistribution,
+} from "./release/distribution-guard"
 
 export function assertPromotionDestination(
   repo: string,
   environment: NodeJS.ProcessEnv = process.env,
 ): void {
-  if (
-    releaseDistribution(environment).id === "beta" ||
-    repo === formatReleaseRepositorySlug(BUDDY_DISTRIBUTIONS.beta)
-  ) {
-    throw new Error("Beta releases publish directly as latest; promotion is not supported")
+  if (releaseDistribution(environment).id === "beta") {
+    throw new Error("Beta releases cannot be promoted; promotion is not supported")
   }
   assertReleaseDestination(repo, environment)
 }
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
-const RELEASE_TAG_PATTERN = /^v\d+\.\d+\.\d+$/u
 
 export type GithubReleasePromotionState = {
   isDraft: boolean
@@ -49,7 +50,7 @@ function usage(): never {
 
 export function normalizePromotionTag(value: string | undefined): string {
   const tag = value?.trim() ?? ""
-  if (!RELEASE_TAG_PATTERN.test(tag)) {
+  if (parseReleaseTag(BUDDY_DISTRIBUTIONS.prod, tag) === undefined) {
     throw new Error(`Malformed release tag: ${tag || "empty"}`)
   }
 
@@ -71,6 +72,8 @@ export function assertPromotableRelease(
   release: GithubReleasePromotionState,
   expectedTag: string,
 ): void {
+  assertReleaseTag(BUDDY_DISTRIBUTIONS.prod, expectedTag)
+  assertReleaseTag(BUDDY_DISTRIBUTIONS.prod, release.tagName)
   if (release.tagName !== expectedTag) {
     throw new Error(`Release tag mismatch: expected ${expectedTag}, got ${release.tagName}`)
   }
@@ -80,8 +83,12 @@ export function assertPromotableRelease(
 }
 
 function compareReleaseTags(left: string, right: string): number {
-  const leftParts = normalizePromotionTag(left).slice(1).split(".").map(BigInt)
-  const rightParts = normalizePromotionTag(right).slice(1).split(".").map(BigInt)
+  const leftParts = assertReleaseTag(BUDDY_DISTRIBUTIONS.prod, normalizePromotionTag(left))
+    .split(".")
+    .map(BigInt)
+  const rightParts = assertReleaseTag(BUDDY_DISTRIBUTIONS.prod, normalizePromotionTag(right))
+    .split(".")
+    .map(BigInt)
   for (let index = 0; index < leftParts.length; index += 1) {
     const leftPart = leftParts[index]
     const rightPart = rightParts[index]
@@ -174,7 +181,7 @@ export function selectHighestStableReleaseTag(
 ): string | undefined {
   return releases
     .map((release) => release.tagName.trim())
-    .filter((tag) => RELEASE_TAG_PATTERN.test(tag))
+    .filter((tag) => parseReleaseTag(BUDDY_DISTRIBUTIONS.prod, tag) !== undefined)
     .toSorted(compareReleaseTags)
     .at(-1)
 }
@@ -216,6 +223,7 @@ function releaseVerificationTargetArguments(plan: ReleasePlan): string[] {
 
 export async function promoteRelease(input: { repo: string; tag: string }): Promise<void> {
   assertPromotionDestination(input.repo)
+  normalizePromotionTag(input.tag)
   const release = await readRelease(input.repo, input.tag)
   assertPromotableRelease(release, input.tag)
   const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "buddy-release-promote-"))
@@ -233,6 +241,8 @@ export async function promoteRelease(input: { repo: string; tag: string }): Prom
       )
     }
     const plan = await readReleasePlan(input.repo, input.tag, temporaryDirectory)
+    assertReleaseRecordChannel(plan, "prod")
+    if (plan.tag !== input.tag) throw new Error("Release plan tag does not match promotion")
     const targetArguments = releaseVerificationTargetArguments(plan)
     await $`bun ./script/verify-release-assets.ts --repo ${input.repo} --tag ${input.tag} ${targetArguments}`.cwd(
       ROOT_DIR,

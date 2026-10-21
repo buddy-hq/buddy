@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { assertReleaseTag } from "@buddy/script/release-stream"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
 import { assertLegacyProdRelease } from "../../../script/release/distribution-guard"
 import path from "node:path"
 import { readdir } from "node:fs/promises"
@@ -30,6 +32,8 @@ const tag = process.env[RELEASE_TAG_ENV_KEY]?.trim() || ""
 if (!tag) {
   throw new Error(`${RELEASE_TAG_ENV_KEY} is required`)
 }
+
+assertReleaseTag(BUDDY_DISTRIBUTIONS.prod, tag)
 
 const assetDirectory =
   process.env[RELEASE_ASSET_DIR_ENV_KEY]?.trim() || path.resolve(import.meta.dir, "..", "dist")

@@ -11,6 +11,7 @@
     "./distribution": "./src/distribution.ts",
     "./chemfig-runtime": "./src/chemfig-runtime.ts",
     "./minisign": "./src/minisign.ts",
+    "./release-stream": "./src/release-stream.ts",
     "./release-version": "./src/release-version.ts",
     "./storage-env": "./src/storage-env.ts"
   },

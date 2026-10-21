@@ -1,6 +1,11 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import {
+  assertReleaseTag,
+  assertReleaseTagVersion,
+  parseReleaseTag,
+} from "@buddy/script/release-stream"
 import { createHash } from "node:crypto"
 import { access, mkdir, readFile, rm, stat } from "node:fs/promises"
 import path from "node:path"
@@ -64,11 +69,6 @@ type WindowsUpdateManifest = {
   version: string
 }
 
-const githubReleaseSchema = z.object({
-  publishedAt: z.string(),
-  tagName: z.string(),
-})
-
 const fileEntrySchema = z.object({
   blockMapSize: z.number().optional(),
   sha512: z.string(),
@@ -99,15 +99,13 @@ const distribution = assertReleaseDestination(repo)
 requireUpdaterPublicKey(distribution)
 
 const tag = process.env[RELEASE_TAG_ENV_KEY]?.trim() || ""
-if (!/^v\d+\.\d+\.\d+$/u.test(tag)) {
-  throw new Error(`${RELEASE_TAG_ENV_KEY} must match vX.Y.Z, received "${tag}"`)
-}
+assertReleaseTag(distribution, tag)
 
 const releaseVersion = process.env[VERSION_ENV_KEY]?.trim() || ""
 if (!releaseVersion) {
   throw new Error(`${VERSION_ENV_KEY} is required`)
 }
-if (tag !== `v${releaseVersion}`) throw new Error("Release tag and version do not match")
+assertReleaseTagVersion(distribution, tag, releaseVersion)
 const releaseDate = process.env[RELEASE_DATE_ENV_KEY]?.trim() || ""
 
 const checkOnly = process.env[CHECK_ONLY_ENV_KEY]?.trim() === TRUE_ENV_VALUE
@@ -284,6 +282,7 @@ async function downloadPreviousTargetManifest(
   target: ReleaseTarget,
   previousTag: string,
 ): Promise<void> {
+  assertReleaseTag(distribution, previousTag)
   const manifestPath = path.join(outputDirectory, target.manifestFilename)
   const signaturePath = path.join(outputDirectory, `${target.manifestFilename}.sig`)
   await Promise.all([rm(manifestPath, { force: true }), rm(signaturePath, { force: true })])
@@ -294,9 +293,13 @@ async function downloadPreviousTargetManifest(
     const content = await Bun.file(manifestPath).text()
     const manifest =
       target.platform === "macos" ? parseMacOsManifest(content) : parseWindowsManifest(content)
-    const prefix = `https://github.com/${repo}/releases/download/`
-    if (manifest.files.some((file) => !file.url.startsWith(prefix))) {
-      throw new Error(`Carried-forward Beta manifest contains an URL outside ${repo}`)
+    const prefix = `/${repo}/releases/download/`
+    for (const file of manifest.files) {
+      const url = new URL(file.url)
+      if (url.origin !== "https://github.com" || !url.pathname.startsWith(prefix)) {
+        throw new Error(`Carried-forward Beta manifest contains an URL outside ${repo}`)
+      }
+      assertReleaseTag(distribution, url.pathname.slice(prefix.length).split("/")[0] ?? "")
     }
   }
 }
@@ -504,11 +507,30 @@ function serializeWindowsUpdateManifest(data: WindowsUpdateManifest): string {
 }
 
 async function resolvePreviousStableReleaseTag(): Promise<string> {
-  const releasesJson =
-    await $`gh release list --repo ${repo} --exclude-drafts --exclude-pre-releases --limit ${GITHUB_RELEASE_SEARCH_LIMIT} --json tagName,publishedAt`.text()
-  const parsed: unknown = JSON.parse(releasesJson)
-  const releases = parseGithubReleases(parsed)
-    .filter((release) => release.tagName !== tag)
+  const pages =
+    await $`gh api --paginate --slurp ${`repos/${repo}/releases?per_page=${GITHUB_RELEASE_SEARCH_LIMIT}`}`.json()
+  const releases = z
+    .array(
+      z.array(
+        z.object({
+          tag_name: z.string(),
+          published_at: z.string().nullable(),
+          draft: z.boolean(),
+          prerelease: z.boolean(),
+        }),
+      ),
+    )
+    .parse(pages)
+    .flat()
+    .filter(
+      (release) =>
+        !release.draft &&
+        !release.prerelease &&
+        release.published_at !== null &&
+        release.tag_name !== tag &&
+        parseReleaseTag(distribution, release.tag_name) !== undefined,
+    )
+    .map((release) => ({ tagName: release.tag_name, publishedAt: release.published_at ?? "" }))
     .toSorted((left, right) => releasePublishedAtTime(left) - releasePublishedAtTime(right))
 
   const previous = releases[releases.length - 1]
@@ -534,29 +556,6 @@ async function resolvePreviousPublishedTargetManifest(
   return release.tag
 }
 
-function parseGithubReleases<TValue>(value: TValue): { publishedAt: string; tagName: string }[] {
-  if (!Array.isArray(value)) {
-    throw new Error("GitHub release list response was not an array")
-  }
-
-  return value.map((item) => {
-    const record = parseTJsonObject(item)
-    if (record === undefined) {
-      throw new Error("GitHub release entry was not an object")
-    }
-
-    const parsed = parseWithSchema(githubReleaseSchema, record)
-    if (parsed === undefined) {
-      throw new Error("GitHub release entry was missing tagName or publishedAt")
-    }
-
-    return {
-      publishedAt: parsed.publishedAt,
-      tagName: parsed.tagName,
-    }
-  })
-}
-
 function releasePublishedAtTime(release: { publishedAt: string }): number {
   const time = Date.parse(release.publishedAt)
   return Number.isNaN(time) ? 0 : time
@@ -572,6 +571,7 @@ async function requireReleaseAsset(releaseTag: string, filename: string): Promis
 }
 
 async function downloadReleaseAsset(releaseTag: string, filename: string): Promise<boolean> {
+  assertReleaseTag(distribution, releaseTag)
   const outputPath = path.join(outputDirectory, filename)
   await rm(outputPath, { force: true })
   const result =
@@ -632,6 +632,7 @@ function ensureTauriSigningKeyPresent(): void {
 }
 
 function resolveReleaseAssetUrl(releaseTag: string, filename: string): string {
+  assertReleaseTag(distribution, releaseTag)
   return `https://github.com/${repo}/releases/download/${releaseTag}/${filename}`
 }
 

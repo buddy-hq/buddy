@@ -7,7 +7,12 @@ import {
   type GithubReleaseVersion,
   type LatestReleaseVersionInput,
 } from "@buddy/script/release-version"
-import { sourceReleaseTag } from "./release/distribution-guard"
+import {
+  assertReleaseTag,
+  highestStreamReleaseVersion,
+  parseReleaseTag,
+} from "@buddy/script/release-stream"
+import { releaseDistribution, sourceReleaseTag } from "./release/distribution-guard"
 import { releaseRepository } from "./release-repositories"
 
 type Commit = {
@@ -16,10 +21,10 @@ type Commit = {
   areas: Set<string>
 }
 
-const GithubReleaseVersionSchema = z.object({
-  tagName: z.string(),
-  isDraft: z.boolean(),
-  isPrerelease: z.boolean(),
+const GithubReleaseRecordSchema = z.object({
+  tag_name: z.string(),
+  draft: z.boolean(),
+  prerelease: z.boolean(),
 })
 
 const SECTION_PRIORITY = [
@@ -57,9 +62,16 @@ export function latestReleaseVersionFromReleases(
 
 async function listGithubReleases(environment: NodeJS.ProcessEnv): Promise<GithubReleaseVersion[]> {
   const repo = releaseRepository(environment)
-  const releases =
-    await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()
-  return z.array(GithubReleaseVersionSchema).parse(releases)
+  const pages = await $`gh api --paginate --slurp ${`repos/${repo}/releases?per_page=100`}`.json()
+  return z
+    .array(z.array(GithubReleaseRecordSchema))
+    .parse(pages)
+    .flat()
+    .map((release) => ({
+      tagName: release.tag_name,
+      isDraft: release.draft,
+      isPrerelease: release.prerelease,
+    }))
 }
 
 export async function getLatestRelease(
@@ -67,6 +79,11 @@ export async function getLatestRelease(
   environment: NodeJS.ProcessEnv = process.env,
 ) {
   const releases = await listGithubReleases(environment)
+  if (releaseDistribution(environment).id === "beta") {
+    return highestStreamReleaseVersion(releaseDistribution(environment), releases, {
+      skipVersion: skip,
+    })
+  }
   return latestReleaseVersionFromReleases(releases, { skip })
 }
 
@@ -75,6 +92,11 @@ export async function getLatestPublishedRelease(
   environment: NodeJS.ProcessEnv = process.env,
 ) {
   const releases = await listGithubReleases(environment)
+  if (releaseDistribution(environment).id === "beta") {
+    return highestStreamReleaseVersion(releaseDistribution(environment), releases, {
+      skipVersion: skip,
+    })
+  }
   return latestReleaseVersionFromReleases(releases, {
     includePrereleases: true,
     skip,
@@ -86,7 +108,12 @@ export function changelogSourceRef(
   sourceRef?: string,
   environment: NodeJS.ProcessEnv = process.env,
 ): string {
-  return sourceRef ?? sourceReleaseTag(version.replace(/^v/u, ""), environment)
+  if (sourceRef !== undefined) return sourceRef
+  const distribution = releaseDistribution(environment)
+  const numericVersion = /^\d+\.\d+\.\d+$/u.test(version)
+    ? version
+    : (parseReleaseTag(distribution, version) ?? assertReleaseTag(distribution, version))
+  return sourceReleaseTag(numericVersion, environment)
 }
 
 async function listCommitHashes(from: string | undefined, to = "HEAD", sourceRef?: string) {
