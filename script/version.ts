@@ -4,6 +4,11 @@ import { $ } from "bun"
 import { z } from "zod"
 import os from "node:os"
 import path from "node:path"
+import {
+  assertReleaseTagVersion,
+  formatReleaseTag,
+  formatBetaReleaseBody,
+} from "@buddy/script/release-stream"
 import { Script } from "@buddy/script"
 import { buildNotes, getLatestRelease } from "./changelog.ts"
 import { releaseRepository, sourceRepository } from "./release-repositories"
@@ -61,7 +66,10 @@ if (!process.env.BUDDY_VERSION?.trim()) {
 }
 
 const sourceRepo = sourceRepository()
-const tag = `v${Script.version}`
+const tag = formatReleaseTag(distribution, Script.version)
+if (process.env.BUDDY_RELEASE_TAG?.trim()) {
+  assertReleaseTagVersion(distribution, process.env.BUDDY_RELEASE_TAG.trim(), Script.version)
+}
 
 async function releaseTargetSha() {
   return (
@@ -72,6 +80,10 @@ async function releaseTargetSha() {
 }
 
 async function createRelease(file: string) {
+  if (distribution.id === "beta") {
+    await $`gh release create ${tag} -d --prerelease --latest=false --title ${tag} --notes-file ${file} --repo ${releaseRepo}`
+    return
+  }
   if (releaseRepo === sourceRepo) {
     const target = await releaseTargetSha()
     await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --target ${target} --repo ${releaseRepo}`
@@ -97,15 +109,16 @@ if (dryRun) {
     const releasePayload =
       await $`gh release view ${tag} --json tagName,databaseId,isDraft,isPrerelease --repo ${releaseRepo}`.json()
     release = ExistingReleaseSchema.parse(releasePayload)
+    assertReleaseTagVersion(distribution, release.tagName, Script.version)
 
     if (distribution.id === "beta" && !release.isDraft) {
       const assets = await $`gh release view ${tag} --json assets --repo ${releaseRepo}`.json()
       const frozen = z.object({ assets: z.array(z.object({ name: z.string() })) }).parse(assets)
       if (
-        release.isPrerelease ||
+        !release.isPrerelease ||
         !frozen.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
       ) {
-        throw new Error(`Published Beta ${tag} must be non-prerelease and frozen to retry`)
+        throw new Error(`Published Beta ${tag} must be prerelease and frozen to retry`)
       }
     } else if (!release.isDraft && !release.isPrerelease) {
       throw new Error(`Stable release ${tag} already exists`)
@@ -118,13 +131,14 @@ if (dryRun) {
       process.env.RUNNER_TEMP || os.tmpdir(),
       `buddy-release-notes-${Script.version}.md`,
     )
-    await Bun.write(file, body)
+    await Bun.write(file, distribution.id === "beta" ? formatBetaReleaseBody(body) : body)
 
     await createRelease(file)
 
     const releasePayload =
       await $`gh release view ${tag} --json tagName,databaseId --repo ${releaseRepo}`.json()
     release = CreatedReleaseSchema.parse(releasePayload)
+    assertReleaseTagVersion(distribution, release.tagName, Script.version)
   }
 }
 

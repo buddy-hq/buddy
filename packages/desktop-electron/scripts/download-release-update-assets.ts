@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { assertReleaseTagVersion } from "@buddy/script/release-stream"
+import { assertReleaseTagDestination } from "../../../script/release/distribution-guard"
 import { access, mkdir } from "node:fs/promises"
 import path from "node:path"
 import {
@@ -30,6 +32,9 @@ const version = process.env[VERSION_ENV_KEY]?.trim()
 if (!version) {
   throw new Error(`${VERSION_ENV_KEY} is required`)
 }
+
+const distribution = assertReleaseTagDestination(repo, tag)
+assertReleaseTagVersion(distribution, tag, version)
 
 const outputDirectory =
   process.env[ELECTRON_DIST_DIR_ENV_KEY]?.trim() || path.resolve(import.meta.dir, "..", "dist")

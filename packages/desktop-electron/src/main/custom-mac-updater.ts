@@ -11,6 +11,7 @@ import {
   resolveUpdateVerificationPublicKey,
   fetchSignedText,
   isAbsoluteUrl,
+  resolveReleaseStreamAssetUrl,
   resolveLatestRingAssetUrl,
   resolveReleaseAssetUrl,
   resolveVersionedReleaseAssetUrls,
@@ -402,6 +403,15 @@ async function resolveManifestUpdate(input: {
       metadataUrls,
     })
     throw new Error(`No macOS archive published for version ${metadata.version}`)
+  }
+
+  const distribution = input.options.distribution ?? UPDATE_DISTRIBUTION
+  if (distribution.id === "beta") {
+    if (target.kind === "latest") {
+      resolveReleaseStreamAssetUrl(metadata.version, entry.url, distribution)
+    } else {
+      resolveReleaseAssetUrl(metadata.version, entry.url, distribution)
+    }
   }
 
   return { kind: "available", version: metadata.version, entry }

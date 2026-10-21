@@ -221,7 +221,7 @@ describe("desktop storage plan", () => {
         OPENCODE_CONFIG_DIR: at("xdg/config/buddy"),
         OPENCODE_DB: "opencode.db",
         BUDDY_CHANNEL: "beta",
-        BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-beta-releases",
+        BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases",
       })
       expect(plan.electronPaths).toEqual({
         sessionData: u,

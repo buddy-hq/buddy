@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { assertReleaseTagVersion, formatReleaseTag } from "@buddy/script/release-stream"
 import { access, mkdir } from "node:fs/promises"
 import path from "node:path"
 import { z } from "zod"
@@ -37,7 +38,10 @@ if (!version) {
 }
 
 if (!/^\d+\.\d+\.\d+$/u.test(version)) throw new Error("BUDDY_VERSION must be numeric semver")
-const tag = `v${version}`
+const tag = formatReleaseTag(distribution, version)
+if (process.env.BUDDY_RELEASE_TAG?.trim()) {
+  assertReleaseTagVersion(distribution, process.env.BUDDY_RELEASE_TAG.trim(), version)
+}
 const outputDirectory =
   process.env[UPDATE_OUTPUT_DIR_ENV_KEY]?.trim() ||
   process.env.RUNNER_TEMP ||

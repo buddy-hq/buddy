@@ -4,7 +4,13 @@ import {
   requireUpdaterPublicKey,
   type BuddyDistribution,
 } from "@buddy/script/distribution"
-import { latestReleaseVersionFromReleases } from "@buddy/script/release-version"
+import {
+  assertReleaseTag,
+  formatReleaseTag,
+  highestStreamReleaseVersion,
+  isPublishedStreamRelease,
+  parseReleaseTag,
+} from "@buddy/script/release-stream"
 import { verifySignedMessage } from "@buddy/script/minisign"
 import { z } from "zod"
 import type { UpdateRing } from "@buddy/update-contract"
@@ -16,6 +22,8 @@ const GITHUB_RELEASES_API_ACCEPT_HEADER = "application/vnd.github+json"
 const GITHUB_RELEASES_API_VERSION_HEADER = "2022-11-28"
 const GITHUB_RELEASES_API_USER_AGENT = "Buddy-Updater"
 const LATEST_PRERELEASE_SEARCH_LIMIT = 100
+/** A release list longer than this is a misbehaving response; refuse rather than select from part of it. */
+const MAX_RELEASE_LIST_PAGES = 50
 
 /** Resolved once from the embedded build channel, never the process environment. */
 export const UPDATE_DISTRIBUTION: BuddyDistribution =
@@ -96,7 +104,7 @@ export function resolveReleaseDownloadBaseUrl(
   version: string,
   distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
 ): string {
-  return resolveReleaseTagDownloadBaseUrl(`v${version}`, distribution)
+  return resolveReleaseTagDownloadBaseUrl(formatReleaseTag(distribution, version), distribution)
 }
 
 export function resolveReleaseAssetUrl(
@@ -104,7 +112,7 @@ export function resolveReleaseAssetUrl(
   filename: string,
   distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
 ): string {
-  return resolveReleaseTagAssetUrl(`v${version}`, filename, distribution)
+  return resolveReleaseTagAssetUrl(formatReleaseTag(distribution, version), filename, distribution)
 }
 
 export function resolveVersionedReleaseAssetUrls(
@@ -127,7 +135,30 @@ export function resolveReleaseTagDownloadBaseUrl(
   tag: string,
   distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
 ): string {
+  if (distribution.id === "beta") assertReleaseTag(distribution, tag)
   return `https://github.com/${formatReleaseRepositorySlug(distribution)}/releases/download/${tag}/`
+}
+
+/** Whether an asset belongs to a versioned release in this distribution's namespace. */
+export function isReleaseStreamAssetUrl(url: URL, distribution: BuddyDistribution): boolean {
+  const prefix = `https://github.com/${formatReleaseRepositorySlug(distribution)}/releases/download/`
+  if (!url.href.startsWith(prefix)) return false
+  const [tag, filename] = url.href.slice(prefix.length).split("/")
+  return tag !== undefined && parseReleaseTag(distribution, tag) !== undefined && !!filename
+}
+
+/** Resolve discovery assets while allowing manifests carried forward from older Beta tags. */
+export function resolveReleaseStreamAssetUrl(
+  version: string,
+  filename: string,
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): string {
+  if (distribution.id === "prod") return resolveReleaseAssetUrl(version, filename, distribution)
+  const url = new URL(filename, resolveReleaseDownloadBaseUrl(version, distribution))
+  if (!isReleaseStreamAssetUrl(url, distribution)) {
+    throw new Error("Beta update assets must belong to the Beta release repository and tag")
+  }
+  return url.toString()
 }
 
 export function resolveReleaseTagAssetUrl(
@@ -171,11 +202,23 @@ export async function resolveLatestRingAssetUrl(input: {
   return resolveLatestReleaseAssetUrl(input.filename, distribution)
 }
 
+/** Resolve Beta's newest release page, with a stream-filtered list when discovery fails. */
+export async function resolveManualDownloadUrl(
+  distribution: BuddyDistribution = UPDATE_DISTRIBUTION,
+): Promise<string> {
+  const baseUrl = `https://github.com/${formatReleaseRepositorySlug(distribution)}/releases`
+  if (distribution.id === "prod") return `${baseUrl}/latest`
+  const release = await fetchLatestGithubPreviewRelease(distribution).catch(() => undefined)
+  if (release) return `${baseUrl}/tag/${release.tagName}`
+  return `${baseUrl}?q=beta-v`
+}
+
 async function fetchLatestGithubPreviewRelease(
   distribution: BuddyDistribution,
 ): Promise<TGithubRelease | undefined> {
   const releases = await fetchGithubReleases(distribution)
-  const latestVersion = latestReleaseVersionFromReleases(
+  const latestVersion = highestStreamReleaseVersion(
+    distribution,
     releases.map((release) => ({
       isDraft: release.draft,
       isPrerelease: release.prerelease,
@@ -184,48 +227,59 @@ async function fetchLatestGithubPreviewRelease(
   )
 
   if (!latestVersion) return undefined
+  const tag = formatReleaseTag(distribution, latestVersion)
   return releases.find(
-    (release) => !release.draft && release.tagName.replace(/^v/, "") === latestVersion,
+    (release) =>
+      !release.draft &&
+      (release.tagName === tag ||
+        (distribution.id === "prod" && release.tagName === latestVersion)) &&
+      (distribution.id === "prod" ||
+        isPublishedStreamRelease(distribution, {
+          tagName: release.tagName,
+          isDraft: release.draft,
+          isPrerelease: release.prerelease,
+        })),
   )
 }
 
-async function fetchGithubReleases(
-  distribution: BuddyDistribution,
-  page = 1,
-): Promise<TGithubRelease[]> {
-  const pageQuery = page === 1 ? "" : `&page=${page}`
-  const response = await fetch(
-    `https://api.github.com/repos/${formatReleaseRepositorySlug(distribution)}/releases?per_page=${LATEST_PRERELEASE_SEARCH_LIMIT}${pageQuery}`,
-    {
-      headers: {
-        Accept: GITHUB_RELEASES_API_ACCEPT_HEADER,
-        "Cache-Control": "no-cache",
-        "User-Agent": GITHUB_RELEASES_API_USER_AGENT,
-        "X-GitHub-Api-Version": GITHUB_RELEASES_API_VERSION_HEADER,
-      },
-    },
-  )
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch GitHub releases: ${response.status} ${response.statusText}`)
-  }
-
-  const body: unknown = await response.json()
-  if (!Array.isArray(body)) {
-    throw new Error("GitHub releases response was not an array")
-  }
-
+async function fetchGithubReleases(distribution: BuddyDistribution): Promise<TGithubRelease[]> {
   const releases: TGithubRelease[] = []
-  for (const item of body) {
-    const release = parseGithubRelease(item)
-    if (release) releases.push(release)
-  }
+  for (let page = 1; ; page += 1) {
+    if (page > MAX_RELEASE_LIST_PAGES) {
+      throw new Error(`GitHub releases exceeded ${MAX_RELEASE_LIST_PAGES} pages`)
+    }
+    const pageQuery = page === 1 ? "" : `&page=${page}`
+    const response = await fetch(
+      `https://api.github.com/repos/${formatReleaseRepositorySlug(distribution)}/releases?per_page=${LATEST_PRERELEASE_SEARCH_LIMIT}${pageQuery}`,
+      {
+        headers: {
+          Accept: GITHUB_RELEASES_API_ACCEPT_HEADER,
+          "Cache-Control": "no-cache",
+          "User-Agent": GITHUB_RELEASES_API_USER_AGENT,
+          "X-GitHub-Api-Version": GITHUB_RELEASES_API_VERSION_HEADER,
+        },
+      },
+    )
 
-  // Beta selects the highest version across its repository, including older publications.
-  if (distribution.id === "beta" && body.length === LATEST_PRERELEASE_SEARCH_LIMIT) {
-    releases.push(...(await fetchGithubReleases(distribution, page + 1)))
+    if (!response.ok) {
+      throw new Error(`Failed to fetch GitHub releases: ${response.status} ${response.statusText}`)
+    }
+
+    const body: unknown = await response.json()
+    if (!Array.isArray(body)) {
+      throw new Error("GitHub releases response was not an array")
+    }
+
+    for (const item of body) {
+      const release = parseGithubRelease(item)
+      if (!release && distribution.id === "beta") {
+        throw new Error("GitHub releases response contained an invalid release")
+      }
+      if (release) releases.push(release)
+    }
+
+    if (body.length < LATEST_PRERELEASE_SEARCH_LIMIT) return releases
   }
-  return releases
 }
 
 function parseGithubRelease<TValue>(value: TValue): TGithubRelease | undefined {
@@ -244,10 +298,11 @@ export async function fetchSignedText(input: {
   publicKey?: string
   url: string
 }): Promise<string> {
-  const publicKey = resolveUpdateVerificationPublicKey(
-    input.distribution ?? UPDATE_DISTRIBUTION,
-    input.publicKey,
-  )
+  const distribution = input.distribution ?? UPDATE_DISTRIBUTION
+  const publicKey = resolveUpdateVerificationPublicKey(distribution, input.publicKey)
+  if (distribution.id === "beta" && !isReleaseStreamAssetUrl(new URL(input.url), distribution)) {
+    throw new Error("Beta update assets must belong to the Beta release repository and tag")
+  }
   const [contentResponse, signatureResponse] = await Promise.all([
     fetch(input.url, {
       headers: {

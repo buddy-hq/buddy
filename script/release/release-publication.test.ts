@@ -6,9 +6,10 @@ import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { z } from "zod"
 import { renderReleaseFreeze } from "./freeze"
+import { formatBetaReleaseBody } from "@buddy/script/release-stream"
 
 const ROOT = path.resolve(import.meta.dir, "../..")
-const REPOSITORY = "prashantbhudwal/buddy-beta-releases"
+const REPOSITORY = "prashantbhudwal/buddy-releases"
 const SOURCE_SHA = "1".repeat(40)
 const PLAN_DIGEST = "2".repeat(64)
 const testKey = generateKeyPairSync("ed25519")
@@ -32,6 +33,7 @@ async function publicationFixture(
     exists?: boolean
     partial?: boolean
     refName?: string
+    releaseTag?: string
   } = {},
 ) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "buddy-beta-publication-"))
@@ -41,7 +43,12 @@ async function publicationFixture(
       "packages/script/src/distribution.ts",
       "packages/script/src/branding.ts",
       "packages/script/src/release-version.ts",
+      "packages/script/src/release-stream.ts",
       "script/publish.ts",
+      "script/release/shared-repository-publication.ts",
+      "script/release/shared-repository-guard.ts",
+      "script/release/shared-repository-github.ts",
+      "script/release/installed-stable-readers.ts",
       "script/version.ts",
       "script/changelog.ts",
       "script/release-repositories.ts",
@@ -81,6 +88,7 @@ async function publicationFixture(
           ".": "./src/index.ts",
           "./distribution": "./src/distribution.ts",
           "./release-version": "./src/release-version.ts",
+          "./release-stream": "./src/release-stream.ts",
         },
       }),
     )
@@ -107,7 +115,7 @@ async function publicationFixture(
     const boundFreeze =
       (input.freezeChannel ?? input.channel) === "prod"
         ? freeze
-        : { ...freeze, channel: "beta" as const }
+        : { ...freeze, channel: "beta" as const, tag: "beta-v0.1.0" }
     const freezePath = path.join(directory, "freeze.json")
     await Bun.write(freezePath, renderReleaseFreeze(boundFreeze))
     const freezeBytes = await Bun.file(freezePath).bytes()
@@ -135,9 +143,11 @@ async function publicationFixture(
       JSON.stringify({
         exists: input.exists !== false,
         isDraft: input.draft !== false,
-        isPrerelease: input.prerelease ?? false,
-        tagName: "v0.1.0",
+        isPrerelease: input.prerelease ?? input.channel !== "prod",
+        tagName: input.channel === "prod" ? "v0.1.0" : "beta-v0.1.0",
         databaseId: 123,
+        body: input.channel === "prod" ? "" : formatBetaReleaseBody("Beta test notes"),
+        url: `https://github.com/${REPOSITORY}/releases/tag/${input.channel === "prod" ? "v" : "beta-v"}0.1.0`,
         assets,
         highest: input.highest,
       }),
@@ -156,8 +166,12 @@ appendFileSync(process.env.FIXTURE_CALLS, JSON.stringify(args) + "\\n")
 const state = JSON.parse(readFileSync(process.env.FIXTURE_STATE, "utf8"))
 if (args[0] === "api") {
   if (args.includes("--slurp")) {
-    const releases = state.highest ? [{ tag_name: "v" + state.highest, draft: false, prerelease: false }] : []
-    console.log(JSON.stringify([releases]))
+    const stable = { tag_name: "v0.0.79", draft: false, prerelease: false, body: "", html_url: "https://github.com/${REPOSITORY}/releases/tag/v0.0.79" }
+    const previous = state.highest ? [{ tag_name: (process.env.BUDDY_CHANNEL === "prod" ? "v" : "beta-v") + state.highest, draft: false, prerelease: process.env.BUDDY_CHANNEL !== "prod", body: state.body, html_url: state.url }] : []
+    const current = state.exists ? [{ tag_name: state.tagName, draft: state.isDraft, prerelease: state.isPrerelease, body: state.body, html_url: state.url }] : []
+    console.log(JSON.stringify([[...current, ...previous.filter((release) => release.tag_name !== state.tagName), stable]]))
+  } else if (args.some((arg) => arg.endsWith("/releases/latest"))) {
+    console.log(JSON.stringify({ tag_name: "v0.0.79", draft: false, prerelease: false, body: "", html_url: "https://github.com/${REPOSITORY}/releases/tag/v0.0.79" }))
   } else {
     console.log(JSON.stringify({ ref: "refs/tags/beta-v0.1.0", object: { type: "commit", sha: "${SOURCE_SHA}" } }))
   }
@@ -166,6 +180,7 @@ if (args[0] === "api") {
 } else if (args[1] === "edit") {
   state.isDraft = false
   state.isPrerelease = args.includes("--prerelease")
+  if (args.includes("--notes-file")) state.body = readFileSync(args[args.indexOf("--notes-file") + 1], "utf8")
   writeFileSync(process.env.FIXTURE_STATE, JSON.stringify(state))
 } else if (args[1] === "list") {
   console.log("[]")
@@ -201,7 +216,8 @@ if (args[0] === "api") {
         BUDDY_SOURCE_REPO: "buddy-hq/buddy",
         BUDDY_VERSION: "0.1.0",
         BUDDY_RELEASE: "123",
-        BUDDY_RELEASE_TAG: "v0.1.0",
+        BUDDY_RELEASE_TAG:
+          input.releaseTag ?? (input.channel === "prod" ? "v0.1.0" : "beta-v0.1.0"),
         BUDDY_RELEASE_TARGET_MACOS_ARM64: "true",
         BUDDY_RELEASE_TARGET_MACOS_X64: input.partial ? "false" : "true",
         BUDDY_RELEASE_TARGET_WINDOWS_X64: "true",
@@ -240,17 +256,19 @@ if (args[0] === "api") {
 }
 
 describe("Beta publication CLI", () => {
-  test("publishes a frozen draft as non-prerelease latest", async () => {
+  test("publishes a frozen draft as prerelease and never latest", async () => {
     const { result, calls } = await publicationFixture()
     expect(result.status).toBe(0)
     expect(result.stdout).toContain("Published Beta")
     expect(calls.find((call) => call[1] === "edit")).toEqual([
       "release",
       "edit",
-      "v0.1.0",
+      "beta-v0.1.0",
       "--draft=false",
-      "--prerelease=false",
-      "--latest",
+      "--prerelease",
+      "--latest=false",
+      "--notes-file",
+      expect.any(String),
       "--repo",
       REPOSITORY,
     ])
@@ -270,7 +288,7 @@ describe("Beta publication CLI", () => {
     expect(calls.find((call) => call[0] === "api")).toContain("--paginate")
   })
 
-  test("rejects a prod freeze in the Beta repo", async () => {
+  test("rejects a prod freeze for a Beta release", async () => {
     const { result, calls } = await publicationFixture({ freezeChannel: "prod" })
     expect(result.status).toBe(1)
     expect(result.stderr).toContain("channel prod conflicts with beta")
@@ -284,9 +302,9 @@ describe("Beta publication CLI", () => {
     expect(calls).toEqual([])
   })
 
-  test("rejects a prod repo override before any GitHub call", async () => {
+  test("rejects the obsolete Beta repo override before any GitHub call", async () => {
     const { result, calls } = await publicationFixture({
-      repository: "prashantbhudwal/buddy-releases",
+      repository: "prashantbhudwal/buddy-beta-releases",
     })
     expect(result.status).toBe(1)
     expect(result.stderr).toContain("conflicts with beta")
@@ -307,19 +325,21 @@ describe("Beta publication CLI", () => {
   test("version resolution rejects an unfrozen published Beta", async () => {
     const { result } = await publicationFixture({ script: "version", draft: false, frozen: false })
     expect(result.status).toBe(1)
-    expect(result.stderr).toContain("must be non-prerelease and frozen")
+    expect(result.stderr).toContain("must be prerelease and frozen")
   })
 
-  test("creates a first Beta draft with numeric release-repo tag", async () => {
+  test("creates a first Beta prerelease draft with its namespaced tag", async () => {
     const { result, calls, outputs } = await publicationFixture({
       script: "version",
       exists: false,
     })
     expect(result.status).toBe(0)
     const create = calls.find((call) => call[1] === "create")
-    expect(create?.slice(0, 4)).toEqual(["release", "create", "v0.1.0", "-d"])
+    expect(create?.slice(0, 4)).toEqual(["release", "create", "beta-v0.1.0", "-d"])
     expect(create).toContain(REPOSITORY)
-    expect(outputs).toContain("tag=v0.1.0")
+    expect(create).toContain("--prerelease")
+    expect(create).toContain("--latest=false")
+    expect(outputs).toContain("tag=beta-v0.1.0")
   })
 
   test.each([
@@ -360,7 +380,7 @@ describe("Beta publication CLI", () => {
     const { result } = await publicationFixture({
       script: "release/distribution-guard",
       partial: true,
-      highest: "0.1.0",
+      highest: "0.0.9",
     })
     expect(result.status).toBe(0)
   })
@@ -404,4 +424,36 @@ describe("Beta publication CLI", () => {
     expect(result.status).toBe(0)
     expect(calls).toEqual([["api", "repos/buddy-hq/buddy/git/ref/tags/beta-v0.1.0"]])
   })
+})
+
+describe("Beta retry and tag boundaries", () => {
+  test("preflight validates the selected namespace before version resolution has emitted a tag", async () => {
+    const { result, calls } = await publicationFixture({
+      script: "release/distribution-guard",
+      releaseTag: "",
+    })
+    expect(result.status).toBe(0)
+    expect(calls).toEqual([])
+  })
+
+  test("version resolution refuses a published Beta that is not a prerelease", async () => {
+    const { result, calls } = await publicationFixture({
+      script: "version",
+      draft: false,
+      prerelease: false,
+    })
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain("must be prerelease and frozen")
+    expect(calls.some((call) => call[1] === "create" || call[1] === "edit")).toBe(false)
+  })
+
+  test.each(["version", "release-source-tag", "release/distribution-guard"] as const)(
+    "%s refuses a prod tag for Beta before any GitHub call",
+    async (script) => {
+      const { result, calls } = await publicationFixture({ script, releaseTag: "v0.1.0" })
+      expect(result.status).toBe(1)
+      expect(result.stderr).toMatch(/does not belong|does not match/u)
+      expect(calls).toEqual([])
+    },
+  )
 })

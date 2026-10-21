@@ -107,7 +107,7 @@ describe("Beta Windows feed", () => {
       channel: "latest",
       provider: "github",
       owner: "prashantbhudwal",
-      repo: "buddy-beta-releases",
+      repo: "buddy-releases",
     })
     const feed = await startWindowsUpdateFeed({
       distribution: BUDDY_DISTRIBUTIONS.beta,
@@ -116,7 +116,7 @@ describe("Beta Windows feed", () => {
     })
     try {
       await expect((await fetch(new URL("latest.yml", feed.url))).text()).resolves.toBe(
-        "version: 1.2.3\npath: https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v1.2.3/update.exe\nsha512: test\n",
+        "version: 1.2.3\npath: https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v1.2.3/update.exe\nsha512: test\n",
       )
     } finally {
       await feed.close()
@@ -161,8 +161,8 @@ describe("Beta Windows feed", () => {
       }),
     ).rejects.toThrow("Failed to fetch signed update content")
     expect(requested.toSorted()).toEqual([
-      "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml",
-      "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml.sig",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/latest-windows-x64.yml",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/latest-windows-x64.yml.sig",
     ])
   })
 
@@ -177,12 +177,12 @@ describe("Beta Windows feed", () => {
     ],
     [
       "another Beta tag",
-      'files: [{url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v9.0.0/Buddy-Setup.exe", sha512: test}]',
+      'files: [{url: "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v9.0.0/Buddy-Setup.exe", sha512: test}]',
     ],
     ["relative flow URL", 'files: [{url: "Buddy-Setup.exe", sha512: test}]'],
     [
       "web installer package",
-      'files: [{url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v1.2.3/Buddy-Setup.exe", sha512: test}]\npackages: {ia32: {path: "https://github.com/prashantbhudwal/buddy-releases/releases/download/v1.2.3/package.7z", sha512: test}}',
+      'files: [{url: "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v1.2.3/Buddy-Setup.exe", sha512: test}]\npackages: {ia32: {path: "https://github.com/prashantbhudwal/buddy-releases/releases/download/v1.2.3/package.7z", sha512: test}}',
     ],
   ])("rejects Beta downloads outside its release through %s", (_style, entries) => {
     expect(() =>
@@ -198,9 +198,9 @@ describe("Beta Windows feed", () => {
     const content = [
       `version: ${UPDATE_VERSION}`,
       "files:",
-      '  - url: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v1.2.3/Buddy-Setup.exe"',
+      '  - url: "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v1.2.3/Buddy-Setup.exe"',
       "    sha512: test",
-      'path: "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v1.2.3/Buddy-Setup.exe"',
+      'path: "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v1.2.3/Buddy-Setup.exe"',
       "sha512: test",
       "",
     ].join("\n")
@@ -225,8 +225,101 @@ describe("Beta Windows feed", () => {
       }),
     ).resolves.toEqual({ content, version: "2.0.0" })
     expect(requested.toSorted()).toEqual([
-      "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml",
-      "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/latest-windows-x64.yml.sig",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/latest-windows-x64.yml",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/latest-windows-x64.yml.sig",
     ])
+  })
+
+  test("discovers a later-page Beta release with a carried-forward manifest and serves its older Beta assets", async () => {
+    const assetUrl =
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v1.2.3/update.exe"
+    const content = `version: 1.2.3\npath: ${assetUrl}\nsha512: test\n`
+    const fixture = signedUpdateFixture(content)
+    const distribution = { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey }
+    const requested: string[] = []
+    globalThis.fetch = createTestFetch(async (url) => {
+      requested.push(String(url))
+      if (String(url).startsWith("https://api.github.com/")) {
+        if (String(url).includes("&page=2")) {
+          return Response.json([{ draft: false, prerelease: true, tag_name: "beta-v2.0.0" }])
+        }
+        return Response.json(
+          Array.from({ length: 100 }, () => ({
+            draft: false,
+            prerelease: true,
+            tag_name: "v99.0.0",
+          })),
+        )
+      }
+      return new Response(String(url).endsWith(".sig") ? fixture.signature : content)
+    })
+    const manifest = await fetchWindowsUpdateManifest({
+      distribution,
+      logger: { warn: () => undefined },
+    })
+    expect(manifest).toEqual({ content, version: "1.2.3" })
+    expect(requested).toEqual([
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100&page=2",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/latest-windows-x64.yml",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/latest-windows-x64.yml.sig",
+    ])
+    globalThis.fetch = ORIGINAL_FETCH
+    const feed = await startWindowsUpdateFeed({ ...manifest, distribution })
+    try {
+      await expect((await fetch(new URL("latest.yml", feed.url))).text()).resolves.toBe(content)
+      expect(createWindowsUpdateFeedProviderOptions(feed).provider).toBe("generic")
+    } finally {
+      await feed.close()
+    }
+  })
+
+  test("discovery accepts another Beta asset tag while a pinned download requires its exact tag", async () => {
+    const content =
+      "version: 2.0.0\npath: https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v1.9.0/update.exe\nsha512: test\n"
+    const fixture = signedUpdateFixture(content)
+    const distribution = { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey }
+    globalThis.fetch = createTestFetch(async (url) => {
+      if (String(url).startsWith("https://api.github.com/")) {
+        return Response.json([{ draft: false, prerelease: true, tag_name: "beta-v3.0.0" }])
+      }
+      return new Response(String(url).endsWith(".sig") ? fixture.signature : content)
+    })
+    const manifest = await fetchWindowsUpdateManifest({
+      distribution,
+      logger: { warn: () => undefined },
+    })
+    expect(manifest).toEqual({ content, version: "2.0.0" })
+    await expect(
+      fetchWindowsUpdateManifest({
+        distribution,
+        expectedVersion: "2.0.0",
+        logger: { warn: () => undefined },
+      }),
+    ).rejects.toThrow("Beta update assets must belong to the Beta release repository and tag")
+    globalThis.fetch = ORIGINAL_FETCH
+    const feed = await startWindowsUpdateFeed({ ...manifest, distribution })
+    try {
+      await expect((await fetch(new URL("latest.yml", feed.url))).text()).resolves.toBe(content)
+    } finally {
+      await feed.close()
+    }
+  })
+
+  test("rejects a correctly signed Stable asset URL during Beta discovery", async () => {
+    const content =
+      "version: 2.0.0\npath: https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.0.0/update.exe\nsha512: test\n"
+    const fixture = signedUpdateFixture(content)
+    globalThis.fetch = createTestFetch(async (url) =>
+      String(url).startsWith("https://api.github.com/")
+        ? Response.json([{ draft: false, prerelease: true, tag_name: "beta-v2.0.0" }])
+        : new Response(String(url).endsWith(".sig") ? fixture.signature : content),
+    )
+    await expect(
+      fetchWindowsUpdateManifest({
+        distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey },
+        logger: { warn: () => undefined },
+      }),
+    ).rejects.toThrow("Beta update assets must belong to the Beta release repository and tag")
   })
 })

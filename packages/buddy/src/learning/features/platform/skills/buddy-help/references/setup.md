@@ -30,7 +30,7 @@ Same from **hibuddy.in** → **Download for Mac** / **Download for Windows**.
 
 Supported: macOS Apple Silicon + Intel; Windows **x64** first. No Linux install path.
 
-For **Buddy Beta**, use `install-buddy-macos.sh` or `install-buddy-windows.ps1` from `prashantbhudwal/buddy-beta-releases`. It installs beside Stable as **Buddy Beta**.
+For **Buddy Beta**, use `install-buddy-macos.sh` or `install-buddy-windows.ps1` attached to the newest `beta-v` release in `prashantbhudwal/buddy-releases`. It installs beside Stable as **Buddy Beta**.
 
 ### Updates (already installed)
 

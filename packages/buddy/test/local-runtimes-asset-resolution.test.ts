@@ -55,17 +55,19 @@ const standardsServicePath = path.resolve(
 )
 
 function runRuntimeAssetProbe(input: {
-  platform: "darwin"
+  platform: "darwin" | "win32"
   arch: "arm64" | "x64"
   version: string
   repo?: string
   baseUrl?: string
+  channel?: "prod" | "beta"
 }): RuntimeAssetProbe {
   const script = `
     Object.defineProperty(process, "platform", { value: ${JSON.stringify(input.platform)} })
     Object.defineProperty(process, "arch", { value: ${JSON.stringify(input.arch)} })
     process.env.BUDDY_APP_VERSION = ${JSON.stringify(input.version)}
     process.env.BUDDY_ADVANCED_MATH_VERSION = ${JSON.stringify(input.version)}
+    process.env.BUDDY_CHANNEL = ${JSON.stringify(input.channel ?? "prod")}
     process.env.GITHUB_REPOSITORY = "example/private-source"
     ${
       input.repo
@@ -105,14 +107,29 @@ function runRuntimeAssetProbe(input: {
   )
 }
 
-function runStandardsAssetProbe(input: { repo?: string; version: string }): StandardsAssetProbe {
+function runStandardsAssetProbe(input: {
+  repo?: string
+  version: string
+  channel?: "prod" | "beta"
+  baseUrl?: string
+  platform?: "darwin" | "win32"
+  arch?: "arm64" | "x64"
+}): StandardsAssetProbe {
   const script = `
+    Object.defineProperty(process, "platform", { value: ${JSON.stringify(input.platform ?? "darwin")} })
+    Object.defineProperty(process, "arch", { value: ${JSON.stringify(input.arch ?? "arm64")} })
     process.env.BUDDY_APP_VERSION = ${JSON.stringify(input.version)}
+    process.env.BUDDY_CHANNEL = ${JSON.stringify(input.channel ?? "prod")}
     process.env.GITHUB_REPOSITORY = "example/private-source"
     ${
       input.repo
         ? `process.env.BUDDY_RELEASE_REPO = ${JSON.stringify(input.repo)}`
         : `delete process.env.BUDDY_RELEASE_REPO`
+    }
+    ${
+      input.baseUrl
+        ? `process.env.BUDDY_STANDARDS_ASSET_BASE_URL = ${JSON.stringify(input.baseUrl)}`
+        : `delete process.env.BUDDY_STANDARDS_ASSET_BASE_URL`
     }
 
     const mod = await import(${JSON.stringify(pathToFileURL(standardsServicePath).href)})
@@ -143,6 +160,41 @@ function runStandardsAssetProbe(input: { repo?: string; version: string }): Stan
 }
 
 describe("advanced math runtime asset resolution", () => {
+  test.each([
+    { platform: "darwin", arch: "arm64", triple: "aarch64-apple-darwin" },
+    { platform: "darwin", arch: "x64", triple: "x86_64-apple-darwin" },
+    { platform: "win32", arch: "x64", triple: "x86_64-pc-windows-msvc" },
+  ] as const)("Beta uses its app release tag on $platform/$arch", ({ platform, arch, triple }) => {
+    const info = runRuntimeAssetProbe({ platform, arch, version: "0.1.0", channel: "beta" })
+    expect(info.baseUrl).toBe(
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v0.1.0",
+    )
+    expect(info.targetTriple).toBe(triple)
+    expect(info.bundleFilename).toBe(
+      `buddy-advanced-math${platform === "win32" ? ".exe" : ""}-v0.1.0-${triple}.zip`,
+    )
+  })
+
+  test("Beta keeps repository and explicit asset-base overrides", () => {
+    expect(
+      runRuntimeAssetProbe({
+        platform: "darwin",
+        arch: "arm64",
+        version: "0.1.0",
+        channel: "beta",
+        repo: "example/releases",
+      }).baseUrl,
+    ).toBe("https://github.com/example/releases/releases/download/beta-v0.1.0")
+    expect(
+      runRuntimeAssetProbe({
+        platform: "darwin",
+        arch: "arm64",
+        version: "0.1.0",
+        channel: "beta",
+        baseUrl: "https://example.invalid/assets/",
+      }).baseUrl,
+    ).toBe("https://example.invalid/assets")
+  })
   test("resolves GitHub release asset URLs and filenames for both mac targets", () => {
     const version = "1.2.3"
     const repository = "prashantbhudwal/buddy-releases"
@@ -214,6 +266,33 @@ describe("advanced math runtime asset resolution", () => {
 })
 
 describe("standards runtime asset resolution", () => {
+  test.each([
+    { platform: "darwin", arch: "arm64" },
+    { platform: "darwin", arch: "x64" },
+    { platform: "win32", arch: "x64" },
+  ] as const)("Beta uses its app release tag on $platform/$arch", ({ platform, arch }) => {
+    const info = runStandardsAssetProbe({ platform, arch, version: "0.1.0", channel: "beta" })
+    expect(info.baseUrl).toBe(
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v0.1.0",
+    )
+  })
+
+  test("Beta keeps repository and explicit asset-base overrides", () => {
+    expect(
+      runStandardsAssetProbe({
+        version: "0.1.0",
+        channel: "beta",
+        repo: "example/releases",
+      }).baseUrl,
+    ).toBe("https://github.com/example/releases/releases/download/beta-v0.1.0")
+    expect(
+      runStandardsAssetProbe({
+        version: "0.1.0",
+        channel: "beta",
+        baseUrl: "https://example.invalid/assets/",
+      }).baseUrl,
+    ).toBe("https://example.invalid/assets")
+  })
   test("defaults to the public release repository", () => {
     const version = "1.2.3"
 

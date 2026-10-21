@@ -80,17 +80,24 @@ Inspect logs in `~/Library/Logs/Buddy/main.log` and `update-installer.log`.
 
 ## Buddy Beta distribution
 
-Buddy Beta is a separate installation and release stream. Its independent numeric versions start at `0.1.0`. Release assets live in `prashantbhudwal/buddy-beta-releases` under `vX.Y.Z`; source provenance lives in `buddy-hq/buddy` under `beta-vX.Y.Z`. Artifact filenames stay the same because the repositories provide the namespace.
+Buddy Beta is a separate installation and release stream that publishes into the same assets repository as Stable, `prashantbhudwal/buddy-releases`. Its independent numeric versions start at `0.1.0`. Beta releases are tagged `beta-vX.Y.Z`, are always pre-releases, and are never marked latest; Stable keeps `vX.Y.Z` and owns GitHub's latest release. Source provenance lives in `buddy-hq/buddy` under `beta-vX.Y.Z`. Artifact filenames are the same in both streams because each release tag namespaces its own assets.
+
+Installed Stable apps can never be updated retroactively, so the shared repository relies on what they already ignore:
+
+- **Stable ring and recovery** read only `/releases/latest`, which is never a Beta release.
+- **Preview ring** reads only tags of the form `vX.Y.Z` among the newest 100 releases, so `beta-v` tags are skipped.
+- **Release notes on the Preview ring** display any visible body text of a pre-release in range. Beta notes are therefore written inside an HTML comment that those apps strip; the GitHub page of a Beta release shows no notes.
+
+`script/release/shared-repository-guard.ts` checks these invariants against simulations of the shipped Stable readers before every Beta publication and again afterwards. If the post-publication check fails, the pipeline returns the Beta release to draft and fails. The guard refuses a Beta release that would push the newest Stable or Preview release out of installed apps' 100-release window, so cut a Stable or Preview release if Beta gets far ahead. Installed apps also read release notes from only the newest 20 releases. The guard refuses a Beta release that would hide the notes of the release those apps are currently offered, and only warns when Beta pushes out older catch-up notes. Either way they never show Beta notes.
 
 Beta is cut from the long-lived `beta` branch: `main` plus upcoming work, including the OpenCode v2 upgrade. Stable continues to be cut from `main`. Land fixes on `main` first and regularly merge `main` → `beta`. When Beta's work is ready for Stable, merge `beta` → `main`.
 
 Before the first cut, the owner must:
 
 1. Create `beta` from `main` after the Beta workflows land, so `publish-beta.yml` exists on both branches. Give `beta` the same branch protection and required `Check` and `vendor-guard` checks as `main`.
-2. Create the public `prashantbhudwal/buddy-beta-releases` repository, initialized with a README. Release creation tags the default branch, so an empty repository cannot receive its first release.
-3. Generate a separate minisign updater keypair. Commit its public key in `BUDDY_DISTRIBUTIONS.beta.updaterPublicKey` in `packages/script/src/distribution.ts`. Keep the private key outside the repository. Beta signing and publication fail closed while the public key is `null`.
-4. Add `BUDDY_BETA_RELEASE_TOKEN`, `BUDDY_BETA_UPDATER_PRIVATE_KEY`, and `BUDDY_BETA_UPDATER_PRIVATE_KEY_PASSWORD` to the source repository's Actions secrets. The token must write only the Beta releases repository. Scope the production release token only to the production releases repository, so neither token can write to the other stream.
-5. After the first cut, run the side-by-side checks in [qa-checklist.md](qa-checklist.md) on macOS ARM64, macOS Intel, and Windows x64.
+2. Generate a separate minisign updater keypair. Commit its public key in `BUDDY_DISTRIBUTIONS.beta.updaterPublicKey` in `packages/script/src/distribution.ts`. Keep the private key outside the repository. Beta signing and publication fail closed while the public key is `null`.
+3. Add `BUDDY_BETA_UPDATER_PRIVATE_KEY` and `BUDDY_BETA_UPDATER_PRIVATE_KEY_PASSWORD` to the source repository's Actions secrets. Beta publishes with the existing `BUDDY_RELEASE_TOKEN`; it never signs with the Stable key.
+4. After the first cut, run the side-by-side checks in [qa-checklist.md](qa-checklist.md) on macOS ARM64, macOS Intel, and Windows x64.
 
 CI runs on pushes to both branches. As on `main`, a push that changes `vendor/opencode` fails `vendor-guard`; cut Beta from a later green `beta` commit.
 
@@ -102,15 +109,15 @@ bun run release:cut:beta --targets all
 
 The first Beta release must build macOS ARM64, macOS Intel, and Windows x64. Later cuts may select a subset; omitted feeds must come from a previous published Beta release. Beta never bootstraps a production or legacy manifest. For local gates, explicitly configure the Beta key through `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH` and its password; Beta never falls back to `~/.config/buddy/tauri-updater.key`.
 
-`publish-beta.yml` maps the three Beta secrets to the generic release/signing slots, serializes the entire Beta stream, and skips skill artifact publication. The pipeline creates a draft, builds and verifies assets, freezes their bytes, records the source tag, then publishes a **non-prerelease latest** release. Beta has no promotion step. A cut below the highest published Beta version is refused. Retrying the same frozen version verifies the original bytes and source instead of replacing assets.
+`publish-beta.yml` maps the Beta signing secrets to the generic signing slots, serializes the entire Beta stream, and skips skill artifact publication. The pipeline creates a draft, builds and verifies assets, freezes their bytes, records the source tag, checks the shared repository, then publishes a **pre-release that is never latest**. Beta has no promotion step. A cut below the highest published Beta version is refused. Retrying the same frozen version verifies the original bytes and source instead of replacing assets.
 
 Inspect and install a published release:
 
 ```sh
-gh release view v0.1.0 --repo prashantbhudwal/buddy-beta-releases --json isDraft,isPrerelease,tagName,url,assets
-bun run download:beta v0.1.0
+gh release view beta-v0.1.0 --repo prashantbhudwal/buddy-releases --json isDraft,isPrerelease,tagName,url,assets
+bun run download:beta beta-v0.1.0
 ```
 
-The local macOS installer selects `Buddy Beta.app` and checks `ai.buddy.desktop.beta` before replacing it. For end users, each Beta release contains `install-buddy-macos.sh` and `install-buddy-windows.ps1` rendered with Beta repository, product, and download-directory defaults. Review and run the installer downloaded from the Beta repository. Production installer files and published bytes are unchanged.
+The local macOS installer selects `Buddy Beta.app` and checks `ai.buddy.desktop.beta` before replacing it. For end users, each Beta release contains `install-buddy-macos.sh` and `install-buddy-windows.ps1` rendered for Beta: they find the newest `beta-v` release and never read Stable's latest. Review and run the installer downloaded from that Beta release. Production installer files and published bytes are unchanged.
 
-Validate Beta-to-Beta updates on both platforms. For a defective Beta, cut a higher numeric Beta version with the fix and let clients roll forward. Do not retarget latest to an older version or run `release:promote`; promotion refuses the Beta channel and repository.
+Validate Beta-to-Beta updates on both platforms. For a defective Beta, cut a higher numeric Beta version with the fix and let clients roll forward. Never mark a Beta release latest, retag it `vX.Y.Z`, or run `release:promote` on it; promotion refuses Beta tags and records.

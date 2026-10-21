@@ -29,7 +29,9 @@ printf "%s  macOS%s\n\n" "${DIM}" "${RESET}"
 REPO="${BUDDY_RELEASE_REPO:-prashantbhudwal/buddy-releases}"
 DEST_DIR="${BUDDY_DOWNLOAD_DIR:-$HOME/Downloads/buddy-release}"
 QUARANTINE_ATTR="com.apple.quarantine"
+# BEGIN RELEASE DOWNLOAD BASE
 LATEST_RELEASE_DOWNLOAD_BASE_URL="https://github.com/${REPO}/releases/latest/download"
+# END RELEASE DOWNLOAD BASE
 DOWNLOAD_RETRIES="${BUDDY_DOWNLOAD_RETRIES:-3}"
 
 case "$(uname -m)" in
@@ -72,6 +74,7 @@ cleanup_spinner() {
 
 trap cleanup_spinner EXIT
 
+# BEGIN RELEASE DISCOVERY
 resolve_latest_release_tag() {
   local api_url="https://api.github.com/repos/${REPO}/releases/latest"
   local tag
@@ -96,6 +99,8 @@ resolve_latest_release_tag() {
 version_from_tag() {
   printf '%s\n' "${TAG#v}"
 }
+
+# END RELEASE DISCOVERY
 
 asset_size() {
   local candidate_url="$1"
@@ -215,6 +220,9 @@ download_asset_from_target_manifest() {
   if [[ "${archive_url}" != http://* && "${archive_url}" != https://* ]]; then
     archive_url="${LATEST_RELEASE_DOWNLOAD_BASE_URL}/${archive_url}"
   fi
+
+  # BEGIN RELEASE MANIFEST URL CHECK
+  # END RELEASE MANIFEST URL CHECK
 
   archive_name="$(basename "${archive_url%%\?*}")"
   if [[ -z "${archive_name}" ]]; then

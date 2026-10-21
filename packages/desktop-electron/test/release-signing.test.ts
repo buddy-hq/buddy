@@ -157,3 +157,134 @@ describe("release signing scripts", () => {
     },
   )
 })
+
+describe("release script tag boundaries", () => {
+  test.each([
+    "upload-release-assets.ts",
+    "finalize-latest-mac-json.ts",
+    "finalize-latest-yml.ts",
+    "finalize-recovery-policy.ts",
+    "finalize-target-update-manifests.ts",
+    "download-release-update-assets.ts",
+  ])("%s refuses a Beta tag in a prod invocation before calling GitHub", async (filename) => {
+    const fixture = await signingFixture()
+    try {
+      const result = spawnSync(process.execPath, [path.join(SCRIPTS, filename)], {
+        env: { ...fixture.environment, BUDDY_RELEASE_TAG: "beta-v0.1.0" },
+        encoding: "utf8",
+      })
+      expect(result.status).toBe(1)
+      expect(result.stderr).toMatch(/does not belong|does not match/u)
+      expect(await Bun.file(fixture.uploadLog).exists()).toBe(false)
+    } finally {
+      await rm(fixture.directory, { recursive: true, force: true })
+    }
+  })
+
+  test.each([
+    { artifactTag: "beta-v0.1.0", succeeds: true },
+    { artifactTag: "v0.1.0", succeeds: false },
+    { artifactTag: "beta-v0.1.0/../v0.1.0", succeeds: false },
+  ])(
+    "Beta carry-forward validates artifact tag $artifactTag and preserves signed bytes",
+    async ({ artifactTag, succeeds }) => {
+      const fixture = await signingFixture()
+      try {
+        const filename = "latest-macos-x64.json"
+        const previousDirectory = path.join(fixture.directory, "previous")
+        await mkdir(previousDirectory)
+        const manifest = Buffer.from(
+          JSON.stringify(
+            {
+              version: "0.1.0",
+              files: [
+                {
+                  url: `https://github.com/prashantbhudwal/buddy-releases/releases/download/${artifactTag}/buddy-v0.1.0-macos-intel.zip`,
+                  sha512: "fixture",
+                  size: 1,
+                },
+              ],
+            },
+            null,
+            4,
+          ) + "\n",
+        )
+        const manifestPath = path.join(previousDirectory, filename)
+        await Bun.write(manifestPath, manifest)
+        const signed = spawnSync(
+          process.execPath,
+          [fixture.environment.TAURI_SIGNER_BINARY_PATH, "signer", "sign", manifestPath],
+          {
+            env: resolveSignerEnvironment(fixture.environment),
+            encoding: "utf8",
+          },
+        )
+        expect(signed.status).toBe(0)
+        const signature = await Bun.file(`${manifestPath}.sig`).bytes()
+        const gh = path.join(fixture.directory, "bin", "gh")
+        await Bun.write(
+          gh,
+          `#!${process.execPath}
+import { copyFileSync } from "node:fs"
+import path from "node:path"
+const args = process.argv.slice(2)
+if (args[0] === "api" && args.includes("--paginate") && args.includes("--slurp")) {
+  const names = ["${filename}", "${filename}.sig"].map((name) => ({ name }))
+  const release = (tag_name, prerelease) => ({ tag_name, prerelease, draft: false, published_at: "2026-01-01T00:00:00Z", assets: names })
+  console.log(JSON.stringify([Array.from({ length: 100 }, () => release("v99.0.0", false)), [release("beta-v99.0.0", false), release("beta-v0.1.1", true)]]))
+} else if (args[0] === "release" && args[1] === "download" && args[2] === "beta-v0.1.1") {
+  const output = args[args.indexOf("--dir") + 1]
+  for (const name of ["${filename}", "${filename}.sig"]) copyFileSync(path.join(process.env.FIXTURE_PREVIOUS_DIRECTORY, name), path.join(output, name))
+} else { throw new Error("Unexpected GitHub call: " + args.join(" ")) }
+`,
+        )
+        const distributionFile = path.resolve(SCRIPTS, "../../script/src/distribution.ts")
+        const script = path.join(SCRIPTS, "finalize-target-update-manifests.ts")
+        const result = spawnSync(
+          process.execPath,
+          [
+            "--eval",
+            `
+        import { BUDDY_DISTRIBUTIONS } from ${JSON.stringify(distributionFile)};
+        Object.assign(BUDDY_DISTRIBUTIONS.beta, { updaterPublicKey: ${JSON.stringify(fixture.publicKey)} });
+        await import(${JSON.stringify(script)});
+      `,
+          ],
+          {
+            env: {
+              ...fixture.environment,
+              BUDDY_CHANNEL: "beta",
+              BUDDY_RELEASE_TAG: "beta-v0.1.2",
+              BUDDY_VERSION: "0.1.2",
+              BUDDY_RELEASE_CHECK_ONLY: "1",
+              BUDDY_RELEASE_TARGET_MACOS_ARM64: "true",
+              BUDDY_RELEASE_TARGET_MACOS_X64: "false",
+              BUDDY_RELEASE_TARGET_WINDOWS_X64: "true",
+              FIXTURE_PREVIOUS_DIRECTORY: previousDirectory,
+            },
+            encoding: "utf8",
+          },
+        )
+        expect(result.status).toBe(succeeds ? 0 : 1)
+        if (succeeds) {
+          expect(result.stderr).toBe("")
+          expect(result.stdout).toContain("previous per-target manifest exists")
+          expect(
+            await Bun.file(
+              path.join(fixture.environment.BUDDY_UPDATE_OUTPUT_DIR, filename),
+            ).bytes(),
+          ).toEqual(new Uint8Array(manifest))
+          expect(
+            await Bun.file(
+              path.join(fixture.environment.BUDDY_UPDATE_OUTPUT_DIR, `${filename}.sig`),
+            ).bytes(),
+          ).toEqual(signature)
+        } else {
+          expect(result.stderr).toContain("does not belong to Buddy Beta")
+        }
+      } finally {
+        await rm(fixture.directory, { recursive: true, force: true })
+      }
+    },
+  )
+})

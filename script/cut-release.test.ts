@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { formatBetaReleaseBody, readBetaReleaseBody } from "@buddy/script/release-stream"
 import {
   resolveReleaseExecution,
   selectWorkflowRunUrls,
@@ -6,6 +7,7 @@ import {
   type WorkflowRun,
 } from "./cut-release"
 import { parseReleasePlan } from "./release/plan"
+import { resolveBetaDraftReleaseBody } from "./release/beta-publication"
 import { assertReleaseBranch, releaseDistribution } from "./release/distribution-guard"
 
 const CURRENT_SOURCE_SHA = "1".repeat(40)
@@ -114,6 +116,29 @@ describe("cut release", () => {
 })
 
 describe("Beta release wizard", () => {
+  test("frozen draft retries keep the body byte-identical and Beta decodes the original notes", () => {
+    const notes = "- Original <Beta> & notes\n- Preserve trailing whitespace  \n"
+    const body = formatBetaReleaseBody(notes).replaceAll("\n", "\r\n") + "\r\n"
+    const draft = { body, assets: [{ name: "buddy-release-freeze.json" }] }
+    for (let retry = 0; retry < 2; retry += 1) {
+      draft.body = resolveBetaDraftReleaseBody({ notes: draft.body, existingRelease: draft })
+      expect(draft.body).toBe(body)
+      expect(readBetaReleaseBody(draft.body)).toBe(notes)
+    }
+  })
+
+  test("editable Beta draft notes are wrapped once before publication", () => {
+    const notes = "- Editable <Beta> & notes"
+    const body = resolveBetaDraftReleaseBody({ notes, existingRelease: undefined })
+    expect(readBetaReleaseBody(body)).toBe(notes)
+    expect(
+      resolveBetaDraftReleaseBody({
+        notes: "- Revised notes",
+        existingRelease: { body, assets: [] },
+      }),
+    ).toBe(formatBetaReleaseBody("- Revised notes"))
+  })
+
   test("defaults to prod and accepts explicit Beta targets", () => {
     expect(parseReleaseWizardArgs([]).channel).toBe("prod")
     expect(parseReleaseWizardArgs(["--channel", "beta", "--targets", "all", "--fs"])).toEqual({

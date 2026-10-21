@@ -39,14 +39,14 @@ describe("recovery-policy distribution", () => {
       requested.push(String(url))
       return Response.json([
         { draft: false, prerelease: false, tag_name: "v1.0.0" },
-        { draft: false, prerelease: true, tag_name: "v2.0.0" },
+        { draft: false, prerelease: true, tag_name: "beta-v2.0.0" },
       ])
     })
     expect(await resolveRecoveryPolicyUrl(BUDDY_DISTRIBUTIONS.beta)).toBe(
-      "https://github.com/prashantbhudwal/buddy-beta-releases/releases/download/v2.0.0/recovery-policy.json",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/recovery-policy.json",
     )
     expect(requested).toEqual([
-      "https://api.github.com/repos/prashantbhudwal/buddy-beta-releases/releases?per_page=100",
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
     ])
   })
 
@@ -58,7 +58,7 @@ describe("recovery-policy distribution", () => {
     const warnings: unknown[][] = []
     globalThis.fetch = createTestFetch(async (url) => {
       requested.push(String(url))
-      return Response.json([{ draft: false, prerelease: true, tag_name: "v2.0.0" }])
+      return Response.json([{ draft: false, prerelease: true, tag_name: "beta-v2.0.0" }])
     })
     expect(
       await fetchRecoveryPolicy({
@@ -86,21 +86,66 @@ describe("recovery-policy distribution", () => {
     expect(
       await fetchRecoveryPolicy({
         distribution: BUDDY_DISTRIBUTIONS.beta,
-        policyUrl: "https://example.invalid/beta-policy.json",
+        policyUrl:
+          "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/recovery-policy.json",
         publicKey: fixture.publicKey,
         logger,
       }),
     ).toEqual({ schema: 1, distribution: "beta", badVersions: [] })
     expect(requested.toSorted()).toEqual([
-      "https://example.invalid/beta-policy.json",
-      "https://example.invalid/beta-policy.json.sig",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/recovery-policy.json",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/recovery-policy.json.sig",
     ])
     await expect(
       fetchRecoveryPolicy({
         distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey },
-        policyUrl: "https://example.invalid/beta-policy.json",
+        policyUrl:
+          "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/recovery-policy.json",
         logger,
       }),
     ).resolves.toEqual({ schema: 1, distribution: "beta", badVersions: [] })
   })
+
+  test.each([false, true])(
+    "Beta policy completes discovery before fetching a signed policy; later-page failure=%s",
+    async (failure) => {
+      const payload = JSON.stringify({ schema: 1, badVersions: [] })
+      const fixture = signedUpdateFixture(payload)
+      const requested: string[] = []
+      globalThis.fetch = createTestFetch(async (url) => {
+        requested.push(String(url))
+        if (String(url).startsWith("https://api.github.com/")) {
+          if (String(url).includes("&page=2")) {
+            return failure
+              ? new Response("unavailable", { status: 503 })
+              : Response.json([{ draft: false, prerelease: true, tag_name: "beta-v2.0.0" }])
+          }
+          return Response.json(
+            Array.from({ length: 100 }, (_, index) => ({
+              draft: false,
+              prerelease: true,
+              tag_name: index === 0 ? "beta-v1.0.0" : "v99.0.0",
+            })),
+          )
+        }
+        return new Response(String(url).endsWith(".sig") ? fixture.signature : payload)
+      })
+      expect(
+        await fetchRecoveryPolicy({
+          distribution: { ...BUDDY_DISTRIBUTIONS.beta, updaterPublicKey: fixture.publicKey },
+          logger,
+        }),
+      ).toEqual(failure ? undefined : { schema: 1, distribution: "beta", badVersions: [] })
+      expect(requested).toEqual([
+        "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
+        "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100&page=2",
+        ...(failure
+          ? []
+          : [
+              "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/recovery-policy.json",
+              "https://github.com/prashantbhudwal/buddy-releases/releases/download/beta-v2.0.0/recovery-policy.json.sig",
+            ]),
+      ])
+    },
+  )
 })

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { formatReleaseTag } from "@buddy/script/release-stream"
 import { assertLegacyProdRelease } from "../../../script/release/distribution-guard"
 import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
 import path from "node:path"
@@ -39,7 +40,7 @@ const electronDistDir = process.env[ELECTRON_DIST_DIR_ENV_KEY]?.trim() || ""
 const assetBaseUrl = process.env[UPDATE_ASSET_BASE_URL_ENV_KEY]?.trim() || ""
 const skipUpload = process.env[UPDATE_SKIP_UPLOAD_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 const releaseVersion = version
-const tag = `v${releaseVersion}`
+const tag = formatReleaseTag(BUDDY_DISTRIBUTIONS.prod, releaseVersion)
 const outputDirectory =
   process.env[UPDATE_OUTPUT_DIR_ENV_KEY]?.trim() ||
   process.env.RUNNER_TEMP ||

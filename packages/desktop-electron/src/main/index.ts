@@ -94,7 +94,11 @@ import {
   resolveDesktopStoragePlan,
   resolveOpenCodeSqlitePath,
 } from "./storage-paths"
-import { UPDATE_DISTRIBUTION, UpdatesNotConfiguredError, RELEASE_REPOSITORY } from "./update-common"
+import {
+  UPDATE_DISTRIBUTION,
+  UpdatesNotConfiguredError,
+  resolveManualDownloadUrl,
+} from "./update-common"
 import { createReadyUpdateStore, isReadyUpdateCurrent } from "./update-ready-store"
 import { compareVersions } from "./recovery-policy-core"
 import { watchBackendDevelopmentReloadSignal } from "./backend-development-reload"
@@ -130,7 +134,6 @@ const STARTUP_FAILURE_MESSAGE = `${APP_PRODUCT_NAME} failed to start.`
 const UNKNOWN_STARTUP_FAILURE_DETAIL = `The local ${APP_PRODUCT_NAME} server did not become ready.`
 const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
 const MAC_UPDATE_CACHE_DIRECTORY_NAME = "mac-updater"
-const BUDDY_DOWNLOAD_URL = `https://github.com/${RELEASE_REPOSITORY}/releases${UPDATE_DISTRIBUTION.id === "beta" ? "" : "/latest"}`
 const PRIMARY_DIALOG_RESPONSE = 0
 const SECONDARY_DIALOG_RESPONSE = 1
 const STARTUP_FAILURE_UPDATE_CHECK_BUTTONS = ["Check for Update", "Quit"] as const
@@ -644,7 +647,7 @@ async function showStartupFailureUpdateMissingDialog(
   })
 
   if (response.response === PRIMARY_DIALOG_RESPONSE) {
-    await shell.openExternal(BUDDY_DOWNLOAD_URL)
+    await shell.openExternal(await resolveManualDownloadUrl())
   }
 }
 

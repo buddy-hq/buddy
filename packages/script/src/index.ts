@@ -1,6 +1,6 @@
 import { $, semver } from "bun"
 import path from "node:path"
-import { latestReleaseVersionFromReleases, type GithubReleaseVersion } from "./release-version"
+import { assertReleaseTag, highestStreamReleaseVersion } from "./release-stream"
 import {
   BUDDY_DISTRIBUTIONS,
   formatReleaseRepositorySlug,
@@ -74,20 +74,23 @@ function githubTagVersion() {
   }
 
   if (process.env.BUDDY_CHANNEL?.trim() === "beta") {
-    const prefix = BUDDY_DISTRIBUTIONS.beta.sourceTagPrefix
-    if (!refName.startsWith(prefix)) {
-      throw new Error(`Invalid Beta source tag: ${refName}`)
-    }
-    return normalizeVersion(refName.slice(prefix.length))
+    return assertReleaseTag(BUDDY_DISTRIBUTIONS.beta, refName)
   }
-  return normalizeVersion(refName)
+  return assertReleaseTag(BUDDY_DISTRIBUTIONS.prod, refName)
 }
 
 async function getLatestReleaseVersion() {
   const repo = RELEASE_REPO
-  const releases: GithubReleaseVersion[] =
-    await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()
-  return latestReleaseVersionFromReleases(releases)
+  const pages: { tag_name: string; draft: boolean; prerelease: boolean }[][] =
+    await $`gh api --paginate --slurp ${`repos/${repo}/releases?per_page=100`}`.json()
+  return highestStreamReleaseVersion(
+    BUDDY_DISTRIBUTIONS[process.env.BUDDY_CHANNEL?.trim() === "beta" ? "beta" : "prod"],
+    pages.flat().map((release) => ({
+      tagName: release.tag_name,
+      isDraft: release.draft,
+      isPrerelease: release.prerelease,
+    })),
+  )
 }
 
 function bumpVersion(version: string, bump: string | undefined) {
@@ -118,7 +121,10 @@ const VERSION = await (async () => {
   }
 
   if (env.BUDDY_TAG) {
-    return normalizeVersion(env.BUDDY_TAG)
+    return assertReleaseTag(
+      BUDDY_DISTRIBUTIONS[process.env.BUDDY_CHANNEL?.trim() === "beta" ? "beta" : "prod"],
+      env.BUDDY_TAG.trim(),
+    )
   }
 
   const tagVersion = githubTagVersion()

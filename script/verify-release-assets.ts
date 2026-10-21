@@ -8,6 +8,7 @@ import os from "node:os"
 import path from "node:path"
 import { verifySignedMessage } from "@buddy/script/minisign"
 import { z } from "zod"
+import { assertReleaseTag, parseReleaseTag } from "@buddy/script/release-stream"
 import { requireUpdaterPublicKey } from "@buddy/script/distribution"
 import {
   assertReleaseDestination,
@@ -176,7 +177,7 @@ function parseArgs(): VerifyArguments {
     usage()
   }
 
-  if (!result.repo || !/^v\d+\.\d+\.\d+$/u.test(result.tag)) usage()
+  if (!result.repo || !parseReleaseTag(distribution, result.tag)) usage()
   if (!result.targets.macosArm64 && !result.targets.macosX64 && !result.targets.windowsX64) {
     throw new Error("At least one release target must be selected")
   }
@@ -188,7 +189,7 @@ function parseArgs(): VerifyArguments {
 }
 
 function releaseVersionFromTag(tag: string): string {
-  return tag.slice(1)
+  return assertReleaseTag(distribution, tag)
 }
 
 function checkpointTargets(targets: ReleaseTargetSelection): ReleaseCheckpointTarget[] {
@@ -391,6 +392,12 @@ function assertManifestUsesReleaseRepository(
     const url = new URL(file.url)
     if (url.origin !== "https://github.com" || !url.pathname.startsWith(expectedPathPrefix)) {
       throw new Error(`${manifestName} contains an updater URL outside ${repository}: ${file.url}`)
+    }
+    if (distribution.id === "beta") {
+      assertReleaseTag(
+        distribution,
+        url.pathname.slice(expectedPathPrefix.length).split("/")[0] ?? "",
+      )
     }
   }
 }

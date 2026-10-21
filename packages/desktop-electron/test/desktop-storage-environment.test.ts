@@ -83,7 +83,7 @@ describe("desktop storage environment", () => {
         expect(environment[key]).toBe(app[key])
       }
       expect(environment[BUDDY_ENV.DIRECTORY_BASE]).toBe("/sandbox/documents/Buddy Beta")
-      expect(environment.BUDDY_RELEASE_REPO).toBe("prashantbhudwal/buddy-beta-releases")
+      expect(environment.BUDDY_RELEASE_REPO).toBe("prashantbhudwal/buddy-releases")
       expect(environment.OPENCODE_DISABLE_MODELS_FETCH).toBe("true")
       expect(environment.OPENCODE_DISABLE_PROJECT_CONFIG).toBe("true")
       expect(environment.OPENCODE_GIT_BASH_PATH).toBe("/sandbox/git/bin/bash.exe")

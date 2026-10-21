@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
+import { assertReleaseTagVersion } from "@buddy/script/release-stream"
 import { createHash } from "node:crypto"
 import path from "node:path"
 import { z } from "zod"
@@ -14,7 +16,11 @@ import {
 import { appendGithubOutputs } from "./github-output"
 import { normalizeReleaseSourceSha } from "./preflight"
 
-import { releaseChannelIdentity } from "./distribution-guard"
+import {
+  assertReleaseTagDestination,
+  releaseChannelIdentity,
+  releaseDistribution,
+} from "./distribution-guard"
 
 export const RELEASE_PLAN_FILENAME = "buddy-release-plan.json"
 const RELEASE_PLAN_SCHEMA_VERSION = 1
@@ -51,7 +57,7 @@ const releasePlanIdentitySchema = z.object({
   schemaVersion: z.literal(RELEASE_PLAN_SCHEMA_VERSION),
   sourceRepository: z.string().min(1),
   sourceSha: z.string().regex(/^[0-9a-f]{40}$/u),
-  tag: z.string().regex(/^v\d+\.\d+\.\d+$/u),
+  tag: z.string().min(1),
   targets: releaseTargetSelectionSchema,
   toolchain: releasePlanToolchainIdentitySchema,
   version: z.string().regex(/^\d+\.\d+\.\d+$/u),
@@ -88,11 +94,16 @@ function requiredBooleanEnvironmentValue(environment: NodeJS.ProcessEnv, key: st
 export function parseReleasePlan<TValue>(value: TValue): ReleasePlan {
   const parsed = releasePlanSchema.safeParse(value)
   if (!parsed.success) throw new Error("Invalid Buddy release plan")
+  assertReleaseTagVersion(
+    BUDDY_DISTRIBUTIONS[parsed.data.channel ?? "prod"],
+    parsed.data.tag,
+    parsed.data.version,
+  )
   return parsed.data
 }
 
 export function releasePlanIdentity(plan: ReleasePlan): ReleasePlanIdentity {
-  return releasePlanIdentitySchema.parse(plan)
+  return releasePlanIdentitySchema.parse(parseReleasePlan(plan))
 }
 
 export function assertMatchingReleasePlanIdentity(
@@ -140,6 +151,11 @@ async function sourceReleaseDate(sourceSha: string): Promise<string> {
 
 async function expectedPlanIdentity(environment: NodeJS.ProcessEnv): Promise<ReleasePlanIdentity> {
   const version = requiredEnvironmentValue(environment, "BUDDY_VERSION")
+  assertReleaseTagVersion(
+    releaseDistribution(environment),
+    requiredEnvironmentValue(environment, "BUDDY_RELEASE_TAG"),
+    version,
+  )
   const sourceSha = normalizeReleaseSourceSha(
     requiredEnvironmentValue(environment, "BUDDY_RELEASE_SOURCE_SHA"),
   )
@@ -207,13 +223,15 @@ async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void>
   }
 
   const repository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_REPO")
-  const assets = await readGithubReleaseAssets(repository, identity.tag)
+  assertReleaseTagDestination(repository, identity.tag, environment)
+  const assets = await readGithubReleaseAssets(repository, identity.tag, environment)
   const existingPlanAsset = assets.find((asset) => asset.name === RELEASE_PLAN_FILENAME)
   let plan: ReleasePlan
 
   if (existingPlanAsset) {
     const temporaryDirectory = requiredEnvironmentValue(environment, "RUNNER_TEMP")
     const planPath = await downloadReleaseAsset({
+      environment,
       directory: temporaryDirectory,
       name: RELEASE_PLAN_FILENAME,
       repository,
@@ -233,7 +251,12 @@ async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void>
       RELEASE_PLAN_FILENAME,
     )
     await Bun.write(outputPath, renderReleasePlan(plan))
-    await uploadReleaseAssetSafely({ filePath: outputPath, repository, tag: identity.tag })
+    await uploadReleaseAssetSafely({
+      environment,
+      filePath: outputPath,
+      repository,
+      tag: identity.tag,
+    })
   }
 
   await writeOutputs(plan, environment)

@@ -19,10 +19,17 @@ import {
   releaseDistribution,
   assertReleaseRecordChannel,
 } from "./release/distribution-guard"
+import {
+  assertReleaseTag,
+  assertReleaseTagVersion,
+  formatReleaseTag,
+  readBetaReleaseBody,
+} from "@buddy/script/release-stream"
 import { RELEASE_FREEZE_FILENAME } from "./release/constants"
 import {
   assertBetaVersionMovesForward,
   highestPublishedBetaVersion,
+  resolveBetaDraftReleaseBody,
 } from "./release/beta-publication"
 import {
   BUDDY_DISTRIBUTIONS,
@@ -43,6 +50,7 @@ type ReleaseSummary = {
   assets: { name: string }[]
   body: string
   isDraft: boolean
+  isPrerelease: boolean
   name: string
   tagName: string
   url: string
@@ -52,6 +60,7 @@ const ReleaseSummarySchema = z.object({
   assets: z.array(z.object({ name: z.string() })),
   body: z.string(),
   isDraft: z.boolean(),
+  isPrerelease: z.boolean(),
   name: z.string(),
   tagName: z.string(),
   url: z.string(),
@@ -240,7 +249,7 @@ async function ensureReleaseSecrets() {
   const requiredSecrets =
     releaseDistribution().id === "beta"
       ? [
-          "BUDDY_BETA_RELEASE_TOKEN",
+          "BUDDY_RELEASE_TOKEN",
           "BUDDY_BETA_UPDATER_PRIVATE_KEY",
           "BUDDY_BETA_UPDATER_PRIVATE_KEY_PASSWORD",
         ]
@@ -366,7 +375,7 @@ async function chooseVersion(rl: ReleaseReadline, fast = false) {
   let patchSuggestion = versionBase ? bumpVersion(versionBase, "patch") : initialVersion
   const incompatibleDrafts: string[] = []
   while (true) {
-    const draft = await loadRelease(`v${patchSuggestion}`)
+    const draft = await loadRelease(formatReleaseTag(releaseDistribution(), patchSuggestion))
     if (
       !draft?.isDraft ||
       draft.assets.length === 0 ||
@@ -382,9 +391,9 @@ async function chooseVersion(rl: ReleaseReadline, fast = false) {
   const versionContext = versionBase
     ? [
         latestStable
-          ? `Latest ${releaseDistribution().id === "beta" ? "Beta" : "stable"} release: v${latestStable}`
+          ? `Latest ${releaseDistribution().id === "beta" ? "Beta" : "stable"} release: ${formatReleaseTag(releaseDistribution(), latestStable)}`
           : "No prior stable release found.",
-        `Highest published release tag: v${versionBase}`,
+        `Highest published release tag: ${formatReleaseTag(releaseDistribution(), versionBase)}`,
       ].join("\n")
     : "No prior published release found."
   const draftContext =
@@ -395,22 +404,22 @@ async function chooseVersion(rl: ReleaseReadline, fast = false) {
   if (fast) {
     printStep(
       "Version",
-      `${versionContext}${draftContext}\nUsing suggested patch version: v${patchSuggestion}`,
+      `${versionContext}${draftContext}\nUsing suggested patch version: ${formatReleaseTag(releaseDistribution(), patchSuggestion)}`,
     )
     return patchSuggestion
   }
 
   printStep(
     "Version",
-    `${versionContext}${draftContext}\nSuggested next release: v${patchSuggestion}`,
+    `${versionContext}${draftContext}\nSuggested next release: ${formatReleaseTag(releaseDistribution(), patchSuggestion)}`,
   )
 
   console.log("1. Use the suggested patch version")
-  console.log(`   v${patchSuggestion}`)
+  console.log(`   ${formatReleaseTag(releaseDistribution(), patchSuggestion)}`)
   console.log("2. Use the next minor version")
-  console.log(`   v${minorSuggestion}`)
+  console.log(`   ${formatReleaseTag(releaseDistribution(), minorSuggestion)}`)
   console.log("3. Use the next major version")
-  console.log(`   v${majorSuggestion}`)
+  console.log(`   ${formatReleaseTag(releaseDistribution(), majorSuggestion)}`)
   console.log("4. Enter a custom version")
 
   const choice = await promptLine(rl, "Select a version option", "1")
@@ -432,6 +441,7 @@ async function chooseVersion(rl: ReleaseReadline, fast = false) {
 }
 
 async function loadRelease(tag: string) {
+  assertReleaseTag(releaseDistribution(), tag)
   const existing = await $`gh release view ${tag} --repo ${releaseRepository()}`
     .cwd(ROOT_DIR)
     .quiet()
@@ -442,16 +452,19 @@ async function loadRelease(tag: string) {
   }
 
   const payload =
-    await $`gh release view ${tag} --repo ${releaseRepository()} --json assets,name,body,isDraft,url,tagName`
+    await $`gh release view ${tag} --repo ${releaseRepository()} --json assets,name,body,isDraft,isPrerelease,url,tagName`
       .cwd(ROOT_DIR)
       .json()
-  return ReleaseSummarySchema.parse(payload)
+  const release = ReleaseSummarySchema.parse(payload)
+  if (release.tagName !== tag) throw new Error("Release tag does not match request")
+  return release
 }
 
 async function loadDraftReleasePlan(
   release: ReleaseSummary | undefined,
 ): Promise<ReleasePlan | undefined> {
   if (!release?.assets.some((asset) => asset.name === RELEASE_PLAN_FILENAME)) return undefined
+  assertReleaseTag(releaseDistribution(), release.tagName)
   const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "buddy-release-plan-"))
   const planPath = path.join(temporaryDirectory, RELEASE_PLAN_FILENAME)
   try {
@@ -465,14 +478,15 @@ async function loadDraftReleasePlan(
 }
 
 async function ensureVersionIsAvailable(version: string) {
-  const tag = `v${version}`
+  const tag = formatReleaseTag(releaseDistribution(), version)
   const existing = await loadRelease(tag)
   if (releaseDistribution().id === "beta") {
     assertBetaVersionMovesForward(version, await highestPublishedBetaVersion(releaseRepository()))
   }
   const frozenBeta =
     releaseDistribution().id === "beta" &&
-    existing?.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
+    existing?.isPrerelease &&
+    existing.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
   if (existing && !existing.isDraft && !frozenBeta) {
     throw new Error(`Release ${tag} already exists: ${existing.url}`)
   }
@@ -489,6 +503,8 @@ export function resolveReleaseExecution(input: {
   version: string
 }): ReleaseExecution {
   if (input.plan) assertReleaseRecordChannel(input.plan, input.channel ?? "prod")
+  assertReleaseTagVersion(BUDDY_DISTRIBUTIONS[input.channel ?? "prod"], input.tag, input.version)
+  if (input.plan) parseReleasePlan(input.plan)
   if (
     input.plan &&
     (input.plan.tag !== input.tag ||
@@ -507,7 +523,7 @@ async function initialReleaseBody(version: string, existingDraft: ReleaseSummary
   if (existingDraft?.isDraft) {
     const body = existingDraft.body.trim()
     if (body) {
-      return body
+      return releaseDistribution().id === "beta" ? (readBetaReleaseBody(body) ?? body) : body
     }
   }
 
@@ -522,7 +538,7 @@ async function editReleaseDraft(
   existingDraft: ReleaseSummary | undefined,
   fast = false,
 ) {
-  const tag = `v${version}`
+  const tag = formatReleaseTag(releaseDistribution(), version)
   if (
     existingDraft &&
     releaseDistribution().id === "beta" &&
@@ -597,14 +613,34 @@ async function upsertDraftRelease(
   targetSha: string,
   existingDraft: ReleaseSummary | undefined,
 ) {
-  if (existingDraft && releaseDistribution().id === "beta" && !existingDraft.isDraft)
+  const tag = formatReleaseTag(releaseDistribution(), version)
+  if (existingDraft && existingDraft.tagName !== tag)
+    throw new Error("Release tag does not match request")
+  if (existingDraft && releaseDistribution().id === "beta" && !existingDraft.isDraft) {
+    if (
+      !existingDraft.isPrerelease ||
+      !existingDraft.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
+    ) {
+      throw new Error(`Published Beta ${tag} must be prerelease and frozen to retry`)
+    }
     return existingDraft
-  const tag = `v${version}`
+  }
   printStep("Draft Release", `Creating or updating draft release ${tag}.`)
   const releaseRepo = releaseRepository()
   const sourceRepo = sourceRepository()
 
-  if (existingDraft?.isDraft) {
+  if (releaseDistribution().id === "beta") {
+    const betaBody = resolveBetaDraftReleaseBody({ notes: body, existingRelease: existingDraft })
+    if (existingDraft?.isDraft) {
+      await $`gh release edit ${tag} --prerelease --latest=false --title ${title} --notes ${betaBody} --repo ${releaseRepo}`.cwd(
+        ROOT_DIR,
+      )
+    } else {
+      await $`gh release create ${tag} -d --prerelease --latest=false --title ${title} --notes ${betaBody} --repo ${releaseRepo}`.cwd(
+        ROOT_DIR,
+      )
+    }
+  } else if (existingDraft?.isDraft) {
     if (notesPath) {
       await $`gh release edit ${tag} --title ${title} --notes-file ${notesPath} --repo ${releaseRepo}`.cwd(
         ROOT_DIR,
@@ -691,7 +727,10 @@ async function waitForRunUrl(version: string) {
 }
 
 async function dispatchRelease(version: string, targetSha: string, targets: ReleaseTargets) {
-  printStep("Dispatch", `Triggering GitHub release workflow for v${version}.`)
+  printStep(
+    "Dispatch",
+    `Triggering GitHub release workflow for ${formatReleaseTag(releaseDistribution(), version)}.`,
+  )
 
   const dispatchOutput =
     await $`gh workflow run ${releaseWorkflowFilename()} --repo ${sourceRepository()} --ref ${releaseDistribution().releaseBranch} -f ${`version=${version}`} -f ${`source_sha=${targetSha}`} -f ${`build_macos_arm64=${String(targets.macosArm64)}`} -f ${`build_macos_x64=${String(targets.macosX64)}`} -f ${`build_windows_x64=${String(targets.windowsX64)}`}`
@@ -998,7 +1037,7 @@ async function main() {
     printStep("Targets", describeReleaseTargets(targets))
 
     const version = await chooseVersion(rl, flags.fast)
-    const tag = `v${version}`
+    const tag = formatReleaseTag(releaseDistribution(), version)
     const existingDraft = await ensureVersionIsAvailable(version)
     const existingPlan = await loadDraftReleasePlan(existingDraft)
     const execution = resolveReleaseExecution({

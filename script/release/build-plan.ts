@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 
+import { assertReleaseTagVersion } from "@buddy/script/release-stream"
+import { assertReleaseTagDestination } from "./distribution-guard"
 import { inspectReleaseCheckpoint, type ReleaseCheckpointTarget } from "./checkpoint"
 import { readGithubReleaseState } from "./assets"
 import { RELEASE_FREEZE_FILENAME } from "./constants"
@@ -117,6 +119,7 @@ async function assertFrozenReleaseIsComplete(
   const repository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_REPO")
   const tag = requiredEnvironmentValue(environment, "BUDDY_RELEASE_TAG")
   await verifyReleaseFreeze({
+    environment,
     directory: requiredEnvironmentValue(environment, "RUNNER_TEMP"),
     expectedIdentity: releaseFreezeIdentity(environment),
     repository,
@@ -146,7 +149,13 @@ export async function resolveReleaseBuildPlan(
   if (!dryRun) {
     const repository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_REPO")
     const tag = requiredEnvironmentValue(environment, "BUDDY_RELEASE_TAG")
-    const release = await readGithubReleaseState(repository, tag)
+    const distribution = assertReleaseTagDestination(repository, tag, environment)
+    assertReleaseTagVersion(
+      distribution,
+      tag,
+      requiredEnvironmentValue(environment, "BUDDY_VERSION"),
+    )
+    const release = await readGithubReleaseState(repository, tag, environment)
     const frozen = release.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
     if (frozen) {
       await assertFrozenReleaseIsComplete(environment, [

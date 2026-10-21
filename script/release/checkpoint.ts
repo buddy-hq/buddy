@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 
-import { assertReleaseDestination } from "./distribution-guard"
+import { assertReleaseTagDestination } from "./distribution-guard"
 import path from "node:path"
+import { assertReleaseTagVersion } from "@buddy/script/release-stream"
 import { z } from "zod"
 import { resolveAdvancedMathRuntimeVersion } from "../../packages/buddy/script/advanced-math-version"
 import {
@@ -223,14 +224,20 @@ export async function inspectReleaseCheckpoint(input: {
   target: ReleaseCheckpointTarget
 }): Promise<boolean> {
   const repository = requiredEnvironmentValue(input.environment, "BUDDY_RELEASE_REPO")
-  assertReleaseDestination(repository, input.environment)
   const tag = requiredEnvironmentValue(input.environment, "BUDDY_RELEASE_TAG")
-  const assets = await readGithubReleaseAssets(repository, tag)
+  const distribution = assertReleaseTagDestination(repository, tag, input.environment)
+  assertReleaseTagVersion(
+    distribution,
+    tag,
+    requiredEnvironmentValue(input.environment, "BUDDY_VERSION"),
+  )
+  const assets = await readGithubReleaseAssets(repository, tag, input.environment)
   const checkpointName = releaseCheckpointFilename(input.target)
   if (!assets.some((asset) => asset.name === checkpointName)) return false
 
   const temporaryDirectory = requiredEnvironmentValue(input.environment, "RUNNER_TEMP")
   const checkpointPath = await downloadReleaseAsset({
+    environment: input.environment,
     directory: temporaryDirectory,
     name: checkpointName,
     repository,
@@ -269,8 +276,13 @@ export async function recordReleaseCheckpoint(input: {
   target: ReleaseCheckpointTarget
 }): Promise<void> {
   const repository = requiredEnvironmentValue(input.environment, "BUDDY_RELEASE_REPO")
-  assertReleaseDestination(repository, input.environment)
   const tag = requiredEnvironmentValue(input.environment, "BUDDY_RELEASE_TAG")
+  const distribution = assertReleaseTagDestination(repository, tag, input.environment)
+  assertReleaseTagVersion(
+    distribution,
+    tag,
+    requiredEnvironmentValue(input.environment, "BUDDY_VERSION"),
+  )
   const assetDirectory = requiredEnvironmentValue(input.environment, "BUDDY_RELEASE_ASSET_DIR")
   const identity = checkpointIdentity(input)
   const assetPaths = checkpointAssetPaths({
@@ -280,13 +292,20 @@ export async function recordReleaseCheckpoint(input: {
   })
   const assets: ReleaseAssetDigest[] = []
   for (const filePath of assetPaths) {
-    assets.push(await uploadReleaseAssetSafely({ filePath, repository, tag }))
+    assets.push(
+      await uploadReleaseAssetSafely({ environment: input.environment, filePath, repository, tag }),
+    )
   }
 
   const checkpoint = parseReleaseCheckpoint({ ...identity, assets })
   const checkpointPath = path.join(assetDirectory, releaseCheckpointFilename(input.target))
   await Bun.write(checkpointPath, renderReleaseCheckpoint(checkpoint))
-  await uploadReleaseAssetSafely({ filePath: checkpointPath, repository, tag })
+  await uploadReleaseAssetSafely({
+    environment: input.environment,
+    filePath: checkpointPath,
+    repository,
+    tag,
+  })
   console.log(`Recorded verified release checkpoint ${input.target}`)
 }
 

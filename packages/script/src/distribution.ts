@@ -4,7 +4,8 @@ import type { BuddyReleaseChannel } from "./channel.ts"
 /**
  * A distribution is a separately installable, separately updated Buddy app.
  * Prod (Stable + Preview rings) and Beta never share an app identity, a URL
- * scheme, a releases repository, a signing key, or on-disk state.
+ * scheme, a release tag namespace, a signing key, or on-disk state. They share
+ * one assets repository; `release-stream.ts` keeps their releases apart.
  */
 export type BuddyDistributionId = Exclude<BuddyReleaseChannel, "dev">
 
@@ -18,9 +19,11 @@ export type BuddyDistribution = {
   packageName: string | undefined
   releaseOwner: string
   releaseRepository: string
+  /** Prefix for this distribution's tags in the shared assets repository. */
+  releaseTagPrefix: string
   /** Source branch required for release cuts and workflow dispatches. */
   releaseBranch: string
-  /** Prefix for source-repository provenance tags; release-repo tags stay `vX.Y.Z`. */
+  /** Prefix for source-repository provenance tags. */
   sourceTagPrefix: string
   /**
    * Minisign public key for update manifests and recovery policy.
@@ -41,6 +44,7 @@ export const BUDDY_DISTRIBUTIONS = {
     packageName: undefined,
     releaseOwner: RELEASE_OWNER,
     releaseRepository: "buddy-releases",
+    releaseTagPrefix: "v",
     releaseBranch: "main",
     sourceTagPrefix: "v",
     updaterPublicKey: "RWTcBSYzKsK7Gf1M2w9kTDB2fvSRlsZejPWt+AaMGvGiNk3mxAW+Wh3f",
@@ -52,7 +56,8 @@ export const BUDDY_DISTRIBUTIONS = {
     protocol: "buddy-beta",
     packageName: "buddy-desktop-beta",
     releaseOwner: RELEASE_OWNER,
-    releaseRepository: "buddy-beta-releases",
+    releaseRepository: "buddy-releases",
+    releaseTagPrefix: "beta-v",
     releaseBranch: "beta",
     sourceTagPrefix: "beta-v",
     updaterPublicKey: null,

@@ -236,6 +236,7 @@ function Download-CandidateAsset {
   return $null
 }
 
+# BEGIN RELEASE DISCOVERY
 function Resolve-LatestRelease {
   $headers = @{
     "User-Agent" = "buddy-windows-installer"
@@ -263,6 +264,8 @@ function Get-VersionFromTag {
   return $Tag
 }
 
+# END RELEASE DISCOVERY
+
 function Find-CandidateAssets {
   param(
     [Parameter(Mandatory = $true)]
@@ -286,7 +289,9 @@ function Find-CandidateAssets {
 
     $foundAssets.Add([pscustomobject]@{
       Name = $asset.name
+      # BEGIN RELEASE CANDIDATE URL
       BrowserDownloadUrl = $asset.browser_download_url
+      # END RELEASE CANDIDATE URL
       SizeBytes = [long]$asset.size
     })
   }
@@ -296,7 +301,9 @@ function Find-CandidateAssets {
 
 function Find-TargetManifestAsset {
   $manifestName = "latest-windows-x64.yml"
+  # BEGIN RELEASE MANIFEST BASE
   $manifestUrl = "https://github.com/$repo/releases/latest/download/$manifestName"
+  # END RELEASE MANIFEST BASE
   $manifestContent = ""
 
   try {
@@ -312,10 +319,13 @@ function Find-TargetManifestAsset {
     return $null
   }
 
+  # BEGIN RELEASE MANIFEST URL
   $installerUrl = $match.Groups[1].Value.Trim()
   if (-not ($installerUrl.StartsWith("https://", [System.StringComparison]::OrdinalIgnoreCase) -or $installerUrl.StartsWith("http://", [System.StringComparison]::OrdinalIgnoreCase))) {
     $installerUrl = "https://github.com/$repo/releases/latest/download/$installerUrl"
   }
+
+  # END RELEASE MANIFEST URL
 
   $installerName = Split-Path ([System.Uri]$installerUrl).AbsolutePath -Leaf
   if ([string]::IsNullOrWhiteSpace($installerName)) {

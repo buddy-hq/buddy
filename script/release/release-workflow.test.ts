@@ -453,7 +453,7 @@ describe("release skill artifacts", () => {
 })
 
 describe("Beta workflow wiring", () => {
-  test("maps only dedicated Beta credentials and serializes the entire stream", async () => {
+  test("maps the shared release token and dedicated Beta signing credentials and serializes the stream", async () => {
     const document = await workflowDocument("publish-beta.yml")
     const job = workflowJob(document, "publish")
     const inputs = objectValue(job.with, "Beta inputs")
@@ -461,7 +461,7 @@ describe("Beta workflow wiring", () => {
     expect(inputs.channel).toBe("beta")
     expect(objectValue(document.concurrency, "Beta concurrency").group).toBe("release-beta")
     expect(secrets).toEqual({
-      BUDDY_RELEASE_TOKEN: "${{ secrets.BUDDY_BETA_RELEASE_TOKEN }}",
+      BUDDY_RELEASE_TOKEN: "${{ secrets.BUDDY_RELEASE_TOKEN }}",
       TAURI_SIGNING_PRIVATE_KEY: "${{ secrets.BUDDY_BETA_UPDATER_PRIVATE_KEY }}",
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "${{ secrets.BUDDY_BETA_UPDATER_PRIVATE_KEY_PASSWORD }}",
     })

@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
+import { assertReleaseTagVersion } from "@buddy/script/release-stream"
 import path from "node:path"
 import { z } from "zod"
 import {
@@ -15,7 +17,7 @@ import {
 import { RELEASE_FREEZE_FILENAME } from "./constants"
 import { appendGithubOutputs } from "./github-output"
 import {
-  assertReleaseDestination,
+  assertReleaseTagDestination,
   assertReleaseRecordChannel,
   releaseChannelIdentity,
   releaseDistribution,
@@ -36,7 +38,7 @@ const releaseFreezeSchema = z.object({
   schemaVersion: z.literal(RELEASE_FREEZE_SCHEMA_VERSION),
   sourceRepository: z.string().min(1),
   sourceSha: z.string().regex(/^[0-9a-f]{40}$/u),
-  tag: z.string().regex(/^v\d+\.\d+\.\d+$/u),
+  tag: z.string().min(1),
   version: z.string().regex(/^\d+\.\d+\.\d+$/u),
   channel: z.literal("beta").optional(),
 })
@@ -57,6 +59,11 @@ function requiredEnvironmentValue(environment: NodeJS.ProcessEnv, key: string): 
 export function parseReleaseFreeze<TValue>(value: TValue): ReleaseFreeze {
   const parsed = releaseFreezeSchema.safeParse(value)
   if (!parsed.success) throw new Error("Invalid Buddy release freeze")
+  assertReleaseTagVersion(
+    BUDDY_DISTRIBUTIONS[parsed.data.channel ?? "prod"],
+    parsed.data.tag,
+    parsed.data.version,
+  )
   return {
     ...parsed.data,
     assets: parsed.data.assets.toSorted((left, right) => left.name.localeCompare(right.name)),
@@ -70,14 +77,17 @@ export function renderReleaseFreeze(freeze: ReleaseFreeze): string {
 export function releaseFreezeIdentity(
   environment: NodeJS.ProcessEnv,
 ): Omit<ReleaseFreeze, "assets"> {
+  const tag = requiredEnvironmentValue(environment, "BUDDY_RELEASE_TAG")
+  const version = requiredEnvironmentValue(environment, "BUDDY_VERSION")
+  assertReleaseTagVersion(releaseDistribution(environment), tag, version)
   return {
     ...releaseChannelIdentity(environment),
     planDigest: requiredEnvironmentValue(environment, "BUDDY_RELEASE_PLAN_DIGEST"),
     schemaVersion: RELEASE_FREEZE_SCHEMA_VERSION,
     sourceRepository: requiredEnvironmentValue(environment, "BUDDY_RELEASE_SOURCE_REPOSITORY"),
     sourceSha: requiredEnvironmentValue(environment, "BUDDY_RELEASE_SOURCE_SHA").toLowerCase(),
-    tag: requiredEnvironmentValue(environment, "BUDDY_RELEASE_TAG"),
-    version: requiredEnvironmentValue(environment, "BUDDY_VERSION"),
+    tag,
+    version,
   }
 }
 
@@ -108,11 +118,13 @@ function mutableReleaseAssetDigests(
 }
 
 async function readReleaseFreeze(input: {
+  environment?: NodeJS.ProcessEnv
   directory: string
   repository: string
   tag: string
 }): Promise<ReleaseFreeze> {
   const freezePath = await downloadReleaseAsset({
+    environment: input.environment,
     directory: input.directory,
     name: RELEASE_FREEZE_FILENAME,
     repository: input.repository,
@@ -122,17 +134,24 @@ async function readReleaseFreeze(input: {
 }
 
 export async function verifyReleaseFreeze(input: {
+  environment?: NodeJS.ProcessEnv
   directory: string
   expectedIdentity?: Omit<ReleaseFreeze, "assets">
   repository: string
   tag: string
 }): Promise<ReleaseFreeze> {
-  assertReleaseDestination(input.repository)
+  const distribution = assertReleaseTagDestination(input.repository, input.tag, input.environment)
+  if (input.expectedIdentity) {
+    assertReleaseTagVersion(distribution, input.tag, input.expectedIdentity.version)
+    assertReleaseRecordChannel(input.expectedIdentity, distribution.id)
+  }
   const [assets, freeze] = await Promise.all([
-    readGithubReleaseAssets(input.repository, input.tag),
+    readGithubReleaseAssets(input.repository, input.tag, input.environment),
     readReleaseFreeze(input),
   ])
-  assertReleaseRecordChannel(freeze, releaseDistribution().id)
+  assertReleaseRecordChannel(freeze, distribution.id)
+  if (freeze.tag !== input.tag)
+    throw new Error("Release freeze tag does not match requested release")
   if (input.expectedIdentity) {
     const actualIdentity: Omit<ReleaseFreeze, "assets"> = {
       planDigest: freeze.planDigest,
@@ -157,11 +176,13 @@ export async function verifyReleaseFreeze(input: {
 async function recordReleaseFreeze(environment: NodeJS.ProcessEnv): Promise<void> {
   const identity = releaseFreezeIdentity(environment)
   const repository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_REPO")
+  assertReleaseTagDestination(repository, identity.tag, environment)
   const directory = requiredEnvironmentValue(environment, "RUNNER_TEMP")
-  const existingAssets = await readGithubReleaseAssets(repository, identity.tag)
+  const existingAssets = await readGithubReleaseAssets(repository, identity.tag, environment)
 
   if (existingAssets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)) {
     await verifyReleaseFreeze({
+      environment,
       directory,
       expectedIdentity: identity,
       repository,
@@ -177,16 +198,22 @@ async function recordReleaseFreeze(environment: NodeJS.ProcessEnv): Promise<void
   })
   const freezePath = path.join(directory, RELEASE_FREEZE_FILENAME)
   await Bun.write(freezePath, renderReleaseFreeze(freeze))
-  await uploadReleaseAssetSafely({ filePath: freezePath, repository, tag: identity.tag })
+  await uploadReleaseAssetSafely({
+    environment,
+    filePath: freezePath,
+    repository,
+    tag: identity.tag,
+  })
   try {
     await verifyReleaseFreeze({
+      environment,
       directory,
       expectedIdentity: identity,
       repository,
       tag: identity.tag,
     })
   } catch (error) {
-    const release = await readGithubReleaseState(repository, identity.tag)
+    const release = await readGithubReleaseState(repository, identity.tag, environment)
     const freezeAsset = release.assets.find((asset) => asset.name === RELEASE_FREEZE_FILENAME)
     if (release.isDraft && freezeAsset) {
       await $`gh api --method DELETE ${freezeAsset.apiUrl}`.quiet()
@@ -200,11 +227,13 @@ async function recordReleaseFreeze(environment: NodeJS.ProcessEnv): Promise<void
 async function inspectReleaseFreeze(environment: NodeJS.ProcessEnv): Promise<void> {
   const identity = releaseFreezeIdentity(environment)
   const repository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_REPO")
+  assertReleaseTagDestination(repository, identity.tag, environment)
   const directory = requiredEnvironmentValue(environment, "RUNNER_TEMP")
-  const assets = await readGithubReleaseAssets(repository, identity.tag)
+  const assets = await readGithubReleaseAssets(repository, identity.tag, environment)
   const frozen = assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)
   if (frozen) {
     await verifyReleaseFreeze({
+      environment,
       directory,
       expectedIdentity: identity,
       repository,
@@ -251,6 +280,7 @@ async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void>
   if (command === "verify") {
     const args = parseVerifyArgs()
     await verifyReleaseFreeze({
+      environment,
       directory: environment.RUNNER_TEMP?.trim() || "/tmp",
       repository: args.repository,
       tag: args.tag,

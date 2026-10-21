@@ -5,6 +5,8 @@ import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { z } from "zod"
+import { assertReleaseTagVersion } from "@buddy/script/release-stream"
+import { assertReleaseTagDestination } from "./release/distribution-guard"
 import { uploadReleaseAssetSafely } from "./release/assets"
 
 const RELEASE_SOURCE_METADATA_FILENAME = "buddy-release-source.json"
@@ -101,6 +103,7 @@ async function recordReleaseSourceMetadata(input: {
     const filepath = path.join(directory, RELEASE_SOURCE_METADATA_FILENAME)
     await fsp.writeFile(filepath, renderReleaseSourceMetadata(input.metadata), "utf8")
     await uploadReleaseAssetSafely({
+      environment: input.environment,
       filePath: filepath,
       repository: input.releaseRepository,
       tag: input.releaseTag,
@@ -163,6 +166,9 @@ async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void>
 
   const releaseRepository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_REPO")
   const releaseTag = requiredEnvironmentValue(environment, "BUDDY_RELEASE_TAG")
+  const distribution = assertReleaseTagDestination(releaseRepository, releaseTag, environment)
+  const version = environment.BUDDY_VERSION?.trim()
+  if (version) assertReleaseTagVersion(distribution, releaseTag, version)
   if (mode === RELEASE_SOURCE_MODE_RECORD) {
     await recordReleaseSourceMetadata({
       environment,

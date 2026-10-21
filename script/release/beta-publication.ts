@@ -1,6 +1,25 @@
 import { $ } from "bun"
 import { z } from "zod"
-import { latestReleaseVersionFromReleases } from "@buddy/script/release-version"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
+import { formatBetaReleaseBody, highestStreamReleaseVersion } from "@buddy/script/release-stream"
+import { RELEASE_FREEZE_FILENAME } from "./constants"
+import { assertReleaseDestination } from "./distribution-guard"
+
+/** Preserve frozen release bodies exactly; encode editable Beta notes once. */
+export function resolveBetaDraftReleaseBody(input: {
+  readonly notes: string
+  readonly existingRelease:
+    | {
+        readonly body: string
+        readonly assets: readonly { readonly name: string }[]
+      }
+    | undefined
+}): string {
+  if (input.existingRelease?.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME)) {
+    return input.existingRelease.body
+  }
+  return formatBetaReleaseBody(input.notes)
+}
 
 /** Equality permits a frozen retry; older versions may never move Beta latest backward. */
 export function assertBetaVersionMovesForward(version: string, highest: string | undefined): void {
@@ -23,7 +42,10 @@ export function assertBetaVersionMovesForward(version: string, highest: string |
 }
 
 export async function highestPublishedBetaVersion(repository: string): Promise<string | undefined> {
-  const value = await $`gh api --paginate --slurp ${`repos/${repository}/releases`}`.quiet().json()
+  assertReleaseDestination(repository, { BUDDY_CHANNEL: "beta" })
+  const value = await $`gh api --paginate --slurp ${`repos/${repository}/releases?per_page=100`}`
+    .quiet()
+    .json()
   const releases = z
     .array(
       z.array(
@@ -36,7 +58,8 @@ export async function highestPublishedBetaVersion(repository: string): Promise<s
     )
     .parse(value)
     .flat()
-  return latestReleaseVersionFromReleases(
+  return highestStreamReleaseVersion(
+    BUDDY_DISTRIBUTIONS.beta,
     releases.map((release) => ({
       tagName: release.tag_name,
       isDraft: release.draft,
