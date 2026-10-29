@@ -11,6 +11,7 @@ import {
   syncOpenCodeHostConfig,
 } from "../../src/config/runtime/opencode-host-config"
 import { createConfigConformanceHarness } from "../conformance/harness-config"
+import { temporaryEnvironment } from "../helpers/temporary-environment"
 
 const app = new Hono().route("/api/global", GlobalRoutes)
 const headers = { "content-type": "application/json" }
@@ -37,6 +38,8 @@ async function patchGlobal(body: Config.Info) {
 
 describe("global compaction settings on a running host", () => {
   test("applies an auto-compaction toggle from the settings route without restarting the host", async () => {
+    using watchers = temporaryEnvironment({ OPENCODE_FILEWATCHER_DISABLE: "0" })
+    void watchers
     await using harness = await createConfigConformanceHarness()
     const notebook = await harness.notebook("live-compaction")
     const { directory } = notebook

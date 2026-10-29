@@ -1,17 +1,21 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import z from "zod"
 import { createConfigConformanceHarness, type ConfigConformanceHarness } from "./harness-config"
+import { temporaryEnvironment, type TemporaryEnvironment } from "../helpers/temporary-environment"
 
 let harness: ConfigConformanceHarness
+let watchers: TemporaryEnvironment | undefined
 const sessionSchema = z.object({ id: z.string() })
 const json = z.json()
 
 describe("Context port conformance", () => {
   beforeAll(async () => {
+    watchers = temporaryEnvironment({ OPENCODE_FILEWATCHER_DISABLE: "0" })
     harness = await createConfigConformanceHarness()
   })
   afterAll(async () => {
     await harness?.[Symbol.asyncDispose]()
+    watchers?.[Symbol.dispose]()
   })
 
   test("per-prompt system context reaches the model and stays scoped to its conversation", async () => {
