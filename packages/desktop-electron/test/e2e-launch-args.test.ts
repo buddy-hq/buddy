@@ -29,9 +29,7 @@ describe("Electron E2E launch arguments", () => {
   })
 
   test("preserves a Windows UNC app directory without its trailing backslash", () => {
-    const directory = path.win32.normalize(
-      "//server/Buddy Projects/packages/desktop-electron/",
-    )
+    const directory = path.win32.normalize("//server/Buddy Projects/packages/desktop-electron/")
 
     expect(buildElectronLaunchArgs("C:\\e2e\\launch-preload.cjs", directory, path.win32)).toEqual([
       "--require",

@@ -170,21 +170,18 @@ test.each([
       const bytes = await Bun.file(new URL(`./fixtures/${name}`, import.meta.url)).arrayBuffer()
       setRuntimePlatform({
         ...platform,
-        fetch: withFetchPreconnect(
-          async (input, init) => {
-            const request = new Request(input, init)
-            const url = new URL(request.url)
-            expect(url.origin).toBe("http://127.0.0.1:43210")
-            expect(url.pathname).toBe(`/api/file/raw/${name}`)
-            expect(url.searchParams.get("path")).toBe(`books/éditions/${name}`)
-            expect(request.headers.get("x-buddy-directory")).toBe(encodeURIComponent(directory))
-            expect(request.headers.get("authorization")).toBe(
-              `Basic ${btoa("buddy:fixture-password")}`,
-            )
-            return new Response(bytes, { headers: { "content-type": "application/epub+zip" } })
-          },
-          fetch,
-        ),
+        fetch: withFetchPreconnect(async (input, init) => {
+          const request = new Request(input, init)
+          const url = new URL(request.url)
+          expect(url.origin).toBe("http://127.0.0.1:43210")
+          expect(url.pathname).toBe(`/api/file/raw/${name}`)
+          expect(url.searchParams.get("path")).toBe(`books/éditions/${name}`)
+          expect(request.headers.get("x-buddy-directory")).toBe(encodeURIComponent(directory))
+          expect(request.headers.get("authorization")).toBe(
+            `Basic ${btoa("buddy:fixture-password")}`,
+          )
+          return new Response(bytes, { headers: { "content-type": "application/epub+zip" } })
+        }, fetch),
       })
       const blob = await queryClient.fetchQuery(
         readingResourceBlobQueryOptions(directory, `${folder}/${name}`),
