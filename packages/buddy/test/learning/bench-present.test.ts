@@ -28,7 +28,8 @@ import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-t
 
 type TBuddyToolMetadataUpdate = Parameters<BuddyToolContext["metadata"]>[0]
 
-const { benchPresentTool, presentOnBench } = await import("../../src/learning/features/bench/tools/present")
+const { benchPresentTool, presentOnBench } =
+  await import("../../src/learning/features/bench/tools/present")
 
 await import("../../src/runtime/agent-runtime")
 await import("../../src/learning/features")

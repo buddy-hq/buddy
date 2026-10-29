@@ -27,15 +27,18 @@ test("credential lookup failure routes a custom OpenAI endpoint to ChatGPT", asy
   expect(event.baseURL).toBe("https://chatgpt.com/backend-api/codex")
 })
 
-test.each(["https://api.openai.com/v1", "https://chatgpt.com/backend-api/codex"])("endpoint %s is preserved without credential lookup", async (baseURL) => {
-  const event = { baseURL }
-  const isChatGPT = mock(async () => true)
+test.each(["https://api.openai.com/v1", "https://chatgpt.com/backend-api/codex"])(
+  "endpoint %s is preserved without credential lookup",
+  async (baseURL) => {
+    const event = { baseURL }
+    const isChatGPT = mock(async () => true)
 
-  await keepChatGPTRequestOnCodex(event, isChatGPT)
+    await keepChatGPTRequestOnCodex(event, isChatGPT)
 
-  expect(event.baseURL).toBe(baseURL)
-  expect(isChatGPT).not.toHaveBeenCalled()
-})
+    expect(event.baseURL).toBe(baseURL)
+    expect(isChatGPT).not.toHaveBeenCalled()
+  },
+)
 
 test("an absent endpoint is preserved without credential lookup", async () => {
   const event = {}

@@ -31,7 +31,11 @@ export function createRuntimeExtensionPlugin(
         if (scope === "catalog") return cleanupNotebookConfig
         await registerToolInputStream(ctx, tools)
         await ctx.session.hook("model.request", stripOpenCodeHeaders)
-        await registerExtensionHooks(ctx, extension.hooks(ctx.location, createPluginSessionAccess(ctx)), getClient)
+        await registerExtensionHooks(
+          ctx,
+          extension.hooks(ctx.location, createPluginSessionAccess(ctx)),
+          getClient,
+        )
         await ctx.session.hook("prompt", applyCommandInvocationDisplay)
         return cleanupNotebookConfig
       } catch (cause) {

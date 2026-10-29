@@ -2,7 +2,11 @@ import { useEffect, useState } from "react"
 import { Button, Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@buddy/ui"
 import { XIcon } from "@/icons/app-icons"
 import { stringifyError } from "@/lib/api-client"
-import { continueSubagentsInBackground, stopSubagent, useRunningSubagents } from "@/lib/use-running-subagents"
+import {
+  continueSubagentsInBackground,
+  stopSubagent,
+  useRunningSubagents,
+} from "@/lib/use-running-subagents"
 import { SubagentCompletionRow } from "./subagent-completion-row"
 
 type ObservedRuns = {
@@ -30,19 +34,31 @@ export function RunningSubagentsMenu(props: {
 
   useEffect(() => {
     setObserved((current) => {
-      const base = current.ownerSessionID === props.ownerSessionID ? current : emptyObservedRuns(props.ownerSessionID)
+      const base =
+        current.ownerSessionID === props.ownerSessionID
+          ? current
+          : emptyObservedRuns(props.ownerSessionID)
       const added = running.filter((work) => !base.childSessionIDs.has(work.childSessionID))
       if (added.length === 0) return base
-      return { ...base, childSessionIDs: new Set([...base.childSessionIDs, ...added.map((work) => work.childSessionID)]) }
+      return {
+        ...base,
+        childSessionIDs: new Set([
+          ...base.childSessionIDs,
+          ...added.map((work) => work.childSessionID),
+        ]),
+      }
     })
   }, [props.ownerSessionID, running])
 
-  const notice = observed.ownerSessionID === props.ownerSessionID
-    ? completions.findLast((completion) =>
-        observed.childSessionIDs.has(completion.childSessionID) &&
-        !observed.dismissedMessageIDs.has(completion.messageID) &&
-        !running.some((work) => work.childSessionID === completion.childSessionID))
-    : undefined
+  const notice =
+    observed.ownerSessionID === props.ownerSessionID
+      ? completions.findLast(
+          (completion) =>
+            observed.childSessionIDs.has(completion.childSessionID) &&
+            !observed.dismissedMessageIDs.has(completion.messageID) &&
+            !running.some((work) => work.childSessionID === completion.childSessionID),
+        )
+      : undefined
 
   async function stop(childSessionID: string) {
     setStopping((current) => new Set([...current, childSessionID]))
@@ -69,7 +85,10 @@ export function RunningSubagentsMenu(props: {
   }
 
   function dismiss(messageID: string) {
-    setObserved((current) => ({ ...current, dismissedMessageIDs: new Set([...current.dismissedMessageIDs, messageID]) }))
+    setObserved((current) => ({
+      ...current,
+      dismissedMessageIDs: new Set([...current.dismissedMessageIDs, messageID]),
+    }))
   }
 
   if (running.length === 0 && !notice) return null
@@ -90,13 +109,24 @@ export function RunningSubagentsMenu(props: {
             <PopoverTitle>Running work</PopoverTitle>
             <div className="mt-2 flex max-h-80 flex-col gap-3 overflow-y-auto">
               {running.map((work) => (
-                <div key={work.childSessionID} data-component="running-subagent" className="flex min-w-0 flex-col gap-1">
-                  <p className="truncate text-sm text-text-base">{work.description ?? DEFAULT_DESCRIPTION}</p>
+                <div
+                  key={work.childSessionID}
+                  data-component="running-subagent"
+                  className="flex min-w-0 flex-col gap-1"
+                >
+                  <p className="truncate text-sm text-text-base">
+                    {work.description ?? DEFAULT_DESCRIPTION}
+                  </p>
                   <p className="truncate text-xs text-text-weak">
-                    {work.agentID ?? "Specialist"} · {work.status === "waiting" ? "Waiting for result" : "Working"}
+                    {work.agentID ?? "Specialist"} ·{" "}
+                    {work.status === "waiting" ? "Waiting for result" : "Working"}
                   </p>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="xs" onClick={() => props.onOpenSession(work.childSessionID)}>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => props.onOpenSession(work.childSessionID)}
+                    >
                       Open in Bench
                     </Button>
                     {work.status === "running" ? (
@@ -123,17 +153,28 @@ export function RunningSubagentsMenu(props: {
                 >
                   {backgrounding ? "Moving to background" : "Continue in background"}
                 </Button>
-                <p className="text-xs text-text-weak">Moves all work this chat is waiting on to the background.</p>
+                <p className="text-xs text-text-weak">
+                  Moves all work this chat is waiting on to the background.
+                </p>
               </div>
             ) : null}
-            {stopError ? <p role="alert" className="mt-2 text-xs text-text-critical-base">{stopError}</p> : null}
+            {stopError ? (
+              <p role="alert" className="mt-2 text-xs text-text-critical-base">
+                {stopError}
+              </p>
+            ) : null}
           </PopoverContent>
         </Popover>
       ) : null}
       {notice ? (
         <div className="flex min-w-0 items-center gap-1">
           <SubagentCompletionRow completion={notice} onOpenSession={props.onOpenSession} />
-          <Button variant="ghost" size="icon-xs" aria-label="Dismiss" onClick={() => dismiss(notice.messageID)}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Dismiss"
+            onClick={() => dismiss(notice.messageID)}
+          >
             <XIcon />
           </Button>
         </div>

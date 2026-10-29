@@ -64,7 +64,9 @@ export function createCodexImagesClient(dependencies: CodexImagesClientDependenc
       if (!response.ok) {
         if (response.status === 401) await dependencies.onRejected?.(auth)
         if (response.status === 403) {
-          throw new Error("Image generation isn't available for this ChatGPT account (403 Forbidden). It isn't included in the ChatGPT Free plan.")
+          throw new Error(
+            "Image generation isn't available for this ChatGPT account (403 Forbidden). It isn't included in the ChatGPT Free plan.",
+          )
         }
         const detail = await response.text().catch(() => "")
         throw new Error(
@@ -86,7 +88,8 @@ export function createCodexImagesClient(dependencies: CodexImagesClientDependenc
 export const codexImagesClient = {
   async createImage(request: CodexImageRequest) {
     const { getAgentRuntime } = await import("../../../../runtime/agent-runtime")
-    const { ensureGlobalBootstrapWorkspaceDirectory } = await import("../../../../project/directory")
+    const { ensureGlobalBootstrapWorkspaceDirectory } =
+      await import("../../../../project/directory")
     const runtime = await getAgentRuntime()
     return runtime.chatgpt.image(ensureGlobalBootstrapWorkspaceDirectory(), request)
   },

@@ -130,10 +130,16 @@ async function writeCaptureImages(root: string, images: NoteCaptureImage[]) {
 
 function readableMessageText(message: MessageWithParts): string | undefined {
   if (message.info.role === "assistant" && message.info.kind) return undefined
-  const textParts = message.parts.flatMap((part) => part.type === "text" && !part.synthetic && !part.ignored ? [part.text] : [])
-  const text = message.info.role === "user"
-    ? textParts.join("").trim()
-    : textParts.map((part) => part.trim()).filter(Boolean).join("\n\n")
+  const textParts = message.parts.flatMap((part) =>
+    part.type === "text" && !part.synthetic && !part.ignored ? [part.text] : [],
+  )
+  const text =
+    message.info.role === "user"
+      ? textParts.join("").trim()
+      : textParts
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .join("\n\n")
   return text || undefined
 }
 

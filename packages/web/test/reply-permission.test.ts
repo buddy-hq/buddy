@@ -6,7 +6,12 @@ import type { PermissionRequest } from "../src/state/permission-types"
 import { installTestFetch, restoreTestFetch } from "./test-utils"
 
 const directory = "/workspace/permission-reply"
-const permission: PermissionRequest = { id: "request-child", sessionID: "child", action: "read", resources: ["private.md"] }
+const permission: PermissionRequest = {
+  id: "request-child",
+  sessionID: "child",
+  action: "read",
+  resources: ["private.md"],
+}
 const originalFetch = globalThis.fetch
 const serverConnection = getServerConnection()
 
@@ -15,7 +20,9 @@ beforeEach(() => {
   useChatStore.setState({ directories: {}, lastSessionByDirectory: {}, openProjects: [] })
   const store = useChatStore.getState()
   store.ensureOpenProject(directory)
-  store.setSessions(directory, [{ id: "selected", title: "Selected chat", time: { created: 1, updated: 1 } }])
+  store.setSessions(directory, [
+    { id: "selected", title: "Selected chat", time: { created: 1, updated: 1 } },
+  ])
   store.setActiveSession(directory, "selected")
   setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
 })
@@ -35,7 +42,9 @@ describe("permission replies", () => {
       return Response.json(request.method === "POST" ? true : [])
     })
     expect(useChatStore.getState().directories[directory]?.pendingPermissions).toEqual([])
-    await expect(replyPermission({ directory, request: permission, reply: "once" })).resolves.toBe(true)
+    await expect(replyPermission({ directory, request: permission, reply: "once" })).resolves.toBe(
+      true,
+    )
     const reply = requests.find((request) => request.method === "POST")
     expect(reply).toBeDefined()
     if (!reply) throw new Error("Permission reply was not sent")
@@ -53,9 +62,15 @@ describe("permission replies", () => {
     })
     const incomplete = { ...permission }
     Reflect.deleteProperty(incomplete, "sessionID")
-    await expect(replyPermission({ directory, request: incomplete, reply: "once" })).rejects.toMatchObject({ message: "Could not reply. Try again." })
-    expect(requests.map((request) => ({ method: request.method, path: new URL(request.url).pathname, sessionID: new URL(request.url).searchParams.get("sessionID") }))).toEqual([
-      { method: "GET", path: "/api/permission", sessionID: "selected" },
-    ])
+    await expect(
+      replyPermission({ directory, request: incomplete, reply: "once" }),
+    ).rejects.toMatchObject({ message: "Could not reply. Try again." })
+    expect(
+      requests.map((request) => ({
+        method: request.method,
+        path: new URL(request.url).pathname,
+        sessionID: new URL(request.url).searchParams.get("sessionID"),
+      })),
+    ).toEqual([{ method: "GET", path: "/api/permission", sessionID: "selected" }])
   })
 })

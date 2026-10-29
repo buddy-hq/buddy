@@ -33,13 +33,15 @@ export function openCodeHostForRuntime(runtime: AgentRuntime): OpenCodeHost {
   return host
 }
 
-export async function startOpenCodeRuntime(options: OpenCodeRuntimeOptions & {
-  readonly environment: OpenCodeEnvironmentOptions
-  readonly extension: RuntimeExtension
-  readonly initializeStorage: () => Promise<void>
-  readonly hostConfig: () => Promise<{ readonly file: string }>
-  readonly upgrade?: OpenCodeUpgradeOptions
-}): Promise<{ readonly runtime: AgentRuntime; readonly close: () => Promise<void> }> {
+export async function startOpenCodeRuntime(
+  options: OpenCodeRuntimeOptions & {
+    readonly environment: OpenCodeEnvironmentOptions
+    readonly extension: RuntimeExtension
+    readonly initializeStorage: () => Promise<void>
+    readonly hostConfig: () => Promise<{ readonly file: string }>
+    readonly upgrade?: OpenCodeUpgradeOptions
+  },
+): Promise<{ readonly runtime: AgentRuntime; readonly close: () => Promise<void> }> {
   const hostPromise: Promise<OpenCodeHost> = startOpenCodeHost({
     environment: options.environment,
     initializeStorage: options.initializeStorage,
@@ -52,7 +54,9 @@ export async function startOpenCodeRuntime(options: OpenCodeRuntimeOptions & {
       ],
       instances: {
         key: () => "buddy.runtime.v1",
-        configure: () => ({ plugins: [createRuntimeExtensionPlugin(options.extension, () => hostPromise)] }),
+        configure: () => ({
+          plugins: [createRuntimeExtensionPlugin(options.extension, () => hostPromise)],
+        }),
       },
     }),
     decorate: withBuddyCommandDisplay,
@@ -61,7 +65,10 @@ export async function startOpenCodeRuntime(options: OpenCodeRuntimeOptions & {
   return { runtime: createOpenCodeRuntime(host, options), close: () => host.close() }
 }
 
-export function createOpenCodeRuntime(host: OpenCodeHost, options: OpenCodeRuntimeOptions = {}): AgentRuntime {
+export function createOpenCodeRuntime(
+  host: OpenCodeHost,
+  options: OpenCodeRuntimeOptions = {},
+): AgentRuntime {
   const runtime: AgentRuntime = {
     name: "opencode",
     version: OPENCODE_VERSION,

@@ -12,7 +12,11 @@ const cancelledCompletionPart = z.object({
   sessionID: z.string(),
   completion: z.object({ childSessionID: z.string(), outcome: z.literal("cancelled") }),
 })
-const realUserInput = z.object({ sessionID: z.string(), role: z.literal("user"), time: z.object({ created: z.number() }) })
+const realUserInput = z.object({
+  sessionID: z.string(),
+  role: z.literal("user"),
+  time: z.object({ created: z.number() }),
+})
 
 export async function interruptAndSettle(
   execution: Pick<Execution, "interrupt" | "wait">,
@@ -55,11 +59,19 @@ export async function stopSessionFamily(
   const notices = Promise.withResolvers<void>()
   let userAdmitted = false
   const observing = (async () => {
-    for await (const event of runtime.events.stream({ directory: parent.directory, signal: controller.signal })) {
+    for await (const event of runtime.events.stream({
+      directory: parent.directory,
+      signal: controller.signal,
+    })) {
       ready.resolve()
       if (event.payload.type === "message.updated") {
         const message = realUserInput.safeParse(event.payload.properties.info)
-        if (message.success && message.data.sessionID === sessionID && message.data.time.created >= startedAt) userAdmitted = true
+        if (
+          message.success &&
+          message.data.sessionID === sessionID &&
+          message.data.time.created >= startedAt
+        )
+          userAdmitted = true
       }
       if (event.payload.type === "message.part.updated") {
         const part = cancelledCompletionPart.safeParse(event.payload.properties.part)
@@ -71,12 +83,14 @@ export async function stopSessionFamily(
         }
       }
     }
-  })().catch((cause: unknown) => {
-    console.error("Buddy Stop completion subscription failed", { sessionID, cause })
-  }).finally(() => {
-    ready.resolve()
-    notices.resolve()
-  })
+  })()
+    .catch((cause: unknown) => {
+      console.error("Buddy Stop completion subscription failed", { sessionID, cause })
+    })
+    .finally(() => {
+      ready.resolve()
+      notices.resolve()
+    })
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     await ready.promise
@@ -91,19 +105,27 @@ export async function stopSessionFamily(
     }
 
     const statuses = await runtime.execution.statuses()
-    const running = [...seen].slice(1).toReversed().filter((id) => statuses[id] !== undefined)
+    const running = [...seen]
+      .slice(1)
+      .toReversed()
+      .filter((id) => statuses[id] !== undefined)
     pending = new Set(running.filter((id) => cancelledCompletions.get(id) !== parents.get(id)))
     if (pending.size === 0) notices.resolve()
-    const results = await Promise.all(running.map((id) => interruptAndSettle(runtime.execution, id, timeoutMs)))
+    const results = await Promise.all(
+      running.map((id) => interruptAndSettle(runtime.execution, id, timeoutMs)),
+    )
     let interrupted = results.some(Boolean)
-    interrupted = await interruptAndSettle(runtime.execution, sessionID, timeoutMs) || interrupted
+    interrupted = (await interruptAndSettle(runtime.execution, sessionID, timeoutMs)) || interrupted
     await Promise.race([
       notices.promise,
-      new Promise<void>((resolve) => { timer = setTimeout(resolve, 2_000) }),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, 2_000)
+      }),
     ])
     const currentStatuses = await runtime.execution.statuses()
     if (!userAdmitted && currentStatuses[sessionID] !== undefined) {
-      interrupted = await interruptAndSettle(runtime.execution, sessionID, timeoutMs) || interrupted
+      interrupted =
+        (await interruptAndSettle(runtime.execution, sessionID, timeoutMs)) || interrupted
     }
     return interrupted
   } finally {

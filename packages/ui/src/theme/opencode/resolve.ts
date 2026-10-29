@@ -1,5 +1,13 @@
 import type { ColorValue, DesktopTheme, HexColor, ResolvedTheme, ThemeVariant } from "./types"
-import { blend, generateNeutralScale, generateScale, hexToOklch, hexToRgb, shift, withAlpha } from "./color"
+import {
+  blend,
+  generateNeutralScale,
+  generateScale,
+  hexToOklch,
+  hexToRgb,
+  shift,
+  withAlpha,
+} from "./color"
 
 export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): ResolvedTheme {
   const colors = getColors(variant)
@@ -84,10 +92,15 @@ export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): Res
     overlay ? (withAlpha(color, alpha) as ColorValue) : blend(color, background, alpha)
 
   const borderTone = (light: number, dark: number) =>
-    alphaTone(ink, isDark ? Math.min(1, dark + 0.024 + (colors.compact ? 0.08 : 0)) : Math.min(1, light + 0.024))
+    alphaTone(
+      ink,
+      isDark ? Math.min(1, dark + 0.024 + (colors.compact ? 0.08 : 0)) : Math.min(1, light + 0.024),
+    )
 
   const diffHiddenSurface = surface(
-    isDark ? shift(colors.interactive, { c: 0.55, l: 0 }) : shift(colors.interactive, { c: 0.45, l: 0.08 }),
+    isDark
+      ? shift(colors.interactive, { c: 0.55, l: 0 })
+      : shift(colors.interactive, { c: 0.45, l: 0.08 }),
     isDark
       ? { base: 0.14, weak: 0.08, weaker: 0.18, strong: 0.26, stronger: 0.42 }
       : { base: 0.12, weak: 0.08, weaker: 0.16, strong: 0.24, stronger: 0.36 },
@@ -216,7 +229,9 @@ export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): Res
   tokens["input-disabled"] = neutral[3]
 
   tokens["text-base"] = colors.compact ? (body as HexColor) : neutral[10]
-  tokens["text-weak"] = colors.compact ? shift(body as HexColor, { l: isDark ? -0.11 : 0.11, c: 0.9 }) : neutral[8]
+  tokens["text-weak"] = colors.compact
+    ? shift(body as HexColor, { l: isDark ? -0.11 : 0.11, c: 0.9 })
+    : neutral[8]
   tokens["text-weaker"] = colors.compact
     ? shift(body as HexColor, { l: isDark ? -0.2 : 0.21, c: isDark ? 0.78 : 0.72 })
     : neutral[7]
@@ -266,17 +281,29 @@ export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): Res
   tokens["border-disabled"] = colors.compact ? borderTone(0.18, 0.12) : neutralAlpha[7]
   tokens["border-focus"] = colors.compact ? borderTone(0.34, 0.24) : neutralAlpha[8]
   tokens["border-weak-base"] = colors.compact ? borderTone(0.1, 0.08) : neutralAlpha[isDark ? 5 : 4]
-  tokens["border-strong-base"] = colors.compact ? borderTone(0.34, 0.24) : neutralAlpha[isDark ? 7 : 6]
+  tokens["border-strong-base"] = colors.compact
+    ? borderTone(0.34, 0.24)
+    : neutralAlpha[isDark ? 7 : 6]
   tokens["border-strong-hover"] = colors.compact ? borderTone(0.4, 0.28) : neutralAlpha[7]
-  tokens["border-strong-active"] = colors.compact ? borderTone(0.46, 0.32) : neutralAlpha[isDark ? 7 : 6]
+  tokens["border-strong-active"] = colors.compact
+    ? borderTone(0.46, 0.32)
+    : neutralAlpha[isDark ? 7 : 6]
   tokens["border-strong-selected"] = withAlpha(interactive[5], 0.6) as ColorValue
   tokens["border-strong-disabled"] = colors.compact ? borderTone(0.14, 0.1) : neutralAlpha[5]
-  tokens["border-strong-focus"] = colors.compact ? borderTone(0.46, 0.32) : neutralAlpha[isDark ? 7 : 6]
-  tokens["border-weak-hover"] = colors.compact ? borderTone(0.16, 0.12) : neutralAlpha[isDark ? 6 : 5]
-  tokens["border-weak-active"] = colors.compact ? borderTone(0.22, 0.16) : neutralAlpha[isDark ? 7 : 6]
+  tokens["border-strong-focus"] = colors.compact
+    ? borderTone(0.46, 0.32)
+    : neutralAlpha[isDark ? 7 : 6]
+  tokens["border-weak-hover"] = colors.compact
+    ? borderTone(0.16, 0.12)
+    : neutralAlpha[isDark ? 6 : 5]
+  tokens["border-weak-active"] = colors.compact
+    ? borderTone(0.22, 0.16)
+    : neutralAlpha[isDark ? 7 : 6]
   tokens["border-weak-selected"] = withAlpha(interactive[4], isDark ? 0.6 : 0.5) as ColorValue
   tokens["border-weak-disabled"] = colors.compact ? borderTone(0.08, 0.06) : neutralAlpha[5]
-  tokens["border-weak-focus"] = colors.compact ? borderTone(0.22, 0.16) : neutralAlpha[isDark ? 7 : 6]
+  tokens["border-weak-focus"] = colors.compact
+    ? borderTone(0.22, 0.16)
+    : neutralAlpha[isDark ? 7 : 6]
   tokens["border-weaker-base"] = colors.compact ? borderTone(0.06, 0.04) : neutralAlpha[2]
 
   tokens["border-interactive-base"] = interactive[6]

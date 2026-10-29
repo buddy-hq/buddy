@@ -40,12 +40,24 @@ export async function listBuddyTools() {
 export function requireTool<T extends { id: string }>(tools: readonly T[], id: string): T {
   const tool = tools.find((entry) => entry.id === id)
   if (tool) return tool
-  const available = tools.map((entry) => entry.id).toSorted().join(", ")
+  const available = tools
+    .map((entry) => entry.id)
+    .toSorted()
+    .join(", ")
   throw new Error(`Tool "${id}" was not registered. Available tools: ${available}`)
 }
 
-export async function ensureBuddyPluginTools(directory: string, plugins: readonly Plugin.Plugin[] = []) {
-  const [{ createRuntimeExtensionPlugin }, { createBuddyRuntimeExtension }, { withBuddyToolPermissionReplies }, { syncNotebookRuntimeConfig }, { createNotebookTestHost }] = await Promise.all([
+export async function ensureBuddyPluginTools(
+  directory: string,
+  plugins: readonly Plugin.Plugin[] = [],
+) {
+  const [
+    { createRuntimeExtensionPlugin },
+    { createBuddyRuntimeExtension },
+    { withBuddyToolPermissionReplies },
+    { syncNotebookRuntimeConfig },
+    { createNotebookTestHost },
+  ] = await Promise.all([
     import("@buddy/opencode-adapter/extension/plugin"),
     import("../../src/runtime/buddy-extension"),
     import("@buddy/opencode-adapter/extension/tools"),
@@ -59,7 +71,9 @@ export async function ensureBuddyPluginTools(directory: string, plugins: readonl
       createRuntimeExtensionPlugin(createBuddyRuntimeExtension(), async () => host),
       Plugin.define({
         id: "buddy.test.tool-catalog",
-        setup(ctx) { context = ctx },
+        setup(ctx) {
+          context = ctx
+        },
       }),
       ...plugins,
     ],

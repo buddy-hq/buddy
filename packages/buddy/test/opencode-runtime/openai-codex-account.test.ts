@@ -6,9 +6,17 @@ const DIRECTORY = "/tmp/buddy-openai-account-test"
 const NOW = Date.parse("2026-06-10T12:00:00.000Z")
 const SIGNAL = new AbortController().signal
 
-function createService(input: NonNullable<Parameters<typeof createChatGPTAccountService>[2]> & { getAuth: ChatGPTCredentials["resolve"] }) {
+function createService(
+  input: NonNullable<Parameters<typeof createChatGPTAccountService>[2]> & {
+    getAuth: ChatGPTCredentials["resolve"]
+  },
+) {
   const { getAuth, ...options } = input
-  return createChatGPTAccountService({ directory: DIRECTORY }, { resolve: getAuth, reject: async () => {} }, options)
+  return createChatGPTAccountService(
+    { directory: DIRECTORY },
+    { resolve: getAuth, reject: async () => {} },
+    options,
+  )
 }
 
 function createAuth(): ChatGPTAuth {
@@ -23,7 +31,9 @@ function createAuth(): ChatGPTAuth {
 function createDeferredResponse() {
   let resolveResponse: ((response: Response) => void) | undefined
   let started: (() => void) | undefined
-  const requested = new Promise<void>((resolve) => { started = resolve })
+  const requested = new Promise<void>((resolve) => {
+    started = resolve
+  })
   const promise = new Promise<Response>((resolve) => {
     resolveResponse = resolve
   })
@@ -31,7 +41,10 @@ function createDeferredResponse() {
   return {
     promise,
     requested,
-    request() { started?.(); return promise },
+    request() {
+      started?.()
+      return promise
+    },
     resolve(response: Response) {
       if (!resolveResponse) throw new Error("Deferred response is not initialized")
       resolveResponse(response)
@@ -248,13 +261,9 @@ describe("OpenAI Codex account service", () => {
       getAuth: async () => createAuth(),
     })
 
-    expect((await service.accountModels(SIGNAL))?.map((model) => model.id)).toEqual([
-      "gpt-5.6-sol",
-    ])
+    expect((await service.accountModels(SIGNAL))?.map((model) => model.id)).toEqual(["gpt-5.6-sol"])
     now += 5 * 60 * 1_000 + 1
-    expect((await service.accountModels(SIGNAL))?.map((model) => model.id)).toEqual([
-      "gpt-5.6-sol",
-    ])
+    expect((await service.accountModels(SIGNAL))?.map((model) => model.id)).toEqual(["gpt-5.6-sol"])
     expect(requests).toBe(2)
 
     updatedResponse.resolve(
@@ -287,7 +296,10 @@ describe("OpenAI Codex account service", () => {
   test("marks an unauthorized model refresh as requiring reconnection", async () => {
     let rejected = false
     const service = createService({
-      fetch: async () => rejected ? Response.json({ plan_type: "plus", models: [{ slug: "gpt-5.5", visibility: "list" }] }) : Response.json({}, { status: 401 }),
+      fetch: async () =>
+        rejected
+          ? Response.json({ plan_type: "plus", models: [{ slug: "gpt-5.5", visibility: "list" }] })
+          : Response.json({}, { status: 401 }),
       now: () => NOW,
       getAuth: async () => createAuth(),
     })
@@ -511,7 +523,9 @@ describe("OpenAI Codex account service", () => {
 
   test("does not call account endpoints for a non-OAuth OpenAI connection", async () => {
     const service = createService({
-      fetch: async () => { throw new Error("Unexpected account request") },
+      fetch: async () => {
+        throw new Error("Unexpected account request")
+      },
       now: () => NOW,
       getAuth: async () => undefined,
     })

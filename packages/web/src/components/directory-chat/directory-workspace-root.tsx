@@ -1259,7 +1259,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                   <DirectoryChatBenchConversationPane
                     {...controller.mainPaneProps}
                     onOpenSession={handleOpenSubagentSession}
-                    compactPromptComposer={effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
+                    compactPromptComposer={
+                      effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
+                    }
                     showThreadBrowser={false}
                     onNewSession={handleNewSession}
                     onSelectSession={handleSelectSession}

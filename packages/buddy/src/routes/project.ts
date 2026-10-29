@@ -29,7 +29,8 @@ export const ProjectRoutes = new Hono()
         },
       },
     }),
-    async (c) => runSdkRoute(c, async () => c.json(await (await getAgentRuntime()).workspace.projects())),
+    async (c) =>
+      runSdkRoute(c, async () => c.json(await (await getAgentRuntime()).workspace.projects())),
   )
   .get(
     "/current",

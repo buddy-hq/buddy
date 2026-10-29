@@ -31,7 +31,10 @@ async function cancelPendingProviderOAuth(input: {
   cancelProviderOAuth: (request: ProviderOAuthCancellation) => Promise<void>
 }) {
   try {
-    await input.cancelProviderOAuth({ providerID: input.request.providerID, attemptID: input.request.attemptID })
+    await input.cancelProviderOAuth({
+      providerID: input.request.providerID,
+      attemptID: input.request.attemptID,
+    })
   } catch {
     // Cancellation is best-effort because the callback may have settled first.
   }
@@ -219,7 +222,9 @@ export async function connectChatGptPlusForOnboarding(input: {
     if (authenticationNotified) return
     if (input.signal?.aborted) throw createSignInCancelledError()
     authenticationNotified = true
-    void getPlatform().focusWindow?.().catch(() => undefined)
+    void getPlatform()
+      .focusWindow?.()
+      .catch(() => undefined)
     input.onAuthenticated?.()
   }
 

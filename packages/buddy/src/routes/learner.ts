@@ -430,7 +430,10 @@ export const LearnerRoutes = new Hono()
   .use("*", async (c, next) => {
     const config = await Config.getGlobal()
     if (!experimentalFeatureIsEnabled(config, EXPERIMENTAL_FEATURE_ID.learnerMemory)) {
-      return c.json(routeErrorBody(403, "Memory is an experimental feature that is not enabled"), 403)
+      return c.json(
+        routeErrorBody(403, "Memory is an experimental feature that is not enabled"),
+        403,
+      )
     }
     await next()
   })

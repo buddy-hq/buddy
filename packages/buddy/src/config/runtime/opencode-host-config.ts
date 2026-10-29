@@ -15,10 +15,20 @@ export function openCodeHostConfigFile(): string {
 
 export function renderOpenCodeHostConfig(config: Pick<Config.Info, "compaction">): string {
   const { compaction } = config
-  return `${JSON.stringify({ compaction: compaction && { auto: compaction.auto,
-    keep: compaction.preserve_recent_tokens === undefined ? undefined : { tokens: compaction.preserve_recent_tokens },
-    buffer: compaction.reserved,
-  } }, null, 2)}\n`
+  return `${JSON.stringify(
+    {
+      compaction: compaction && {
+        auto: compaction.auto,
+        keep:
+          compaction.preserve_recent_tokens === undefined
+            ? undefined
+            : { tokens: compaction.preserve_recent_tokens },
+        buffer: compaction.reserved,
+      },
+    },
+    null,
+    2,
+  )}\n`
 }
 
 async function readCurrentHostConfig(filepath: string): Promise<string | undefined> {
@@ -31,7 +41,7 @@ async function readCurrentHostConfig(filepath: string): Promise<string | undefin
 async function writeOpenCodeHostConfig(): Promise<string> {
   const filepath = openCodeHostConfigFile()
   const next = renderOpenCodeHostConfig(await Config.getGlobal())
-  if (await readCurrentHostConfig(filepath) !== next) await writeTextFileAtomic(filepath, next)
+  if ((await readCurrentHostConfig(filepath)) !== next) await writeTextFileAtomic(filepath, next)
   return filepath
 }
 

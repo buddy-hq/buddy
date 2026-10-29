@@ -43,15 +43,37 @@ describe("global filesystem events", () => {
     const received: BuddyGlobalEvent[] = []
     const unsubscribe = subscribeGlobalEvent((event) => received.push(event))
     try {
-      publishFileSystemChange({ directory, filePath: path.join(directory, "assets", "image.svg"), event: "add" })
-      publishFileSystemChange({ directory, filePath: path.resolve(directory, "..", "external.svg"), event: "change" })
+      publishFileSystemChange({
+        directory,
+        filePath: path.join(directory, "assets", "image.svg"),
+        event: "add",
+      })
+      publishFileSystemChange({
+        directory,
+        filePath: path.resolve(directory, "..", "external.svg"),
+        event: "change",
+      })
       expect(received.map((event) => event.payload)).toEqual([
         { type: "file.edited", properties: { file: path.join(directory, "assets", "image.svg") } },
-        { type: "file.watcher.updated", properties: { file: path.join(directory, "assets", "image.svg"), event: "add", relativePath: path.join("assets", "image.svg") } },
-        { type: "file.edited", properties: { file: path.resolve(directory, "..", "external.svg") } },
-        { type: "file.watcher.updated", properties: { file: path.resolve(directory, "..", "external.svg"), event: "change" } },
+        {
+          type: "file.watcher.updated",
+          properties: {
+            file: path.join(directory, "assets", "image.svg"),
+            event: "add",
+            relativePath: path.join("assets", "image.svg"),
+          },
+        },
+        {
+          type: "file.edited",
+          properties: { file: path.resolve(directory, "..", "external.svg") },
+        },
+        {
+          type: "file.watcher.updated",
+          properties: { file: path.resolve(directory, "..", "external.svg"), event: "change" },
+        },
       ])
-    } finally { unsubscribe() }
+    } finally {
+      unsubscribe()
+    }
   })
-
 })

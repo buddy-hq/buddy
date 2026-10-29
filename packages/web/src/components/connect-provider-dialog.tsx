@@ -130,17 +130,27 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     setError(undefined)
     setCopiedCode(false)
     const requestID = oauthRequestIDRef.current
-    void getBuddyClient().provider.auth({}, { throwOnError: true }).then((result) => {
-      if (oauthRequestIDRef.current !== requestID) return
-      const methods = result.data?.[providerRef.current.id] ?? []
-      setAuthMethods(methods)
-      setViewState(resolveInitialState({ ...providerRef.current, methods }))
-      setBusy(false)
-    }, (error) => {
-      if (oauthRequestIDRef.current !== requestID) return
-      setBusy(false)
-      setError(formatProviderAuthError(error, language.t("connectProviderDialog.startProviderLoginFailed")))
-    })
+    void getBuddyClient()
+      .provider.auth({}, { throwOnError: true })
+      .then(
+        (result) => {
+          if (oauthRequestIDRef.current !== requestID) return
+          const methods = result.data?.[providerRef.current.id] ?? []
+          setAuthMethods(methods)
+          setViewState(resolveInitialState({ ...providerRef.current, methods }))
+          setBusy(false)
+        },
+        (error) => {
+          if (oauthRequestIDRef.current !== requestID) return
+          setBusy(false)
+          setError(
+            formatProviderAuthError(
+              error,
+              language.t("connectProviderDialog.startProviderLoginFailed"),
+            ),
+          )
+        },
+      )
     return () => {
       oauthRequestIDRef.current += 1
     }
@@ -228,7 +238,11 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     setCancellingOAuth(true)
 
     try {
-      if (authorization) await cancelProviderOAuth({ providerID: props.provider.id, attemptID: authorization.attemptID })
+      if (authorization)
+        await cancelProviderOAuth({
+          providerID: props.provider.id,
+          attemptID: authorization.attemptID,
+        })
     } catch {
       // Best-effort cancellation: the local flow may already be settled.
     }
@@ -286,7 +300,14 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       const client = getBuddyClient()
       const method = methods.find((entry) => entry.type === "api") ?? FALLBACK_API_METHOD
       await client.auth.set(
-        { providerID: props.provider.id, auth: { type: "api", key: apiKey.trim(), answers: resolveProviderAuthAnswers(method, formAnswers) } },
+        {
+          providerID: props.provider.id,
+          auth: {
+            type: "api",
+            key: apiKey.trim(),
+            answers: resolveProviderAuthAnswers(method, formAnswers),
+          },
+        },
         { throwOnError: true },
       )
       closeAndRefreshProviderState()
@@ -338,7 +359,11 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
         answers: formAnswers,
       })
       if (!isActiveOAuthRequest(requestID)) {
-        if (nextAuthorization) await cancelProviderOAuth({ providerID: props.provider.id, attemptID: nextAuthorization.attemptID })
+        if (nextAuthorization)
+          await cancelProviderOAuth({
+            providerID: props.provider.id,
+            attemptID: nextAuthorization.attemptID,
+          })
         return
       }
       if (!nextAuthorization) {
@@ -414,35 +439,51 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
 
   function renderAuthPrompts(method: ProviderAuthMethod | undefined) {
     if (!method) return null
-    const prompts = activeProviderAuthPrompts(method, formAnswers).filter((prompt) => !prompt.hidden)
+    const prompts = activeProviderAuthPrompts(method, formAnswers).filter(
+      (prompt) => !prompt.hidden,
+    )
     if (prompts.length === 0) return null
-    return <FieldGroup>{prompts.map((prompt) => (
-      <Field key={prompt.key} data-disabled={busy || cancellingOAuth}>
-        <FieldLabel htmlFor={`${formID}-${prompt.key}`}>{prompt.message}</FieldLabel>
-        {prompt.type === "select" ? (
-          <NativeSelect
-            id={`${formID}-${prompt.key}`}
-            wrapperClassName="w-full"
-            value={formAnswers[prompt.key] ?? prompt.default ?? ""}
-            onChange={(event) => setFormAnswers((values) => ({ ...values, [prompt.key]: event.target.value }))}
-            required={prompt.required}
-            disabled={busy || cancellingOAuth}
-          >
-            <NativeSelectOption value="" disabled>{prompt.message}</NativeSelectOption>
-            {prompt.options.map((option) => <NativeSelectOption key={option.value} value={option.value}>{option.label}</NativeSelectOption>)}
-          </NativeSelect>
-        ) : (
-          <Input
-            id={`${formID}-${prompt.key}`}
-            value={formAnswers[prompt.key] ?? prompt.default ?? ""}
-            onChange={(event) => setFormAnswers((values) => ({ ...values, [prompt.key]: event.target.value }))}
-            placeholder={prompt.placeholder}
-            required={prompt.required}
-            disabled={busy || cancellingOAuth}
-          />
-        )}
-      </Field>
-    ))}</FieldGroup>
+    return (
+      <FieldGroup>
+        {prompts.map((prompt) => (
+          <Field key={prompt.key} data-disabled={busy || cancellingOAuth}>
+            <FieldLabel htmlFor={`${formID}-${prompt.key}`}>{prompt.message}</FieldLabel>
+            {prompt.type === "select" ? (
+              <NativeSelect
+                id={`${formID}-${prompt.key}`}
+                wrapperClassName="w-full"
+                value={formAnswers[prompt.key] ?? prompt.default ?? ""}
+                onChange={(event) =>
+                  setFormAnswers((values) => ({ ...values, [prompt.key]: event.target.value }))
+                }
+                required={prompt.required}
+                disabled={busy || cancellingOAuth}
+              >
+                <NativeSelectOption value="" disabled>
+                  {prompt.message}
+                </NativeSelectOption>
+                {prompt.options.map((option) => (
+                  <NativeSelectOption key={option.value} value={option.value}>
+                    {option.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            ) : (
+              <Input
+                id={`${formID}-${prompt.key}`}
+                value={formAnswers[prompt.key] ?? prompt.default ?? ""}
+                onChange={(event) =>
+                  setFormAnswers((values) => ({ ...values, [prompt.key]: event.target.value }))
+                }
+                placeholder={prompt.placeholder}
+                required={prompt.required}
+                disabled={busy || cancellingOAuth}
+              />
+            )}
+          </Field>
+        ))}
+      </FieldGroup>
+    )
   }
 
   function renderBody() {
@@ -467,7 +508,9 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                   type="button"
                   variant="secondary"
                   className="flex-1"
-                  onClick={() => setViewState(resolveReconnectTarget({ ...props.provider, methods }))}
+                  onClick={() =>
+                    setViewState(resolveReconnectTarget({ ...props.provider, methods }))
+                  }
                   disabled={busy || cancellingOAuth}
                 >
                   {isSingleApiMethod
@@ -502,7 +545,8 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                 onClick={() => {
                   setFormAnswers({})
                   if (method.type === "oauth") {
-                    if (activeProviderAuthPrompts(method, {}).some((prompt) => !prompt.hidden)) setViewState({ kind: "oauth-start", methodIndex: index })
+                    if (activeProviderAuthPrompts(method, {}).some((prompt) => !prompt.hidden))
+                      setViewState({ kind: "oauth-start", methodIndex: index })
                     else void startOAuth(index)
                   } else {
                     setViewState({ kind: "api-form" })
@@ -540,7 +584,13 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
 
       case "oauth-start":
         return (
-          <form className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void startOAuth(viewState.methodIndex) }}>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void startOAuth(viewState.methodIndex)
+            }}
+          >
             {renderAuthPrompts(methods[viewState.methodIndex])}
             <Button type="submit" className="w-full" disabled={busy || cancellingOAuth}>
               {busy

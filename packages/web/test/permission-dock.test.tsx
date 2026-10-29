@@ -201,9 +201,27 @@ describe("permission dock", () => {
   })
   test("rejects with the user's feedback and does not reuse it for the next request", async () => {
     const replies: PermissionReply[] = []
-    const render = (id: string) => root.render(<PermissionDock request={{ id, sessionID: "ses_1", action: "shell", resources: ["rm file"], save: ["rm *"] }} onReply={async (reply) => { replies.push(reply) }} />)
+    const render = (id: string) =>
+      root.render(
+        <PermissionDock
+          request={{
+            id,
+            sessionID: "ses_1",
+            action: "shell",
+            resources: ["rm file"],
+            save: ["rm *"],
+          }}
+          onReply={async (reply) => {
+            replies.push(reply)
+          }}
+        />,
+      )
     await act(async () => render("per_1"))
-    await act(async () => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Deny with feedback")?.click())
+    await act(async () =>
+      Array.from(container.querySelectorAll("button"))
+        .find((button) => button.textContent === "Deny with feedback")
+        ?.click(),
+    )
     const textarea = container.querySelector("textarea")
     expect(textarea).not.toBeNull()
     if (!textarea) throw new Error("Missing feedback input")
@@ -212,10 +230,13 @@ describe("permission dock", () => {
       setter?.call(textarea, "Keep the file and read it instead")
       textarea.dispatchEvent(new Event("input", { bubbles: true }))
     })
-    await act(async () => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Deny and send feedback")?.click())
+    await act(async () =>
+      Array.from(container.querySelectorAll("button"))
+        .find((button) => button.textContent === "Deny and send feedback")
+        ?.click(),
+    )
     expect(replies).toEqual([{ reply: "reject", message: "Keep the file and read it instead" }])
     await act(async () => render("per_2"))
     expect(container.querySelector("textarea")).toBeNull()
   })
-
 })

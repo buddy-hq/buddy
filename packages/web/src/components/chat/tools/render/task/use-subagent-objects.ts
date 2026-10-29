@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { refetchActiveWorkspaceObjectQueries } from "@/state/workspace-objects-query"
 
-export function useRefetchObjectsOnWorkerFinish(directory: string | undefined, workerFinished: boolean) {
+export function useRefetchObjectsOnWorkerFinish(
+  directory: string | undefined,
+  workerFinished: boolean,
+) {
   const queryClient = useQueryClient()
   const previouslyFinished = useRef(workerFinished)
   useEffect(() => {

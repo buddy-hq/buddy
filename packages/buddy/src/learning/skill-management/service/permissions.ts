@@ -1,4 +1,8 @@
-import { matchPermissionRule, permissionRulesFromConfig, type PermissionAction } from "@buddy/transcript-contract/permission-rules"
+import {
+  matchPermissionRule,
+  permissionRulesFromConfig,
+  type PermissionAction,
+} from "@buddy/transcript-contract/permission-rules"
 import { Config } from "@buddy/backend/config"
 import type {
   PermissionRule,
@@ -41,7 +45,12 @@ function normalizeExistingSkillAction<TValue>(action: TValue): SkillRuleAction {
 }
 
 export function resolveSkillPermission(name: string, ruleset: PermissionRuleset) {
-  const matchedRule = matchPermissionRule("skill", name, ruleset, process.platform === "win32" ? "win32" : "posix")
+  const matchedRule = matchPermissionRule(
+    "skill",
+    name,
+    ruleset,
+    process.platform === "win32" ? "win32" : "posix",
+  )
   if (!matchedRule) {
     return {
       explicit: false,

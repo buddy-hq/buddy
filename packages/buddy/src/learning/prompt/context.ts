@@ -332,7 +332,18 @@ async function resolvePromptModel(input: {
   const modelRef = explicitModel ?? configuredModel
   if (!modelRef) return runtimeSnapshot
 
-  const resolvedModel = await (await getAgentRuntime()).providers.catalog(input.directory).then((catalog) => catalog.connected.includes(modelRef.providerID) ? catalog.all.find((provider) => provider.id === modelRef.providerID)?.models[modelRef.modelID] : undefined).catch(() => undefined)
+  const resolvedModel = await (
+    await getAgentRuntime()
+  ).providers
+    .catalog(input.directory)
+    .then((catalog) =>
+      catalog.connected.includes(modelRef.providerID)
+        ? catalog.all.find((provider) => provider.id === modelRef.providerID)?.models[
+            modelRef.modelID
+          ]
+        : undefined,
+    )
+    .catch(() => undefined)
   if (!resolvedModel) return runtimeSnapshot
 
   const image = resolvedModel.capabilities.input.image

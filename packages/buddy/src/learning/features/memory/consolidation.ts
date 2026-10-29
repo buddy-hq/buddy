@@ -321,9 +321,21 @@ async function runConsolidationSubagent(input: {
       { permission: "*", pattern: "*", action: "deny" },
       { permission: "glob", pattern: "*", action: "allow" },
       { permission: "grep", pattern: "*", action: "allow" },
-      ...permissionPatterns.externalDirectory.map((resource) => ({ permission: "external_directory", pattern: resource, action: "allow" as const })),
-      ...permissionPatterns.read.map((resource) => ({ permission: "read", pattern: resource, action: "allow" as const })),
-      ...permissionPatterns.edit.map((resource) => ({ permission: "edit", pattern: resource, action: "allow" as const })),
+      ...permissionPatterns.externalDirectory.map((resource) => ({
+        permission: "external_directory",
+        pattern: resource,
+        action: "allow" as const,
+      })),
+      ...permissionPatterns.read.map((resource) => ({
+        permission: "read",
+        pattern: resource,
+        action: "allow" as const,
+      })),
+      ...permissionPatterns.edit.map((resource) => ({
+        permission: "edit",
+        pattern: resource,
+        action: "allow" as const,
+      })),
     ],
   })
   try {
@@ -333,7 +345,11 @@ async function runConsolidationSubagent(input: {
     if (outcome === "failed" || outcome === "interrupted") {
       throw new Error(`Memory consolidation ${outcome}`)
     }
-    for (let attempt = 0; attempt <= LEARNER_MEMORY_CONSOLIDATION_TUNING.modelRetries; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt <= LEARNER_MEMORY_CONSOLIDATION_TUNING.modelRetries;
+      attempt += 1
+    ) {
       const response = await runtime.execution.generate({
         sessionID: session.id,
         prompt: `Report the completed consolidation as a JSON object only, matching this schema: ${JSON.stringify(CONSOLIDATION_OUTPUT_JSON_SCHEMA)}`,
@@ -345,7 +361,14 @@ async function runConsolidationSubagent(input: {
     throw new Error("Memory consolidation did not produce a result")
   } finally {
     const archive = await runtime.conversations.transcript(session.id)
-    await writeTextFileAtomic(path.join(LearnerMemoryPath.root(input.directory), "consolidation-archives", `${session.id}.json`), JSON.stringify(archive))
+    await writeTextFileAtomic(
+      path.join(
+        LearnerMemoryPath.root(input.directory),
+        "consolidation-archives",
+        `${session.id}.json`,
+      ),
+      JSON.stringify(archive),
+    )
     await runtime.conversations.remove(session.id)
   }
 }

@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test"
 import { evaluatePermission } from "@buddy/transcript-contract/permission-rules"
 import { buildRuntimeSessionPermissionRules } from "../../src/learning/agent-execution/permissions/session-policy"
 import type { PermissionRuleset } from "@buddy/transcript-contract/permission-rules"
-const catalog = { toolIDs: ["ingest_full_text", "save_question_set"], subagentIDs: ["practice-agent"], skillNames: [], dynamicToolIDs: ["dynamic_one"] }
+const catalog = {
+  toolIDs: ["ingest_full_text", "save_question_set"],
+  subagentIDs: ["practice-agent"],
+  skillNames: [],
+  dynamicToolIDs: ["dynamic_one"],
+}
 
 describe("runtime session permissions", () => {
   test("preserves delegated child-session permissions without a runtime snapshot", () => {
@@ -74,13 +79,27 @@ describe("v2 Buddy runtime policy", () => {
       { permission: "ingest_full_text", pattern: "private/*", action: "deny" },
       { permission: "shell", pattern: "ls *", action: "allow" },
     ]
-    const rules = buildRuntimeSessionPermissionRules({ catalog, existing: preserved, sessionRuntime: { access: { tools: { ingest_full_text: "allow", save_question_set: "ask" }, subagents: { "practice-agent": "ask" }, skills: { "custom-skill": "ask" } } } })
-    expect(rules.filter((rule) => rule.permission === "read" || rule.permission === "shell" || rule.pattern === "private/*")).toEqual(preserved)
+    const rules = buildRuntimeSessionPermissionRules({
+      catalog,
+      existing: preserved,
+      sessionRuntime: {
+        access: {
+          tools: { ingest_full_text: "allow", save_question_set: "ask" },
+          subagents: { "practice-agent": "ask" },
+          skills: { "custom-skill": "ask" },
+        },
+      },
+    })
+    expect(
+      rules.filter(
+        (rule) =>
+          rule.permission === "read" || rule.permission === "shell" || rule.pattern === "private/*",
+      ),
+    ).toEqual(preserved)
     expect(evaluatePermission("ingest_full_text", "private/file", rules).action).toBe("deny")
     expect(evaluatePermission("ingest_full_text", "other/file", rules).action).toBe("allow")
     expect(evaluatePermission("save_question_set", "*", rules).action).toBe("ask")
     expect(evaluatePermission("skill", "custom-skill", rules).action).toBe("ask")
     expect(evaluatePermission("subagent", "practice-agent", rules).action).toBe("ask")
   })
-
 })

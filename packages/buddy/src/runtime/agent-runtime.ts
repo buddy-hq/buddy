@@ -1,26 +1,40 @@
 import type { AgentRuntime } from "@buddy/agent-runtime/runtime"
 import { openCodeV1ImportReport } from "@buddy/opencode-adapter/host"
 import { startOpenCodeRuntime } from "@buddy/opencode-adapter/runtime"
-import { cleanupBenchCapturesForSession, initializeBenchCaptureStorage } from "../learning/features/bench/captures"
+import {
+  cleanupBenchCapturesForSession,
+  initializeBenchCaptureStorage,
+} from "../learning/features/bench/captures"
 import { getBuddyToolPresentationDescriptor } from "./buddy-tool-presentation-catalog"
 import { openCodeRuntimeEnvironment } from "./runtime-paths"
-import { reportRuntimeUpgrade, runtimeUpgradeSeedPauseMs, type RuntimeV1ImportReport } from "./runtime-upgrade"
+import {
+  reportRuntimeUpgrade,
+  runtimeUpgradeSeedPauseMs,
+  type RuntimeV1ImportReport,
+} from "./runtime-upgrade"
 
-let runtimePromise: Promise<{ readonly runtime: AgentRuntime; readonly close: () => Promise<void> }> | undefined
+let runtimePromise:
+  | Promise<{ readonly runtime: AgentRuntime; readonly close: () => Promise<void> }>
+  | undefined
 let closingPromise: Promise<void> | undefined
 let shuttingDown = false
 
-export function subscribeBenchCaptureCleanup(runtime: Pick<AgentRuntime, "events">): () => Promise<void> {
+export function subscribeBenchCaptureCleanup(
+  runtime: Pick<AgentRuntime, "events">,
+): () => Promise<void> {
   const controller = new AbortController()
   const cleanups = new Set<Promise<void>>()
   const events = (async () => {
     for await (const event of runtime.events.signals({ signal: controller.signal })) {
       if (event.type !== "turn.finished") continue
-      const cleanup = cleanupBenchCapturesForSession(event.sessionID).finally(() => cleanups.delete(cleanup))
+      const cleanup = cleanupBenchCapturesForSession(event.sessionID).finally(() =>
+        cleanups.delete(cleanup),
+      )
       cleanups.add(cleanup)
     }
   })().catch((cause) => {
-    if (!controller.signal.aborted) console.error("Buddy execution cleanup subscription failed", cause)
+    if (!controller.signal.aborted)
+      console.error("Buddy execution cleanup subscription failed", cause)
   })
   return async () => {
     controller.abort()
@@ -31,7 +45,8 @@ export function subscribeBenchCaptureCleanup(runtime: Pick<AgentRuntime, "events
 
 async function createRuntime() {
   const [{ createBuddyRuntimeExtension }, { readOpenCodeHostConfig }] = await Promise.all([
-    import("./buddy-extension"), import("../config/runtime/notebook-runtime-plan"),
+    import("./buddy-extension"),
+    import("../config/runtime/notebook-runtime-plan"),
   ])
   const started = await startOpenCodeRuntime({
     environment: openCodeRuntimeEnvironment(),

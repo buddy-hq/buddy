@@ -21,7 +21,9 @@ function rejectingContext(input: {
   requests: Parameters<BuddyToolContext["ask"]>[0][]
 }): BuddyToolContext {
   const context = createBuddyToolContext({
-  directory: input.directory, agent: "buddy" })
+    directory: input.directory,
+    agent: "buddy",
+  })
   context.ask = async (request) => {
     input.requests.push(request)
     if (request.permission === input.rejectPermission) {
@@ -44,10 +46,19 @@ afterEach(() => {
 
 describe("external file tool permissions", () => {
   test("routes an external media request through v2 permissions before creating an object", async () => {
-    await using project = await tmpdir({ git: true, config: {
-      model: "scripted/chat",
-      provider: { scripted: { npm: "@ai-sdk/perplexity", options: { apiKey: "test" }, models: { chat: {} } } },
-    } })
+    await using project = await tmpdir({
+      git: true,
+      config: {
+        model: "scripted/chat",
+        provider: {
+          scripted: {
+            npm: "@ai-sdk/perplexity",
+            options: { apiKey: "test" },
+            models: { chat: {} },
+          },
+        },
+      },
+    })
     await using external = await tmpdir()
     const filePath = path.join(external.path, "image.png")
     await Bun.write(filePath, "image")
@@ -55,28 +66,55 @@ describe("external file tool permissions", () => {
       scriptedToolModel({ name: "present_media", arguments: { items: [{ path: filePath }] } }),
     ])
     const session = await runtime.host.session.create({
-      location: { directory: project.path }, agent: "buddy", model: { providerID: "scripted", id: "chat" },
-      permissions: [{ action: "*", resource: "*", effect: "allow" }, { action: "external_directory", resource: "*", effect: "ask" }],
+      location: { directory: project.path },
+      agent: "buddy",
+      model: { providerID: "scripted", id: "chat" },
+      permissions: [
+        { action: "*", resource: "*", effect: "allow" },
+        { action: "external_directory", resource: "*", effect: "ask" },
+      ],
     })
     const controller = new AbortController()
-    const events = runtime.host.event.subscribe({ signal: controller.signal })[Symbol.asyncIterator]()
+    const events = runtime.host.event
+      .subscribe({ signal: controller.signal })
+      [Symbol.asyncIterator]()
     try {
       await events.next()
       const pending = (async () => {
         while (true) {
           const event = await events.next()
           if (event.done) throw new Error("Runtime event stream ended before external permission")
-          if (event.value.type === "permission.asked" && event.value.data.sessionID === session.id) return event.value.data
-          if (event.value.type === "session.execution.succeeded" && event.value.data.sessionID === session.id) throw new Error("Turn completed without external permission")
-          if (event.value.type === "session.execution.failed" && event.value.data.sessionID === session.id) throw new Error(event.value.data.error.message)
+          if (event.value.type === "permission.asked" && event.value.data.sessionID === session.id)
+            return event.value.data
+          if (
+            event.value.type === "session.execution.succeeded" &&
+            event.value.data.sessionID === session.id
+          )
+            throw new Error("Turn completed without external permission")
+          if (
+            event.value.type === "session.execution.failed" &&
+            event.value.data.sessionID === session.id
+          )
+            throw new Error(event.value.data.error.message)
         }
       })()
-      await runtime.host.session.prompt({ sessionID: session.id, text: "Present the external image." })
+      await runtime.host.session.prompt({
+        sessionID: session.id,
+        text: "Present the external image.",
+      })
       const request = await pending
       expect(request.action).toBe("external_directory")
-      expect(request.metadata).toMatchObject({ filepath: filePath, parentDir: path.dirname(filePath) })
+      expect(request.metadata).toMatchObject({
+        filepath: filePath,
+        parentDir: path.dirname(filePath),
+      })
       expect(request.source).toMatchObject({ type: "tool", id: "call-feature-tool" })
-      await runtime.host.permission.reply({ sessionID: session.id, requestID: request.id, decision: "reject", message: "Keep this file private." })
+      await runtime.host.permission.reply({
+        sessionID: session.id,
+        requestID: request.id,
+        decision: "reject",
+        message: "Keep this file private.",
+      })
       await runtime.host.session.wait({ sessionID: session.id })
       expect(await pathExists(path.join(project.path, ".buddy", "objects"))).toBe(false)
       expect(await runtime.host.permission.list({ sessionID: session.id })).toEqual([])
@@ -95,17 +133,17 @@ describe("external file tool permissions", () => {
 
     await expect(
       (() =>
-          benchPresentTool.run(
-            {
-              action: "present_file",
-              path: filePath,
-            },
-            rejectingContext({
-              directory: project.path,
-              rejectPermission: "external_directory",
-              requests,
-            }),
-          ))(),
+        benchPresentTool.run(
+          {
+            action: "present_file",
+            path: filePath,
+          },
+          rejectingContext({
+            directory: project.path,
+            rejectPermission: "external_directory",
+            requests,
+          }),
+        ))(),
     ).rejects.toThrow(PERMISSION_REJECTED_MESSAGE)
 
     expect(requests.map((request) => request.permission)).toEqual(["external_directory"])
@@ -121,14 +159,14 @@ describe("external file tool permissions", () => {
 
     await expect(
       (() =>
-          presentMediaTool.run(
-            { items: [{ path: filePath }] },
-            rejectingContext({
-              directory: project.path,
-              rejectPermission: "external_directory",
-              requests,
-            }),
-          ))(),
+        presentMediaTool.run(
+          { items: [{ path: filePath }] },
+          rejectingContext({
+            directory: project.path,
+            rejectPermission: "external_directory",
+            requests,
+          }),
+        ))(),
     ).rejects.toThrow(PERMISSION_REJECTED_MESSAGE)
 
     expect(requests.map((request) => request.permission)).toEqual(["external_directory"])
@@ -144,14 +182,14 @@ describe("external file tool permissions", () => {
 
     await expect(
       (() =>
-          prepareResourceTool.run(
-            { sourcePath: filePath, waitUntilReady: false },
-            rejectingContext({
-              directory: project.path,
-              rejectPermission: "external_directory",
-              requests,
-            }),
-          ))(),
+        prepareResourceTool.run(
+          { sourcePath: filePath, waitUntilReady: false },
+          rejectingContext({
+            directory: project.path,
+            rejectPermission: "external_directory",
+            requests,
+          }),
+        ))(),
     ).rejects.toThrow(PERMISSION_REJECTED_MESSAGE)
 
     expect(requests.map((request) => request.permission)).toEqual(["external_directory"])
@@ -166,14 +204,14 @@ describe("external file tool permissions", () => {
 
     await expect(
       (() =>
-          renderSvgTool.run(
-            { filePath, format: "smiles", source: "CCO" },
-            rejectingContext({
-              directory: project.path,
-              rejectPermission: "external_directory",
-              requests,
-            }),
-          ))(),
+        renderSvgTool.run(
+          { filePath, format: "smiles", source: "CCO" },
+          rejectingContext({
+            directory: project.path,
+            rejectPermission: "external_directory",
+            requests,
+          }),
+        ))(),
     ).rejects.toThrow(PERMISSION_REJECTED_MESSAGE)
 
     expect(requests.map((request) => request.permission)).toEqual(["external_directory"])
@@ -190,14 +228,14 @@ describe("external file tool permissions", () => {
 
     await expect(
       (() =>
-          imagegenTool.run(
-            { prompt: "Edit this image", referenced_image_paths: [filePath] },
-            rejectingContext({
-              directory: project.path,
-              rejectPermission: "external_directory",
-              requests,
-            }),
-          ))(),
+        imagegenTool.run(
+          { prompt: "Edit this image", referenced_image_paths: [filePath] },
+          rejectingContext({
+            directory: project.path,
+            rejectPermission: "external_directory",
+            requests,
+          }),
+        ))(),
     ).rejects.toThrow(PERMISSION_REJECTED_MESSAGE)
 
     expect(requests.map((request) => request.permission)).toEqual(["external_directory"])

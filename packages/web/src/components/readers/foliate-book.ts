@@ -36,13 +36,11 @@ async function isComicArchive(input: string | Blob): Promise<boolean> {
   if (
     input.type !== "application/vnd.comicbook+zip" &&
     !(input instanceof File && input.name.endsWith(".cbz"))
-  ) return false
+  )
+    return false
   const signature = new Uint8Array(await input.slice(0, 4).arrayBuffer())
   return (
-    signature[0] === 0x50 &&
-    signature[1] === 0x4b &&
-    signature[2] === 0x03 &&
-    signature[3] === 0x04
+    signature[0] === 0x50 && signature[1] === 0x4b && signature[2] === 0x03 && signature[3] === 0x04
   )
 }
 
@@ -50,17 +48,29 @@ function bookResource(declaredType: string, isPage: boolean): BookResource {
   const resource = foliateResourceType(declaredType)
   switch (resource.category) {
     case "html":
-      return { kind: "page", type: "text/html", clean: (text) => sanitizeFoliateChapter(text, "text/html") }
+      return {
+        kind: "page",
+        type: "text/html",
+        clean: (text) => sanitizeFoliateChapter(text, "text/html"),
+      }
     case "xhtml":
-      return { kind: "page", type: XHTML_TYPE, clean: (text) => sanitizeFoliateChapter(text, XHTML_TYPE) }
+      return {
+        kind: "page",
+        type: XHTML_TYPE,
+        clean: (text) => sanitizeFoliateChapter(text, XHTML_TYPE),
+      }
     case "svg":
-      return isPage ? { kind: "page", type: XHTML_TYPE, clean: sanitizeFoliateSvgPage } : { kind: "svg", type: "image/svg+xml" }
+      return isPage
+        ? { kind: "page", type: XHTML_TYPE, clean: sanitizeFoliateSvgPage }
+        : { kind: "svg", type: "image/svg+xml" }
     case "inert":
       return { kind: "unchanged", type: resource.type }
     case "document":
       return { kind: "blank", type: XHTML_TYPE }
     case "unknown":
-      return isPage ? { kind: "blank", type: XHTML_TYPE } : { kind: "empty", type: "application/octet-stream" }
+      return isPage
+        ? { kind: "blank", type: XHTML_TYPE }
+        : { kind: "empty", type: "application/octet-stream" }
   }
 }
 
@@ -75,7 +85,10 @@ async function cleanBookData(resource: BookResource, data: string | Blob): Promi
 function serializeFoliateChapter(text: string, type: string) {
   if (type !== XHTML_TYPE && type !== "text/html" && type !== "image/svg+xml") return { text, type }
   let doc = new DOMParser().parseFromString(text, type)
-  if (type === XHTML_TYPE && (doc.querySelector("parsererror") || !doc.documentElement?.namespaceURI)) {
+  if (
+    type === XHTML_TYPE &&
+    (doc.querySelector("parsererror") || !doc.documentElement?.namespaceURI)
+  ) {
     type = "text/html"
     doc = new DOMParser().parseFromString(text, "text/html")
   }
@@ -94,7 +107,8 @@ function secureEpub(book: EPUB & { transformTarget: EventTarget }): void {
   book.loadDocument = async (item: EPUBManifestItem) => {
     const chapter = serializeFoliateChapter((await book.loadText(item.href)) ?? "", item.mediaType)
     const resource = bookResource(chapter.type, pages.has(item.href))
-    if (resource.kind === "page") return new DOMParser().parseFromString(resource.clean(chapter.text), resource.type)
+    if (resource.kind === "page")
+      return new DOMParser().parseFromString(resource.clean(chapter.text), resource.type)
     return new DOMParser().parseFromString(emptyFoliateChapter(), XHTML_TYPE)
   }
 }

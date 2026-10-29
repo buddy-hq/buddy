@@ -7,8 +7,13 @@ test("keeps v2 state in the runtime root and preserves Buddy's existing config a
   await using root = await temporaryDirectory()
   const runtimeRoot = path.join(root.path, "runtime with spaces")
   const plan = resolveOpenCodeEnvironmentPlan({
-    environment: { BUDDY_RUNTIME_ROOT: encodeURIComponent(runtimeRoot), BUDDY_TEST_HOME: path.join(runtimeRoot, "home") },
-    homeDirectory: root.path, temporaryDirectory: root.path, workingDirectory: root.path,
+    environment: {
+      BUDDY_RUNTIME_ROOT: encodeURIComponent(runtimeRoot),
+      BUDDY_TEST_HOME: path.join(runtimeRoot, "home"),
+    },
+    homeDirectory: root.path,
+    temporaryDirectory: root.path,
+    workingDirectory: root.path,
   })
   expect(plan.openCode).toEqual({
     data: path.join(runtimeRoot, "data", "buddy", "opencode"),
@@ -25,14 +30,23 @@ test("resolves explicit Buddy directory overrides against the working directory"
   await using root = await temporaryDirectory()
   const plan = resolveOpenCodeEnvironmentPlan({
     environment: {
-      BUDDY_RUNTIME_ROOT: root.path, BUDDY_DATA_DIR: "custom%20data", BUDDY_CACHE_DIR: "custom-cache",
-      BUDDY_STATE_DIR: "custom-state", BUDDY_GLOBAL_CONFIG_DIR: "custom-config",
+      BUDDY_RUNTIME_ROOT: root.path,
+      BUDDY_DATA_DIR: "custom%20data",
+      BUDDY_CACHE_DIR: "custom-cache",
+      BUDDY_STATE_DIR: "custom-state",
+      BUDDY_GLOBAL_CONFIG_DIR: "custom-config",
     },
-    homeDirectory: root.path, temporaryDirectory: root.path, workingDirectory: root.path,
+    homeDirectory: root.path,
+    temporaryDirectory: root.path,
+    workingDirectory: root.path,
   })
   expect(plan.openCode.data).toBe(path.join(root.path, "custom data", "opencode"))
-  expect(plan.openCode.database).toBe(path.join(root.path, "custom data", "opencode", "opencode-v2.db"))
-  expect(plan.openCode.v1Database).toBe(path.join(root.path, "custom data", "opencode", "opencode.db"))
+  expect(plan.openCode.database).toBe(
+    path.join(root.path, "custom data", "opencode", "opencode-v2.db"),
+  )
+  expect(plan.openCode.v1Database).toBe(
+    path.join(root.path, "custom data", "opencode", "opencode.db"),
+  )
   expect(plan.openCode.cache).toBe(path.join(root.path, "custom-cache", "opencode"))
   expect(plan.openCode.state).toBe(path.join(root.path, "custom-state", "opencode"))
   expect(plan.openCode.config).toBe(path.join(root.path, "custom-config"))

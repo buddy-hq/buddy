@@ -30,7 +30,8 @@ import {
   type TJsonObject,
 } from "../helpers/parse"
 
-const { benchReadContextTool } = await import("../../src/learning/features/bench/tools/read-context")
+const { benchReadContextTool } =
+  await import("../../src/learning/features/bench/tools/read-context")
 
 const SESSION_ID = "session-bench-read-context"
 const ONE_PIXEL_PNG_BASE64 =

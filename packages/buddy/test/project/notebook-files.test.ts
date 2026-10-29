@@ -9,7 +9,10 @@ import {
   renameProjectTextFile,
 } from "../../src/project/project-file-editor-service"
 import { File } from "../../src/project/notebook-files"
-import { scanNotebookFiles, scanNotebookFilesWithDeadline } from "../../src/project/notebook-file-scan"
+import {
+  scanNotebookFiles,
+  scanNotebookFilesWithDeadline,
+} from "../../src/project/notebook-file-scan"
 
 async function withTempProject<T>(fn: (directory: string, root: string) => Promise<T>): Promise<T> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-opencode-file-"))
@@ -68,7 +71,10 @@ describe("File", () => {
       await (async () => {
         expect((await File.listSearchPaths(directory)).paths).toEqual(["first-note.md"])
         await fs.writeFile(path.join(directory, "second-note.md"), "")
-        expect((await File.listSearchPaths(directory)).paths).toEqual(["first-note.md", "second-note.md"])
+        expect((await File.listSearchPaths(directory)).paths).toEqual([
+          "first-note.md",
+          "second-note.md",
+        ])
       })()
     })
   })
@@ -155,9 +161,7 @@ describe("File", () => {
       const controller = new AbortController()
       controller.abort()
 
-      await expect(
-        File.listSearchPaths(directory, { signal: controller.signal }),
-      ).rejects.toThrow()
+      await expect(File.listSearchPaths(directory, { signal: controller.signal })).rejects.toThrow()
     })
   })
 
@@ -202,12 +206,8 @@ describe("File", () => {
       await fs.symlink(outsidePath, fileLinkPath)
       await fs.symlink(outsideDirectory, directoryLinkPath)
 
-      await expect(
-        File.read(directory, "outside-link.txt"),
-      ).rejects.toThrow("Access denied")
-      await expect(
-        File.list(directory, "outside-directory-link"),
-      ).rejects.toThrow("Access denied")
+      await expect(File.read(directory, "outside-link.txt")).rejects.toThrow("Access denied")
+      await expect(File.list(directory, "outside-directory-link")).rejects.toThrow("Access denied")
     })
   })
   test("omits ignored and deleted tracked files from the current Git-backed index", async () => {
@@ -217,11 +217,18 @@ describe("File", () => {
       fs.writeFile(path.join(project.path, "ignored.md"), "ignored"),
       fs.writeFile(path.join(project.path, "deleted.md"), "deleted"),
     ])
-    const add = Bun.spawn(["git", "add", "ignored.md", "deleted.md"], { cwd: project.path, stdout: "ignore", stderr: "ignore" })
+    const add = Bun.spawn(["git", "add", "ignored.md", "deleted.md"], {
+      cwd: project.path,
+      stdout: "ignore",
+      stderr: "ignore",
+    })
     expect(await add.exited).toBe(0)
     await fs.writeFile(path.join(project.path, ".gitignore"), "ignored.md\n")
     await fs.rm(path.join(project.path, "deleted.md"))
-    expect(await File.listSearchPaths(project.path)).toEqual({ paths: ["visible.md"], partial: false })
+    expect(await File.listSearchPaths(project.path)).toEqual({
+      paths: ["visible.md"],
+      partial: false,
+    })
   })
 
   test("edits and renames exact text with version conflicts through the Buddy file service", async () => {
@@ -230,13 +237,29 @@ describe("File", () => {
     await fs.writeFile(target, "draft  \n\n")
     const initial = await readProjectTextFile({ directory: project.path, path: "lesson.txt" })
     expect(initial.content).toBe("draft  \n\n")
-    const saved = await saveProjectTextFile({ directory: project.path, path: "lesson.txt", content: "next\n", expectedVersion: initial.version })
-    await expect(saveProjectTextFile({ directory: project.path, path: "lesson.txt", content: "stale\n", expectedVersion: initial.version })).rejects.toThrow("File changed on disk")
+    const saved = await saveProjectTextFile({
+      directory: project.path,
+      path: "lesson.txt",
+      content: "next\n",
+      expectedVersion: initial.version,
+    })
+    await expect(
+      saveProjectTextFile({
+        directory: project.path,
+        path: "lesson.txt",
+        content: "stale\n",
+        expectedVersion: initial.version,
+      }),
+    ).rejects.toThrow("File changed on disk")
     expect(await fs.readFile(target, "utf8")).toBe("next\n")
-    const renamed = await renameProjectTextFile({ directory: project.path, path: "lesson.txt", nextPath: "accepted.txt", expectedVersion: saved.version })
+    const renamed = await renameProjectTextFile({
+      directory: project.path,
+      path: "lesson.txt",
+      nextPath: "accepted.txt",
+      expectedVersion: saved.version,
+    })
     expect(renamed.content).toBe("next\n")
     expect(await fs.readFile(path.join(project.path, "accepted.txt"), "utf8")).toBe("next\n")
     expect(await fs.exists(target)).toBe(false)
   })
-
 })

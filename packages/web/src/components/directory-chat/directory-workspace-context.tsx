@@ -435,7 +435,9 @@ export function DirectoryWorkspaceProvider(props: {
             props.persistenceStorage ? { storage: props.persistenceStorage } : undefined,
           ),
         )
-        const importReport = await queryClient.fetchQuery(v1ImportQueryOptions()).catch(() => undefined)
+        const importReport = await queryClient
+          .fetchQuery(v1ImportQueryOptions())
+          .catch(() => undefined)
         logBenchToggleStep("directory-workspace-provider-read-persisted-result", {
           directory: props.directory,
           disposed,
@@ -451,13 +453,14 @@ export function DirectoryWorkspaceProvider(props: {
           {}
         const currentRoute = routeRef.current
         const directoryState = useChatStore.getState().directories[props.directory]
-        const unresolvedSessionIDs = directoryState && !v1ImportMayBeIncomplete(importReport)
-          ? unresolvedSessionBenchTargetIDs({
-              slots: persistedSlots,
-              route: currentRoute,
-              sessions: directoryState.sessions,
-            })
-          : new Set<string>()
+        const unresolvedSessionIDs =
+          directoryState && !v1ImportMayBeIncomplete(importReport)
+            ? unresolvedSessionBenchTargetIDs({
+                slots: persistedSlots,
+                route: currentRoute,
+                sessions: directoryState.sessions,
+              })
+            : new Set<string>()
         const restoredPersistedSlots = removeSessionBenchTargetsFromSlots({
           slots: persistedSlots,
           sessionIDs: unresolvedSessionIDs,

@@ -1,7 +1,13 @@
 import type { Catalog } from "@buddy/agent-runtime/catalog"
 import { RuntimeError } from "@buddy/agent-runtime/errors"
 import { toBuddyPermissionRules } from "@buddy/transcript-contract/permission-rules"
-import { activeNotebookDirectories, isSuppressedOpenCodeSkill, NOTEBOOK_CONFIG_RPC, publishNotebookPlan, syncActiveNotebookLocations } from "../extension/notebook"
+import {
+  activeNotebookDirectories,
+  isSuppressedOpenCodeSkill,
+  NOTEBOOK_CONFIG_RPC,
+  publishNotebookPlan,
+  syncActiveNotebookLocations,
+} from "../extension/notebook"
 import { listExecutableCommands } from "../gateway/command"
 import type { OpenCodeHost } from "../host"
 import { toRuntimeError } from "./errors"
@@ -9,29 +15,57 @@ import type { OpenCodeRuntimeOptions } from "./options"
 
 function catalogError<TCause>(cause: TCause): RuntimeError {
   const error = toRuntimeError(cause)
-  return error.kind === "internal" ? error : new RuntimeError("internal", error.message, { subject: error.subject, cause })
+  return error.kind === "internal"
+    ? error
+    : new RuntimeError("internal", error.message, { subject: error.subject, cause })
 }
 
 export function createCatalog(host: OpenCodeHost, _options: OpenCodeRuntimeOptions): Catalog {
   return {
     async publishNotebookPlan(directory, plan) {
-      try { return publishNotebookPlan(directory, plan) } catch (cause) { throw catalogError(cause) }
+      try {
+        return publishNotebookPlan(directory, plan)
+      } catch (cause) {
+        throw catalogError(cause)
+      }
     },
     async activeNotebookDirectories() {
-      try { return activeNotebookDirectories() } catch (cause) { throw catalogError(cause) }
+      try {
+        return activeNotebookDirectories()
+      } catch (cause) {
+        throw catalogError(cause)
+      }
     },
     async syncActiveNotebookLocations(directory, revision, { force } = {}) {
-      try { await syncActiveNotebookLocations(directory, revision, { force }) } catch (cause) { throw catalogError(cause) }
+      try {
+        await syncActiveNotebookLocations(directory, revision, { force })
+      } catch (cause) {
+        throw catalogError(cause)
+      }
     },
     async syncNotebookLocation(directory, revision, options) {
       try {
-        await host.rpc.call({ rpcID: NOTEBOOK_CONFIG_RPC.id, method: "sync", input: { revision, force: options?.force ?? false }, location: { directory } })
-      } catch (cause) { throw catalogError(cause) }
+        await host.rpc.call({
+          rpcID: NOTEBOOK_CONFIG_RPC.id,
+          method: "sync",
+          input: { revision, force: options?.force ?? false },
+          location: { directory },
+        })
+      } catch (cause) {
+        throw catalogError(cause)
+      }
     },
     async awaitNotebookPlan(directory) {
       try {
-        await host.rpc.call({ rpcID: NOTEBOOK_CONFIG_RPC.id, method: "ready", input: {}, location: { directory } })
-      } catch (cause) { throw catalogError(cause) }
+        await host.rpc.call({
+          rpcID: NOTEBOOK_CONFIG_RPC.id,
+          method: "ready",
+          input: {},
+          location: { directory },
+        })
+      } catch (cause) {
+        throw catalogError(cause)
+      }
     },
     async agentRules(directory, agentID) {
       try {
@@ -63,13 +97,15 @@ export function createCatalog(host: OpenCodeHost, _options: OpenCodeRuntimeOptio
     async skills(directory) {
       try {
         const { data } = await host.skill.list({ location: { directory } })
-        return data.filter((skill) => !isSuppressedOpenCodeSkill(skill)).map((skill) => ({
-          id: skill.id,
-          name: skill.name,
-          description: skill.description ?? "",
-          path: skill.path,
-          content: skill.content,
-        }))
+        return data
+          .filter((skill) => !isSuppressedOpenCodeSkill(skill))
+          .map((skill) => ({
+            id: skill.id,
+            name: skill.name,
+            description: skill.description ?? "",
+            path: skill.path,
+            content: skill.content,
+          }))
       } catch (cause) {
         throw catalogError(cause)
       }

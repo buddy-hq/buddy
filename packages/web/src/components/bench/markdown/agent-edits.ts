@@ -28,7 +28,9 @@ export function toolMetadataTargetsPath(part: MessagePart, targetPath: string): 
 
   const state = parseToolState(part)
   const changedFileMatches = (state.fileChanges ?? []).some(
-    (file) => filePathMatchesTarget(file.relativePath, targetPath) || filePathMatchesTarget(file.path, targetPath),
+    (file) =>
+      filePathMatchesTarget(file.relativePath, targetPath) ||
+      filePathMatchesTarget(file.path, targetPath),
   )
   if (kind === "change-files") return changedFileMatches
   return (

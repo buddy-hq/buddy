@@ -11,7 +11,7 @@ afterEach(closeAgentRuntime)
 
 async function git(directory: string, args: string[]) {
   const process = Bun.spawn(["git", ...args], { cwd: directory, stdout: "ignore", stderr: "pipe" })
-  if (await process.exited !== 0) throw new Error(await new Response(process.stderr).text())
+  if ((await process.exited) !== 0) throw new Error(await new Response(process.stderr).text())
 }
 
 describe("project and session boundaries", () => {
@@ -36,14 +36,24 @@ describe("project and session boundaries", () => {
     const session = await notebook.json("/session", z.object({ id: z.string() }), { body: {} })
     const runtime = await getAgentRuntime()
     for (let index = 0; index < 101; index += 1) {
-      const result = await runtime.execution.prompt({ sessionID: session.id, text: `History ${index}` }, { directory: notebook.directory })
+      const result = await runtime.execution.prompt(
+        { sessionID: session.id, text: `History ${index}` },
+        { directory: notebook.directory },
+      )
       if (!result.ok) throw result.error
     }
     const history = await readSessionMessages(notebook.directory, session.id)
     expect(history).toHaveLength(202)
     const users = history.filter((message) => message.info.role === "user")
-    expect(users.flatMap((message) => message.parts).filter((part) => part.type === "text").map((part) => part.text)).toEqual(Array.from({ length: 101 }, (_, index) => `History ${index}`))
+    expect(
+      users
+        .flatMap((message) => message.parts)
+        .filter((part) => part.type === "text")
+        .map((part) => part.text),
+    ).toEqual(Array.from({ length: 101 }, (_, index) => `History ${index}`))
     expect(await readSessionInDirectory(other.directory, session.id)).toBeUndefined()
-    await expect(readSessionMessages(other.directory, session.id)).rejects.toThrow("does not belong")
+    await expect(readSessionMessages(other.directory, session.id)).rejects.toThrow(
+      "does not belong",
+    )
   }, 15_000)
 })

@@ -29,10 +29,16 @@ describe("executeWriteWithoutPrompt", () => {
     const targetFile = path.join(project.path, "notes", "lesson.txt")
 
     const result = await executeWriteWithoutPrompt(
-      { ...createContext({ async ask() { askCalls += 1 } }), directory: project.path },
+      {
+        ...createContext({
+          async ask() {
+            askCalls += 1
+          },
+        }),
+        directory: project.path,
+      },
       { filePath: targetFile, content: "draft lesson" },
     )
-
 
     expect(askCalls).toBe(0)
     expect(result.title).not.toBe("Write file")

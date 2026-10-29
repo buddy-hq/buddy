@@ -19,13 +19,21 @@ test("the upgrade state answers health while copying, migrating or failed, and a
   expect(runtimeUpgradeAnswersHealth()).toBe(false)
   const waiting = waitForRuntimeUpgrade()
   let resolved = false
-  void waiting.upgrading.then(() => { resolved = true })
+  void waiting.upgrading.then(() => {
+    resolved = true
+  })
   reportRuntimeUpgrade({ state: "copying" })
   await Promise.resolve()
   expect(resolved).toBe(true)
-  reportRuntimeUpgrade({ state: "failed", error: "Not enough disk space to upgrade your chats: need 2 MB, have 1 MB" })
+  reportRuntimeUpgrade({
+    state: "failed",
+    error: "Not enough disk space to upgrade your chats: need 2 MB, have 1 MB",
+  })
   reportRuntimeUpgrade({ state: "migrating" })
-  expect(runtimeUpgradeState()).toEqual({ state: "failed", error: "Not enough disk space to upgrade your chats: need 2 MB, have 1 MB" })
+  expect(runtimeUpgradeState()).toEqual({
+    state: "failed",
+    error: "Not enough disk space to upgrade your chats: need 2 MB, have 1 MB",
+  })
   expect(runtimeUpgradeAnswersHealth()).toBe(true)
   reportRuntimeUpgrade({ state: "ready" })
   expect(runtimeUpgradeAnswersHealth()).toBe(false)

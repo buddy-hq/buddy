@@ -51,7 +51,6 @@ function runningMcpInputCalls(messages: readonly MessageWithParts[]): McpInputCa
   return calls
 }
 
-
 export type McpInputRequestsSlice = {
   pendingMcpInputRequests: Record<string, PendingMcpInputRequest>
   applyMcpInputRequested: (request: McpInputRequestedEvent["properties"]) => void
@@ -60,7 +59,10 @@ export type McpInputRequestsSlice = {
 }
 
 export const createMcpInputRequestsSlice: StateCreator<
-  ChatStore, [["zustand/immer", never]], [], McpInputRequestsSlice
+  ChatStore,
+  [["zustand/immer", never]],
+  [],
+  McpInputRequestsSlice
 > = (set, get, api) => {
   const seen = new Set<string>()
   let expiryTimer: ReturnType<typeof setTimeout> | undefined
@@ -109,7 +111,10 @@ export const createMcpInputRequestsSlice: StateCreator<
           }
           const recorded = new Set(request.candidates.map(mcpInputCallKey))
           for (const call of calls) {
-            if (matchesMcpInputPrefix(call, request.toolPrefix) && !recorded.has(mcpInputCallKey(call))) {
+            if (
+              matchesMcpInputPrefix(call, request.toolPrefix) &&
+              !recorded.has(mcpInputCallKey(call))
+            ) {
               request.candidates.push(call)
             }
           }
@@ -141,28 +146,36 @@ export const createMcpInputRequestsSlice: StateCreator<
     applyMcpInputRequested(request) {
       if (seen.has(request.requestID)) return
       seen.add(request.requestID)
-      const candidates = openCalls().filter((call) => matchesMcpInputPrefix(call, request.toolPrefix))
+      const candidates = openCalls().filter((call) =>
+        matchesMcpInputPrefix(call, request.toolPrefix),
+      )
       const pending: PendingMcpInputRequest = { ...request, candidates }
       if (candidates.length === 0) pending.collectUntil = Date.now() + MCP_INPUT_CANDIDATE_WINDOW_MS
-      set((state) => { state.pendingMcpInputRequests[request.requestID] = pending })
+      set((state) => {
+        state.pendingMcpInputRequests[request.requestID] = pending
+      })
       unsubscribeTranscript ??= subscribeTranscriptChanges(reconcile)
       unsubscribeStore ??= api.subscribe((state, previous) => {
         if (
           state.directories !== previous.directories ||
           state.openProjects !== previous.openProjects ||
           state.pendingMcpInputRequests !== previous.pendingMcpInputRequests
-        ) reconcile()
+        )
+          reconcile()
       })
       reconcile()
     },
     applyMcpInputSettled(requestID) {
       seen.add(requestID)
-      set((state) => { delete state.pendingMcpInputRequests[requestID] })
+      set((state) => {
+        delete state.pendingMcpInputRequests[requestID]
+      })
     },
     clearMcpInputRequests() {
       seen.clear()
       set((state) => {
-        if (Object.keys(state.pendingMcpInputRequests).length > 0) state.pendingMcpInputRequests = {}
+        if (Object.keys(state.pendingMcpInputRequests).length > 0)
+          state.pendingMcpInputRequests = {}
       })
     },
   }

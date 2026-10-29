@@ -3,7 +3,9 @@ import { uiPrompt } from "./fixtures/model-server"
 
 test.describe.configure({ mode: "serial" })
 
-test("U1 opens a notebook, streams a tool call and reply, and preserves the rows after reload", async ({ buddy }) => {
+test("U1 opens a notebook, streams a tool call and reply, and preserves the rows after reload", async ({
+  buddy,
+}) => {
   const { page, notebook, model } = buddy
   await buddy.stubOpenDirectory(notebook.directory)
   await page.getByRole("button", { name: "New notebook", exact: true }).click()
@@ -15,7 +17,9 @@ test("U1 opens a notebook, streams a tool call and reply, and preserves the rows
   const read = uiPrompt({ kind: "tool", name: "read", arguments: { path: notebook.readPath } })
   await composer.fill(read)
   await page.getByRole("button", { name: "Send", exact: true }).click()
-  const toolResult = await model.waitForRequest((request) => request.text.includes(read) && request.tools.length > 0)
+  const toolResult = await model.waitForRequest(
+    (request) => request.text.includes(read) && request.tools.length > 0,
+  )
   expect(JSON.stringify(toolResult.tools)).toContain(notebook.contents)
   await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0)
   const activity = page.locator("[data-activity-row]")
@@ -33,14 +37,22 @@ test("U1 opens a notebook, streams a tool call and reply, and preserves the rows
   await composer.fill(prompt)
   await page.getByRole("button", { name: "Send", exact: true }).click()
   await model.waitForRequest((request) => request.text.includes(prompt))
-  const answer = page.locator('[data-timeline-row="AssistantPart"]').getByText(reply, { exact: true })
+  const answer = page
+    .locator('[data-timeline-row="AssistantPart"]')
+    .getByText(reply, { exact: true })
   await expect(answer).toHaveCount(1)
   await expect(answer).toBeVisible()
   await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0)
   const userRows = page.locator('[data-timeline-row="UserMessage"]')
   await expect(userRows).toHaveCount(2)
   const rows = page.locator("[data-timeline-row]")
-  const identities = () => rows.evaluateAll((elements) => elements.map((element) => ({ kind: element.getAttribute("data-timeline-row"), messageID: element.getAttribute("data-message-id") })))
+  const identities = () =>
+    rows.evaluateAll((elements) =>
+      elements.map((element) => ({
+        kind: element.getAttribute("data-timeline-row"),
+        messageID: element.getAttribute("data-message-id"),
+      })),
+    )
   const before = await identities()
   const chatURL = page.url()
 

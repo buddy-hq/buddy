@@ -44,7 +44,11 @@ const errnoSchema = z.object({ code: z.string() })
 type V1Tokens = z.infer<typeof v1TokensSchema>
 type V1ClientInfo = z.infer<typeof v1ClientInfoSchema>
 type ImportCounts = { readonly imported: number; readonly skipped: number }
-type UsableEntry = { readonly serverUrl: string; readonly tokens: V1Tokens; readonly clientInfo: V1ClientInfo | undefined }
+type UsableEntry = {
+  readonly serverUrl: string
+  readonly tokens: V1Tokens
+  readonly clientInfo: V1ClientInfo | undefined
+}
 type SignInEntry = { readonly name: string; readonly usable: UsableEntry | undefined }
 type SignInFile =
   | { readonly kind: "missing" }
@@ -82,7 +86,9 @@ function errorText<TError>(error: TError): string {
 }
 
 function mcpIntegrationID(name: string, serverUrl: string): string {
-  const digest = createHash("sha1").update(name + MCP_INTEGRATION_SEPARATOR + serverUrl).digest("hex")
+  const digest = createHash("sha1")
+    .update(name + MCP_INTEGRATION_SEPARATOR + serverUrl)
+    .digest("hex")
   return MCP_INTEGRATION_PREFIX + digest.slice(0, MCP_INTEGRATION_HASH_LENGTH)
 }
 
@@ -108,7 +114,8 @@ function oauthCredentialValue(integrationID: string, entry: UsableEntry) {
     methodID: integrationID,
     access: tokens.accessToken,
     refresh: tokens.refreshToken ?? "",
-    expires: tokens.expiresAt === undefined ? 0 : Math.floor(tokens.expiresAt * MILLISECONDS_PER_SECOND),
+    expires:
+      tokens.expiresAt === undefined ? 0 : Math.floor(tokens.expiresAt * MILLISECONDS_PER_SECOND),
     metadata,
   }
 }
@@ -138,12 +145,18 @@ async function readSignInFile(file: string): Promise<SignInFile> {
     text = await fs.readFile(file, "utf8")
   } catch (error) {
     if (errnoCode(error) === "ENOENT") return { kind: "missing" }
-    console.warn("Could not read the previous version's MCP sign-ins; trying again at the next start:", errorText(error))
+    console.warn(
+      "Could not read the previous version's MCP sign-ins; trying again at the next start:",
+      errorText(error),
+    )
     return { kind: "unusable" }
   }
   const entries = parseSignInFile(text)
   if (entries) return { kind: "entries", entries }
-  console.warn("The previous version's MCP sign-in file is not a JSON object; trying again at the next start:", file)
+  console.warn(
+    "The previous version's MCP sign-in file is not a JSON object; trying again at the next start:",
+    file,
+  )
   return { kind: "unusable" }
 }
 
@@ -151,8 +164,13 @@ function importRecorded(databasePath: string): boolean {
   return readV1ImportEntryAt(databasePath, MCP_AUTH_IMPORT_KEY, importRecordSchema) !== undefined
 }
 
-async function importEntries(host: McpAuthImportHost, entries: readonly SignInEntry[]): Promise<ImportCounts> {
-  const signedIn = new Set((await host.credential.list()).map((credential) => credential.integrationID))
+async function importEntries(
+  host: McpAuthImportHost,
+  entries: readonly SignInEntry[],
+): Promise<ImportCounts> {
+  const signedIn = new Set(
+    (await host.credential.list()).map((credential) => credential.integrationID),
+  )
   let imported = 0
   let skipped = 0
   for (const { name, usable: entry } of entries) {
@@ -166,7 +184,11 @@ async function importEntries(host: McpAuthImportHost, entries: readonly SignInEn
       continue
     }
     try {
-      await host.credential.create({ integrationID, label: MCP_CREDENTIAL_LABEL, value: oauthCredentialValue(integrationID, entry) })
+      await host.credential.create({
+        integrationID,
+        label: MCP_CREDENTIAL_LABEL,
+        value: oauthCredentialValue(integrationID, entry),
+      })
       signedIn.add(integrationID)
       imported += 1
     } catch {
@@ -181,17 +203,25 @@ async function importUnderLock(host: McpAuthImportHost, paths: McpAuthImportPath
   if (importRecorded(paths.database)) return
   const file = await readSignInFile(path.join(paths.data, MCP_AUTH_FILE_NAME))
   if (file.kind === "unusable") return
-  const counts = file.kind === "missing" ? { imported: 0, skipped: 0 } : await importEntries(host, file.entries)
+  const counts =
+    file.kind === "missing" ? { imported: 0, skipped: 0 } : await importEntries(host, file.entries)
   writeV1ImportEntryAt(paths.database, MCP_AUTH_IMPORT_KEY, { at: Date.now(), ...counts })
-  if (file.kind === "entries") console.warn("Carried over MCP sign-ins from the previous version:", counts)
+  if (file.kind === "entries")
+    console.warn("Carried over MCP sign-ins from the previous version:", counts)
 }
 
-export async function importV1McpSignIns(host: McpAuthImportHost, paths: McpAuthImportPaths): Promise<void> {
+export async function importV1McpSignIns(
+  host: McpAuthImportHost,
+  paths: McpAuthImportPaths,
+): Promise<void> {
   try {
     if (importRecorded(paths.database)) return
     const lock = await v2DatabaseLock(paths.database, MCP_AUTH_IMPORT_LOCK_NAME)
     await Flock.withLock(lock.key, () => importUnderLock(host, paths), { dir: lock.dir })
   } catch (error) {
-    console.warn("Could not carry over MCP sign-ins from the previous version; trying again at the next start:", errorText(error))
+    console.warn(
+      "Could not carry over MCP sign-ins from the previous version; trying again at the next start:",
+      errorText(error),
+    )
   }
 }

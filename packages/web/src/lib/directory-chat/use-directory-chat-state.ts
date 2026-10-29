@@ -497,21 +497,18 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     [props.agentCatalog, props.defaultAgent, selectedAgentKey],
   )
   const currentAgentName = currentAgent?.name ?? props.defaultAgent
-  const recentModels = useMemo(
-    () => {
-      const seen = new Set<string>()
-      return recentModelKeys
-        .map(parseConfiguredModel)
-        .filter(isModelSelection)
-        .filter((model) => {
-          const key = modelSelectionKey(model)
-          if (seen.has(key)) return false
-          seen.add(key)
-          return true
-        })
-    },
-    [recentModelKeys],
-  )
+  const recentModels = useMemo(() => {
+    const seen = new Set<string>()
+    return recentModelKeys
+      .map(parseConfiguredModel)
+      .filter(isModelSelection)
+      .filter((model) => {
+        const key = modelSelectionKey(model)
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+  }, [recentModelKeys])
   const autoModelSelection = useMemo(() => {
     return resolveAutoModelSelection({
       providers,

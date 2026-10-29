@@ -50,7 +50,10 @@ describe("tool schema compatibility", () => {
       .filter((tool) => CREATED_BUDDY_TOOL_IDS.has(tool.name))
       .map((tool) => ({
         id: tool.name,
-        schema: expectJsonSchemaObject(inputSchema.parse(tool.input)["~standard"].jsonSchema.input(), tool.name),
+        schema: expectJsonSchemaObject(
+          inputSchema.parse(tool.input)["~standard"].jsonSchema.input(),
+          tool.name,
+        ),
       }))
 
     const checkedToolIDs = new Set(toolSchemas.map((entry) => entry.id))

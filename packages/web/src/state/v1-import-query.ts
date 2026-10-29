@@ -24,13 +24,24 @@ export function v1ImportMayBeIncomplete(report: V1ImportReport | undefined): boo
     report.upgrade.state === "copying" ||
     report.upgrade.state === "migrating" ||
     report.upgrade.state === "failed"
-  ) return true
-  return report.import?.status === "running" || report.import?.status === "required" || report.import?.status === "error"
+  )
+    return true
+  return (
+    report.import?.status === "running" ||
+    report.import?.status === "required" ||
+    report.import?.status === "error"
+  )
 }
 
 export function v1ImportPollInterval(report: V1ImportReport | undefined): number | false {
   if (v1ImportInProgress(report)) return V1_IMPORT_ACTIVE_POLL_MS
-  if (!report || report.upgrade.state === "failed" || report.import === null || report.import.status === "error") return V1_IMPORT_PENDING_POLL_MS
+  if (
+    !report ||
+    report.upgrade.state === "failed" ||
+    report.import === null ||
+    report.import.status === "error"
+  )
+    return V1_IMPORT_PENDING_POLL_MS
   return false
 }
 

@@ -36,7 +36,12 @@ const canCreateSymlinks = await (async () => {
     await fs.symlink("loop.js", path.join(probe.path, "loop.js"), "file")
     return true
   } catch (error) {
-    if (error instanceof Error && "code" in error && ["EPERM", "EACCES", "ENOSYS", "ENOTSUP"].includes(String(error.code))) return false
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      ["EPERM", "EACCES", "ENOSYS", "ENOTSUP"].includes(String(error.code))
+    )
+      return false
     throw error
   }
 })()
@@ -48,10 +53,7 @@ async function createWidget(directory: string, name: string) {
   await fs.writeFile(path.join(root, "app.js"), script)
   await fs.writeFile(path.join(root, "icon.svg"), '<svg xmlns="http://www.w3.org/2000/svg"/>')
   await fs.writeFile(path.join(root, "data.xml"), "<data/>")
-  await fs.writeFile(
-    path.join(root, "page.xhtml"),
-    '<html xmlns="http://www.w3.org/1999/xhtml"/>',
-  )
+  await fs.writeFile(path.join(root, "page.xhtml"), '<html xmlns="http://www.w3.org/1999/xhtml"/>')
   await fs.writeFile(path.join(root, "feed.atom"), "<feed/>")
   await fs.writeFile(path.join(root, `${name}.txt`), name)
   return presentHtmlWidgetObject({
@@ -170,10 +172,18 @@ describe("signed widget frame links", () => {
     const widget = await createWidget(project.path, "widget-a")
     const runtimeRoot = widget.inlineData.runtimeUrl.replace(/\/index\.html$/u, "/")
     const frameRoot = `/api/frame/widget/${framePass(project.path, widget)}/`
-    for (const assetPath of ["missing.js", "missing/nested.css", "app.js/missing.css", `${"a".repeat(300)}.js`]) {
-      const response = await app.request(`${route === "runtime" ? runtimeRoot : frameRoot}${assetPath}`, {
-        headers: route === "runtime" ? { authorization } : undefined,
-      })
+    for (const assetPath of [
+      "missing.js",
+      "missing/nested.css",
+      "app.js/missing.css",
+      `${"a".repeat(300)}.js`,
+    ]) {
+      const response = await app.request(
+        `${route === "runtime" ? runtimeRoot : frameRoot}${assetPath}`,
+        {
+          headers: route === "runtime" ? { authorization } : undefined,
+        },
+      )
       expect(response.status).toBe(404)
       const body = await response.text()
       if (route === "frame") expect(body).toBe("")
@@ -189,7 +199,10 @@ describe("signed widget frame links", () => {
       const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
       const pass = issued.url.split("/")[4]
       if (!pass) throw new Error("Exchange returned no pass")
-      const encodedPass = Array.from(pass, (character) => `%${character.charCodeAt(0).toString(16)}`).join("")
+      const encodedPass = Array.from(
+        pass,
+        (character) => `%${character.charCodeAt(0).toString(16)}`,
+      ).join("")
       const rootUrl = route === "runtime" ? widget.inlineData.runtimeUrl : issued.url
       for (const assetPath of ["bad%00name.js", `bad%00${encodedPass}.js`]) {
         requestLogs.length = 0
@@ -206,50 +219,68 @@ describe("signed widget frame links", () => {
       }
     })
 
-    test.skipIf(!canCreateSymlinks)(`returns a 404 for a looping ${route} asset symlink`, async () => {
-      await using project = await tmpdir({ git: true })
-      const widget = await createWidget(project.path, "widget-a")
-      await fs.symlink("loop.js", path.join(project.path, widget.sourceRoot, "loop.js"), "file")
-      const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
-      const pass = issued.url.split("/")[4]
-      if (!pass) throw new Error("Exchange returned no pass")
-      requestLogs.length = 0
-      errorLogs.length = 0
-      const response = await app.request((route === "runtime" ? widget.inlineData.runtimeUrl : issued.url).replace("index.html", "loop.js"), {
-        headers: route === "runtime" ? { authorization } : undefined,
-      })
-      expect(response.status).toBe(404)
-      const body = await response.text()
-      if (route === "frame") expect(body).toBe("")
-      expect(errorLogs).toEqual([])
-      expect(requestLogs.join("\n")).not.toContain(pass)
-    })
-
-    test.skipIf(process.platform === "win32")(`returns a 404 inside an unreadable ${route} asset directory`, async () => {
-      await using project = await tmpdir({ git: true })
-      const widget = await createWidget(project.path, "widget-a")
-      const blocked = path.join(project.path, widget.sourceRoot, "blocked")
-      await fs.mkdir(blocked)
-      await fs.writeFile(path.join(blocked, "file.txt"), "Private file")
-      const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
-      const pass = issued.url.split("/")[4]
-      if (!pass) throw new Error("Exchange returned no pass")
-      await fs.chmod(blocked, 0)
-      try {
+    test.skipIf(!canCreateSymlinks)(
+      `returns a 404 for a looping ${route} asset symlink`,
+      async () => {
+        await using project = await tmpdir({ git: true })
+        const widget = await createWidget(project.path, "widget-a")
+        await fs.symlink("loop.js", path.join(project.path, widget.sourceRoot, "loop.js"), "file")
+        const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
+        const pass = issued.url.split("/")[4]
+        if (!pass) throw new Error("Exchange returned no pass")
         requestLogs.length = 0
         errorLogs.length = 0
-        const response = await app.request((route === "runtime" ? widget.inlineData.runtimeUrl : issued.url).replace("index.html", "blocked/file.txt"), {
-          headers: route === "runtime" ? { authorization } : undefined,
-        })
+        const response = await app.request(
+          (route === "runtime" ? widget.inlineData.runtimeUrl : issued.url).replace(
+            "index.html",
+            "loop.js",
+          ),
+          {
+            headers: route === "runtime" ? { authorization } : undefined,
+          },
+        )
         expect(response.status).toBe(404)
         const body = await response.text()
         if (route === "frame") expect(body).toBe("")
         expect(errorLogs).toEqual([])
         expect(requestLogs.join("\n")).not.toContain(pass)
-      } finally {
-        await fs.chmod(blocked, 0o700)
-      }
-    })
+      },
+    )
+
+    test.skipIf(process.platform === "win32")(
+      `returns a 404 inside an unreadable ${route} asset directory`,
+      async () => {
+        await using project = await tmpdir({ git: true })
+        const widget = await createWidget(project.path, "widget-a")
+        const blocked = path.join(project.path, widget.sourceRoot, "blocked")
+        await fs.mkdir(blocked)
+        await fs.writeFile(path.join(blocked, "file.txt"), "Private file")
+        const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
+        const pass = issued.url.split("/")[4]
+        if (!pass) throw new Error("Exchange returned no pass")
+        await fs.chmod(blocked, 0)
+        try {
+          requestLogs.length = 0
+          errorLogs.length = 0
+          const response = await app.request(
+            (route === "runtime" ? widget.inlineData.runtimeUrl : issued.url).replace(
+              "index.html",
+              "blocked/file.txt",
+            ),
+            {
+              headers: route === "runtime" ? { authorization } : undefined,
+            },
+          )
+          expect(response.status).toBe(404)
+          const body = await response.text()
+          if (route === "frame") expect(body).toBe("")
+          expect(errorLogs).toEqual([])
+          expect(requestLogs.join("\n")).not.toContain(pass)
+        } finally {
+          await fs.chmod(blocked, 0o700)
+        }
+      },
+    )
   }
 
   test("rejects tampered, foreign-key and malformed passes without details", async () => {
@@ -316,7 +347,10 @@ describe("signed widget frame links", () => {
     const widget = await createWidget(project.path, "widget-a")
     const pass = framePass(project.path, widget)
     requestLogs.length = 0
-    for (const [assetPath, status] of [["index.html", 200], ["..%2fobject.json", 400]] as const) {
+    for (const [assetPath, status] of [
+      ["index.html", 200],
+      ["..%2fobject.json", 400],
+    ] as const) {
       const response = await app.request(`/api/frame/widget/${pass}/${assetPath}`)
       expect(response.status).toBe(status)
       await response.body?.cancel()
@@ -374,14 +408,22 @@ describe("signed widget frame links", () => {
   )
 
   test.each([
-    "encoded api", "encoded frame", "encoded widget", "raw query", "encoded query", "asset pass",
+    "encoded api",
+    "encoded frame",
+    "encoded widget",
+    "raw query",
+    "encoded query",
+    "asset pass",
   ] as const)("redacts exchanged passes in both request log directions: %s", async (variant) => {
     await using project = await tmpdir({ git: true })
     const widget = await createWidget(project.path, "widget-a")
     const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
     const pass = issued.url.split("/")[4]
     if (!pass) throw new Error("Exchange returned no pass")
-    const encodedPass = Array.from(pass, (character) => `%${character.charCodeAt(0).toString(16)}`).join("")
+    const encodedPass = Array.from(
+      pass,
+      (character) => `%${character.charCodeAt(0).toString(16)}`,
+    ).join("")
     const urls = {
       "encoded api": issued.url.replace("/api/", "/%61pi/"),
       "encoded frame": issued.url.replace("/frame/", "/fr%61me/"),
@@ -398,7 +440,9 @@ describe("signed widget frame links", () => {
     await response.body?.cancel()
     expect(requestLogs).toHaveLength(2)
     expect(requestLogs[0]).toBe("<-- GET /api/frame/widget/[pass]")
-    expect(requestLogs[1]).toMatch(new RegExp(`^--> GET /api/frame/widget/\\[pass\\] ${response.status} \\d+ms$`, "u"))
+    expect(requestLogs[1]).toMatch(
+      new RegExp(`^--> GET /api/frame/widget/\\[pass\\] ${response.status} \\d+ms$`, "u"),
+    )
     for (const line of requestLogs) {
       expect(line).not.toContain(pass)
       expect(line.toLowerCase()).not.toContain(encodedPass)
@@ -416,25 +460,35 @@ describe("signed widget frame links", () => {
     expect(requestLogs[1]).toMatch(/^--> GET \/api\/healthz 200 \d+ms$/u)
   })
 
-  test.each(["raw", "encoded", "mixed", "malformed escape"])("redacts a pass in an unclassified route error: %s", async (variant) => {
-    await using project = await tmpdir({ git: true })
-    const widget = await createWidget(project.path, "widget-a")
-    const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
-    const pass = issued.url.split("/")[4]
-    if (!pass) throw new Error("Exchange returned no pass")
-    const encodedPass = Array.from(pass, (character, index) => variant === "mixed" && index % 2 === 0 ? character : `%${character.charCodeAt(0).toString(16)}`).join("")
-    const credential = variant === "raw" || variant === "malformed escape" ? pass : encodedPass
-    const logs: string[] = []
-    const result = await classifyRouteError(new Error(`Forced failure ${credential}${variant === "malformed escape" ? " %ZZ" : ""}`), (line, cause) => {
-      logs.push(`${line} ${String(cause)}`)
-    })
-    expect(result.status).toBe(500)
-    expect(result.body.error).toBe("Internal server error")
-    expect(logs).toHaveLength(1)
-    expect(logs[0]).toContain("Forced failure [pass]")
-    expect(logs[0]).not.toContain(pass)
-    expect(logs[0]).not.toContain(encodedPass)
-  })
+  test.each(["raw", "encoded", "mixed", "malformed escape"])(
+    "redacts a pass in an unclassified route error: %s",
+    async (variant) => {
+      await using project = await tmpdir({ git: true })
+      const widget = await createWidget(project.path, "widget-a")
+      const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
+      const pass = issued.url.split("/")[4]
+      if (!pass) throw new Error("Exchange returned no pass")
+      const encodedPass = Array.from(pass, (character, index) =>
+        variant === "mixed" && index % 2 === 0
+          ? character
+          : `%${character.charCodeAt(0).toString(16)}`,
+      ).join("")
+      const credential = variant === "raw" || variant === "malformed escape" ? pass : encodedPass
+      const logs: string[] = []
+      const result = await classifyRouteError(
+        new Error(`Forced failure ${credential}${variant === "malformed escape" ? " %ZZ" : ""}`),
+        (line, cause) => {
+          logs.push(`${line} ${String(cause)}`)
+        },
+      )
+      expect(result.status).toBe(500)
+      expect(result.body.error).toBe("Internal server error")
+      expect(logs).toHaveLength(1)
+      expect(logs[0]).toContain("Forced failure [pass]")
+      expect(logs[0]).not.toContain(pass)
+      expect(logs[0]).not.toContain(encodedPass)
+    },
+  )
 
   test.each(["dist", "build"])("versions served output in %s", async (outputDirectory) => {
     await using project = await tmpdir({ git: true })
@@ -465,7 +519,9 @@ describe("signed widget frame links", () => {
     expect(await stale.text()).toBe("")
 
     const refreshed = linkSchema.parse(await (await exchange(first.inlineData.runtimeUrl)).json())
-    const current = await app.request(refreshed.url.replace("index.html", `${outputDirectory}/app.js`))
+    const current = await app.request(
+      refreshed.url.replace("index.html", `${outputDirectory}/app.js`),
+    )
     expect(current.status).toBe(200)
     expect(await current.text()).toBe("const version = 2")
   })
@@ -497,8 +553,14 @@ describe("signed widget frame links", () => {
 
   test("loads a built widget with 520 files under build through the signed route", async () => {
     await using project = await tmpdir({ git: true })
-    const chunks = Array.from({ length: 520 }, (_, index) => [`build/chunk-${index}.js`, `export const chunk = ${index}`] as const)
-    const widget = await createWidgetWithFiles(project.path, "chunked-widget", [["index.html", document], ...chunks])
+    const chunks = Array.from(
+      { length: 520 },
+      (_, index) => [`build/chunk-${index}.js`, `export const chunk = ${index}`] as const,
+    )
+    const widget = await createWidgetWithFiles(project.path, "chunked-widget", [
+      ["index.html", document],
+      ...chunks,
+    ])
     const response = await exchange(widget.inlineData.runtimeUrl)
     expect(response.status).toBe(200)
     const issued = linkSchema.parse(await response.json())
@@ -555,80 +617,97 @@ describe("signed widget frame links", () => {
     ".turbo/cache/data",
     "nested/node_modules/dependency/app.js",
     "nested/output.log/data.json",
-  ])("refuses unversioned runtime file %s while retaining authenticated access", async (assetPath) => {
-    await using project = await tmpdir({ git: true })
-    const widget = await createWidget(project.path, "widget-a")
-    const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
-    const target = path.join(project.path, widget.sourceRoot, assetPath)
-    await fs.mkdir(path.dirname(target), { recursive: true })
-    await fs.writeFile(target, "Excluded widget data")
-    const denied = await app.request(issued.url.replace("index.html", assetPath))
-    expect(denied.status).toBe(404)
-    expect(await denied.text()).toBe("")
-    const refreshed = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
-    const stillDenied = await app.request(refreshed.url.replace("index.html", assetPath))
-    expect(stillDenied.status).toBe(404)
-    expect(await stillDenied.text()).toBe("")
-    const authenticated = await app.request(widget.inlineData.runtimeUrl.replace("index.html", assetPath), {
-      headers: { authorization },
-    })
-    expect(authenticated.status).toBe(200)
-    expect(await authenticated.text()).toBe("Excluded widget data")
-  })
+  ])(
+    "refuses unversioned runtime file %s while retaining authenticated access",
+    async (assetPath) => {
+      await using project = await tmpdir({ git: true })
+      const widget = await createWidget(project.path, "widget-a")
+      const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
+      const target = path.join(project.path, widget.sourceRoot, assetPath)
+      await fs.mkdir(path.dirname(target), { recursive: true })
+      await fs.writeFile(target, "Excluded widget data")
+      const denied = await app.request(issued.url.replace("index.html", assetPath))
+      expect(denied.status).toBe(404)
+      expect(await denied.text()).toBe("")
+      const refreshed = linkSchema.parse(
+        await (await exchange(widget.inlineData.runtimeUrl)).json(),
+      )
+      const stillDenied = await app.request(refreshed.url.replace("index.html", assetPath))
+      expect(stillDenied.status).toBe(404)
+      expect(await stillDenied.text()).toBe("")
+      const authenticated = await app.request(
+        widget.inlineData.runtimeUrl.replace("index.html", assetPath),
+        {
+          headers: { authorization },
+        },
+      )
+      expect(authenticated.status).toBe(200)
+      expect(await authenticated.text()).toBe("Excluded widget data")
+    },
+  )
 
   test.each([
     ["node_modules", "NODE_MODULES", "dependency/app.js"],
     ["nested/.git", "nested/.GIT", "config"],
     ["nested/error.log", "nested/error.LOG", ""],
-  ])("refuses %s after a case-only rename to %s without changing the version", async (original, renamed, child) => {
-    await using project = await tmpdir({ git: true })
-    const widget = await createWidget(project.path, "widget-a")
-    const sourceRoot = path.join(project.path, widget.sourceRoot)
-    const originalPath = path.join(sourceRoot, original, child)
-    await fs.mkdir(path.dirname(originalPath), { recursive: true })
-    await fs.writeFile(originalPath, "Excluded private widget data")
-    const beforeRename = await presentHtmlWidgetObject({
-      action: "present_object",
-      directory: project.path,
-      objectID: widget.manifest.objectID,
-    })
-    expect(beforeRename.inlineData.sourceVersion).toBe(widget.inlineData.sourceVersion)
-    const temporaryPath = path.join(sourceRoot, `${original}.rename-tmp`)
-    await fs.rename(path.join(sourceRoot, original), temporaryPath)
-    await fs.rename(temporaryPath, path.join(sourceRoot, renamed))
-    const exchanged = await exchange(widget.inlineData.runtimeUrl)
-    expect(exchanged.status).toBe(200)
-    const issued = linkSchema.parse(await exchanged.json())
-    const assetPath = child ? `${renamed}/${child}` : renamed
-    const response = await app.request(issued.url.replace("index.html", assetPath))
-    expect(response.status).toBe(404)
-    expect(await response.text()).toBe("")
-    const afterRename = await presentHtmlWidgetObject({
-      action: "present_object",
-      directory: project.path,
-      objectID: widget.manifest.objectID,
-    })
-    expect(afterRename.inlineData.sourceVersion).toBe(beforeRename.inlineData.sourceVersion)
-    await fs.writeFile(path.join(sourceRoot, renamed, child), "Changed excluded private widget data with a different size")
-    const afterEdit = await presentHtmlWidgetObject({
-      action: "present_object",
-      directory: project.path,
-      objectID: widget.manifest.objectID,
-    })
-    expect(afterEdit.inlineData.sourceVersion).toBe(beforeRename.inlineData.sourceVersion)
-  })
+  ])(
+    "refuses %s after a case-only rename to %s without changing the version",
+    async (original, renamed, child) => {
+      await using project = await tmpdir({ git: true })
+      const widget = await createWidget(project.path, "widget-a")
+      const sourceRoot = path.join(project.path, widget.sourceRoot)
+      const originalPath = path.join(sourceRoot, original, child)
+      await fs.mkdir(path.dirname(originalPath), { recursive: true })
+      await fs.writeFile(originalPath, "Excluded private widget data")
+      const beforeRename = await presentHtmlWidgetObject({
+        action: "present_object",
+        directory: project.path,
+        objectID: widget.manifest.objectID,
+      })
+      expect(beforeRename.inlineData.sourceVersion).toBe(widget.inlineData.sourceVersion)
+      const temporaryPath = path.join(sourceRoot, `${original}.rename-tmp`)
+      await fs.rename(path.join(sourceRoot, original), temporaryPath)
+      await fs.rename(temporaryPath, path.join(sourceRoot, renamed))
+      const exchanged = await exchange(widget.inlineData.runtimeUrl)
+      expect(exchanged.status).toBe(200)
+      const issued = linkSchema.parse(await exchanged.json())
+      const assetPath = child ? `${renamed}/${child}` : renamed
+      const response = await app.request(issued.url.replace("index.html", assetPath))
+      expect(response.status).toBe(404)
+      expect(await response.text()).toBe("")
+      const afterRename = await presentHtmlWidgetObject({
+        action: "present_object",
+        directory: project.path,
+        objectID: widget.manifest.objectID,
+      })
+      expect(afterRename.inlineData.sourceVersion).toBe(beforeRename.inlineData.sourceVersion)
+      await fs.writeFile(
+        path.join(sourceRoot, renamed, child),
+        "Changed excluded private widget data with a different size",
+      )
+      const afterEdit = await presentHtmlWidgetObject({
+        action: "present_object",
+        directory: project.path,
+        objectID: widget.manifest.objectID,
+      })
+      expect(afterEdit.inlineData.sourceVersion).toBe(beforeRename.inlineData.sourceVersion)
+    },
+  )
 
-  test.skipIf(!canCreateSymlinks)("refuses a symlink to an excluded file through the signed route", async () => {
-    await using project = await tmpdir({ git: true })
-    const widget = await createWidget(project.path, "widget-a")
-    const sourceRoot = path.join(project.path, widget.sourceRoot)
-    await fs.writeFile(path.join(sourceRoot, "private.log"), "Excluded log")
-    await fs.symlink(path.join(sourceRoot, "private.log"), path.join(sourceRoot, "alias.txt"))
-    const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
-    const response = await app.request(issued.url.replace("index.html", "alias.txt"))
-    expect(response.status).toBe(404)
-    expect(await response.text()).toBe("")
-  })
+  test.skipIf(!canCreateSymlinks)(
+    "refuses a symlink to an excluded file through the signed route",
+    async () => {
+      await using project = await tmpdir({ git: true })
+      const widget = await createWidget(project.path, "widget-a")
+      const sourceRoot = path.join(project.path, widget.sourceRoot)
+      await fs.writeFile(path.join(sourceRoot, "private.log"), "Excluded log")
+      await fs.symlink(path.join(sourceRoot, "private.log"), path.join(sourceRoot, "alias.txt"))
+      const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
+      const response = await app.request(issued.url.replace("index.html", "alias.txt"))
+      expect(response.status).toBe(404)
+      expect(await response.text()).toBe("")
+    },
+  )
 
   test("rejects an old pass after edits and exchanges the saved URL for current content", async () => {
     await using project = await tmpdir({ git: true })
@@ -669,7 +748,10 @@ describe("signed widget frame links", () => {
       widget.inlineData.runtimeUrl,
       `${widget.inlineData.runtimeUrl}?renderKey=9`,
       `http://localhost${widget.inlineData.runtimeUrl}`,
-      widget.inlineData.runtimeUrl.replace(widget.inlineData.sourceVersion ?? "/live/", "OLDVERSION"),
+      widget.inlineData.runtimeUrl.replace(
+        widget.inlineData.sourceVersion ?? "/live/",
+        "OLDVERSION",
+      ),
       widget.inlineData.runtimeUrl.replace(widget.inlineData.sourceVersion ?? "/live/", "live"),
     ]) {
       const response = await exchange(runtimeUrl)

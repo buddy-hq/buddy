@@ -1,25 +1,23 @@
 import "../happydom"
 import { expect, test } from "bun:test"
-import {
-  createBrowserPlatform,
-  getPlatform,
-  setRuntimePlatform,
-} from "../src/context/platform"
+import { createBrowserPlatform, getPlatform, setRuntimePlatform } from "../src/context/platform"
 import { connectChatGptPlusForOnboarding } from "../src/lib/onboarding-flow"
 import type { ProviderCatalogState } from "../src/state/chat-types"
 
 function catalog(connected: boolean): ProviderCatalogState {
   return {
-    providers: [{
-      id: "openai",
-      name: "OpenAI",
-      source: "config",
-      bundled: false,
-      env: [],
-      connected,
-      models: [],
-      methods: [{ type: "oauth", label: "ChatGPT browser" }],
-    }],
+    providers: [
+      {
+        id: "openai",
+        name: "OpenAI",
+        source: "config",
+        bundled: false,
+        env: [],
+        connected,
+        models: [],
+        methods: [{ type: "oauth", label: "ChatGPT browser" }],
+      },
+    ],
     default: {},
     openAIModelAvailability: { status: "not_connected" },
   }
@@ -37,7 +35,13 @@ test("only a completed browser sign-in started here returns to the desktop once"
   })
 
   try {
-    for (const outcome of ["success", "failure", "cancelled", "already-connected", "web"] as const) {
+    for (const outcome of [
+      "success",
+      "failure",
+      "cancelled",
+      "already-connected",
+      "web",
+    ] as const) {
       if (outcome === "web") setRuntimePlatform(createBrowserPlatform())
       const abort = new AbortController()
       const waiting = Promise.withResolvers<void>()
@@ -66,7 +70,10 @@ test("only a completed browser sign-in started here returns to the desktop once"
         },
         async cancelProviderOAuth() {},
         async reloadProviderRuntime() {},
-      }).then(() => "connected", () => "not-connected")
+      }).then(
+        () => "connected",
+        () => "not-connected",
+      )
 
       if (outcome !== "already-connected") {
         await waiting.promise

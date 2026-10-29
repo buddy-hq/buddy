@@ -6,9 +6,15 @@ import { createNotebook } from "./fixtures/notebook"
 
 test.describe.configure({ mode: "serial" })
 
-test("U7 reports a moved notebook, keeps the working chat usable, and closes it after restart", async ({ buddy }) => {
+test("U7 reports a moved notebook, keeps the working chat usable, and closes it after restart", async ({
+  buddy,
+}) => {
   const { model } = buddy
-  const missing = await createNotebook(path.dirname(buddy.notebook.directory), model.baseURL, "U7 missing notebook")
+  const missing = await createNotebook(
+    path.dirname(buddy.notebook.directory),
+    model.baseURL,
+    "U7 missing notebook",
+  )
   const missingName = path.basename(missing.directory)
   const workingDirectory = buddy.notebook.directory
   const workingToken = Buffer.from(workingDirectory).toString("base64url")
@@ -17,13 +23,17 @@ test("U7 reports a moved notebook, keeps the working chat usable, and closes it 
   const continuedReply = "U7 working chat still replies after the missing chat was selected."
   let page = buddy.page
 
-  const notebookGroup = (directory: string) => page.locator(`[data-component="left-sidebar-directory-group"][data-directory=${JSON.stringify(directory)}]`)
+  const notebookGroup = (directory: string) =>
+    page.locator(
+      `[data-component="left-sidebar-directory-group"][data-directory=${JSON.stringify(directory)}]`,
+    )
   const missingGroup = () => notebookGroup(missing.directory)
   const workingGroup = () => notebookGroup(workingDirectory)
   const missingHeader = () => missingGroup().getByRole("button", { name: missingName, exact: true })
   const noticeText = () => page.getByText(noticeTitle, { exact: true })
   const notice = () => page.getByRole("listitem").filter({ has: noticeText() })
-  const answer = (text: string) => page.locator('[data-timeline-row="AssistantPart"]').getByText(text, { exact: true })
+  const answer = (text: string) =>
+    page.locator('[data-timeline-row="AssistantPart"]').getByText(text, { exact: true })
 
   async function openNotebook(directory: string) {
     await buddy.stubOpenDirectory(directory)
@@ -41,7 +51,9 @@ test("U7 reports a moved notebook, keeps the working chat usable, and closes it 
     const send = page.getByRole("button", { name: "Send", exact: true })
     await expect(send).toBeEnabled()
     await send.click()
-    await model.waitForRequest((request) => request.instruction?.kind === "reply" && request.instruction.text === text)
+    await model.waitForRequest(
+      (request) => request.instruction?.kind === "reply" && request.instruction.text === text,
+    )
     await expect(answer(text)).toHaveCount(1)
     await expect(answer(text)).toBeVisible()
     await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0)
@@ -50,34 +62,52 @@ test("U7 reports a moved notebook, keeps the working chat usable, and closes it 
   async function expectMissingNotice() {
     await expect(noticeText()).toHaveCount(1)
     await expect(noticeText()).toBeVisible()
-    await expect(notice().getByText(`${missing.directory} was moved or deleted. Move the folder back to keep using this notebook, or close it.`, { exact: true })).toBeVisible()
-    await expect(notice().getByRole("button", { name: "Close notebook", exact: true })).toBeVisible()
+    await expect(
+      notice().getByText(
+        `${missing.directory} was moved or deleted. Move the folder back to keep using this notebook, or close it.`,
+        { exact: true },
+      ),
+    ).toBeVisible()
+    await expect(
+      notice().getByRole("button", { name: "Close notebook", exact: true }),
+    ).toBeVisible()
     await expect(fs.lstat(missing.directory)).rejects.toMatchObject({ code: "ENOENT" })
   }
 
   async function startMissingChat() {
     await missingHeader().hover()
-    await missingGroup().getByRole("button", { name: `Start new chat in ${missingName}`, exact: true }).click()
+    await missingGroup()
+      .getByRole("button", { name: `Start new chat in ${missingName}`, exact: true })
+      .click()
     const token = Buffer.from(missing.directory).toString("base64url")
     await page.waitForURL((url) => url.hash.startsWith(`#/${token}/chat`))
     await expectMissingNotice()
     await expect(missingGroup()).toHaveAttribute("data-current", "true")
-    await expect(missingGroup().locator('[data-action="left-sidebar-thread-select"][data-active="true"]')).toHaveCount(0)
+    await expect(
+      missingGroup().locator('[data-action="left-sidebar-thread-select"][data-active="true"]'),
+    ).toHaveCount(0)
   }
 
   await test.step("Open a fresh notebook through the picker and make another notebook's chat current", async () => {
     await openNotebook(missing.directory)
     await sendReply("U7 chat belongs to the notebook that will move.")
-    await expect(missingGroup().locator('[data-action="left-sidebar-thread-select"]')).toHaveCount(1)
+    await expect(missingGroup().locator('[data-action="left-sidebar-thread-select"]')).toHaveCount(
+      1,
+    )
     await openNotebook(workingDirectory)
     await sendReply(workingReply)
   })
 
-  const workingRow = workingGroup().locator('[data-action="left-sidebar-thread-select"][data-active="true"]')
+  const workingRow = workingGroup().locator(
+    '[data-action="left-sidebar-thread-select"][data-active="true"]',
+  )
   await expect(workingRow).toHaveCount(1)
   const workingSessionID = await workingRow.getAttribute("data-session-id")
   if (!workingSessionID) throw new Error("The working chat has no sidebar session identity")
-  const selectedWorkingRow = () => workingGroup().locator(`[data-action="left-sidebar-thread-select"][data-session-id=${JSON.stringify(workingSessionID)}]`)
+  const selectedWorkingRow = () =>
+    workingGroup().locator(
+      `[data-action="left-sidebar-thread-select"][data-session-id=${JSON.stringify(workingSessionID)}]`,
+    )
   const workingURL = page.url()
 
   await test.step("Move the folder and choose its cached chat without losing the current chat", async () => {
@@ -86,7 +116,9 @@ test("U7 reports a moved notebook, keeps the working chat usable, and closes it 
     await expectMissingNotice()
     await expect(page).toHaveURL(workingURL)
     await expect(selectedWorkingRow()).toHaveAttribute("data-active", "true")
-    await expect(missingGroup().locator('[data-action="left-sidebar-thread-select"]')).toHaveAttribute("data-active", "false")
+    await expect(
+      missingGroup().locator('[data-action="left-sidebar-thread-select"]'),
+    ).toHaveAttribute("data-active", "false")
     await expect(answer(workingReply)).toBeVisible()
     await sendReply(continuedReply)
     await expect(fs.lstat(missing.directory)).rejects.toMatchObject({ code: "ENOENT" })
@@ -121,8 +153,13 @@ test("U7 reports a moved notebook, keeps the working chat usable, and closes it 
     await page.waitForURL((url) => url.hash.startsWith(`#/${workingToken}/chat`))
     await expect(selectedWorkingRow()).toHaveAttribute("data-active", "true")
     await expect(answer(continuedReply)).toBeVisible()
-    await expect(missingGroup().locator('[data-action="left-sidebar-thread-select"]')).toHaveCount(0)
-    const folderMissing = missingGroup().getByRole("button", { name: "Folder not found", exact: true })
+    await expect(missingGroup().locator('[data-action="left-sidebar-thread-select"]')).toHaveCount(
+      0,
+    )
+    const folderMissing = missingGroup().getByRole("button", {
+      name: "Folder not found",
+      exact: true,
+    })
     await expect(folderMissing).toBeVisible()
     await expect(missingGroup().getByText("No chats", { exact: true })).toHaveCount(0)
     await expect(noticeText()).toHaveCount(0)

@@ -88,18 +88,21 @@ async function loadConfigTextWithSchema<T extends TConfigDocument>(
     if (text.match(SECRET_REFERENCE_PATTERN)) {
       const secrets = await readSecrets()
       const missing = new Set<string>()
-      text = text.split("\n").map((line) => {
-        if (line.trim().startsWith("//")) return line
-        return line.replace(SECRET_REFERENCE_PATTERN, (reference, id: string) => {
-          const value = Object.hasOwn(secrets, id) ? secrets[id] : undefined
-          if (value !== undefined) return JSON.stringify(value).slice(1, -1)
-          if (!missing.has(id)) {
-            missing.add(id)
-            console.warn(`Missing config secret in ${source}: ${id}`)
-          }
-          return reference
+      text = text
+        .split("\n")
+        .map((line) => {
+          if (line.trim().startsWith("//")) return line
+          return line.replace(SECRET_REFERENCE_PATTERN, (reference, id: string) => {
+            const value = Object.hasOwn(secrets, id) ? secrets[id] : undefined
+            if (value !== undefined) return JSON.stringify(value).slice(1, -1)
+            if (!missing.has(id)) {
+              missing.add(id)
+              console.warn(`Missing config secret in ${source}: ${id}`)
+            }
+            return reference
+          })
         })
-      }).join("\n")
+        .join("\n")
     }
 
     const fileMatches = text.match(/\{file:[^}]+\}/g)
@@ -115,7 +118,9 @@ async function loadConfigTextWithSchema<T extends TConfigDocument>(
           filePath = path.join(os.homedir(), filePath.slice(2))
         }
 
-        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
+        const resolvedPath = path.isAbsolute(filePath)
+          ? filePath
+          : path.resolve(configDir, filePath)
         const content = await fsp.readFile(resolvedPath, "utf8").catch((error) => {
           const base = `bad file reference: "${match}"`
           if (parseNodeErrorCode(error) === "ENOENT") {
@@ -154,12 +159,23 @@ async function loadConfigTextWithSchema<T extends TConfigDocument>(
   return output
 }
 
-export function loadConfigFile(filepath: string, options?: { resolveSubstitutions?: boolean }): Promise<ConfigSchema.Info> {
+export function loadConfigFile(
+  filepath: string,
+  options?: { resolveSubstitutions?: boolean },
+): Promise<ConfigSchema.Info> {
   return loadConfigFileWithSchema(filepath, ConfigSchema.Info, GLOBAL_CONFIG_PARSE_OPTIONS, options)
 }
 
-export function loadProjectConfigFile(filepath: string, options?: { resolveSubstitutions?: boolean }): Promise<ConfigSchema.ProjectInfo> {
-  return loadConfigFileWithSchema(filepath, ConfigSchema.ProjectInfo, PROJECT_CONFIG_PARSE_OPTIONS, options)
+export function loadProjectConfigFile(
+  filepath: string,
+  options?: { resolveSubstitutions?: boolean },
+): Promise<ConfigSchema.ProjectInfo> {
+  return loadConfigFileWithSchema(
+    filepath,
+    ConfigSchema.ProjectInfo,
+    PROJECT_CONFIG_PARSE_OPTIONS,
+    options,
+  )
 }
 
 export function loadConfigText(
@@ -167,7 +183,13 @@ export function loadConfigText(
   options: { path: string } | { dir: string; source: string },
   loadOptions?: { resolveSubstitutions?: boolean },
 ): Promise<ConfigSchema.Info> {
-  return loadConfigTextWithSchema(text, options, ConfigSchema.Info, GLOBAL_CONFIG_PARSE_OPTIONS, loadOptions)
+  return loadConfigTextWithSchema(
+    text,
+    options,
+    ConfigSchema.Info,
+    GLOBAL_CONFIG_PARSE_OPTIONS,
+    loadOptions,
+  )
 }
 
 export function loadProjectConfigText(

@@ -9,12 +9,26 @@ type ExecutionClient = Pick<EventClient, "event"> & {
 
 export type ExecutionOutcome =
   | { readonly type: "succeeded"; readonly messageID?: string }
-  | { readonly type: "failed"; readonly messageID?: string; readonly undelivered?: true; readonly error: SessionStructuredError }
-  | { readonly type: "interrupted"; readonly messageID?: string; readonly undelivered?: true; readonly reason: string }
+  | {
+      readonly type: "failed"
+      readonly messageID?: string
+      readonly undelivered?: true
+      readonly error: SessionStructuredError
+    }
+  | {
+      readonly type: "interrupted"
+      readonly messageID?: string
+      readonly undelivered?: true
+      readonly reason: string
+    }
 
-export async function withdrawUndeliveredInput(client: {
-  readonly session: { readonly inbox: Pick<OpenCodeClient["session"]["inbox"], "cancel"> }
-}, input: { readonly sessionID: string; readonly promptID: string }, outcome: ExecutionOutcome) {
+export async function withdrawUndeliveredInput(
+  client: {
+    readonly session: { readonly inbox: Pick<OpenCodeClient["session"]["inbox"], "cancel"> }
+  },
+  input: { readonly sessionID: string; readonly promptID: string },
+  outcome: ExecutionOutcome,
+) {
   if (outcome.type !== "succeeded" && outcome.undelivered === true) {
     await client.session.inbox.cancel({ sessionID: input.sessionID, inboxID: input.promptID })
   }
@@ -22,7 +36,11 @@ export async function withdrawUndeliveredInput(client: {
 
 export class SessionExecutionWaitError extends Error {
   readonly _tag = "SessionExecutionWaitError"
-  constructor(readonly sessionID: string, readonly reason: "aborted" | "disconnected" | "cancelled", readonly cause?: unknown) {
+  constructor(
+    readonly sessionID: string,
+    readonly reason: "aborted" | "disconnected" | "cancelled",
+    readonly cause?: unknown,
+  ) {
     super(`Session execution wait ${reason}`)
   }
 }
@@ -31,13 +49,18 @@ export type ExecutionResult =
   | { readonly ok: true; readonly value: ExecutionOutcome }
   | { readonly ok: false; readonly error: SessionExecutionWaitError }
 
-export function observeSessionExecution(client: ExecutionClient, input: {
-  readonly sessionID: string
-  readonly promptID?: string
-  readonly signal?: AbortSignal
-  readonly operation?: "compaction"
-  readonly acceptsPrompt?: (event: Extract<OpenCodeEvent, { type: "session.inbox.enqueued" }>) => boolean
-}) {
+export function observeSessionExecution(
+  client: ExecutionClient,
+  input: {
+    readonly sessionID: string
+    readonly promptID?: string
+    readonly signal?: AbortSignal
+    readonly operation?: "compaction"
+    readonly acceptsPrompt?: (
+      event: Extract<OpenCodeEvent, { type: "session.inbox.enqueued" }>,
+    ) => boolean
+  },
+) {
   const controller = new AbortController()
   const connected = Promise.withResolvers<ExecutionResult | undefined>()
   const completed = Promise.withResolvers<ExecutionResult>()
@@ -67,13 +90,17 @@ export function observeSessionExecution(client: ExecutionClient, input: {
 
   async function reconcileUndelivered(outcome: ExecutionOutcome) {
     const active = await client.session.active()
-    if (active[input.sessionID] !== undefined) await client.session.wait({ sessionID: input.sessionID }, { signal: controller.signal })
+    if (active[input.sessionID] !== undefined)
+      await client.session.wait({ sessionID: input.sessionID }, { signal: controller.signal })
     if (settled || delivered) return
     const pending = await client.session.inbox.list({ sessionID: input.sessionID })
-    if (!settled && !delivered && pending.some((item) => item.id === promptID)) finish({ ok: true, value: outcome })
+    if (!settled && !delivered && pending.some((item) => item.id === promptID))
+      finish({ ok: true, value: outcome })
   }
 
-  function onAbort() { fail("aborted") }
+  function onAbort() {
+    fail("aborted")
+  }
   input.signal?.addEventListener("abort", onAbort, { once: true })
   if (input.signal?.aborted) onAbort()
 
@@ -83,14 +110,18 @@ export function observeSessionExecution(client: ExecutionClient, input: {
       for await (const event of client.event.subscribe({ signal: controller.signal })) {
         if (settled) return
         if (event.type === "server.connected") {
-          if (ready) { fail("disconnected"); return }
+          if (ready) {
+            fail("disconnected")
+            return
+          }
           ready = true
           connected.resolve(undefined)
           continue
         }
         if (!("sessionID" in event.data) || event.data.sessionID !== input.sessionID) continue
         if (event.type === "session.inbox.enqueued") {
-          if (event.data.item.type === "compaction" || event.data.item.type === "move") controls.add(event.data.inboxID)
+          if (event.data.item.type === "compaction" || event.data.item.type === "move")
+            controls.add(event.data.inboxID)
           if (promptID === undefined && input.acceptsPrompt?.(event)) {
             promptID = event.data.inboxID
             accepted.resolve(promptID)
@@ -100,14 +131,19 @@ export function observeSessionExecution(client: ExecutionClient, input: {
           fail("cancelled")
           return
         }
-        if (event.type === "session.deleted") { fail("cancelled"); return }
+        if (event.type === "session.deleted") {
+          fail("cancelled")
+          return
+        }
         if (event.type === "session.inbox.delivered") {
           if (event.data.inboxID === promptID) delivered = true
-          else if (delivered && messageID !== undefined && !controls.has(event.data.inboxID)) replaced = true
+          else if (delivered && messageID !== undefined && !controls.has(event.data.inboxID))
+            replaced = true
           controls.delete(event.data.inboxID)
         }
         if (input.operation === "compaction") {
-          if (event.type === "session.compaction.started") compacting = event.data.inputID === promptID
+          if (event.type === "session.compaction.started")
+            compacting = event.data.inputID === promptID
           if (event.type === "session.compaction.ended" && compacting) {
             finish({ ok: true, value: { type: "succeeded" } })
             return
@@ -117,14 +153,24 @@ export function observeSessionExecution(client: ExecutionClient, input: {
             return
           }
         }
-        if (!delivered && promptID !== undefined && input.operation !== "compaction" && (event.type === "session.execution.failed" || event.type === "session.execution.interrupted")) {
-          void reconcileUndelivered(event.type === "session.execution.failed"
-            ? { type: "failed", undelivered: true, error: event.data.error }
-            : { type: "interrupted", undelivered: true, reason: event.data.reason })
-            .catch((cause) => { if (!settled) fail("disconnected", cause) })
+        if (
+          !delivered &&
+          promptID !== undefined &&
+          input.operation !== "compaction" &&
+          (event.type === "session.execution.failed" ||
+            event.type === "session.execution.interrupted")
+        ) {
+          void reconcileUndelivered(
+            event.type === "session.execution.failed"
+              ? { type: "failed", undelivered: true, error: event.data.error }
+              : { type: "interrupted", undelivered: true, reason: event.data.reason },
+          ).catch((cause) => {
+            if (!settled) fail("disconnected", cause)
+          })
         }
         if (!delivered) continue
-        if (event.type === "session.step.started" && !replaced) messageID = event.data.assistantMessageID
+        if (event.type === "session.step.started" && !replaced)
+          messageID = event.data.assistantMessageID
         if (event.type === "session.execution.succeeded") {
           finish({ ok: true, value: { type: "succeeded", messageID } })
           return
@@ -148,7 +194,9 @@ export function observeSessionExecution(client: ExecutionClient, input: {
     ready: connected.promise,
     result: completed.promise,
     accepted: accepted.promise,
-    get promptID() { return promptID },
+    get promptID() {
+      return promptID
+    },
     async close() {
       if (!settled) fail("aborted")
       await listening

@@ -65,7 +65,9 @@ describe("pedagogy tools", () => {
     expect(result.prepareResource.output).toContain("Prepared resource prepare-resource-sample.")
     expect(result.prepareResource.output).toContain("status=ready")
     expect(result.prepareResource.output).toContain("timed_out=false")
-    expect(BuddyObjectResultSchema.parse(result.prepareResource.metadata.buddyObjectResult).status).toBe("ok")
+    expect(
+      BuddyObjectResultSchema.parse(result.prepareResource.metadata.buddyObjectResult).status,
+    ).toBe("ok")
     expect(result.invalidResource.output).toContain("source_validity=invalid")
     expect(result.invalidResource.output).toContain("bench_reader=none")
     expect(result.invalidResource.metadata.buddyObjectResult).toMatchObject({

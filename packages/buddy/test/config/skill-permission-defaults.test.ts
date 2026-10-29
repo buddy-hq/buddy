@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { evaluatePermission, permissionRulesFromConfig } from "@buddy/transcript-contract/permission-rules"
+import {
+  evaluatePermission,
+  permissionRulesFromConfig,
+} from "@buddy/transcript-contract/permission-rules"
 import { applySkillPermissionDefaults } from "../../src/config/store/permission-overrides"
 import type { Info } from "../../src/config/store/types"
 
@@ -9,7 +12,12 @@ function evaluateSkillAction(config: Info, skillName: string) {
     throw new Error("Expected permission to be defined")
   }
 
-  return evaluatePermission("skill", skillName, permissionRulesFromConfig(permission), process.platform === "win32" ? "win32" : "posix").action
+  return evaluatePermission(
+    "skill",
+    skillName,
+    permissionRulesFromConfig(permission),
+    process.platform === "win32" ? "win32" : "posix",
+  ).action
 }
 
 describe("skill permission defaults", () => {

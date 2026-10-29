@@ -1,5 +1,11 @@
 import { z } from "zod"
-import type { FileChange, ToolOutcome, ToolQuestion, ToolSummary, ToolTodo } from "@buddy/transcript-contract/message"
+import type {
+  FileChange,
+  ToolOutcome,
+  ToolQuestion,
+  ToolSummary,
+  ToolTodo,
+} from "@buddy/transcript-contract/message"
 
 export type TJsonPrimitive = string | number | boolean | null
 export type TJsonValue = TJsonPrimitive | readonly TJsonValue[] | TJsonObject

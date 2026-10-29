@@ -79,9 +79,12 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
         </DialogHeader>
 
         <div className="grid gap-4 py-1.5">
-          {props.draft.clientSecret === "[REDACTED]" || props.draft.headersText.includes("[REDACTED]") || props.draft.environmentText.includes("[REDACTED]") ? (
+          {props.draft.clientSecret === "[REDACTED]" ||
+          props.draft.headersText.includes("[REDACTED]") ||
+          props.draft.environmentText.includes("[REDACTED]") ? (
             <p className="text-xs text-text-weak">
-              Stored secrets are marked [REDACTED]. Leave the marker to keep a secret, replace it to change the value, or remove the field to clear it.
+              Stored secrets are marked [REDACTED]. Leave the marker to keep a secret, replace it to
+              change the value, or remove the field to clear it.
             </p>
           ) : null}
           <Field className="space-y-1.5">

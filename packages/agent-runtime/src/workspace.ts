@@ -17,7 +17,11 @@ export type ProjectInfo = {
   readonly name?: string
   readonly icon?: { readonly url?: string; readonly override?: string; readonly color?: string }
   readonly commands?: { readonly start?: string }
-  readonly time: { readonly created: number; readonly updated: number; readonly initialized: number }
+  readonly time: {
+    readonly created: number
+    readonly updated: number
+    readonly initialized: number
+  }
   readonly sandboxes: readonly string[]
 }
 

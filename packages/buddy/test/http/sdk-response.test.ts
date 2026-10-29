@@ -29,7 +29,11 @@ test("unknown route failures hide internal messages and correlate their full cau
   const failure = new Error("Private wrapper message", { cause: new Error("Private root cause") })
   const result = await classifyRouteError(failure, (line, cause) => logs.push(`${line}\n${cause}`))
   expect(result.status).toBe(500)
-  expect(result.body).toEqual({ error: "Internal server error", code: "internal", errorID: expect.any(String) })
+  expect(result.body).toEqual({
+    error: "Internal server error",
+    code: "internal",
+    errorID: expect.any(String),
+  })
   expect(result.body.errorID).toMatch(/^[a-f0-9-]{36}$/u)
   expect(logs.join("\n")).toContain(`errorID=${result.body.errorID}`)
   expect(logs.join("\n")).toContain("Private wrapper message")
@@ -37,8 +41,15 @@ test("unknown route failures hide internal messages and correlate their full cau
 })
 
 test("SDK and HTTP normalization preserve error codes, correlation IDs, and config details", async () => {
-  const body = { error: "Invalid config", code: "config.invalid", errorID: "correlation", details: { path: "models.gpt.settings.compaction", file: "/notebook/.buddy/buddy.jsonc" } }
-  const response = await normalizeErrorResponse(await sdkErrorResponse({ error: body, response: new Response(null, { status: 400 }) }))
+  const body = {
+    error: "Invalid config",
+    code: "config.invalid",
+    errorID: "correlation",
+    details: { path: "models.gpt.settings.compaction", file: "/notebook/.buddy/buddy.jsonc" },
+  }
+  const response = await normalizeErrorResponse(
+    await sdkErrorResponse({ error: body, response: new Response(null, { status: 400 }) }),
+  )
   expect(response.status).toBe(400)
   expect(await response.json()).toEqual(body)
 })

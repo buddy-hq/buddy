@@ -27,10 +27,7 @@ import {
   removeManagedSkill,
   setInstalledSkillAction,
 } from "../learning/skill-management"
-import {
-  resolveSkillAction,
-  shouldRefreshSkillCatalog,
-} from "./skills.route-helpers"
+import { resolveSkillAction, shouldRefreshSkillCatalog } from "./skills.route-helpers"
 
 const installedSkillSchema = z.object({
   name: z.string(),
@@ -137,8 +134,7 @@ export const SkillsRoutes = new Hono()
             })
             return c.json(catalog)
           },
-          mapError: (error) =>
-            mapRouteError(error, { scope: "skills.read" }),
+          mapError: (error) => mapRouteError(error, { scope: "skills.read" }),
         }),
       ),
   )
@@ -162,8 +158,7 @@ export const SkillsRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => c.json(await listSkillPresentations(context.directory)),
-          mapError: (error) =>
-            mapRouteError(error, { scope: "skills.read" }),
+          mapError: (error) => mapRouteError(error, { scope: "skills.read" }),
         }),
       ),
   )
@@ -198,8 +193,7 @@ export const SkillsRoutes = new Hono()
             },
           })
         },
-        mapError: (error) =>
-          mapRouteError(error, { scope: "skills.library" }),
+        mapError: (error) => mapRouteError(error, { scope: "skills.library" }),
       }),
   )
   .post(
@@ -226,8 +220,7 @@ export const SkillsRoutes = new Hono()
             const name = await createCustomSkill(c.req.valid("json"), context.directory)
             return c.json({ ok: true, name })
           },
-          mapError: (error) =>
-            mapRouteError(error, { scope: "skills.create" }),
+          mapError: (error) => mapRouteError(error, { scope: "skills.create" }),
         }),
       ),
   )
@@ -258,8 +251,7 @@ export const SkillsRoutes = new Hono()
             )
             return c.json({ ok: true, name })
           },
-          mapError: (error) =>
-            mapRouteError(error, { scope: "skills.library" }),
+          mapError: (error) => mapRouteError(error, { scope: "skills.library" }),
         }),
       ),
   )
@@ -291,8 +283,7 @@ export const SkillsRoutes = new Hono()
             externalVendorRootsEnabled: config.skills_external_vendor_roots_enabled === true,
           })
         },
-        mapError: (error) =>
-          mapRouteError(error, { scope: "skills.read" }),
+        mapError: (error) => mapRouteError(error, { scope: "skills.read" }),
       }),
   )
   .delete(
@@ -322,8 +313,7 @@ export const SkillsRoutes = new Hono()
             )
             return c.json({ ok: true, name: removedSkillName })
           },
-          mapError: (error) =>
-            mapRouteError(error, { scope: "skills.library" }),
+          mapError: (error) => mapRouteError(error, { scope: "skills.library" }),
         }),
       ),
   )
@@ -358,8 +348,7 @@ export const SkillsRoutes = new Hono()
             )
             return c.json({ ok: true, skill, action })
           },
-          mapError: (error) =>
-            mapRouteError(error, { scope: "skills.byName" }),
+          mapError: (error) => mapRouteError(error, { scope: "skills.byName" }),
         }),
       ),
   )
@@ -390,8 +379,7 @@ export const SkillsRoutes = new Hono()
             )
             return c.json({ ok: true, name: removedSkillName })
           },
-          mapError: (error) =>
-            mapRouteError(error, { scope: "skills.byName" }),
+          mapError: (error) => mapRouteError(error, { scope: "skills.byName" }),
         }),
       ),
   )

@@ -503,13 +503,10 @@ describe("bench surface rendering", () => {
   test("renders HTML widgets as an unscaled full bench iframe", async () => {
     setRuntimePlatform({
       ...originalPlatform,
-      fetch: withFetchPreconnect(
-        async (input) => {
-          expect(parseRequestUrl(input)).toContain("/api/frame/widget-links")
-          return Response.json({ url: "/api/frame/widget/signed.pass/index.html" })
-        },
-        originalFetch,
-      ),
+      fetch: withFetchPreconnect(async (input) => {
+        expect(parseRequestUrl(input)).toContain("/api/frame/widget-links")
+        return Response.json({ url: "/api/frame/widget/signed.pass/index.html" })
+      }, originalFetch),
     })
     await act(async () => {
       root.render(
@@ -553,15 +550,12 @@ describe("bench surface rendering", () => {
     queryClient.setQueryData(objectViewQueryOptions(input).queryKey, view)
     setRuntimePlatform({
       ...originalPlatform,
-      fetch: withFetchPreconnect(
-        async (request) => {
-          const url = parseRequestUrl(request)
-          if (url.includes("/api/frame/widget-links")) return exchangeResponse()
-          if (url.includes("/view")) return Response.json(view)
-          throw new Error(`Unexpected widget test request: ${url}`)
-        },
-        originalFetch,
-      ),
+      fetch: withFetchPreconnect(async (request) => {
+        const url = parseRequestUrl(request)
+        if (url.includes("/api/frame/widget-links")) return exchangeResponse()
+        if (url.includes("/view")) return Response.json(view)
+        throw new Error(`Unexpected widget test request: ${url}`)
+      }, originalFetch),
     })
     useChatStore.getState().setStreamStatus("connecting")
     useChatStore.getState().setStreamStatus("connected")

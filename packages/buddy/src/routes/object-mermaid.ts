@@ -17,11 +17,7 @@ import {
   MermaidPreflightRepairSchema,
   MermaidRenderContrastAdjustmentSchema,
 } from "../learning/features/diagrams/service/types"
-import {
-  BuddyObjectIDSchema,
-  BuddyObjectOriginSchema,
-  nonEmptyString,
-} from "../objects"
+import { BuddyObjectIDSchema, BuddyObjectOriginSchema, nonEmptyString } from "../objects"
 
 const objectIDParamSchema = z
   .object({

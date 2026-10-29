@@ -1,5 +1,10 @@
 import z from "zod"
-import type { ToolCall, ToolApprovalRequest, ToolOutput, ToolAttachment } from "@buddy/agent-runtime/extension"
+import type {
+  ToolCall,
+  ToolApprovalRequest,
+  ToolOutput,
+  ToolAttachment,
+} from "@buddy/agent-runtime/extension"
 import {
   cloneToolPresentationDescriptor,
   type ToolPresentationDescriptor,
@@ -28,10 +33,15 @@ type BuddyToolPermissionRequest = ToolApprovalRequest
 
 type BuddyToolAttachment = ToolAttachment
 
-type BuddyToolExecuteResult<Metadata extends TBuddyToolMetadata = TBuddyToolMetadata> =
-  Omit<ToolOutput, "metadata"> & { metadata: Metadata }
+type BuddyToolExecuteResult<Metadata extends TBuddyToolMetadata = TBuddyToolMetadata> = Omit<
+  ToolOutput,
+  "metadata"
+> & { metadata: Metadata }
 
-type BuddyToolContext<Metadata extends TBuddyToolMetadata = TBuddyToolMetadata> = Omit<ToolCall, "metadata"> & {
+type BuddyToolContext<Metadata extends TBuddyToolMetadata = TBuddyToolMetadata> = Omit<
+  ToolCall,
+  "metadata"
+> & {
   extra?: TJsonObject
   metadata(input: { title?: string; metadata?: Metadata }): Promise<void>
 }

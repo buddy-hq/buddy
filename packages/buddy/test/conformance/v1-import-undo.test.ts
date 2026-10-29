@@ -10,7 +10,17 @@ import { createRuntimeHarness, scenario } from "./harness"
 
 const UNDO_REFUSED = "Undo isn't available for turns brought over from the previous version."
 const assistantRowSchema = z.object({ id: z.string(), data: z.string() })
-const snapshotSchema = z.object({ snapshot: z.object({ start: z.string().optional(), end: z.string().optional(), files: z.array(z.string()).optional() }).optional() }).passthrough()
+const snapshotSchema = z
+  .object({
+    snapshot: z
+      .object({
+        start: z.string().optional(),
+        end: z.string().optional(),
+        files: z.array(z.string()).optional(),
+      })
+      .optional(),
+  })
+  .passthrough()
 
 let notebook: Awaited<ReturnType<typeof tmpdir>>
 let api: Awaited<ReturnType<typeof createRuntimeHarness>>
@@ -24,14 +34,23 @@ function v2Database() {
 function makeTurnsLookImported(sessionID: string, worktree: string) {
   const db = new Database(v2Database())
   try {
-    const rows = z.array(assistantRowSchema).parse(db.query("SELECT id, data FROM session_message WHERE session_id = ? AND type = 'assistant'").all(sessionID))
+    const rows = z
+      .array(assistantRowSchema)
+      .parse(
+        db
+          .query("SELECT id, data FROM session_message WHERE session_id = ? AND type = 'assistant'")
+          .all(sessionID),
+      )
     let rewritten = 0
     for (const row of rows) {
       const data = snapshotSchema.parse(JSON.parse(row.data))
       const files = data.snapshot?.files
       if (!files?.length) continue
       const absolute = files.map((file) => path.join(worktree, file).replaceAll("\\", "/"))
-      db.query("UPDATE session_message SET data = ? WHERE id = ?").run(JSON.stringify({ ...data, snapshot: { ...data.snapshot, files: absolute } }), row.id)
+      db.query("UPDATE session_message SET data = ? WHERE id = ?").run(
+        JSON.stringify({ ...data, snapshot: { ...data.snapshot, files: absolute } }),
+        row.id,
+      )
       rewritten += 1
     }
     return rewritten
@@ -41,13 +60,38 @@ function makeTurnsLookImported(sessionID: string, worktree: string) {
 }
 
 async function exists(file: string) {
-  return fs.stat(file).then(() => true, () => false)
+  return fs.stat(file).then(
+    () => true,
+    () => false,
+  )
 }
 
 async function codeEditingSession(title: string) {
   const session = await api.create({ title })
-  expect((await api.prompt(session.id, scenario({ kind: "tool", name: "write", arguments: { path: "edited.md", content: "after\n" } }))).status).toBe(200)
-  expect((await api.prompt(session.id, scenario({ kind: "tool", name: "write", arguments: { path: "created.md", content: "new\n" } }))).status).toBe(200)
+  expect(
+    (
+      await api.prompt(
+        session.id,
+        scenario({
+          kind: "tool",
+          name: "write",
+          arguments: { path: "edited.md", content: "after\n" },
+        }),
+      )
+    ).status,
+  ).toBe(200)
+  expect(
+    (
+      await api.prompt(
+        session.id,
+        scenario({
+          kind: "tool",
+          name: "write",
+          arguments: { path: "created.md", content: "new\n" },
+        }),
+      )
+    ).status,
+  ).toBe(200)
   const history = await api.messages(session.id)
   const firstUser = history.find((message) => message.info.role === "user")
   if (!firstUser) throw new Error("Missing the first user message")
@@ -77,7 +121,10 @@ describe("undo on chats brought over from v1", () => {
     const turn = await codeEditingSession("v2 turn")
     expect(await fs.readFile(path.join(notebook.path, "edited.md"), "utf8")).toBe("after\n")
     expect(await exists(path.join(notebook.path, "created.md"))).toBe(true)
-    const response = await api.request(`/session/${turn.sessionID}/revert`, { method: "POST", body: JSON.stringify({ messageID: turn.boundary }) })
+    const response = await api.request(`/session/${turn.sessionID}/revert`, {
+      method: "POST",
+      body: JSON.stringify({ messageID: turn.boundary }),
+    })
     expect(response.status).toBe(200)
     expect(await fs.readFile(path.join(notebook.path, "edited.md"), "utf8")).toBe("before\n")
     expect(await exists(path.join(notebook.path, "created.md"))).toBe(false)
@@ -92,12 +139,23 @@ describe("undo on chats brought over from v1", () => {
     expect(makeTurnsLookImported(turn.sessionID, worktree)).toBeGreaterThan(0)
     await api.restart()
     const host = runtimeHost(await getAgentRuntime())
-    const outcome = await host.session.revert.stage({ sessionID: turn.sessionID, messageID: turn.boundary }).then(() => "staged", (cause: unknown) => `failed: ${String(cause)}`)
+    const outcome = await host.session.revert
+      .stage({ sessionID: turn.sessionID, messageID: turn.boundary })
+      .then(
+        () => "staged",
+        (cause: unknown) => `failed: ${String(cause)}`,
+      )
     const edited = await fs.readFile(path.join(notebook.path, "edited.md"), "utf8")
     const created = await exists(path.join(notebook.path, "created.md"))
-    console.log("Raw OpenCode undo of an imported turn:", { outcome, edited, createdStillPresent: created })
+    console.log("Raw OpenCode undo of an imported turn:", {
+      outcome,
+      edited,
+      createdStillPresent: created,
+    })
     expect(edited === "before\n" && !created).toBe(false)
-    expect(await fs.readFile(path.join(notebook.path, "outside-sentinel.md"), "utf8")).toBe("untouched\n")
+    expect(await fs.readFile(path.join(notebook.path, "outside-sentinel.md"), "utf8")).toBe(
+      "untouched\n",
+    )
     await host.session.revert.clear({ sessionID: turn.sessionID }).catch(() => undefined)
   }, 120_000)
 
@@ -113,7 +171,10 @@ describe("undo on chats brought over from v1", () => {
       created: await fs.readFile(path.join(notebook.path, "created.md"), "utf8"),
       sentinel: await fs.readFile(path.join(notebook.path, "outside-sentinel.md"), "utf8"),
     }
-    const response = await api.request(`/session/${turn.sessionID}/revert`, { method: "POST", body: JSON.stringify({ messageID: turn.boundary }) })
+    const response = await api.request(`/session/${turn.sessionID}/revert`, {
+      method: "POST",
+      body: JSON.stringify({ messageID: turn.boundary }),
+    })
     expect(response.status).toBe(409)
     expect(await response.text()).toContain(UNDO_REFUSED)
     expect({
@@ -125,7 +186,10 @@ describe("undo on chats brought over from v1", () => {
     const later = await api.messages(turn.sessionID)
     const lastUser = later.findLast((message) => message.info.role === "user")
     if (!lastUser) throw new Error("Missing the last user message")
-    const afterLast = await api.request(`/session/${turn.sessionID}/revert`, { method: "POST", body: JSON.stringify({ messageID: later.at(-1)?.info.id ?? lastUser.info.id }) })
+    const afterLast = await api.request(`/session/${turn.sessionID}/revert`, {
+      method: "POST",
+      body: JSON.stringify({ messageID: later.at(-1)?.info.id ?? lastUser.info.id }),
+    })
     expect(afterLast.status).toBe(200)
   }, 120_000)
 })

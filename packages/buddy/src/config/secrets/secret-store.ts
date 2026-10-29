@@ -6,14 +6,19 @@ import { withFileLock } from "../../storage/file-lock"
 import { Global } from "../../storage/global"
 import { textFileWriteLockPath } from "../../storage/locked-atomic-file"
 import { parseNodeErrorCode } from "../../storage/parse-node-error"
-import { FileRenameConflictError, renameFileWithoutOverwrite } from "../../storage/rename-file-without-overwrite"
+import {
+  FileRenameConflictError,
+  renameFileWithoutOverwrite,
+} from "../../storage/rename-file-without-overwrite"
 
 export const SECRET_REFERENCE_PATTERN = /\{secret:([A-Za-z0-9_-]+)\}/gu
 
-const secretStoreSchema = z.object({
-  version: z.literal(1),
-  secrets: z.record(z.string(), z.string()),
-}).strict()
+const secretStoreSchema = z
+  .object({
+    version: z.literal(1),
+    secrets: z.record(z.string(), z.string()),
+  })
+  .strict()
 
 export function secretReference(id: string): string {
   return `{secret:${id}}`

@@ -4,7 +4,11 @@ import { formatOpenCodeLogDetails, redactLogText } from "../src/log-redaction"
 
 test("redacts OAuth query parameters from an Effect cause while preserving the failure", () => {
   const details = formatOpenCodeLogDetails({
-    cause: Cause.die(new Error('Failed query: update "credential" set "value" = ?\nparams: {"type":"oauth","access":"at-123","refresh":"rt-456"}')),
+    cause: Cause.die(
+      new Error(
+        'Failed query: update "credential" set "value" = ?\nparams: {"type":"oauth","access":"at-123","refresh":"rt-456"}',
+      ),
+    ),
   }).join("\n")
 
   expect(details).not.toContain("at-123")

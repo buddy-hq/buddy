@@ -3,7 +3,10 @@ import { copyFileSync, cpSync, mkdirSync, readFileSync, realpathSync, writeFileS
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 
-export const V1_UPGRADE_FIXTURE_DIRECTORY = path.resolve(import.meta.dir, "../test/fixtures/v1-upgrade")
+export const V1_UPGRADE_FIXTURE_DIRECTORY = path.resolve(
+  import.meta.dir,
+  "../test/fixtures/v1-upgrade",
+)
 
 export const V1_UPGRADE_FIXTURE = {
   parentSessionID: "ses_e9bc348c6ffeVYp3hNj10v5E1K",
@@ -53,7 +56,15 @@ function relativeToRoot(directory: string) {
   return slashed(path.relative(path.parse(directory).root, directory))
 }
 
-export function remapV1UpgradeDatabase(database: string, locations: { readonly buddyHome: string; readonly notebook: string; readonly external: string; readonly root: string }) {
+export function remapV1UpgradeDatabase(
+  database: string,
+  locations: {
+    readonly buddyHome: string
+    readonly notebook: string
+    readonly external: string
+    readonly root: string
+  },
+) {
   const db = new Database(database)
   try {
     const replacements: ReadonlyArray<readonly [string, string]> = [
@@ -65,14 +76,17 @@ export function remapV1UpgradeDatabase(database: string, locations: { readonly b
     ]
     db.transaction(() => {
       for (const table of ["message", "part", "event"]) {
-        for (const [from, to] of replacements) db.query(`UPDATE ${table} SET data = replace(data, ?, ?)`).run(from, to)
+        for (const [from, to] of replacements)
+          db.query(`UPDATE ${table} SET data = replace(data, ?, ?)`).run(from, to)
       }
       db.query("UPDATE session SET directory = ?, path = ? WHERE directory = ?").run(
         slashed(locations.notebook),
         relativeToRoot(locations.notebook),
         ORIGINAL_NOTEBOOK,
       )
-      db.query("UPDATE project SET worktree = ? WHERE id = 'global'").run(slashed(path.parse(locations.notebook).root))
+      db.query("UPDATE project SET worktree = ? WHERE id = 'global'").run(
+        slashed(path.parse(locations.notebook).root),
+      )
     })()
   } finally {
     db.close(false)
@@ -93,25 +107,59 @@ export function restoreV1UpgradeFixture(input: {
   const buddyHome = realpathSync(requestedHome)
   const notebook = path.join(buddyHome, NOTEBOOK_FOLDER)
   const notesDirectory = path.join(buddyHome, "Notes")
-  const external = path.join(realpathSync(path.dirname(requestedExternal)), path.basename(requestedExternal))
-  cpSync(path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "buddy-home", NOTEBOOK_FOLDER), notebook, { recursive: true })
-  cpSync(path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "buddy-home", "Notes"), notesDirectory, { recursive: true })
+  const external = path.join(
+    realpathSync(path.dirname(requestedExternal)),
+    path.basename(requestedExternal),
+  )
+  cpSync(path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "buddy-home", NOTEBOOK_FOLDER), notebook, {
+    recursive: true,
+  })
+  cpSync(path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "buddy-home", "Notes"), notesDirectory, {
+    recursive: true,
+  })
   copyFileSync(path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "external", "reading-list.txt"), external)
   mkdirSync(input.openCodeDataDirectory, { recursive: true })
   const v1Database = path.join(input.openCodeDataDirectory, "opencode.db")
   copyFileSync(path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "opencode.db"), v1Database)
-  remapV1UpgradeDatabase(v1Database, { buddyHome, notebook, external, root: realpathSync(input.root) })
-  const authFile = input.credentials === false ? undefined : path.join(input.openCodeDataDirectory, "auth.json")
+  remapV1UpgradeDatabase(v1Database, {
+    buddyHome,
+    notebook,
+    external,
+    root: realpathSync(input.root),
+  })
+  const authFile =
+    input.credentials === false ? undefined : path.join(input.openCodeDataDirectory, "auth.json")
   if (authFile) copyFileSync(path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "auth.json"), authFile)
-  const desktopNotebooksFile = input.stateDirectory ? path.join(input.stateDirectory, "desktop-notebooks.json") : undefined
-  const notebookIdentitiesFile = input.stateDirectory ? path.join(input.stateDirectory, "notes-notebook-identities.json") : undefined
+  const desktopNotebooksFile = input.stateDirectory
+    ? path.join(input.stateDirectory, "desktop-notebooks.json")
+    : undefined
+  const notebookIdentitiesFile = input.stateDirectory
+    ? path.join(input.stateDirectory, "notes-notebook-identities.json")
+    : undefined
   if (input.stateDirectory) {
     mkdirSync(input.stateDirectory, { recursive: true })
     for (const file of [desktopNotebooksFile, notebookIdentitiesFile]) {
       if (!file) continue
-      const source = readFileSync(path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "buddy-state", path.basename(file)), "utf8")
-      writeFileSync(file, source.replaceAll(ORIGINAL_NOTEBOOK, jsonText(notebook)).replaceAll(ORIGINAL_HOME, jsonText(buddyHome)))
+      const source = readFileSync(
+        path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "buddy-state", path.basename(file)),
+        "utf8",
+      )
+      writeFileSync(
+        file,
+        source
+          .replaceAll(ORIGINAL_NOTEBOOK, jsonText(notebook))
+          .replaceAll(ORIGINAL_HOME, jsonText(buddyHome)),
+      )
     }
   }
-  return { buddyHome, notebook, external, v1Database, authFile, notesDirectory, desktopNotebooksFile, notebookIdentitiesFile }
+  return {
+    buddyHome,
+    notebook,
+    external,
+    v1Database,
+    authFile,
+    notesDirectory,
+    desktopNotebooksFile,
+    notebookIdentitiesFile,
+  }
 }

@@ -1,4 +1,9 @@
-import { RuntimeError, type RuntimeErrorKind, type RuntimeErrorSubject, type RuntimeResult } from "@buddy/agent-runtime/errors"
+import {
+  RuntimeError,
+  type RuntimeErrorKind,
+  type RuntimeErrorSubject,
+  type RuntimeResult,
+} from "@buddy/agent-runtime/errors"
 import { Schema } from "effect"
 import { SessionExecutionWaitError } from "../gateway/execution"
 import { SessionWriteError } from "../gateway/write"
@@ -43,11 +48,19 @@ function nativeTag<TCause>(cause: TCause): string | undefined {
   return cause instanceof Error ? cause.name : undefined
 }
 
-export function toRuntimeError<TCause>(cause: TCause, fallback = "Runtime request failed"): RuntimeError {
+export function toRuntimeError<TCause>(
+  cause: TCause,
+  fallback = "Runtime request failed",
+): RuntimeError {
   if (cause instanceof RuntimeError) return cause
   const message = cause instanceof Error && cause.message ? cause.message : fallback
-  if (cause instanceof SessionWriteError) return new RuntimeError(STATUS.get(cause.status) ?? "internal", message, { cause })
-  if (cause instanceof SessionExecutionWaitError) return new RuntimeError(cause.reason === "disconnected" ? "unavailable" : "conflict", message, { subject: "session", cause })
+  if (cause instanceof SessionWriteError)
+    return new RuntimeError(STATUS.get(cause.status) ?? "internal", message, { cause })
+  if (cause instanceof SessionExecutionWaitError)
+    return new RuntimeError(cause.reason === "disconnected" ? "unavailable" : "conflict", message, {
+      subject: "session",
+      cause,
+    })
   const classified = NATIVE.get(nativeTag(cause) ?? "")
   if (!classified) return new RuntimeError("internal", message, { cause })
   const [kind, subject] = classified

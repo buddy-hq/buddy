@@ -15,7 +15,8 @@ function response<T>(data: T) {
 function importReport(status: "running" | "completed"): V1ImportReport {
   return {
     upgrade: { state: "ready" },
-    import: status === "running" ? { status, progress: { label: "Migrating sessions" } } : { status },
+    import:
+      status === "running" ? { status, progress: { label: "Migrating sessions" } } : { status },
     importRan: true,
     skipped: [],
     content: [],
@@ -100,30 +101,33 @@ describe("restoring the last open chat after import", () => {
   test.each([
     { activeDirectory: `${DIRECTORY}/`, target: "active" as const },
     { activeDirectory: "/workspace/another-notebook", target: "inactive" as const },
-  ])("preserves A and restores it once through the $target selection path", async ({ activeDirectory, target }) => {
-    useChatStore.setState({ activeDirectory })
-    await ensureDirectorySession(DIRECTORY)
+  ])(
+    "preserves A and restores it once through the $target selection path",
+    async ({ activeDirectory, target }) => {
+      useChatStore.setState({ activeDirectory })
+      await ensureDirectorySession(DIRECTORY)
 
-    expect(useChatStore.getState().directories[DIRECTORY]?.sessionID).toBe("B")
-    expect(useChatStore.getState().lastSessionByDirectory[DIRECTORY]).toBe("A")
+      expect(useChatStore.getState().directories[DIRECTORY]?.sessionID).toBe("B")
+      expect(useChatStore.getState().lastSessionByDirectory[DIRECTORY]).toBe("A")
 
-    await loadSessions(DIRECTORY)
-    expect(useChatStore.getState().lastSessionByDirectory[DIRECTORY]).toBe("A")
+      await loadSessions(DIRECTORY)
+      expect(useChatStore.getState().lastSessionByDirectory[DIRECTORY]).toBe("A")
 
-    const { restoreAwaitedImportedSession } = await import("../src/lib/restore-imported-session")
-    const select = selections()
-    await restoreAwaitedImportedSession(DIRECTORY, [B], select)
-    expect(select.active.mock.calls).toEqual([])
-    expect(select.inactive.mock.calls).toEqual([])
+      const { restoreAwaitedImportedSession } = await import("../src/lib/restore-imported-session")
+      const select = selections()
+      await restoreAwaitedImportedSession(DIRECTORY, [B], select)
+      expect(select.active.mock.calls).toEqual([])
+      expect(select.inactive.mock.calls).toEqual([])
 
-    await restoreAwaitedImportedSession(DIRECTORY, [B, A], select)
-    expect(select[target].mock.calls).toEqual([[DIRECTORY, "A"]])
-    expect(select[target === "active" ? "inactive" : "active"].mock.calls).toEqual([])
+      await restoreAwaitedImportedSession(DIRECTORY, [B, A], select)
+      expect(select[target].mock.calls).toEqual([[DIRECTORY, "A"]])
+      expect(select[target === "active" ? "inactive" : "active"].mock.calls).toEqual([])
 
-    await restoreAwaitedImportedSession(DIRECTORY, [B, A], select)
-    expect(select[target].mock.calls).toEqual([[DIRECTORY, "A"]])
-    expect(useChatStore.getState().activeDirectory).toBe(activeDirectory)
-  })
+      await restoreAwaitedImportedSession(DIRECTORY, [B, A], select)
+      expect(select[target].mock.calls).toEqual([[DIRECTORY, "A"]])
+      expect(useChatStore.getState().activeDirectory).toBe(activeDirectory)
+    },
+  )
 
   test("keeps the learner's explicit chat choice", async () => {
     await ensureDirectorySession(DIRECTORY)

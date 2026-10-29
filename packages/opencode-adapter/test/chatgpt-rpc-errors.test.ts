@@ -60,27 +60,45 @@ test("ChatGPT handlers return a reconnect requirement as a declared error", asyn
   })
 
   expect(result).toBe(returned)
-  expect(errors).toEqual([{ type: "chatgpt.reconnect_required", message: "ChatGPT authentication requires reconnection", data: {} }])
+  expect(errors).toEqual([
+    {
+      type: "chatgpt.reconnect_required",
+      message: "ChatGPT authentication requires reconnection",
+      data: {},
+    },
+  ])
 })
 
 test("an aborted ChatGPT call rethrows its original error", async () => {
   const { context, errors } = errorContext(AbortSignal.abort())
   const error = new Error("Image request aborted")
 
-  await expect(ChatGPTExtension.returnChatGPTError(context, async () => {
-    throw error
-  })).rejects.toBe(error)
+  await expect(
+    ChatGPTExtension.returnChatGPTError(context, async () => {
+      throw error
+    }),
+  ).rejects.toBe(error)
   expect(errors).toEqual([])
 })
 
 test("ChatGPT image requests preserve the declared upstream failure message", async () => {
-  const chatgpt = createChatGPT(rejectingHost({ type: "chatgpt.request_failed", message: failureMessage }), {})
+  const chatgpt = createChatGPT(
+    rejectingHost({ type: "chatgpt.request_failed", message: failureMessage }),
+    {},
+  )
 
-  await expect(chatgpt.image("/workspace", { prompt: "Draw a tree", imageDataUrls: [] })).rejects.toThrow(failureMessage)
+  await expect(
+    chatgpt.image("/workspace", { prompt: "Draw a tree", imageDataUrls: [] }),
+  ).rejects.toThrow(failureMessage)
 })
 
 test("ChatGPT image requests restore the reconnect required error", async () => {
-  const chatgpt = createChatGPT(rejectingHost({ type: "chatgpt.reconnect_required", message: "x" }), {})
+  const chatgpt = createChatGPT(
+    rejectingHost({ type: "chatgpt.reconnect_required", message: "x" }),
+    {},
+  )
 
-  await expect(chatgpt.image("/workspace", { prompt: "Draw a tree", imageDataUrls: [] })).rejects.toBeInstanceOf(ChatGPTReconnectRequired)
+  await expect(
+    chatgpt.image("/workspace", { prompt: "Draw a tree", imageDataUrls: [] }),
+  ).rejects.toBeInstanceOf(ChatGPTReconnectRequired)
 })

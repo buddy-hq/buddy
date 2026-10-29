@@ -59,15 +59,25 @@ async function configureNotesHome(directory: string) {
 async function seedReadableChat(directory: string) {
   const harness = await createRuntimeHarness({ directory })
   try {
-    const chat = await harness.seedTextConversation({ title: "Research chat", text: "Visible question", contextText: "Hidden synthetic context" })
-    return { sessionID: chat.sessionID, userMessageID: chat.messageID, [Symbol.asyncDispose]: () => harness[Symbol.asyncDispose]() }
+    const chat = await harness.seedTextConversation({
+      title: "Research chat",
+      text: "Visible question",
+      contextText: "Hidden synthetic context",
+    })
+    return {
+      sessionID: chat.sessionID,
+      userMessageID: chat.messageID,
+      [Symbol.asyncDispose]: () => harness[Symbol.asyncDispose](),
+    }
   } catch (error) {
     await harness[Symbol.asyncDispose]()
     throw error
   }
 }
 
-afterEach(async () => { await closeAgentRuntime() })
+afterEach(async () => {
+  await closeAgentRuntime()
+})
 
 function handEditedNoteSource(generatedTitle: string[]) {
   return [
@@ -598,15 +608,24 @@ describe("Notes library and chat capture", () => {
       const prelude = "Hidden synthetic learner context\n"
       const text = "What is osmosis?"
       const messageID = "msg_osmosis_annotation"
-      const result = await runtime.execution.prompt({
-        sessionID: chat.id,
-        messageID,
-        text: prelude + text,
-        metadata: { buddy: { prompt: { segments: [
-          { start: 0, end: prelude.length, synthetic: true },
-          { start: prelude.length, end: prelude.length + text.length },
-        ] } } },
-      }, { directory: notebook.path })
+      const result = await runtime.execution.prompt(
+        {
+          sessionID: chat.id,
+          messageID,
+          text: prelude + text,
+          metadata: {
+            buddy: {
+              prompt: {
+                segments: [
+                  { start: 0, end: prelude.length, synthetic: true },
+                  { start: prelude.length, end: prelude.length + text.length },
+                ],
+              },
+            },
+          },
+        },
+        { directory: notebook.path },
+      )
       expect(result.ok).toBe(true)
 
       const capture = await annotateChatMessage({
@@ -1253,7 +1272,8 @@ describe("Notes library and chat capture", () => {
     })
     expect(oversized.status).toBe(413)
     expect(await oversized.json()).toEqual({
-      code: "request.too_large", error: "Note capture exceeds the request size limit.",
+      code: "request.too_large",
+      error: "Note capture exceeds the request size limit.",
     })
   })
 

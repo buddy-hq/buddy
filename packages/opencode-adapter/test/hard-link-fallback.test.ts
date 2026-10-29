@@ -6,7 +6,8 @@ import { publishCopy } from "../src/global-config-import"
 import { publish } from "../src/seed-v2-database"
 
 function linkThatRejects(code: string) {
-  return (_existing: string, _target: string): Promise<void> => Promise.reject(Object.assign(new Error(`Hard link failed: ${code}`), { code }))
+  return (_existing: string, _target: string): Promise<void> =>
+    Promise.reject(Object.assign(new Error(`Hard link failed: ${code}`), { code }))
 }
 
 async function withTemporaryDirectory(run: (root: string) => Promise<void>) {
@@ -52,7 +53,9 @@ describe("database publication without hard links", () => {
       const destination = path.join(root, "opencode-v2.db")
       await fs.writeFile(temporary, "new database")
 
-      await expect(publish(temporary, destination, linkThatRejects("EACCES"))).rejects.toMatchObject({ code: "EACCES" })
+      await expect(
+        publish(temporary, destination, linkThatRejects("EACCES")),
+      ).rejects.toMatchObject({ code: "EACCES" })
     })
   })
 })

@@ -9,7 +9,13 @@ import { Markdown } from "@/components/markdown/Markdown"
 import { TASK_CARD_ENTER_ANIMATE, TASK_CARD_TRANSITION, taskCardEnterInitial } from "../task-motion"
 import { parseTString } from "../../types"
 
-export type SubagentCardStatus = "pending" | "running" | "waiting" | "completed" | "error" | "cancelled"
+export type SubagentCardStatus =
+  | "pending"
+  | "running"
+  | "waiting"
+  | "completed"
+  | "error"
+  | "cancelled"
 
 // No ellipsis: the glider carries liveness, so trailing dots would be a second,
 // weaker indicator saying the same thing.
@@ -122,13 +128,19 @@ function CardHeader({ status, taskTitle, activityLine, activityContent }: CardHe
     const startupPending = status === "pending"
     return (
       <div className="flex min-w-0 items-center gap-3">
-        <ConwayGlider pattern={status === "waiting" ? "still" : undefined} seed={taskTitle} className={cn(GLYPH_CLS, "text-icon-interactive-base")} />
+        <ConwayGlider
+          pattern={status === "waiting" ? "still" : undefined}
+          seed={taskTitle}
+          className={cn(GLYPH_CLS, "text-icon-interactive-base")}
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-base">{taskTitle}</p>
           <div className="mt-0.5 min-w-0">
             {activityContent ?? (
               <p className="min-w-0 truncate text-xs text-text-weaker">
-                {startupPending ? STARTING_COPY : (activityLine ?? (status === "waiting" ? WAITING_COPY : WORKING_COPY))}
+                {startupPending
+                  ? STARTING_COPY
+                  : (activityLine ?? (status === "waiting" ? WAITING_COPY : WORKING_COPY))}
               </p>
             )}
           </div>
@@ -146,7 +158,11 @@ function CardHeader({ status, taskTitle, activityLine, activityContent }: CardHe
         pattern="still"
         className={cn(
           GLYPH_CLS,
-          status === "completed" ? "text-icon-success-base" : status === "cancelled" ? "text-text-weaker" : "text-icon-critical-base",
+          status === "completed"
+            ? "text-icon-success-base"
+            : status === "cancelled"
+              ? "text-text-weaker"
+              : "text-icon-critical-base",
         )}
       />
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-base">
@@ -166,7 +182,8 @@ export function SubagentCard({
   children,
   error,
 }: SubagentCardProps) {
-  const hasChildBody = (status === "completed" || status === "error" || status === "cancelled") && !!children
+  const hasChildBody =
+    (status === "completed" || status === "error" || status === "cancelled") && !!children
   const hasErrorBody = status === "error" && !!error
   const hasBody = hasChildBody || hasErrorBody
   const displayTaskTitle = taskTitle ?? DEFAULT_TASK_TITLE

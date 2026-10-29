@@ -126,7 +126,9 @@ async function extractLearnerMemoryFromSession(input: {
       skippedReason: "learner_memory_disabled",
     }
   }
-  const sessionInfo = await readSessionInDirectory(input.directory, input.sessionID).catch(() => undefined)
+  const sessionInfo = await readSessionInDirectory(input.directory, input.sessionID).catch(
+    () => undefined,
+  )
   if (
     !input.force &&
     internalLearnerMemorySession({
@@ -251,7 +253,10 @@ async function extractLearnerMemoryFromSession(input: {
 
   const safeSessionID = safeExtractionSessionId(input.sessionID)
   try {
-    const extractionModel = await resolveLearnerMemoryExtractionModel(input.directory, input.force === true)
+    const extractionModel = await resolveLearnerMemoryExtractionModel(
+      input.directory,
+      input.force === true,
+    )
     if (!extractionModel) {
       await releaseLearnerMemoryStageOneJobSkipped({
         directory: input.directory,

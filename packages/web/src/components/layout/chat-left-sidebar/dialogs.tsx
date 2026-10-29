@@ -661,8 +661,12 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
                     <SettingsListCard>
                       {mcpNames.map((name) => {
                         const config = notebookMcpConfigByName[name] ?? globalMcpConfigByName[name]
-                        const source = notebookMcpConfigByName[name] ? rawProjectConfig : globalConfig
-                        const missingSecret = parseBuddyConfigObject(parseBuddyConfigObject(source.mcp)?.[name])?.missingSecret === true
+                        const source = notebookMcpConfigByName[name]
+                          ? rawProjectConfig
+                          : globalConfig
+                        const missingSecret =
+                          parseBuddyConfigObject(parseBuddyConfigObject(source.mcp)?.[name])
+                            ?.missingSecret === true
                         const enabled = resolveNotebookMcpEnabled(
                           globalMcpConfigByName,
                           rawProjectConfig,
@@ -677,7 +681,10 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
                             ? getMcpStatusLabel(status.status)
                             : language.t("mcp.listPanel.configured")
                         const showRepairAction =
-                          !missingSecret && enabled && status?.status !== "connected" && status?.status !== "disabled"
+                          !missingSecret &&
+                          enabled &&
+                          status?.status !== "connected" &&
+                          status?.status !== "disabled"
 
                         const statusColorClass = !enabled
                           ? "text-text-weakest font-normal"
@@ -710,11 +717,16 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
                           <SettingsItemRow
                             key={name}
                             title={name}
-                            description={missingSecret ? (
-                              <span className="text-text-warning-base font-medium">
-                                This server's secret was saved on another computer or in another Buddy edition. Enter it again.
-                              </span>
-                            ) : mcpDescription}
+                            description={
+                              missingSecret ? (
+                                <span className="text-text-warning-base font-medium">
+                                  This server's secret was saved on another computer or in another
+                                  Buddy edition. Enter it again.
+                                </span>
+                              ) : (
+                                mcpDescription
+                              )
+                            }
                             control={
                               <div className="flex items-center gap-2">
                                 {missingSecret ? (
@@ -740,7 +752,10 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
                                     }}
                                     className="h-7 text-xs px-2.5 active:scale-[0.97] transition-transform"
                                   >
-                                    {getMcpRepairButtonLabel({ pending: pending || startingUp, status })}
+                                    {getMcpRepairButtonLabel({
+                                      pending: pending || startingUp,
+                                      status,
+                                    })}
                                   </Button>
                                 ) : null}
                                 <Switch

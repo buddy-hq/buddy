@@ -19,9 +19,16 @@ export function canonicalizeExistingRuntimeConfigDirectory(directory: string): s
   }
 }
 
-export function isWithinDirectory(root: string, target: string, pathApi: Pick<typeof path, "relative" | "isAbsolute" | "sep"> = path): boolean {
+export function isWithinDirectory(
+  root: string,
+  target: string,
+  pathApi: Pick<typeof path, "relative" | "isAbsolute" | "sep"> = path,
+): boolean {
   const relative = pathApi.relative(root, target)
-  return relative === "" || (relative !== ".." && !relative.startsWith(`..${pathApi.sep}`) && !pathApi.isAbsolute(relative))
+  return (
+    relative === "" ||
+    (relative !== ".." && !relative.startsWith(`..${pathApi.sep}`) && !pathApi.isAbsolute(relative))
+  )
 }
 
 export async function resolveNotebookWorktree(directory: string): Promise<string> {

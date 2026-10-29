@@ -5,7 +5,10 @@ import fs from "node:fs/promises"
 import { isPathInsideDirectory } from "../storage/path-containment"
 import { subscribeGlobalEvent } from "../events/buddy-event-bus"
 import { Hono } from "hono"
-import { McpInputRequestedEventSchema, McpInputSettledEventSchema } from "@buddy/agent-runtime/events"
+import {
+  McpInputRequestedEventSchema,
+  McpInputSettledEventSchema,
+} from "@buddy/agent-runtime/events"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { Schema } from "effect"
 import z from "zod"
@@ -113,14 +116,16 @@ const eventStreamQuerySchema = directoryQuerySchema.extend({
   connectionGeneration: z.coerce.number().int().nonnegative().optional(),
 })
 
-const eventStreamResponseSchema = z.object({
-  directory: z.string().optional(),
-  payload: z.union([
-    McpInputRequestedEventSchema,
-    McpInputSettledEventSchema,
-    z.object({ type: z.string(), properties: z.record(z.string(), z.unknown()) }),
-  ]),
-}).meta({ ref: "BuddyStreamEvent" })
+const eventStreamResponseSchema = z
+  .object({
+    directory: z.string().optional(),
+    payload: z.union([
+      McpInputRequestedEventSchema,
+      McpInputSettledEventSchema,
+      z.object({ type: z.string(), properties: z.record(z.string(), z.unknown()) }),
+    ]),
+  })
+  .meta({ ref: "BuddyStreamEvent" })
 
 const FILE_ESCAPE_ERROR = "Access denied: path escapes project directory"
 
@@ -285,7 +290,9 @@ export const CompatibilityRoutes = new Hono()
         const directoryContext = resolveDirectoryRequestContext(c)
         if (!directoryContext.ok) return directoryContext.response
 
-        const result = await OpenCodeFile.listSearchPaths(directoryContext.context.directory, { signal: c.req.raw.signal })
+        const result = await OpenCodeFile.listSearchPaths(directoryContext.context.directory, {
+          signal: c.req.raw.signal,
+        })
         return c.json(result)
       }),
   )
@@ -312,7 +319,10 @@ export const CompatibilityRoutes = new Hono()
         const directoryContext = resolveDirectoryRequestContext(c)
         if (!directoryContext.ok) return directoryContext.response
 
-        const result = await OpenCodeFile.list(directoryContext.context.directory, c.req.valid("query").path)
+        const result = await OpenCodeFile.list(
+          directoryContext.context.directory,
+          c.req.valid("query").path,
+        )
         return c.json(result)
       }),
   )
@@ -339,7 +349,10 @@ export const CompatibilityRoutes = new Hono()
         const directoryContext = resolveDirectoryRequestContext(c)
         if (!directoryContext.ok) return directoryContext.response
 
-        const result = await OpenCodeFile.read(directoryContext.context.directory, c.req.valid("query").path)
+        const result = await OpenCodeFile.read(
+          directoryContext.context.directory,
+          c.req.valid("query").path,
+        )
         return c.json(result)
       }),
   )
@@ -367,28 +380,33 @@ export const CompatibilityRoutes = new Hono()
       if (!directoryContext.ok) return directoryContext.response
 
       return runSdkRoute(c, async () => {
-          const requestedPath = c.req.valid("query").path
-          const absolutePath = resolveProjectFilePath(
-            directoryContext.context.directory,
-            requestedPath,
+        const requestedPath = c.req.valid("query").path
+        const absolutePath = resolveProjectFilePath(
+          directoryContext.context.directory,
+          requestedPath,
+        )
+        if (!isPathInsideDirectory(directoryContext.context.directory, absolutePath)) {
+          return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
+        }
+        const fileRecord = readRawFileRecord(absolutePath)
+        if (!fileRecord.ok) return fileRecord.response
+        if (
+          !isPathInsideDirectory(
+            await fs.realpath(directoryContext.context.directory),
+            fileRecord.filepath,
           )
-          if (!isPathInsideDirectory(directoryContext.context.directory, absolutePath)) {
-            return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
-          }
-          const fileRecord = readRawFileRecord(absolutePath)
-          if (!fileRecord.ok) return fileRecord.response
-          if (!isPathInsideDirectory(await fs.realpath(directoryContext.context.directory), fileRecord.filepath)) {
-            return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
-          }
+        ) {
+          return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
+        }
 
-          const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
-          return new Response(createRawFileStream(fileRecord, c.req.raw.signal), {
-            headers: await buildRawFileHeaders({
-              downloadName,
-              filepath: fileRecord.filepath,
-              size: fileRecord.size,
-            }),
-          })
+        const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
+        return new Response(createRawFileStream(fileRecord, c.req.raw.signal), {
+          headers: await buildRawFileHeaders({
+            downloadName,
+            filepath: fileRecord.filepath,
+            size: fileRecord.size,
+          }),
+        })
       })
     },
   )
@@ -402,28 +420,33 @@ export const CompatibilityRoutes = new Hono()
       if (!directoryContext.ok) return directoryContext.response
 
       return runSdkRoute(c, async () => {
-          const requestedPath = c.req.valid("query").path
-          const absolutePath = resolveProjectFilePath(
-            directoryContext.context.directory,
-            requestedPath,
+        const requestedPath = c.req.valid("query").path
+        const absolutePath = resolveProjectFilePath(
+          directoryContext.context.directory,
+          requestedPath,
+        )
+        if (!isPathInsideDirectory(directoryContext.context.directory, absolutePath)) {
+          return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
+        }
+        const fileRecord = readRawFileRecord(absolutePath)
+        if (!fileRecord.ok) return fileRecord.response
+        if (
+          !isPathInsideDirectory(
+            await fs.realpath(directoryContext.context.directory),
+            fileRecord.filepath,
           )
-          if (!isPathInsideDirectory(directoryContext.context.directory, absolutePath)) {
-            return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
-          }
-          const fileRecord = readRawFileRecord(absolutePath)
-          if (!fileRecord.ok) return fileRecord.response
-          if (!isPathInsideDirectory(await fs.realpath(directoryContext.context.directory), fileRecord.filepath)) {
-            return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
-          }
+        ) {
+          return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
+        }
 
-          const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
-          return new Response(null, {
-            headers: await buildRawFileHeaders({
-              downloadName,
-              filepath: fileRecord.filepath,
-              size: fileRecord.size,
-            }),
-          })
+        const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
+        return new Response(null, {
+          headers: await buildRawFileHeaders({
+            downloadName,
+            filepath: fileRecord.filepath,
+            size: fileRecord.size,
+          }),
+        })
       })
     },
   )
@@ -591,7 +614,15 @@ export const CompatibilityRoutes = new Hono()
           description: "Project command metadata",
           content: {
             "application/json": {
-              schema: resolver(z.array(z.object({ name: z.string(), description: z.string().optional(), source: z.enum(["command", "mcp", "skill"]) }))),
+              schema: resolver(
+                z.array(
+                  z.object({
+                    name: z.string(),
+                    description: z.string().optional(),
+                    source: z.enum(["command", "mcp", "skill"]),
+                  }),
+                ),
+              ),
             },
           },
         },
@@ -608,9 +639,25 @@ export const CompatibilityRoutes = new Hono()
       return runSdkRoute(c, async () => {
         const runtime = await getAgentRuntime()
         const directory = syncResult.value.directory
-        const [commands, servers] = await Promise.all([runtime.catalog.commands(directory), runtime.mcp.servers(directory)])
-        const serverNames = new Set(servers.map((server) => server.name.replace(/[^a-zA-Z0-9_-]/gu, "_")))
-        return c.json(commands.map((command) => Object.assign({}, command, { source: command.source === "command" && serverNames.has(command.name.split(":")[0] ?? "") && command.name.includes(":") ? "mcp" : command.source })))
+        const [commands, servers] = await Promise.all([
+          runtime.catalog.commands(directory),
+          runtime.mcp.servers(directory),
+        ])
+        const serverNames = new Set(
+          servers.map((server) => server.name.replace(/[^a-zA-Z0-9_-]/gu, "_")),
+        )
+        return c.json(
+          commands.map((command) =>
+            Object.assign({}, command, {
+              source:
+                command.source === "command" &&
+                serverNames.has(command.name.split(":")[0] ?? "") &&
+                command.name.includes(":")
+                  ? "mcp"
+                  : command.source,
+            }),
+          ),
+        )
       })
     },
   )

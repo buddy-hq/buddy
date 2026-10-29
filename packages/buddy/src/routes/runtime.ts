@@ -44,7 +44,10 @@ export function readRuntimeV1Import(): RuntimeV1ImportResponse {
   const upgrade = runtimeUpgradeState()
   const report = agentRuntimeV1ImportReport()
   return v1ImportResponseSchema.parse({
-    upgrade: upgrade.state === "failed" ? { state: "failed", error: upgrade.error } : { state: upgrade.state },
+    upgrade:
+      upgrade.state === "failed"
+        ? { state: "failed", error: upgrade.error }
+        : { state: upgrade.state },
     import: report?.status ?? null,
     importRan: report?.importRan ?? false,
     skipped: report?.skipped ?? [],

@@ -2,11 +2,7 @@ import type { Context } from "hono"
 import type { MessageWithParts } from "@buddy/transcript-contract/message"
 import { runtimeErrorStatus } from "@buddy/agent-runtime/errors"
 import { withConfigSync } from "../../http"
-import {
-  extractSdkErrorMessage,
-  sdkErrorResponse,
-  type SdkResult,
-} from "../../http/sdk-response"
+import { extractSdkErrorMessage, sdkErrorResponse, type SdkResult } from "../../http/sdk-response"
 import { createSessionCommandTransform } from "../../learning/agent-execution/transforms/command-transform"
 import { createSessionMessageTransform } from "../../learning/agent-execution/transforms/message-transform"
 import type {
@@ -126,7 +122,9 @@ type TSessionInteractionRuntime = {
   }) => Promise<boolean>
   isMermaidRepairSessionIdle: (input: { directory: string; sessionID: string }) => Promise<boolean>
   resolveSvgAutoRepairOrigin: TSvgAutoRepairOriginResolver
-  subscribeSvgAutoRepairTurnSettlement: (input: Parameters<typeof subscribeSvgAutoRepairTurnSettlement>[0]) => (() => void) | Promise<() => void>
+  subscribeSvgAutoRepairTurnSettlement: (
+    input: Parameters<typeof subscribeSvgAutoRepairTurnSettlement>[0],
+  ) => (() => void) | Promise<() => void>
 }
 
 async function sendSessionPromptAsyncToRuntime(input: {
@@ -135,7 +133,12 @@ async function sendSessionPromptAsyncToRuntime(input: {
   body: TSessionJsonObject
 }): Promise<SdkResult<unknown>> {
   const result = await (await getAgentRuntime()).execution.admit(buildSessionSdkParameters(input))
-  return result.ok ? { data: result.value } : { error: result.error.message, response: new Response(null, { status: runtimeErrorStatus(result.error) }) }
+  return result.ok
+    ? { data: result.value }
+    : {
+        error: result.error.message,
+        response: new Response(null, { status: runtimeErrorStatus(result.error) }),
+      }
 }
 
 let sessionInteractionRuntime: TSessionInteractionRuntime = {
@@ -170,20 +173,32 @@ export async function subscribeSvgAutoRepairTurnSettlement(input: {
   repairRequestID: string
   settle(errorMessage: string): Promise<void>
 }): Promise<() => void> {
-  const wait = (await getAgentRuntime()).execution.observe({ sessionID: input.sessionID, messageID: input.repairRequestID })
+  const wait = (await getAgentRuntime()).execution.observe({
+    sessionID: input.sessionID,
+    messageID: input.repairRequestID,
+  })
   const ready = await wait.ready
   if (ready && !ready.ok) {
     await wait.close()
     throw ready.error
   }
   let cancelled = false
-  void wait.result.then(async (result) => {
-    if (cancelled) return
-    await input.settle(result.ok && result.value === "succeeded"
-      ? SVG_AUTO_REPAIR_COMPLETED_WITHOUT_VALIDATION_MESSAGE
-      : SVG_AUTO_REPAIR_TURN_FAILED_MESSAGE)
-  }).catch((cause: unknown) => { console.warn("Failed to settle an SVG auto-repair turn:", cause) })
-  return () => { cancelled = true; void wait.close() }
+  void wait.result
+    .then(async (result) => {
+      if (cancelled) return
+      await input.settle(
+        result.ok && result.value === "succeeded"
+          ? SVG_AUTO_REPAIR_COMPLETED_WITHOUT_VALIDATION_MESSAGE
+          : SVG_AUTO_REPAIR_TURN_FAILED_MESSAGE,
+      )
+    })
+    .catch((cause: unknown) => {
+      console.warn("Failed to settle an SVG auto-repair turn:", cause)
+    })
+  return () => {
+    cancelled = true
+    void wait.close()
+  }
 }
 
 async function resolveSvgAutoRepairOrigin(input: {
@@ -193,15 +208,27 @@ async function resolveSvgAutoRepairOrigin(input: {
   rawFence: string
   sessionID: string
 }): Promise<TSvgAutoRepairOrigin | undefined> {
-  const { items } = await (await getAgentRuntime()).conversations.history({ directory: input.directory, sessionID: input.sessionID })
+  const { items } = await (
+    await getAgentRuntime()
+  ).conversations.history({ directory: input.directory, sessionID: input.sessionID })
   const message = items.find((entry) => entry.info.id === input.assistantMessageID)
-  if (!message || message.info.role !== "assistant" || message.info.time.completed === undefined || isSvgAutoRepairMessageID(message.info.parentID)) return undefined
+  if (
+    !message ||
+    message.info.role !== "assistant" ||
+    message.info.time.completed === undefined ||
+    isSvgAutoRepairMessageID(message.info.parentID)
+  )
+    return undefined
   const part = message.parts.find((entry) => entry.id === input.partID && entry.type === "text")
-  if (part?.type !== "text" || !containsStandaloneReportedSvgFence(part.text, input.rawFence)) return undefined
-  return Object.assign({
-    agent: message.info.agent,
-    model: { providerID: message.info.providerID, modelID: message.info.modelID },
-  }, message.info.variant ? { variant: message.info.variant } : undefined)
+  if (part?.type !== "text" || !containsStandaloneReportedSvgFence(part.text, input.rawFence))
+    return undefined
+  return Object.assign(
+    {
+      agent: message.info.agent,
+      model: { providerID: message.info.providerID, modelID: message.info.modelID },
+    },
+    message.info.variant ? { variant: message.info.variant } : undefined,
+  )
 }
 
 function svgAutoRepairPrompt(input: {
@@ -464,8 +491,12 @@ async function hasCompletedMermaidRepairAssistantMessage(input: {
   sessionID: string
   repairRequestID: string
 }): Promise<boolean> {
-  const { items } = await (await getAgentRuntime()).conversations.history({ directory: input.directory, sessionID: input.sessionID })
-  return items.some((message) => isCompletedMermaidRepairAssistantMessage({ message, repairRequestID: input.repairRequestID }))
+  const { items } = await (
+    await getAgentRuntime()
+  ).conversations.history({ directory: input.directory, sessionID: input.sessionID })
+  return items.some((message) =>
+    isCompletedMermaidRepairAssistantMessage({ message, repairRequestID: input.repairRequestID }),
+  )
 }
 
 async function isMermaidRepairSessionIdle(input: {
@@ -582,10 +613,18 @@ async function resolveMermaidRepairPromptRuntime(input: {
 }): Promise<TMermaidRepairPromptRuntime | undefined> {
   const origin = mermaidSessionOrigin(input.object)
   if (!origin) return undefined
-  const message = await (await getAgentRuntime()).conversations.message({ directory: input.directory, sessionID: origin.sessionID }, origin.messageID)
+  const message = await (
+    await getAgentRuntime()
+  ).conversations.message(
+    { directory: input.directory, sessionID: origin.sessionID },
+    origin.messageID,
+  )
   if (message?.info.role !== "assistant") return undefined
   const info = message.info
-  return Object.assign({ agent: info.agent, model: { providerID: info.providerID, modelID: info.modelID } }, info.variant ? { variant: info.variant } : undefined)
+  return Object.assign(
+    { agent: info.agent, model: { providerID: info.providerID, modelID: info.modelID } },
+    info.variant ? { variant: info.variant } : undefined,
+  )
 }
 
 export async function postSessionPrompt(c: Context): Promise<Response> {
@@ -618,16 +657,26 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
       { directory, sessionID },
     )
 
-    const result = await (await getAgentRuntime()).execution.prompt(buildSessionSdkParameters({ sessionID, directory, body: runtimeSafeBody }), { directory, signal: c.req.raw.signal, onAccepted: async () => {
-      admitted = true
-      await promptTransform?.onAccepted?.().catch((cause: unknown) => { console.warn("Failed to record state after accepted prompt:", cause) })
-    } })
+    const result = await (
+      await getAgentRuntime()
+    ).execution.prompt(buildSessionSdkParameters({ sessionID, directory, body: runtimeSafeBody }), {
+      directory,
+      signal: c.req.raw.signal,
+      onAccepted: async () => {
+        admitted = true
+        await promptTransform?.onAccepted?.().catch((cause: unknown) => {
+          console.warn("Failed to record state after accepted prompt:", cause)
+        })
+      },
+    })
     if (!result.ok) {
       if (!admitted) promptTransform.rollbackState?.()
-      return Response.json({ error: result.error.message }, { status: runtimeErrorStatus(result.error) })
+      return Response.json(
+        { error: result.error.message },
+        { status: runtimeErrorStatus(result.error) },
+      )
     }
     return Response.json(result.value)
-
   } catch (error) {
     if (!admitted) promptTransform?.rollbackState?.()
     const response = mapSessionTransformError(c, error)
@@ -697,16 +746,29 @@ export async function postSessionCommand(c: Context): Promise<Response> {
       { directory, sessionID },
     )
 
-    const result = await (await getAgentRuntime()).execution.command(buildSessionCommandParameters({ sessionID, directory, body: runtimeSafeBody }), { directory, signal: c.req.raw.signal, onAccepted: async () => {
-      admitted = true
-      await commandTransform?.onAccepted?.().catch((cause: unknown) => { console.warn("Failed to record state after accepted command:", cause) })
-    } })
+    const result = await (
+      await getAgentRuntime()
+    ).execution.command(
+      buildSessionCommandParameters({ sessionID, directory, body: runtimeSafeBody }),
+      {
+        directory,
+        signal: c.req.raw.signal,
+        onAccepted: async () => {
+          admitted = true
+          await commandTransform?.onAccepted?.().catch((cause: unknown) => {
+            console.warn("Failed to record state after accepted command:", cause)
+          })
+        },
+      },
+    )
     if (!result.ok) {
       if (!admitted) commandTransform.rollbackState?.()
-      return Response.json({ error: result.error.message }, { status: runtimeErrorStatus(result.error) })
+      return Response.json(
+        { error: result.error.message },
+        { status: runtimeErrorStatus(result.error) },
+      )
     }
     return Response.json(result.value)
-
   } catch (error) {
     if (!admitted) commandTransform?.rollbackState?.()
     const response = mapSessionTransformError(c, error)

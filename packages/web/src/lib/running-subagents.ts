@@ -5,7 +5,12 @@ import {
   type SubagentOutcome,
   type SubagentPresentation,
 } from "@buddy/transcript-contract/subagent"
-import type { MessagePart, MessageWithParts, SessionInfo, SessionStatusInfo } from "@/state/chat-types"
+import type {
+  MessagePart,
+  MessageWithParts,
+  SessionInfo,
+  SessionStatusInfo,
+} from "@/state/chat-types"
 import { isSessionStatusActive } from "@/state/session-status"
 
 export type SubagentRunStatus = "running" | "waiting" | SubagentOutcome
@@ -62,7 +67,10 @@ function indexSubagentTranscript(messages: readonly MessageWithParts[]): Subagen
       if (launch?.childSessionID) {
         latestRunByChild.set(launch.childSessionID, { launch })
         if (launch.workerStatus === "running") {
-          openLaunches.set(launch.childSessionID, [...(openLaunches.get(launch.childSessionID) ?? []), launchKey(launch)])
+          openLaunches.set(launch.childSessionID, [
+            ...(openLaunches.get(launch.childSessionID) ?? []),
+            launchKey(launch),
+          ])
         }
         continue
       }
@@ -76,10 +84,16 @@ function indexSubagentTranscript(messages: readonly MessageWithParts[]): Subagen
       }
       openLaunches.delete(completion.childSessionID)
       const run = latestRunByChild.get(completion.childSessionID)
-      if (run && !run.completion && run.launch.workerStatus === "running") run.completion = completion
+      if (run && !run.completion && run.launch.workerStatus === "running")
+        run.completion = completion
     }
   }
-  const index = { completions: [...completions.values()], completionByLaunch, exclusiveCompletionLaunches, latestRunByChild }
+  const index = {
+    completions: [...completions.values()],
+    completionByLaunch,
+    exclusiveCompletionLaunches,
+    latestRunByChild,
+  }
   indexes.set(messages, index)
   return index
 }
@@ -88,15 +102,26 @@ export function subagentCompletions(messages: readonly MessageWithParts[]): Suba
   return indexSubagentTranscript(messages).completions
 }
 
-export function completionForSubagent(messages: readonly MessageWithParts[], launch: SubagentPresentation): SubagentCompletion | undefined {
+export function completionForSubagent(
+  messages: readonly MessageWithParts[],
+  launch: SubagentPresentation,
+): SubagentCompletion | undefined {
   return indexSubagentTranscript(messages).completionByLaunch.get(launchKey(launch))
 }
 
-export function completionSettlesSubagent(messages: readonly MessageWithParts[], launch: SubagentPresentation): boolean {
+export function completionSettlesSubagent(
+  messages: readonly MessageWithParts[],
+  launch: SubagentPresentation,
+): boolean {
   return indexSubagentTranscript(messages).exclusiveCompletionLaunches.has(launchKey(launch))
 }
 
-export function subagentRunStatus(launch: SubagentPresentation, completion: SubagentCompletion | undefined, childActive: boolean, settled = false): SubagentRunStatus {
+export function subagentRunStatus(
+  launch: SubagentPresentation,
+  completion: SubagentCompletion | undefined,
+  childActive: boolean,
+  settled = false,
+): SubagentRunStatus {
   if (launch.workerStatus !== "running") return launch.workerStatus
   if (completion && settled) return completion.outcome
   if (childActive) return "running"
@@ -110,13 +135,24 @@ export function deriveRunningSubagents(input: RunningSubagentsInput): RunningSub
     const active = isSessionStatusActive(input.sessionStatusByID[childSessionID])
     const status = subagentRunStatus(run.launch, run.completion, active)
     if (status === "waiting" || (status === "running" && active)) {
-      work.set(childSessionID, { childSessionID, description: run.launch.description, agentID: run.launch.agentID, status, blocking: !run.launch.background })
+      work.set(childSessionID, {
+        childSessionID,
+        description: run.launch.description,
+        agentID: run.launch.agentID,
+        status,
+        blocking: !run.launch.background,
+      })
     }
   }
   for (const session of input.sessions) {
     if (session.parentID !== input.ownerSessionID || work.has(session.id)) continue
     if (!isSessionStatusActive(input.sessionStatusByID[session.id])) continue
-    work.set(session.id, { childSessionID: session.id, description: session.title || undefined, status: "running", blocking: false })
+    work.set(session.id, {
+      childSessionID: session.id,
+      description: session.title || undefined,
+      status: "running",
+      blocking: false,
+    })
   }
   return [...work.values()]
 }

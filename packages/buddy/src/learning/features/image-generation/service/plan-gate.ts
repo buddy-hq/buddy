@@ -1,6 +1,9 @@
 import type { ChatGPTUsage } from "@buddy/agent-runtime/chatgpt"
 
-export function createImagePlanGate(readUsage: () => Promise<ChatGPTUsage>, now: () => number = Date.now) {
+export function createImagePlanGate(
+  readUsage: () => Promise<ChatGPTUsage>,
+  now: () => number = Date.now,
+) {
   let cached: { readonly unavailable: boolean; readonly readAt: number } | undefined
   let pending: Promise<void> | undefined
 
@@ -9,11 +12,16 @@ export function createImagePlanGate(readUsage: () => Promise<ChatGPTUsage>, now:
     pending = (async () => {
       try {
         const usage = await readUsage()
-        cached = { unavailable: usage.status === "ready" && usage.plan?.toLowerCase() === "free", readAt: now() }
+        cached = {
+          unavailable: usage.status === "ready" && usage.plan?.toLowerCase() === "free",
+          readAt: now(),
+        }
       } catch {
         cached = { unavailable: false, readAt: now() }
       }
-    })().finally(() => { pending = undefined })
+    })().finally(() => {
+      pending = undefined
+    })
     return pending
   }
 
@@ -28,7 +36,9 @@ export function createImagePlanGate(readUsage: () => Promise<ChatGPTUsage>, now:
       try {
         await Promise.race([
           refresh(),
-          new Promise<void>((resolve) => { timer = setTimeout(resolve, 1500) }),
+          new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, 1500)
+          }),
         ])
       } finally {
         clearTimeout(timer)

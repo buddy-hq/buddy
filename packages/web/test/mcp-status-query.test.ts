@@ -14,7 +14,11 @@ mock.module("../src/state/chat-actions", () => ({
   loadProjectConfig: async () => ({}),
 }))
 
-const [{ mcpStatusQueryOptions }, { STATUS_LABELS, getMcpStatusLabel, mcpIsPending }, { language }] = await Promise.all([
+const [
+  { mcpStatusQueryOptions },
+  { STATUS_LABELS, getMcpStatusLabel, mcpIsPending },
+  { language },
+] = await Promise.all([
   import("../src/state/mcp-directory-query"),
   import("../src/components/mcp-dialog/mcp-config-schema"),
   import("../src/context/language"),

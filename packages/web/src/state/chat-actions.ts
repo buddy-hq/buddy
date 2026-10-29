@@ -79,7 +79,11 @@ import {
   isSessionStatusActive,
   normalizeSessionStatusValue,
 } from "./session-status"
-import { permissionReplyInput, type PermissionReply, type PermissionRequest } from "./permission-types"
+import {
+  permissionReplyInput,
+  type PermissionReply,
+  type PermissionRequest,
+} from "./permission-types"
 import { appQueryClient } from "./query-client"
 import { v1ImportMayBeIncomplete, v1ImportQueryOptions } from "./v1-import-query"
 import {
@@ -1362,16 +1366,22 @@ export async function loadPermissions(directory: string): Promise<PermissionRequ
   permissionLoadsByDirectory.set(directory, generation)
   try {
     const sessionID = store.directories[directory]?.sessionID
-    const requests: PermissionRequest[] = sessionID === undefined ? [] : requireBuddyData(
-      await getBuddyClient(directory).permission.list({ sessionID }),
+    const requests: PermissionRequest[] =
+      sessionID === undefined
+        ? []
+        : requireBuddyData(await getBuddyClient(directory).permission.list({ sessionID }))
+    if (
+      permissionLoadsByDirectory.get(directory) !== generation ||
+      useChatStore.getState().directories[directory]?.sessionID !== sessionID
     )
-    if (permissionLoadsByDirectory.get(directory) !== generation || useChatStore.getState().directories[directory]?.sessionID !== sessionID) return useChatStore.getState().directories[directory]?.pendingPermissions ?? []
+      return useChatStore.getState().directories[directory]?.pendingPermissions ?? []
     store.setPendingPermissions(directory, requests)
     syncPendingInputProtection(directory)
     store.setDirectoryError(directory, undefined)
     return requests
   } catch (error) {
-    if (permissionLoadsByDirectory.get(directory) !== generation) return useChatStore.getState().directories[directory]?.pendingPermissions ?? []
+    if (permissionLoadsByDirectory.get(directory) !== generation)
+      return useChatStore.getState().directories[directory]?.pendingPermissions ?? []
     store.setDirectoryError(directory, directoryActionError(error))
     throw error
   }
@@ -3011,7 +3021,9 @@ export async function authenticateMcpServer(directory: string, name: string) {
     }),
   )
   if (status.status === "connected") {
-    void getPlatform().focusWindow?.().catch(() => undefined)
+    void getPlatform()
+      .focusWindow?.()
+      .catch(() => undefined)
   }
   const statuses = await loadMcpStatus(directory)
   if (status.status === "failed") {

@@ -8,9 +8,18 @@ export const instruction = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("stream"), key: z.string(), text: z.string() }),
   z.object({ kind: z.literal("read"), path: z.string() }),
   z.object({ kind: z.literal("question") }),
-  z.object({ kind: z.literal("tool"), name: z.string(), arguments: z.record(z.string(), z.json()) }),
+  z.object({
+    kind: z.literal("tool"),
+    name: z.string(),
+    arguments: z.record(z.string(), z.json()),
+  }),
   z.object({ kind: z.literal("catalog"), access: z.enum(["allowed", "denied"]) }),
-  z.object({ kind: z.literal("delegate"), role: z.string(), prompt: z.string(), background: z.boolean().optional() }),
+  z.object({
+    kind: z.literal("delegate"),
+    role: z.string(),
+    prompt: z.string(),
+    background: z.boolean().optional(),
+  }),
 ])
 export type Instruction = z.infer<typeof instruction>
 

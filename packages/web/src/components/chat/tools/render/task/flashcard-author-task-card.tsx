@@ -92,8 +92,16 @@ export function FlashcardAuthorTaskCard({
   directory,
 }: SubagentCardInput) {
   const openBenchRoute = useOpenBench()
-  const { taskTitle, openChildSession, activityLine, activityContent, status, childSessionID, workerFinished, result } =
-    useSubagentCardData({ subagent, state, onOpenSession, directory })
+  const {
+    taskTitle,
+    openChildSession,
+    activityLine,
+    activityContent,
+    status,
+    childSessionID,
+    workerFinished,
+    result,
+  } = useSubagentCardData({ subagent, state, onOpenSession, directory })
   const reducedMotion = useReducedMotion() === true
   const taskResultOutput = result ?? ""
   useRefetchObjectsOnWorkerFinish(directory, workerFinished)

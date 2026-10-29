@@ -1,4 +1,10 @@
-import type { ExtensionHooks, ExtensionLocation, ModelContext, SessionAccess, TextVerbosity } from "@buddy/agent-runtime/extension"
+import type {
+  ExtensionHooks,
+  ExtensionLocation,
+  ModelContext,
+  SessionAccess,
+  TextVerbosity,
+} from "@buddy/agent-runtime/extension"
 import { PRODUCTION_PERSONAS } from "../learning/shared/teaching-vocabulary"
 import { captureSessionSystemPrompt } from "./system-prompt-capture"
 import { readTeachingSessionState } from "../learning/agent-execution/state/session-state"
@@ -40,13 +46,19 @@ function filterInstructionBlocks(text: string): string {
   return kept.join("").trim()
 }
 
-async function transformSessionContext(directory: string, event: ModelContext, imageGenerationUnavailable: () => Promise<boolean>): ReturnType<ExtensionHooks["context"]> {
+async function transformSessionContext(
+  directory: string,
+  event: ModelContext,
+  imageGenerationUnavailable: () => Promise<boolean>,
+): ReturnType<ExtensionHooks["context"]> {
   const options = { textVerbosity: event.textVerbosity }
   const state = readTeachingSessionState(directory, event.sessionID)
   if (PRODUCTION_PERSONA_IDS.has(event.agent)) {
-    const conciseResponses = state?.conciseResponses ?? resolveConciseResponses(
-      await (await import("../config/runtime/project-config")).readProjectConfig(directory),
-    )
+    const conciseResponses =
+      state?.conciseResponses ??
+      resolveConciseResponses(
+        await (await import("../config/runtime/project-config")).readProjectConfig(directory),
+      )
     applyConciseResponseTextVerbosity({ agent: event.agent, conciseResponses, options })
   }
   const baseConciseResponses = state?.baseConciseResponses ?? state?.conciseResponses ?? true
@@ -58,17 +70,31 @@ async function transformSessionContext(directory: string, event: ModelContext, i
     return text.trim()
   })
   await captureSessionSystemPrompt({
-    directory, sessionID: event.sessionID,
+    directory,
+    sessionID: event.sessionID,
     fullSystemPrompt: system.filter((text) => text !== "").join("\n\n"),
   })
-  const hiddenTools = event.tools.includes("imagegen") && await imageGenerationUnavailable() ? ["imagegen"] : undefined
-  return { system, textVerbosity: options.textVerbosity, ...(hiddenTools ? { hiddenTools } : undefined) }
+  const hiddenTools =
+    event.tools.includes("imagegen") && (await imageGenerationUnavailable())
+      ? ["imagegen"]
+      : undefined
+  return {
+    system,
+    textVerbosity: options.textVerbosity,
+    ...(hiddenTools ? { hiddenTools } : undefined),
+  }
 }
 
-export function createBuddyHooks(location: ExtensionLocation, sessions: SessionAccess, options: { readonly imageGenerationUnavailable?: () => Promise<boolean> } = {}): ExtensionHooks {
-  const imageGenerationUnavailable = options.imageGenerationUnavailable ?? (() => imagePlanGate.unavailable())
+export function createBuddyHooks(
+  location: ExtensionLocation,
+  sessions: SessionAccess,
+  options: { readonly imageGenerationUnavailable?: () => Promise<boolean> } = {},
+): ExtensionHooks {
+  const imageGenerationUnavailable =
+    options.imageGenerationUnavailable ?? (() => imagePlanGate.unavailable())
   return {
     ...createBuddySubagentHooks(location.directory, sessions),
-    context: (event) => transformSessionContext(location.directory, event, imageGenerationUnavailable),
+    context: (event) =>
+      transformSessionContext(location.directory, event, imageGenerationUnavailable),
   }
 }

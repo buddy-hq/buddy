@@ -9,14 +9,27 @@ export type RuntimeErrorKind =
   | "unavailable"
   | "internal"
 
-export type RuntimeErrorSubject = "session" | "message" | "permission" | "form" | "provider" | "integration" | "mcp" | "project" | "location"
+export type RuntimeErrorSubject =
+  | "session"
+  | "message"
+  | "permission"
+  | "form"
+  | "provider"
+  | "integration"
+  | "mcp"
+  | "project"
+  | "location"
 
 export class RuntimeError extends Error {
   readonly _tag = "RuntimeError"
   readonly kind: RuntimeErrorKind
   readonly subject?: RuntimeErrorSubject
 
-  constructor(kind: RuntimeErrorKind, message: string, options: { readonly subject?: RuntimeErrorSubject; readonly cause?: unknown } = {}) {
+  constructor(
+    kind: RuntimeErrorKind,
+    message: string,
+    options: { readonly subject?: RuntimeErrorSubject; readonly cause?: unknown } = {},
+  ) {
     super(message, { cause: options.cause })
     this.name = "RuntimeError"
     this.kind = kind
@@ -33,7 +46,11 @@ export function isRuntimeError<TValue>(value: TValue): value is TValue & Runtime
 }
 
 export function isNotFound<TValue>(value: TValue, subject?: RuntimeErrorSubject): boolean {
-  return value instanceof RuntimeError && value.kind === "not_found" && (subject === undefined || value.subject === subject)
+  return (
+    value instanceof RuntimeError &&
+    value.kind === "not_found" &&
+    (subject === undefined || value.subject === subject)
+  )
 }
 
 const STATUS = {

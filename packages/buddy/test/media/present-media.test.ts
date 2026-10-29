@@ -8,11 +8,7 @@ import {
   readPresentedMediaObject,
 } from "../../src/learning/features/media-presentations/service/file-media"
 import { resolveBuddyHomeDirectory } from "../../src/storage/constants"
-import {
-  createBuddyToolContext,
-  requireTool,
-  listBuddyTools,
-} from "../helpers/tools"
+import { createBuddyToolContext, requireTool, listBuddyTools } from "../helpers/tools"
 import { temporaryDirectory } from "../helpers/temporary-directory"
 import { BuddyObjectResultSchema } from "../../src/objects"
 import { tmpdir } from "../helpers/tmpdir"
@@ -169,14 +165,14 @@ describe("present media", () => {
 
     await expect(
       (async () =>
-          buildPresentedMediaObjectOutput({
-            directory: project.path,
-            items: [
-              {
-                path: path.join(missingRoot.path, "does-not-exist.png"),
-              },
-            ],
-          }))(),
+        buildPresentedMediaObjectOutput({
+          directory: project.path,
+          items: [
+            {
+              path: path.join(missingRoot.path, "does-not-exist.png"),
+            },
+          ],
+        }))(),
     ).rejects.toBeInstanceOf(PresentedMediaValidationError)
   })
 

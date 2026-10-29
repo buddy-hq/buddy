@@ -17,7 +17,12 @@ import { useDirectoryChatPageController } from "../src/lib/directory-chat/use-di
 import { encodeDirectory } from "../src/lib/directory-token"
 import { FOLLOWUP_BEHAVIOR_STEER, useChatSettings } from "../src/state/chat-settings"
 import { useChatStore } from "../src/state/chat-store"
-import { createTextPromptDraft, getPromptDraft, getPromptScopeKey, usePromptStore } from "../src/state/prompt-store"
+import {
+  createTextPromptDraft,
+  getPromptDraft,
+  getPromptScopeKey,
+  usePromptStore,
+} from "../src/state/prompt-store"
 import { resetTranscriptRepositoryForTests } from "../src/state/transcript-repository"
 import { seedSkillPresentations } from "./query-test-utils"
 import {
@@ -60,10 +65,17 @@ test("restores a steering message in the composer when the prompt route returns 
   const promptKey = getPromptScopeKey(DIRECTORY, SESSION_ID)
   const requested = Promise.withResolvers<Request>()
   const response = Promise.withResolvers<Response>()
-  const session = { id: SESSION_ID, title: "Steering", directory: DIRECTORY, time: { created: 1, updated: 1 } }
+  const session = {
+    id: SESSION_ID,
+    title: "Steering",
+    directory: DIRECTORY,
+    time: { created: 1, updated: 1 },
+  }
   const model = createProviderModelInfo({ id: "test-model", providerID: "test" })
   const provider = createProviderInfo({ id: "test", connected: true, models: [model] })
-  const messages = [{ info: createUserMessageInfo({ id: "msg_original", sessionID: SESSION_ID }), parts: [] }]
+  const messages = [
+    { info: createUserMessageInfo({ id: "msg_original", sessionID: SESSION_ID }), parts: [] },
+  ]
   let failed = false
   let unsubscribe: (() => void) | undefined
   const transport = installTestFetch(async (input) => {
@@ -74,18 +86,24 @@ test("restores a steering message in the composer when the prompt route returns 
       return response.promise
     }
     if (pathname === "/api/event") {
-      return new Response(new ReadableStream({
-        start(controller) {
-          request.signal.addEventListener("abort", () => controller.close(), { once: true })
-        },
-      }), { headers: { "content-type": "text/event-stream" } })
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            request.signal.addEventListener("abort", () => controller.close(), { once: true })
+          },
+        }),
+        { headers: { "content-type": "text/event-stream" } },
+      )
     }
     if (pathname === "/api/session") return Response.json([session])
     if (pathname === `/api/session/${SESSION_ID}`) return Response.json(session)
     if (pathname === `/api/session/${SESSION_ID}/message`) return Response.json(messages)
-    if (pathname === "/api/session/status") return Response.json(failed ? {} : { [SESSION_ID]: { type: "busy" } })
-    if (pathname === "/api/provider") return Response.json({ providers: [provider], default: { test: model.id } })
-    if (pathname === "/api/config") return Response.json({ default_agent: "buddy", model: "test/test-model" })
+    if (pathname === "/api/session/status")
+      return Response.json(failed ? {} : { [SESSION_ID]: { type: "busy" } })
+    if (pathname === "/api/provider")
+      return Response.json({ providers: [provider], default: { test: model.id } })
+    if (pathname === "/api/config")
+      return Response.json({ default_agent: "buddy", model: "test/test-model" })
     if (pathname === "/api/mcp") return Response.json({})
     if (pathname === "/api/reference") return Response.json({ data: [] })
     return Response.json([])
@@ -150,7 +168,9 @@ test("restores a steering message in the composer when the prompt route returns 
     })
     await act(async () => {
       failed = true
-      response.resolve(Response.json({ error: "Earlier turn failed before delivery" }, { status: 500 }))
+      response.resolve(
+        Response.json({ error: "Earlier turn failed before delivery" }, { status: 500 }),
+      )
       await restored.promise
     })
 

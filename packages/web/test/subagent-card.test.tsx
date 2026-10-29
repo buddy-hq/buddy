@@ -15,20 +15,84 @@ import {
 } from "../src/state/transcript-repository"
 
 const DIRECTORY = "/notebook"
-const LAUNCH: SubagentPresentation = { ownerSessionID: "owner", messageID: "msg_launch", callID: "call", childSessionID: "child", agentID: "general", description: "Research", background: true, workerStatus: "running", startedAt: 10 }
-const LAUNCH_STATE: ToolState = { status: "completed", input: { agent: "general", description: "Research", background: true }, metadata: { sessionID: "child", status: "running" }, attachments: [], output: "The subagent is working in the background" }
+const LAUNCH: SubagentPresentation = {
+  ownerSessionID: "owner",
+  messageID: "msg_launch",
+  callID: "call",
+  childSessionID: "child",
+  agentID: "general",
+  description: "Research",
+  background: true,
+  workerStatus: "running",
+  startedAt: 10,
+}
+const LAUNCH_STATE: ToolState = {
+  status: "completed",
+  input: { agent: "general", description: "Research", background: true },
+  metadata: { sessionID: "child", status: "running" },
+  attachments: [],
+  output: "The subagent is working in the background",
+}
 
-const MESSAGE_BASE = { sessionID: "owner", role: "assistant", parentID: "", agent: "", mode: "", modelID: "", providerID: "", path: { cwd: DIRECTORY, root: DIRECTORY }, cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } } } as const
+const MESSAGE_BASE = {
+  sessionID: "owner",
+  role: "assistant",
+  parentID: "",
+  agent: "",
+  mode: "",
+  modelID: "",
+  providerID: "",
+  path: { cwd: DIRECTORY, root: DIRECTORY },
+  cost: 0,
+  tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+} as const
 
 function seedLaunch() {
-  applyTranscriptMessageUpdated(DIRECTORY, { ...MESSAGE_BASE, id: "msg_launch", time: { created: 10, completed: 15 }, finish: "stop" })
-  applyTranscriptPartUpdated(DIRECTORY, { id: "prt_msg_launch_00000000_tool%3Acall", sessionID: "owner", messageID: "msg_launch", type: "tool", tool: "subagent", callID: "call", state: LAUNCH_STATE, subagent: LAUNCH })
+  applyTranscriptMessageUpdated(DIRECTORY, {
+    ...MESSAGE_BASE,
+    id: "msg_launch",
+    time: { created: 10, completed: 15 },
+    finish: "stop",
+  })
+  applyTranscriptPartUpdated(DIRECTORY, {
+    id: "prt_msg_launch_00000000_tool%3Acall",
+    sessionID: "owner",
+    messageID: "msg_launch",
+    type: "tool",
+    tool: "subagent",
+    callID: "call",
+    state: LAUNCH_STATE,
+    subagent: LAUNCH,
+  })
 }
 
 function deliverCompletion(outcome: SubagentCompletion["outcome"]) {
-  const completion: SubagentCompletion = { ownerSessionID: "owner", childSessionID: "child", messageID: "msg_done", createdAt: 20, description: "Research", outcome, result: "Worker summary" }
-  applyTranscriptMessageUpdated(DIRECTORY, { ...MESSAGE_BASE, id: "msg_done", kind: "synthetic", time: { created: 20, completed: 20 }, finish: "stop" })
-  applyTranscriptPartUpdated(DIRECTORY, { id: "prt_msg_done_00000000_notice", sessionID: "owner", messageID: "msg_done", type: "notice", text: "Subagent completed: Research", source: "subagent", status: outcome, completion })
+  const completion: SubagentCompletion = {
+    ownerSessionID: "owner",
+    childSessionID: "child",
+    messageID: "msg_done",
+    createdAt: 20,
+    description: "Research",
+    outcome,
+    result: "Worker summary",
+  }
+  applyTranscriptMessageUpdated(DIRECTORY, {
+    ...MESSAGE_BASE,
+    id: "msg_done",
+    kind: "synthetic",
+    time: { created: 20, completed: 20 },
+    finish: "stop",
+  })
+  applyTranscriptPartUpdated(DIRECTORY, {
+    id: "prt_msg_done_00000000_notice",
+    sessionID: "owner",
+    messageID: "msg_done",
+    type: "notice",
+    text: "Subagent completed: Research",
+    source: "subagent",
+    status: outcome,
+    completion,
+  })
 }
 
 async function flushEffects() {
@@ -89,13 +153,20 @@ describe("subagent card", () => {
     await act(async () => {
       root.render(
         <TaskToolCard
-          subagent={{ ...LAUNCH, background: false, workerStatus: "completed", description: "Report available tools", result: "This large child response is already summarized by the parent." }}
+          subagent={{
+            ...LAUNCH,
+            background: false,
+            workerStatus: "completed",
+            description: "Report available tools",
+            result: "This large child response is already summarized by the parent.",
+          }}
           state={{
             status: "completed",
             input: { agent: "general", description: "Report available tools" },
             metadata: {},
             attachments: [],
-            output: "<subagent sessionID=\"child\" state=\"completed\">\nThis large child response is already summarized by the parent.\n</subagent>",
+            output:
+              '<subagent sessionID="child" state="completed">\nThis large child response is already summarized by the parent.\n</subagent>',
           }}
         />,
       )
@@ -112,7 +183,13 @@ describe("subagent card", () => {
     await act(async () => {
       root.render(
         <TaskToolCard
-          subagent={{ ...LAUNCH, childSessionID: "child-session", background: false, workerStatus: "completed", description: "Review architecture" }}
+          subagent={{
+            ...LAUNCH,
+            childSessionID: "child-session",
+            background: false,
+            workerStatus: "completed",
+            description: "Review architecture",
+          }}
           state={{
             status: "completed",
             input: { agent: "general", description: "Review architecture" },
@@ -145,7 +222,14 @@ describe("subagent card", () => {
     const opened: string[] = []
     useChatStore.getState().applySessionStatus(DIRECTORY, "child", { type: "busy" })
     await act(async () => {
-      root.render(<TaskToolCard directory={DIRECTORY} subagent={LAUNCH} state={LAUNCH_STATE} onOpenSession={(id) => opened.push(id)} />)
+      root.render(
+        <TaskToolCard
+          directory={DIRECTORY}
+          subagent={LAUNCH}
+          state={LAUNCH_STATE}
+          onOpenSession={(id) => opened.push(id)}
+        />,
+      )
       await flushEffects()
     })
     expect(container.textContent).toContain("Working")
@@ -159,40 +243,73 @@ describe("subagent card", () => {
 
     const button = container.querySelector('[data-component="subagent-card"] > button')
     if (!(button instanceof HTMLButtonElement)) throw new Error("Missing open-child button")
-    await act(async () => { button.click(); await flushEffects() })
+    await act(async () => {
+      button.click()
+      await flushEffects()
+    })
     expect(opened).toEqual(["child"])
   })
 
-  test.each(["completed", "error", "cancelled"] as const)("settles a background card when its %s completion arrives", async (outcome) => {
-    seedLaunch()
-    await act(async () => {
-      root.render(<TooltipProvider><TaskToolCard directory={DIRECTORY} subagent={LAUNCH} state={LAUNCH_STATE} /></TooltipProvider>)
-      await flushEffects()
-    })
-    expect(container.textContent).toContain("Waiting for result")
+  test.each(["completed", "error", "cancelled"] as const)(
+    "settles a background card when its %s completion arrives",
+    async (outcome) => {
+      seedLaunch()
+      await act(async () => {
+        root.render(
+          <TooltipProvider>
+            <TaskToolCard directory={DIRECTORY} subagent={LAUNCH} state={LAUNCH_STATE} />
+          </TooltipProvider>,
+        )
+        await flushEffects()
+      })
+      expect(container.textContent).toContain("Waiting for result")
 
-    await act(async () => {
-      deliverCompletion(outcome)
-      await flushEffects()
-    })
-    expect(container.textContent).not.toContain("Waiting for result")
-    expect(container.textContent).toContain("Research")
-    expect(container.querySelector('[data-component="subagent-card-error-body"]') !== null).toBe(outcome === "error")
-    if (outcome === "error") expect(container.textContent).toContain("Worker summary")
-    if (outcome === "cancelled") expect(container.textContent).toContain("Cancelled")
-  })
+      await act(async () => {
+        deliverCompletion(outcome)
+        await flushEffects()
+      })
+      expect(container.textContent).not.toContain("Waiting for result")
+      expect(container.textContent).toContain("Research")
+      expect(container.querySelector('[data-component="subagent-card-error-body"]') !== null).toBe(
+        outcome === "error",
+      )
+      if (outcome === "error") expect(container.textContent).toContain("Worker summary")
+      if (outcome === "cancelled") expect(container.textContent).toContain("Cancelled")
+    },
+  )
 
-  test.each(["completed", "error", "cancelled"] as const)("links a %s completion row to its child", async (outcome) => {
-    const opened: string[] = []
-    await act(async () => {
-      root.render(<SubagentCompletionRow completion={{ ownerSessionID: "owner", childSessionID: "child", messageID: "msg_done", createdAt: 20, description: "Research", outcome, result: "Details" }} onOpenSession={(id) => opened.push(id)} />)
-      await flushEffects()
-    })
-    expect(container.querySelector('[role="status"]')?.textContent).toContain(outcome === "error" ? "Failed" : outcome === "cancelled" ? "Cancelled" : "Completed")
-    expect(container.textContent).not.toContain("Details")
-    const button = container.querySelector("button")
-    if (!button) throw new Error("Missing completion button")
-    await act(async () => { button.click(); await flushEffects() })
-    expect(opened).toEqual(["child"])
-  })
+  test.each(["completed", "error", "cancelled"] as const)(
+    "links a %s completion row to its child",
+    async (outcome) => {
+      const opened: string[] = []
+      await act(async () => {
+        root.render(
+          <SubagentCompletionRow
+            completion={{
+              ownerSessionID: "owner",
+              childSessionID: "child",
+              messageID: "msg_done",
+              createdAt: 20,
+              description: "Research",
+              outcome,
+              result: "Details",
+            }}
+            onOpenSession={(id) => opened.push(id)}
+          />,
+        )
+        await flushEffects()
+      })
+      expect(container.querySelector('[role="status"]')?.textContent).toContain(
+        outcome === "error" ? "Failed" : outcome === "cancelled" ? "Cancelled" : "Completed",
+      )
+      expect(container.textContent).not.toContain("Details")
+      const button = container.querySelector("button")
+      if (!button) throw new Error("Missing completion button")
+      await act(async () => {
+        button.click()
+        await flushEffects()
+      })
+      expect(opened).toEqual(["child"])
+    },
+  )
 })

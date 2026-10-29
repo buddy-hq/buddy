@@ -15,8 +15,14 @@ import {
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import { PermissionDockPathValue } from "@/components/directory-chat/permission-dock-path-value"
-import { PermissionDockTitle, getPermissionDockHeadline } from "@/components/directory-chat/permission-dock-title"
-import { getPermissionDockBody, rememberedApprovalDescription } from "@/lib/permission-dock-locations"
+import {
+  PermissionDockTitle,
+  getPermissionDockHeadline,
+} from "@/components/directory-chat/permission-dock-title"
+import {
+  getPermissionDockBody,
+  rememberedApprovalDescription,
+} from "@/lib/permission-dock-locations"
 import type { PermissionRequest } from "@/state/permission-types"
 import type { PermissionReply } from "@/state/permission-types"
 
@@ -119,7 +125,13 @@ function PermissionDockContent(props: PermissionDockProps) {
   const [replyError, setReplyError] = useState<string>()
   const headline = getPermissionDockHeadline(props.request)
   const body = getPermissionDockBody(props.request)
-  const hasBodyContent = body.kind !== "none" || (props.pendingCount ?? 0) > 0 || Boolean(props.request.message) || Boolean(props.request.save?.length) || feedbackOpen || Boolean(replyError)
+  const hasBodyContent =
+    body.kind !== "none" ||
+    (props.pendingCount ?? 0) > 0 ||
+    Boolean(props.request.message) ||
+    Boolean(props.request.save?.length) ||
+    feedbackOpen ||
+    Boolean(replyError)
 
   async function onDecide(reply: PermissionReply) {
     if (responding) return
@@ -183,16 +195,39 @@ function PermissionDockContent(props: PermissionDockProps) {
               <PermissionPathList paths={body.lines} requestID={props.request.id} scope="detail" />
             ) : null}
 
-            {props.request.message ? <p className="text-xs text-text-weak">{props.request.message}</p> : null}
-            {props.request.save?.length ? <p className="text-xs text-text-weak">{rememberedApprovalDescription(props.request)}</p> : null}
+            {props.request.message ? (
+              <p className="text-xs text-text-weak">{props.request.message}</p>
+            ) : null}
+            {props.request.save?.length ? (
+              <p className="text-xs text-text-weak">
+                {rememberedApprovalDescription(props.request)}
+              </p>
+            ) : null}
             {feedbackOpen ? (
               <Field>
-                <FieldLabel htmlFor={`permission-feedback-${props.request.id}`}>Tell Buddy what to do instead</FieldLabel>
-                <Textarea id={`permission-feedback-${props.request.id}`} value={feedback} onChange={(event) => setFeedback(event.target.value)} disabled={responding} />
-                <Button size="sm" disabled={responding || feedback.trim().length === 0} onClick={() => void onDecide({ reply: "reject", message: feedback.trim() })}>Deny and send feedback</Button>
+                <FieldLabel htmlFor={`permission-feedback-${props.request.id}`}>
+                  Tell Buddy what to do instead
+                </FieldLabel>
+                <Textarea
+                  id={`permission-feedback-${props.request.id}`}
+                  value={feedback}
+                  onChange={(event) => setFeedback(event.target.value)}
+                  disabled={responding}
+                />
+                <Button
+                  size="sm"
+                  disabled={responding || feedback.trim().length === 0}
+                  onClick={() => void onDecide({ reply: "reject", message: feedback.trim() })}
+                >
+                  Deny and send feedback
+                </Button>
               </Field>
             ) : null}
-            {replyError ? <p role="status" className="text-xs text-text-critical-base">{replyError}</p> : null}
+            {replyError ? (
+              <p role="status" className="text-xs text-text-critical-base">
+                {replyError}
+              </p>
+            ) : null}
             {(props.pendingCount ?? 0) > 0 ? (
               <p className="text-xs text-text-weak">
                 {language.t(
@@ -207,7 +242,13 @@ function PermissionDockContent(props: PermissionDockProps) {
         ) : null}
 
         <CardFooter className="flex-wrap justify-end gap-2">
-          <PermissionAction variant="outline" disabled={responding} onClick={() => setFeedbackOpen((open) => !open)} label="Deny with feedback" description="Deny this action and let Buddy continue with your note." />
+          <PermissionAction
+            variant="outline"
+            disabled={responding}
+            onClick={() => setFeedbackOpen((open) => !open)}
+            label="Deny with feedback"
+            description="Deny this action and let Buddy continue with your note."
+          />
           <PermissionAction
             variant="outline"
             disabled={responding}

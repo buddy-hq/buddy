@@ -9,21 +9,34 @@ import { deriveRunningSubagents, subagentCompletions } from "./running-subagents
 const NO_SESSIONS: readonly SessionInfo[] = []
 const NO_STATUSES: Readonly<Record<string, SessionStatusInfo>> = {}
 
-export function useRunningSubagents(directory: string | undefined, ownerSessionID: string | undefined) {
+export function useRunningSubagents(
+  directory: string | undefined,
+  ownerSessionID: string | undefined,
+) {
   const messages = useTranscriptSessionMessages(directory, ownerSessionID)
-  const { sessions, sessionStatusByID } = useChatStore(useShallow((store) => {
-    const state = directory ? store.directories[directory] : undefined
-    return { sessions: state?.sessions ?? NO_SESSIONS, sessionStatusByID: state?.sessionStatusByID ?? NO_STATUSES }
-  }))
+  const { sessions, sessionStatusByID } = useChatStore(
+    useShallow((store) => {
+      const state = directory ? store.directories[directory] : undefined
+      return {
+        sessions: state?.sessions ?? NO_SESSIONS,
+        sessionStatusByID: state?.sessionStatusByID ?? NO_STATUSES,
+      }
+    }),
+  )
   const running = useMemo(
-    () => ownerSessionID ? deriveRunningSubagents({ ownerSessionID, messages, sessions, sessionStatusByID }) : [],
+    () =>
+      ownerSessionID
+        ? deriveRunningSubagents({ ownerSessionID, messages, sessions, sessionStatusByID })
+        : [],
     [messages, ownerSessionID, sessionStatusByID, sessions],
   )
   return { running, completions: subagentCompletions(messages) }
 }
 
 export async function stopSubagent(directory: string, childSessionID: string) {
-  return requireBuddyData(await getBuddyClient(directory).session.abort({ sessionID: childSessionID }))
+  return requireBuddyData(
+    await getBuddyClient(directory).session.abort({ sessionID: childSessionID }),
+  )
 }
 
 export async function continueSubagentsInBackground(directory: string, ownerSessionID: string) {

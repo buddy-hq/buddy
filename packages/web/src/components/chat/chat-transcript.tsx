@@ -40,7 +40,13 @@ import {
   useTranscriptSessionMessages,
   useTranscriptSessionMeta,
 } from "@/state/transcript-repository"
-import type { MessageInfo, MessagePart, ProviderInfo, SessionStatusInfo, SessionStoppedTurn } from "@/state/chat-types"
+import type {
+  MessageInfo,
+  MessagePart,
+  ProviderInfo,
+  SessionStatusInfo,
+  SessionStoppedTurn,
+} from "@/state/chat-types"
 import {
   getTranscriptPerformanceProbe,
   recordTranscriptPerfEvent,

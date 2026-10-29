@@ -10,13 +10,20 @@ export type TPermissionDockBody =
 export function getPermissionDockBody(request: PermissionRequest): TPermissionDockBody {
   if (request.action === "outside_notebook") {
     const file = readNonEmptyString(request.file)
-    return { kind: "outside_notebook", file, command: file ? undefined : readNonEmptyString(request.command), folders: request.resources }
+    return {
+      kind: "outside_notebook",
+      file,
+      command: file ? undefined : readNonEmptyString(request.command),
+      folders: request.resources,
+    }
   }
   if (request.action === "shell") {
     const command = request.resources.join("\n") || readNonEmptyString(request.command)
     return command ? { kind: "command", command } : { kind: "none" }
   }
-  return request.resources.length > 0 ? { kind: "detail", lines: request.resources } : { kind: "none" }
+  return request.resources.length > 0
+    ? { kind: "detail", lines: request.resources }
+    : { kind: "none" }
 }
 
 export function rememberedApprovalDescription(request: PermissionRequest): string {

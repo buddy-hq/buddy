@@ -305,11 +305,13 @@ async function checkCrossPackageSrcImports(findings: Finding[]) {
 }
 
 async function checkOpenCodeImportBoundary(findings: Finding[]) {
-  const codeFiles = (await Promise.all([
-    scanFiles("packages/**/*.{ts,tsx,js,mjs,cjs}"),
-    scanFiles("script/**/*.{ts,tsx,js,mjs,cjs}"),
-    scanFiles("*.{ts,tsx,js,mjs,cjs}"),
-  ])).flat()
+  const codeFiles = (
+    await Promise.all([
+      scanFiles("packages/**/*.{ts,tsx,js,mjs,cjs}"),
+      scanFiles("script/**/*.{ts,tsx,js,mjs,cjs}"),
+      scanFiles("*.{ts,tsx,js,mjs,cjs}"),
+    ])
+  ).flat()
   for (const file of codeFiles) {
     const relativePath = toRepoPath(file)
     if (
@@ -335,7 +337,8 @@ async function checkOpenCodeImportBoundary(findings: Finding[]) {
       if (
         !relativePath.startsWith("packages/") &&
         !resolvedPath?.startsWith("vendor/opencode/packages/ui/")
-      ) continue
+      )
+        continue
       if (!isOpenCodePackage && !isVendoredOpenCodePath) continue
 
       findings.push({
@@ -369,11 +372,18 @@ async function checkBuddyOpenCodeAdapterBoundary(findings: Finding[]) {
   const buddyFiles = await scanFiles("packages/buddy/{src,test}/**/*.{ts,tsx,js,mjs,cjs}")
   for (const file of buddyFiles) {
     const relativePath = toRepoPath(file)
-    if (BUDDY_OPENCODE_ADAPTER_ALLOWED_PREFIXES.some((prefix) =>
-      prefix.endsWith("/") ? relativePath.startsWith(prefix) : relativePath === prefix
-    )) continue
+    if (
+      BUDDY_OPENCODE_ADAPTER_ALLOWED_PREFIXES.some((prefix) =>
+        prefix.endsWith("/") ? relativePath.startsWith(prefix) : relativePath === prefix,
+      )
+    )
+      continue
     for (const specifier of getImportSpecifiers(readFileSync(file, "utf8"))) {
-      if (specifier !== "@buddy/opencode-adapter" && !specifier.startsWith("@buddy/opencode-adapter/")) continue
+      if (
+        specifier !== "@buddy/opencode-adapter" &&
+        !specifier.startsWith("@buddy/opencode-adapter/")
+      )
+        continue
       findings.push({
         file: relativePath,
         message: `Buddy imports "${specifier}" outside the composition roots, slice-2 files and their test support, or conformance harnesses. Use getAgentRuntime() and Buddy-owned ports. Slice 2 shrinks this allowlist.`,

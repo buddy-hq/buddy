@@ -1,10 +1,5 @@
 import type { HexColor } from "./opencode/types"
-import {
-  hexToOklch,
-  hexToRgb,
-  oklchToHex,
-  rgbToHex,
-} from "./opencode/color"
+import { hexToOklch, hexToRgb, oklchToHex, rgbToHex } from "./opencode/color"
 
 export const CONTRAST_TARGET = {
   normalText: 4.5,

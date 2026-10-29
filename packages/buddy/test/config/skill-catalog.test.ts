@@ -4,7 +4,10 @@ import os from "node:os"
 import path from "node:path"
 import type { NotebookDiagnostic } from "@buddy/agent-runtime/notebook-plan"
 import { Config } from "../../src/config/config"
-import { buildNotebookRuntimePlan, readSkillCatalog } from "../../src/config/runtime/notebook-runtime-plan"
+import {
+  buildNotebookRuntimePlan,
+  readSkillCatalog,
+} from "../../src/config/runtime/notebook-runtime-plan"
 import { Global } from "../../src/storage"
 
 async function createFixture() {
@@ -20,7 +23,10 @@ async function createFixture() {
 
 async function writeSkill(filepath: string, name: string) {
   await fs.mkdir(path.dirname(filepath), { recursive: true })
-  await fs.writeFile(filepath, `---\nname: ${name}\ndescription: A valid skill\n---\n\nSkill instructions\n`)
+  await fs.writeFile(
+    filepath,
+    `---\nname: ${name}\ndescription: A valid skill\n---\n\nSkill instructions\n`,
+  )
 }
 
 describe("skill catalog", () => {
@@ -29,11 +35,15 @@ describe("skill catalog", () => {
     const vendorRoot = path.join(Global.Path.home, ".claude", "skills")
     await writeSkill(path.join(vendorRoot, "x", "SKILL.md"), "x")
 
-    const defaultPlan = await buildNotebookRuntimePlan({ config: Config.Info.parse({}), directory: fixture.directory })
+    const defaultPlan = await buildNotebookRuntimePlan({
+      config: Config.Info.parse({}),
+      directory: fixture.directory,
+    })
     expect(defaultPlan.excludedSkillRoots).toContain(await fs.realpath(vendorRoot))
 
     const optedInPlan = await buildNotebookRuntimePlan({
-      config: Config.Info.parse({ skills_external_vendor_roots_enabled: true }), directory: fixture.directory,
+      config: Config.Info.parse({ skills_external_vendor_roots_enabled: true }),
+      directory: fixture.directory,
     })
     expect(optedInPlan.excludedSkillRoots).toEqual([])
   })
@@ -44,18 +54,29 @@ describe("skill catalog", () => {
     const brokenFile = path.join(fixture.root, "b", "SKILL.md")
     await writeSkill(validFile, "a")
     await fs.mkdir(path.dirname(brokenFile), { recursive: true })
-    await fs.writeFile(brokenFile, "---\nname: b\ndescription: [unterminated\n---\n\nBroken skill\n")
+    await fs.writeFile(
+      brokenFile,
+      "---\nname: b\ndescription: [unterminated\n---\n\nBroken skill\n",
+    )
     const diagnostics: NotebookDiagnostic[] = []
 
     const skills = await readSkillCatalog([fixture.root], diagnostics)
 
     expect(skills).toContainEqual({
-      id: "a", name: "a", path: validFile, description: "A valid skill", content: "Skill instructions",
+      id: "a",
+      name: "a",
+      path: validFile,
+      description: "A valid skill",
+      content: "Skill instructions",
     })
-    expect(diagnostics).toEqual([{
-      path: brokenFile,
-      message: expect.stringMatching(/^Skipped skill: its frontmatter is not valid YAML \([^\r\n]+\)$/),
-    }])
+    expect(diagnostics).toEqual([
+      {
+        path: brokenFile,
+        message: expect.stringMatching(
+          /^Skipped skill: its frontmatter is not valid YAML \([^\r\n]+\)$/,
+        ),
+      },
+    ])
   })
 
   test("follows linked skill directories and stops directory cycles", async () => {
@@ -70,8 +91,11 @@ describe("skill catalog", () => {
     const skills = await readSkillCatalog([fixture.root], diagnostics)
 
     expect(skills).toContainEqual({
-      id: "linked", name: "linked", path: path.join(linked, "SKILL.md"),
-      description: "A valid skill", content: "Skill instructions",
+      id: "linked",
+      name: "linked",
+      path: path.join(linked, "SKILL.md"),
+      description: "A valid skill",
+      content: "Skill instructions",
     })
     expect(diagnostics).toEqual([])
   })
@@ -88,14 +112,22 @@ describe("skill catalog", () => {
     const skills = await readSkillCatalog([fixture.root], diagnostics)
 
     expect(skills).toContainEqual({
-      id: "c", name: "c", path: linked, description: "A valid skill", content: "Skill instructions",
+      id: "c",
+      name: "c",
+      path: linked,
+      description: "A valid skill",
+      content: "Skill instructions",
     })
     expect(diagnostics).toEqual([])
   })
 
   test("ignores broken links", async () => {
     await using fixture = await createFixture()
-    await fs.symlink(path.join(fixture.directory, "missing"), path.join(fixture.root, "gone"), "junction")
+    await fs.symlink(
+      path.join(fixture.directory, "missing"),
+      path.join(fixture.root, "gone"),
+      "junction",
+    )
     const diagnostics: NotebookDiagnostic[] = []
 
     const skills = await readSkillCatalog([fixture.root], diagnostics)

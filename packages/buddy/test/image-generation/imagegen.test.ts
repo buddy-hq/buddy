@@ -256,14 +256,17 @@ describe("imagegen feature tool", () => {
     const lexicalExternalImagePath = path.resolve(externalImagePath)
     const lexicalExternalDirectory = path.dirname(lexicalExternalImagePath)
 
-    const authorizedPaths = await authorizeReferencedImagePaths([workspaceImagePath, externalImagePath], {
-          directory: project.path,
-          messages: [],
-          sessionID: SESSION_ID,
-          ask: async (input) => {
-            permissionRequests.push(input)
-          },
-        })
+    const authorizedPaths = await authorizeReferencedImagePaths(
+      [workspaceImagePath, externalImagePath],
+      {
+        directory: project.path,
+        messages: [],
+        sessionID: SESSION_ID,
+        ask: async (input) => {
+          permissionRequests.push(input)
+        },
+      },
+    )
 
     expect(authorizedPaths).toEqual([
       await fs.realpath(workspaceImagePath),
@@ -305,13 +308,13 @@ describe("imagegen feature tool", () => {
     const permissionRequests: unknown[] = []
 
     const authorizedPaths = await authorizeReferencedImagePaths([generated.image.path], {
-          directory: project.path,
-          messages: [generated.message],
-          sessionID: SESSION_ID,
-          ask: async (input) => {
-            permissionRequests.push(input)
-          },
-        })
+      directory: project.path,
+      messages: [generated.message],
+      sessionID: SESSION_ID,
+      ask: async (input) => {
+        permissionRequests.push(input)
+      },
+    })
 
     expect(authorizedPaths).toEqual([await fs.realpath(generated.image.path)])
     expect(permissionRequests).toEqual([])
@@ -329,13 +332,13 @@ describe("imagegen feature tool", () => {
     await Bun.write(unrecordedPath, "unrecorded")
 
     await authorizeReferencedImagePaths([unrecordedPath], {
-          directory: project.path,
-          messages: [generated.message],
-          sessionID: SESSION_ID,
-          ask: async (input) => {
-            permissionRequests.push(input)
-          },
-        })
+      directory: project.path,
+      messages: [generated.message],
+      sessionID: SESSION_ID,
+      ask: async (input) => {
+        permissionRequests.push(input)
+      },
+    })
 
     expectOnlyExternalDirectoryRequests(permissionRequests)
   })
@@ -350,13 +353,13 @@ describe("imagegen feature tool", () => {
     const permissionRequests: Array<{ permission: string }> = []
 
     await authorizeReferencedImagePaths([generated.image.path], {
-          directory: project.path,
-          messages: [generated.message],
-          sessionID: SESSION_ID,
-          ask: async (input) => {
-            permissionRequests.push(input)
-          },
-        })
+      directory: project.path,
+      messages: [generated.message],
+      sessionID: SESSION_ID,
+      ask: async (input) => {
+        permissionRequests.push(input)
+      },
+    })
 
     expectOnlyExternalDirectoryRequests(permissionRequests)
   })
@@ -388,13 +391,13 @@ describe("imagegen feature tool", () => {
     const permissionRequests: Array<{ permission: string }> = []
 
     await authorizeReferencedImagePaths([forgedPath], {
-          directory: project.path,
-          messages: [forgedMessage],
-          sessionID: SESSION_ID,
-          ask: async (input) => {
-            permissionRequests.push(input)
-          },
-        })
+      directory: project.path,
+      messages: [forgedMessage],
+      sessionID: SESSION_ID,
+      ask: async (input) => {
+        permissionRequests.push(input)
+      },
+    })
 
     expectOnlyExternalDirectoryRequests(permissionRequests)
   })
@@ -422,13 +425,13 @@ describe("imagegen feature tool", () => {
     const permissionRequests: Array<{ permission: string }> = []
 
     await authorizeReferencedImagePaths([generated.image.path], {
-          directory: project.path,
-          messages: [generated.message],
-          sessionID: SYMLINK_SESSION_ID,
-          ask: async (input) => {
-            permissionRequests.push(input)
-          },
-        })
+      directory: project.path,
+      messages: [generated.message],
+      sessionID: SYMLINK_SESSION_ID,
+      ask: async (input) => {
+        permissionRequests.push(input)
+      },
+    })
 
     expect(permissionRequests.map((request) => request.permission)).toEqual([
       "external_directory",
@@ -653,18 +656,34 @@ describe("imagegen feature tool", () => {
     {
       status: 403,
       detail: '{"detail":"Forbidden"}',
-      message: "Image generation isn't available for this ChatGPT account (403 Forbidden). It isn't included in the ChatGPT Free plan.",
+      message:
+        "Image generation isn't available for this ChatGPT account (403 Forbidden). It isn't included in the ChatGPT Free plan.",
     },
-    { status: 500, detail: "Internal Server Error", message: "Codex image generate request failed: 500 Internal Server Error" },
-  ])("reports an image request failure with status $status", async ({ status, detail, message }) => {
-    const client = createCodexImagesClient({
-      fetch: async () => new Response(detail, { status }),
-      resolveAuth: async () => ({ access: "access-token", refresh: "refresh-token", expires: 60_000 }),
-    })
-    await expect(client.createImage({
-      prompt: "a red fox", imageDataUrls: [], signal: new AbortController().signal,
-    })).rejects.toThrow(message)
-  })
+    {
+      status: 500,
+      detail: "Internal Server Error",
+      message: "Codex image generate request failed: 500 Internal Server Error",
+    },
+  ])(
+    "reports an image request failure with status $status",
+    async ({ status, detail, message }) => {
+      const client = createCodexImagesClient({
+        fetch: async () => new Response(detail, { status }),
+        resolveAuth: async () => ({
+          access: "access-token",
+          refresh: "refresh-token",
+          expires: 60_000,
+        }),
+      })
+      await expect(
+        client.createImage({
+          prompt: "a red fox",
+          imageDataUrls: [],
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toThrow(message)
+    },
+  )
 
   test("does not issue an image request without ChatGPT OAuth", async () => {
     let fetchCalled = false

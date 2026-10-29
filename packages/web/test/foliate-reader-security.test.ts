@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, expect, test } from "bun:test"
-import { TransformStream as WebTransformStream, WritableStream as WebWritableStream } from "node:stream/web"
+import {
+  TransformStream as WebTransformStream,
+  WritableStream as WebWritableStream,
+} from "node:stream/web"
 import { View, makeBook } from "foliate-js/view.js"
 import { openFoliateBook } from "../src/components/readers/foliate-book"
 import { ensureFoliateRuntimeCompat } from "../src/lib/foliate/ensure-foliate-runtime-compat"
@@ -12,7 +15,8 @@ type QuerySelectorAll<TParent> = <E extends Element = Element>(
 
 const elementQuerySelectorAll: QuerySelectorAll<Element> = Element.prototype.querySelectorAll
 const documentQuerySelectorAll: QuerySelectorAll<Document> = XMLDocument.prototype.querySelectorAll
-const htmlDocumentQuerySelectorAll: QuerySelectorAll<Document> = HTMLDocument.prototype.querySelectorAll
+const htmlDocumentQuerySelectorAll: QuerySelectorAll<Document> =
+  HTMLDocument.prototype.querySelectorAll
 
 const originals = {
   lookupNamespaceURI: Object.getOwnPropertyDescriptor(Node.prototype, "lookupNamespaceURI"),
@@ -52,14 +56,24 @@ beforeAll(() => {
     settings.disableIframePageLoading = true
     settings.handleDisabledFileLoadingAsSuccess = true
   }
-  Object.defineProperty(globalThis, "WritableStream", { configurable: true, value: WebWritableStream })
-  Object.defineProperty(globalThis, "TransformStream", { configurable: true, value: WebTransformStream })
+  Object.defineProperty(globalThis, "WritableStream", {
+    configurable: true,
+    value: WebWritableStream,
+  })
+  Object.defineProperty(globalThis, "TransformStream", {
+    configurable: true,
+    value: WebTransformStream,
+  })
   Object.defineProperty(Node.prototype, "lookupNamespaceURI", {
     configurable: true,
     value(this: Node, prefix: string | null) {
       const element = this instanceof Document ? this.documentElement : this
       if (!(element instanceof Element)) return null
-      return element.getAttribute(prefix ? `xmlns:${prefix}` : "xmlns") ?? element.parentElement?.lookupNamespaceURI(prefix) ?? null
+      return (
+        element.getAttribute(prefix ? `xmlns:${prefix}` : "xmlns") ??
+        element.parentElement?.lookupNamespaceURI(prefix) ??
+        null
+      )
     },
   })
   Object.defineProperty(Node.prototype, "lookupPrefix", {
@@ -67,20 +81,38 @@ beforeAll(() => {
     value(this: Node, namespace: string | null) {
       const element = this instanceof Document ? this.documentElement : this
       if (!(element instanceof Element)) return null
-      return Array.from(element.attributes).find((attr) => attr.name.startsWith("xmlns:") && attr.value === namespace)?.name.slice(6) ?? element.parentElement?.lookupPrefix(namespace) ?? null
+      return (
+        Array.from(element.attributes)
+          .find((attr) => attr.name.startsWith("xmlns:") && attr.value === namespace)
+          ?.name.slice(6) ??
+        element.parentElement?.lookupPrefix(namespace) ??
+        null
+      )
     },
   })
-  Element.prototype.querySelectorAll = function <E extends Element = Element>(selectors: string): NodeListOf<E> {
+  Element.prototype.querySelectorAll = function <E extends Element = Element>(
+    selectors: string,
+  ): NodeListOf<E> {
     if (selectors === "[*|href]:not([href])") {
       return (originals.querySelectorAll<E>).call(this, "[xlink\\:href]:not([href])")
     }
     return (originals.querySelectorAll<E>).call(this, selectors)
   }
-  XMLDocument.prototype.querySelectorAll = function <E extends Element = Element>(selectors: string): NodeListOf<E> {
-    return (originals.documentQuerySelectorAll<E>).call(this, selectors === "[*|href]:not([href])" ? "[xlink\\:href]:not([href])" : selectors)
+  XMLDocument.prototype.querySelectorAll = function <E extends Element = Element>(
+    selectors: string,
+  ): NodeListOf<E> {
+    return (originals.documentQuerySelectorAll<E>).call(
+      this,
+      selectors === "[*|href]:not([href])" ? "[xlink\\:href]:not([href])" : selectors,
+    )
   }
-  HTMLDocument.prototype.querySelectorAll = function <E extends Element = Element>(selectors: string): NodeListOf<E> {
-    return (originals.htmlDocumentQuerySelectorAll<E>).call(this, selectors === "[*|href]:not([href])" ? "[xlink\\:href]:not([href])" : selectors)
+  HTMLDocument.prototype.querySelectorAll = function <E extends Element = Element>(
+    selectors: string,
+  ): NodeListOf<E> {
+    return (originals.htmlDocumentQuerySelectorAll<E>).call(
+      this,
+      selectors === "[*|href]:not([href])" ? "[xlink\\:href]:not([href])" : selectors,
+    )
   }
   URL.createObjectURL = (blob) => {
     if (!(blob instanceof Blob)) throw new Error("Expected a chapter Blob")
@@ -88,7 +120,9 @@ beforeAll(() => {
     blobs.set(url, blob)
     return url
   }
-  URL.revokeObjectURL = (url) => { blobs.delete(url) }
+  URL.revokeObjectURL = (url) => {
+    blobs.delete(url)
+  }
 })
 
 afterAll(() => {
@@ -104,13 +138,17 @@ afterAll(() => {
   HTMLDocument.prototype.querySelectorAll = originals.htmlDocumentQuerySelectorAll
   URL.createObjectURL = originals.createObjectURL
   URL.revokeObjectURL = originals.revokeObjectURL
-  if (originals.writableStream) Object.defineProperty(globalThis, "WritableStream", originals.writableStream)
-  if (originals.transformStream) Object.defineProperty(globalThis, "TransformStream", originals.transformStream)
+  if (originals.writableStream)
+    Object.defineProperty(globalThis, "WritableStream", originals.writableStream)
+  if (originals.transformStream)
+    Object.defineProperty(globalThis, "TransformStream", originals.transformStream)
   blobs.clear()
 })
 
 test("Buddy's real Foliate integration strips executable EPUB content before chapter blobs are made", async () => {
-  const fixture = await Bun.file(new URL("./fixtures/scripted-chapter.epub", import.meta.url)).arrayBuffer()
+  const fixture = await Bun.file(
+    new URL("./fixtures/scripted-chapter.epub", import.meta.url),
+  ).arrayBuffer()
   const file = new File([fixture], "scripted-chapter.epub", { type: "application/epub+zip" })
   const view = new View()
   try {
@@ -127,7 +165,9 @@ test("Buddy's real Foliate integration strips executable EPUB content before cha
     expect(doc.querySelector("h1")?.textContent).toBe("Chapter text")
     const meta = doc.querySelector("head")?.firstElementChild
     expect(meta?.getAttribute("http-equiv")).toBe("Content-Security-Policy")
-    expect(meta?.getAttribute("content")).toBe("script-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'")
+    expect(meta?.getAttribute("content")).toBe(
+      "script-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'",
+    )
 
     const xmlChapter = view.book.sections[1]
     if (!xmlChapter) throw new Error("Fixture XML chapter was not loaded")
@@ -144,10 +184,14 @@ test("Buddy's real Foliate integration strips executable EPUB content before cha
 })
 
 test("CBZ pages keep archive content in an image instead of a runnable document", async () => {
-  const fixture = await Bun.file(new URL("./fixtures/image-only.cbz", import.meta.url)).arrayBuffer()
+  const fixture = await Bun.file(
+    new URL("./fixtures/image-only.cbz", import.meta.url),
+  ).arrayBuffer()
   const view = new View()
   try {
-    expect(await openFoliateBook(view, new File([fixture], "image-only.cbz"))).toEqual({ status: "opened" })
+    expect(await openFoliateBook(view, new File([fixture], "image-only.cbz"))).toEqual({
+      status: "opened",
+    })
     const chapter = view.book.sections[0]
     if (!chapter) throw new Error("CBZ image page was not loaded")
     const page = blobs.get(await chapter.load())
@@ -169,9 +213,13 @@ test("CBZ pages keep archive content in an image instead of a runnable document"
 })
 
 test("rejects executable FB2 content before it reaches the reader view", async () => {
-  const source = '<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink"><description><title-info><book-title>Unsafe link</book-title></title-info></description><body><section><p><a l:href="javascript:bad()">Link</a></p></section></body></FictionBook>'
+  const source =
+    '<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink"><description><title-info><book-title>Unsafe link</book-title></title-info></description><body><section><p><a l:href="javascript:bad()">Link</a></p></section></body></FictionBook>'
   const view = new View()
-  const result = await openFoliateBook(view, new File([source], "book.fb2", { type: "application/x-fictionbook+xml" }))
+  const result = await openFoliateBook(
+    view,
+    new File([source], "book.fb2", { type: "application/x-fictionbook+xml" }),
+  )
   expect(result.status).toBe("error")
   if (result.status !== "error") throw new Error("FB2 must not open")
   expect(result.error.message).toBe("This book format cannot be opened safely. Use EPUB instead.")
@@ -210,18 +258,27 @@ function elementStructure(doc: Document | undefined) {
 
 function textStructure(doc: Document) {
   const elements = Array.from(doc.getElementsByTagName("*"))
-  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_CDATA_SECTION, {
-    acceptNode: (node) => node.nodeType === Node.ELEMENT_NODE
-      ? ["script", "style"].includes(node.nodeName.toLowerCase()) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP
-      : NodeFilter.FILTER_ACCEPT,
-  })
+  const walker = doc.createTreeWalker(
+    doc.body,
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_CDATA_SECTION,
+    {
+      acceptNode: (node) =>
+        node.nodeType === Node.ELEMENT_NODE
+          ? ["script", "style"].includes(node.nodeName.toLowerCase())
+            ? NodeFilter.FILTER_REJECT
+            : NodeFilter.FILTER_SKIP
+          : NodeFilter.FILTER_ACCEPT,
+    },
+  )
   const nodes = []
   let offset = 0
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const text = node.nodeValue ?? ""
     nodes.push({
       parent: node.parentElement ? elements.indexOf(node.parentElement) : -1,
-      index: node.parentNode ? Array.from(node.parentNode.childNodes).findIndex((child) => child === node) : -1,
+      index: node.parentNode
+        ? Array.from(node.parentNode.childNodes).findIndex((child) => child === node)
+        : -1,
       text,
       startOffset: offset,
       endOffset: offset + text.length,
@@ -266,7 +323,9 @@ test("an SVG fixed-layout page shows its raster image, drawing and text inline, 
     const csp = doc.querySelector("head")?.firstElementChild
     expect(csp?.getAttribute("http-equiv")).toBe("Content-Security-Policy")
     expect(csp?.getAttribute("content")).toBe(CSP)
-    expect(doc.querySelector('meta[name="viewport"]')?.getAttribute("content")).toBe("width=600,height=800")
+    expect(doc.querySelector('meta[name="viewport"]')?.getAttribute("content")).toBe(
+      "width=600,height=800",
+    )
     expect(doc.querySelector("img")).toBeNull()
     const svg = doc.querySelector("body")?.firstElementChild
     expect(svg?.namespaceURI).toBe(SVG)
@@ -276,13 +335,25 @@ test("an SVG fixed-layout page shows its raster image, drawing and text inline, 
     expect(svg?.getAttribute("viewBox")).toBe("0 0 600 800")
     expect(svg?.getAttribute("preserveAspectRatio")).toBe("xMidYMid meet")
     const drawing = Array.from(svg?.getElementsByTagNameNS(SVG, "*") ?? [])
-    expect(drawing.map((element) => element.localName)).toEqual(["style", "defs", "linearGradient", "stop", "image", "rect", "text", "a", "text"])
+    expect(drawing.map((element) => element.localName)).toEqual([
+      "style",
+      "defs",
+      "linearGradient",
+      "stop",
+      "image",
+      "rect",
+      "text",
+      "a",
+      "text",
+    ])
     const image = drawing.find((element) => element.localName === "image")
     const imageURL = image?.getAttribute("href") ?? image?.getAttributeNS(XLINK, "href")
     expect(imageURL).toStartWith("blob:foliate-test/")
     const raster = imageURL ? blobs.get(imageURL) : undefined
     expect(raster?.type).toBe("image/jpg")
-    expect(await raster?.slice(0, 3).arrayBuffer()).toEqual(new Uint8Array([0xff, 0xd8, 0xff]).buffer)
+    expect(await raster?.slice(0, 3).arrayBuffer()).toEqual(
+      new Uint8Array([0xff, 0xd8, 0xff]).buffer,
+    )
     expect(svg?.textContent).toContain("Page text")
     const cssURL = svg?.querySelector("style")?.textContent?.match(/url\("([^"]+)"\)/u)?.[1]
     expect(cssURL).toStartWith("blob:foliate-test/")
@@ -327,7 +398,10 @@ test("a whole-book search creates no resource URLs and searches the same element
       expect(createdURLs).toBe(before)
       for (const [index, section] of view.book.sections.entries()) {
         const displayed = await chapterBlob(view, index)
-        const shown = new DOMParser().parseFromString(await displayed.text(), displayed.type === "text/html" ? "text/html" : "application/xhtml+xml")
+        const shown = new DOMParser().parseFromString(
+          await displayed.text(),
+          displayed.type === "text/html" ? "text/html" : "application/xhtml+xml",
+        )
         const searched = await section.createDocument?.()
         if (!searched) throw new Error(`Missing search document for section ${index}`)
         expect(elementStructure(searched)).toEqual(elementStructure(shown))
@@ -341,7 +415,9 @@ test("a whole-book search creates no resource URLs and searches the same element
 })
 
 test("refuses an already-created EPUB, including a cache populated before Buddy's opener", async () => {
-  const bytes = await Bun.file(new URL("./fixtures/scripted-chapter.epub", import.meta.url)).arrayBuffer()
+  const bytes = await Bun.file(
+    new URL("./fixtures/scripted-chapter.epub", import.meta.url),
+  ).arrayBuffer()
   const book = await makeBook(new File([bytes], "scripted-chapter.epub"))
   try {
     const section = book.sections[0]
@@ -361,7 +437,9 @@ test("publisher styles, images, SVG data images, fonts, links and footnotes surv
     const source = await blob.text()
     expect(source).not.toContain("xml-stylesheet")
     const doc = new DOMParser().parseFromString(source, "application/xhtml+xml")
-    expect(doc.querySelector('meta[name="viewport"]')?.getAttribute("content")).toBe("width=600,height=800")
+    expect(doc.querySelector('meta[name="viewport"]')?.getAttribute("content")).toBe(
+      "width=600,height=800",
+    )
     const cssURL = doc.querySelector('link[rel="stylesheet"]')?.getAttribute("href")
     expect(cssURL).toStartWith("blob:foliate-test/")
     const css = cssURL ? await blobs.get(cssURL)?.text() : undefined
@@ -371,10 +449,14 @@ test("publisher styles, images, SVG data images, fonts, links and footnotes surv
     const font = Array.from(blobs.values()).find((value) => value.type === "font/woff2")
     expect(font?.size).toBeGreaterThan(1_000)
     expect(await font?.slice(0, 4).text()).toBe("wOF2")
-    const alias = Array.from(blobs.values()).find((value) => value.type === "application/x-font-woff")
+    const alias = Array.from(blobs.values()).find(
+      (value) => value.type === "application/x-font-woff",
+    )
     expect(alias?.size).toBe(font?.size)
     if (!alias || !font) throw new Error("Missing fixture font")
-    expect(Buffer.from(await alias.arrayBuffer()).equals(Buffer.from(await font.arrayBuffer()))).toBe(true)
+    expect(
+      Buffer.from(await alias.arrayBuffer()).equals(Buffer.from(await font.arrayBuffer())),
+    ).toBe(true)
     const images = doc.querySelectorAll("img")
     expect(images.length).toBe(3)
     const raster = images[0]?.getAttribute("src")
@@ -413,7 +495,8 @@ test("search CFIs highlight the correct displayed paragraph after a preceding bo
     const resolved = await view.resolveNavigation(match.cfi)
     const highlight = resolved?.anchor?.(display)
     expect(highlight instanceof Range).toBe(true)
-    if (!(highlight instanceof Range)) throw new Error("Search result did not resolve to a highlight range")
+    if (!(highlight instanceof Range))
+      throw new Error("Search result did not resolve to a highlight range")
     expect(highlight.toString()).toBe("Search target")
     expect(highlight.startContainer.parentElement?.textContent).toBe("Search target paragraph.")
   } finally {

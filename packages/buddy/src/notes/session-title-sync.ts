@@ -112,20 +112,36 @@ export function startSessionNoteTitleSync(): () => void {
       queuedTitleBySessionID.delete(sessionID)
       queuedTitleBySessionID.set(sessionID, title)
       const oldestSessionID = queuedTitleBySessionID.keys().next().value
-      if (queuedTitleBySessionID.size > QUEUED_TITLE_SESSION_LIMIT && oldestSessionID) queuedTitleBySessionID.delete(oldestSessionID)
-      pending = pending.then(async () => {
-        if (controller.signal.aborted) return
-        const session = await runtime.conversations.get(sessionID)
-        const renamed = await synchronizeSessionNoteTitle({ sessionID, title: session.title ?? title, createdAt: session.time.created })
-        if (renamed && directory) publishGlobalEvent({ directory, payload: { type: NOTES_LIBRARY_UPDATED_EVENT_TYPE, properties: {} } })
-      }).catch((error) => {
-        if (queuedTitleBySessionID.get(sessionID) === title) queuedTitleBySessionID.delete(sessionID)
-        console.error("Could not update the chat note title", { sessionID, error: errorMessage(error) })
-      })
+      if (queuedTitleBySessionID.size > QUEUED_TITLE_SESSION_LIMIT && oldestSessionID)
+        queuedTitleBySessionID.delete(oldestSessionID)
+      pending = pending
+        .then(async () => {
+          if (controller.signal.aborted) return
+          const session = await runtime.conversations.get(sessionID)
+          const renamed = await synchronizeSessionNoteTitle({
+            sessionID,
+            title: session.title ?? title,
+            createdAt: session.time.created,
+          })
+          if (renamed && directory)
+            publishGlobalEvent({
+              directory,
+              payload: { type: NOTES_LIBRARY_UPDATED_EVENT_TYPE, properties: {} },
+            })
+        })
+        .catch((error) => {
+          if (queuedTitleBySessionID.get(sessionID) === title)
+            queuedTitleBySessionID.delete(sessionID)
+          console.error("Could not update the chat note title", {
+            sessionID,
+            error: errorMessage(error),
+          })
+        })
     }
   }
   void subscribe().catch((error) => {
-    if (!controller.signal.aborted) console.error("Chat note title subscription failed", { error: errorMessage(error) })
+    if (!controller.signal.aborted)
+      console.error("Chat note title subscription failed", { error: errorMessage(error) })
   })
   return () => controller.abort()
 }

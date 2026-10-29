@@ -110,7 +110,9 @@ export function assertBackendNodeArtifactRuntimeFiles(input: { artifactDir: stri
 
   for (const pattern of SHELL_PARSER_WASM_PATTERNS) {
     if (!artifactFiles.some((name) => pattern.test(name))) {
-      throw new Error(`Buddy Node artifact is missing shell parser WASM ${pattern} in ${input.artifactDir}`)
+      throw new Error(
+        `Buddy Node artifact is missing shell parser WASM ${pattern} in ${input.artifactDir}`,
+      )
     }
   }
 

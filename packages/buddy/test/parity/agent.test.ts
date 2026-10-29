@@ -13,7 +13,11 @@ async function readAgent(host: NotebookTestHost, directory: string, id: string) 
   return (await host.agent.get({ agentID: id, location: { directory } })).data
 }
 
-function evaluate(action: string, resource: string, permissions: Parameters<typeof toBuddyPermissionRules>[0]) {
+function evaluate(
+  action: string,
+  resource: string,
+  permissions: Parameters<typeof toBuddyPermissionRules>[0],
+) {
   return evaluatePermission(action, resource, toBuddyPermissionRules(permissions))
 }
 
@@ -32,7 +36,9 @@ describe("parity.agent", () => {
       )
 
       const teachingBuddyAgent = requireParsed(
-        await withSyncedOpenCodeConfig(directory, (host) => readAgent(host, directory, "teaching-buddy")),
+        await withSyncedOpenCodeConfig(directory, (host) =>
+          readAgent(host, directory, "teaching-buddy"),
+        ),
         "teaching-buddy agent",
       )
 
@@ -99,9 +105,7 @@ describe("parity.agent", () => {
         "curriculum-orchestrator prompt",
       )
       expect(curriculumPrompt.length).toBeGreaterThan(0)
-      expect(evaluate("subagent", "general", curriculumAgent.permissions).action).toBe(
-        "allow",
-      )
+      expect(evaluate("subagent", "general", curriculumAgent.permissions).action).toBe("allow")
     })
   })
 
@@ -123,16 +127,18 @@ describe("parity.agent", () => {
       )
 
       const teachingBuddyAgent = requireParsed(
-        await withSyncedOpenCodeConfig(directory, (host) => readAgent(host, directory, "teaching-buddy")),
+        await withSyncedOpenCodeConfig(directory, (host) =>
+          readAgent(host, directory, "teaching-buddy"),
+        ),
         "teaching-buddy agent",
       )
 
-      expect(
-        evaluate("subagent", "notes/lesson.md", teachingBuddyAgent.permissions).action,
-      ).toBe("allow")
-      expect(
-        evaluate("subagent", "tmp/scratch.md", teachingBuddyAgent.permissions).action,
-      ).toBe("deny")
+      expect(evaluate("subagent", "notes/lesson.md", teachingBuddyAgent.permissions).action).toBe(
+        "allow",
+      )
+      expect(evaluate("subagent", "tmp/scratch.md", teachingBuddyAgent.permissions).action).toBe(
+        "deny",
+      )
     })
   })
 
@@ -146,53 +152,38 @@ describe("parity.agent", () => {
       const buddyAgent = requireParsed(result.buddyAgent, "buddy agent")
       const teachingBuddyAgent = requireParsed(result.teachingBuddyAgent, "teaching-buddy agent")
 
-      expect(
-        evaluate("subagent", "curriculum-orchestrator", buddyAgent.permissions).action,
-      ).toBe("deny")
-      expect(evaluate("subagent", "general", buddyAgent.permissions).action).toBe("allow")
-      expect(evaluate("subagent", "practice-agent", buddyAgent.permissions).action).toBe(
+      expect(evaluate("subagent", "curriculum-orchestrator", buddyAgent.permissions).action).toBe(
         "deny",
       )
+      expect(evaluate("subagent", "general", buddyAgent.permissions).action).toBe("allow")
+      expect(evaluate("subagent", "practice-agent", buddyAgent.permissions).action).toBe("deny")
+      expect(evaluate("subagent", "question-set-author", buddyAgent.permissions).action).toBe(
+        "allow",
+      )
+      expect(evaluate("subagent", "flashcard-author", buddyAgent.permissions).action).toBe("allow")
       expect(
-        evaluate("subagent", "question-set-author", buddyAgent.permissions).action,
-      ).toBe("allow")
-      expect(
-        evaluate("subagent", "flashcard-author", buddyAgent.permissions).action,
-      ).toBe("allow")
-      expect(
-        evaluate("subagent", "learner-memory-consolidator", buddyAgent.permissions)
-          .action,
+        evaluate("subagent", "learner-memory-consolidator", buddyAgent.permissions).action,
       ).toBe("deny")
 
       expect(
-        evaluate("subagent", "curriculum-orchestrator", teachingBuddyAgent.permissions)
-          .action,
+        evaluate("subagent", "curriculum-orchestrator", teachingBuddyAgent.permissions).action,
       ).toBe("deny")
-      expect(
-        evaluate("subagent", "practice-agent", teachingBuddyAgent.permissions).action,
-      ).toBe("deny")
-      expect(
-        evaluate("subagent", "assessment-agent", teachingBuddyAgent.permissions).action,
-      ).toBe("deny")
-      expect(
-        evaluate("subagent", "question-set-author", teachingBuddyAgent.permissions)
-          .action,
-      ).toBe("allow")
-      expect(evaluate("subagent", "general", teachingBuddyAgent.permissions).action).toBe(
-        "allow",
+      expect(evaluate("subagent", "practice-agent", teachingBuddyAgent.permissions).action).toBe(
+        "deny",
       )
-      expect(evaluate("subagent", "explore", teachingBuddyAgent.permissions).action).toBe(
+      expect(evaluate("subagent", "assessment-agent", teachingBuddyAgent.permissions).action).toBe(
         "deny",
       )
       expect(
-        evaluate("subagent", "flashcard-author", teachingBuddyAgent.permissions).action,
+        evaluate("subagent", "question-set-author", teachingBuddyAgent.permissions).action,
       ).toBe("allow")
+      expect(evaluate("subagent", "general", teachingBuddyAgent.permissions).action).toBe("allow")
+      expect(evaluate("subagent", "explore", teachingBuddyAgent.permissions).action).toBe("deny")
+      expect(evaluate("subagent", "flashcard-author", teachingBuddyAgent.permissions).action).toBe(
+        "allow",
+      )
       expect(
-        evaluate(
-          "subagent",
-          "learner-memory-consolidator",
-          teachingBuddyAgent.permissions,
-        ).action,
+        evaluate("subagent", "learner-memory-consolidator", teachingBuddyAgent.permissions).action,
       ).toBe("deny")
     })
   })
@@ -207,25 +198,15 @@ describe("parity.agent", () => {
       const buddyAgent = requireParsed(result.buddyAgent, "buddy agent")
       const teachingBuddyAgent = requireParsed(result.teachingBuddyAgent, "teaching-buddy agent")
 
-      expect(evaluate("search_standards", "*", buddyAgent.permissions).action).toBe(
-        "allow",
-      )
-      expect(evaluate("render_figure", "*", buddyAgent.permissions).action).toBe(
-        "allow",
-      )
-      expect(evaluate("python_calculator", "*", buddyAgent.permissions).action).toBe(
-        "allow",
-      )
+      expect(evaluate("search_standards", "*", buddyAgent.permissions).action).toBe("allow")
+      expect(evaluate("render_figure", "*", buddyAgent.permissions).action).toBe("allow")
+      expect(evaluate("python_calculator", "*", buddyAgent.permissions).action).toBe("allow")
       expect(
-        evaluate(
-          "teaching_start_lesson",
-          "teaching/lesson.ts",
-          buddyAgent.permissions,
-        ).action,
+        evaluate("teaching_start_lesson", "teaching/lesson.ts", buddyAgent.permissions).action,
       ).toBe("deny")
-      expect(
-        evaluate("python_calculator", "*", teachingBuddyAgent.permissions).action,
-      ).toBe("allow")
+      expect(evaluate("python_calculator", "*", teachingBuddyAgent.permissions).action).toBe(
+        "allow",
+      )
     })
   })
 

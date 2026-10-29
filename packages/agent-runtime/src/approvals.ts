@@ -1,4 +1,8 @@
-import type { PermissionReplyInput, PermissionRequest, SavedPermission } from "@buddy/transcript-contract/permission"
+import type {
+  PermissionReplyInput,
+  PermissionRequest,
+  SavedPermission,
+} from "@buddy/transcript-contract/permission"
 import type { PermissionRuleset } from "@buddy/transcript-contract/permission-rules"
 
 export type ApprovalScope = { readonly sessions: readonly string[] }
@@ -23,5 +27,8 @@ export interface Approvals {
   saved(directory: string): Promise<SavedPermission[]>
   forget(directory: string, savedID: string): Promise<boolean>
   sessionRules(sessionID: string): Promise<SessionRules | undefined>
-  updateSessionRules(sessionID: string, update: (rules: PermissionRuleset, hasParentSession: boolean) => PermissionRuleset): Promise<SessionRulesUpdate>
+  updateSessionRules(
+    sessionID: string,
+    update: (rules: PermissionRuleset, hasParentSession: boolean) => PermissionRuleset,
+  ): Promise<SessionRulesUpdate>
 }

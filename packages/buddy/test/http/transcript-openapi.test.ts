@@ -8,8 +8,23 @@ import { toOpenApiSchema } from "../../src/http/effect-schema"
 
 async function transcriptSchemas() {
   const app = new Hono()
-  for (const [path, schema] of [["/message", MessageWithParts], ["/session", Session], ["/status", SessionStatus]] as const) {
-    app.get(path, describeRoute({ responses: { 200: { description: "Transcript", content: { "application/json": { schema: resolver(toOpenApiSchema(schema)) } } } } }), (c) => c.json({}))
+  for (const [path, schema] of [
+    ["/message", MessageWithParts],
+    ["/session", Session],
+    ["/status", SessionStatus],
+  ] as const) {
+    app.get(
+      path,
+      describeRoute({
+        responses: {
+          200: {
+            description: "Transcript",
+            content: { "application/json": { schema: resolver(toOpenApiSchema(schema)) } },
+          },
+        },
+      }),
+      (c) => c.json({}),
+    )
   }
   return (await generateSpecs(app)).components?.schemas
 }
@@ -17,7 +32,17 @@ async function transcriptSchemas() {
 describe("transcript OpenAPI components", () => {
   test("keeps the named transcript components through Buddy's actual schema converter", async () => {
     const schemas = await transcriptSchemas()
-    for (const name of ["Session", "SessionStatus", "Message", "Part", "TextPart", "ToolPart", "OutputFormat", "NoticePart", "CompactionPart"]) {
+    for (const name of [
+      "Session",
+      "SessionStatus",
+      "Message",
+      "Part",
+      "TextPart",
+      "ToolPart",
+      "OutputFormat",
+      "NoticePart",
+      "CompactionPart",
+    ]) {
       expect(schemas).toHaveProperty(name)
     }
   })
@@ -28,8 +53,12 @@ describe("transcript OpenAPI components", () => {
       required: ["id", "projectID", "directory", "title", "time"],
       properties: {
         parentID: { anyOf: [{ type: "string" }] },
-        time: { properties: { created: { type: "number" }, archived: { anyOf: [{ type: "number" }] } } },
-        revert: { anyOf: [{ type: "object", properties: { partID: { anyOf: [{ type: "string" }] } } }] },
+        time: {
+          properties: { created: { type: "number" }, archived: { anyOf: [{ type: "number" }] } },
+        },
+        revert: {
+          anyOf: [{ type: "object", properties: { partID: { anyOf: [{ type: "string" }] } } }],
+        },
       },
     })
     expect(schemas?.AssistantMessage).toMatchObject({

@@ -81,7 +81,8 @@ describe("global bootstrap routes", () => {
     )
     expect(missingResponse.status).toBe(404)
     await expect(missingResponse.json()).resolves.toEqual({
-      code: "notebook.missing", error: `Directory not found: ${missingDirectory}`,
+      code: "notebook.missing",
+      error: `Directory not found: ${missingDirectory}`,
     })
   })
 })

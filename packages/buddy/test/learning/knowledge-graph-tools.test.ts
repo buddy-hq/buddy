@@ -5,11 +5,7 @@ import { describe, expect, test } from "bun:test"
 import { KnowledgeGraphService } from "../../src/learning/features/standards/service"
 import { KNOWLEDGE_GRAPH_DB_ENV } from "../../src/learning/features/standards/constants"
 import { tmpdir } from "../helpers/tmpdir"
-import {
-  createBuddyToolContext,
-  requireTool,
-  listBuddyTools,
-} from "../helpers/tools"
+import { createBuddyToolContext, requireTool, listBuddyTools } from "../helpers/tools"
 
 function createFixtureDatabase(databasePath: string) {
   const database = new Database(databasePath)
@@ -329,10 +325,7 @@ describe("knowledge graph tools", () => {
         search: await searchTool.run({ query: "fractions" }, ctx),
         standard: await getStandardTool.run({ code: "HSG-CO.B.6" }, ctx),
         prerequisites: await prerequisitesTool.run({ code: "HSG-CO.B.6" }, ctx),
-        sql: await sqlTool.run(
-          { sql: "select code from standards order by code limit 1" },
-          ctx,
-        ),
+        sql: await sqlTool.run({ sql: "select code from standards order by code limit 1" }, ctx),
       }
 
       expect(result.search.output).toContain("3.NF.A.1")

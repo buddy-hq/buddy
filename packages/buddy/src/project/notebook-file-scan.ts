@@ -8,7 +8,9 @@ const runGit = promisify(execFile)
 const excludedDirectories = new Set(["node_modules", "__pycache__", ".venv", ".buddy"])
 
 function searchable(filePath: string): boolean {
-  return filePath.split("/").every((part) => !part.startsWith(".") && !excludedDirectories.has(part))
+  return filePath
+    .split("/")
+    .every((part) => !part.startsWith(".") && !excludedDirectories.has(part))
 }
 
 type NotebookFileScanInput = {
@@ -85,23 +87,30 @@ export async function scanNotebookFiles(
     cwd: input.directory,
     signal: input.signal,
     windowsHide: true,
-  }).then((result) => result.stdout.trim() === "true", () => false)
+  }).then(
+    (result) => result.stdout.trim() === "true",
+    () => false,
+  )
   input.signal?.throwIfAborted()
   if (!inRepository) return walkNotebookFiles(input)
-  const ignored = await runGit("git", ["ls-files", "--cached", "--ignored", "--exclude-standard", "-z"], {
-    cwd: input.directory,
-    signal: input.signal,
-    windowsHide: true,
-    maxBuffer: 16 * 1024 * 1024,
-  })
+  const ignored = await runGit(
+    "git",
+    ["ls-files", "--cached", "--ignored", "--exclude-standard", "-z"],
+    {
+      cwd: input.directory,
+      signal: input.signal,
+      windowsHide: true,
+      maxBuffer: 16 * 1024 * 1024,
+    },
+  )
   const ignoredPaths = new Set(ignored.stdout.split("\0"))
   input.signal?.throwIfAborted()
   const scan = await new Promise<NotebookFileScan>((resolve, reject) => {
-    const child = spawn(
-      "git",
-      ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
-      { cwd: input.directory, stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
-    )
+    const child = spawn("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], {
+      cwd: input.directory,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    })
     const paths: string[] = []
     const seen = new Set<string>()
     let pending = Buffer.alloc(0)
@@ -166,26 +175,33 @@ export async function scanNotebookFiles(
   const paths: string[] = []
   for (let offset = 0; offset < scan.paths.length; offset += 128) {
     input.signal?.throwIfAborted()
-    if (input.deadlineAt !== undefined && Date.now() >= input.deadlineAt) return { paths, partial: true }
-    const batch = await Promise.all(scan.paths.slice(offset, offset + 128).map(async (filePath) => {
-      const stats = await fs.stat(path.join(input.directory, filePath)).catch(() => undefined)
-      return stats?.isFile() ? filePath : undefined
-    }))
-    paths.push(...batch.flatMap((filePath) => filePath === undefined ? [] : [filePath]))
+    if (input.deadlineAt !== undefined && Date.now() >= input.deadlineAt)
+      return { paths, partial: true }
+    const batch = await Promise.all(
+      scan.paths.slice(offset, offset + 128).map(async (filePath) => {
+        const stats = await fs.stat(path.join(input.directory, filePath)).catch(() => undefined)
+        return stats?.isFile() ? filePath : undefined
+      }),
+    )
+    paths.push(...batch.flatMap((filePath) => (filePath === undefined ? [] : [filePath])))
   }
   return { paths, partial: scan.partial }
-
 }
 
-async function walkNotebookFiles(input: NotebookFileScanInput & { signal?: AbortSignal }): Promise<NotebookFileScan> {
+async function walkNotebookFiles(
+  input: NotebookFileScanInput & { signal?: AbortSignal },
+): Promise<NotebookFileScan> {
   const paths: string[] = []
   const directories = [""]
-  const deadlineAt = input.deadlineAt ?? Date.now() + (input.deadlineMs ?? NOTEBOOK_FILE_SCAN_DEADLINE_MS)
+  const deadlineAt =
+    input.deadlineAt ?? Date.now() + (input.deadlineMs ?? NOTEBOOK_FILE_SCAN_DEADLINE_MS)
   while (directories.length > 0) {
     input.signal?.throwIfAborted()
     if (Date.now() >= deadlineAt) return { paths, partial: true }
     const relativeDirectory = directories.pop() ?? ""
-    const entries = await fs.readdir(path.join(input.directory, relativeDirectory), { withFileTypes: true })
+    const entries = await fs.readdir(path.join(input.directory, relativeDirectory), {
+      withFileTypes: true,
+    })
     for (const entry of entries) {
       input.signal?.throwIfAborted()
       const relative = path.posix.join(relativeDirectory, entry.name)

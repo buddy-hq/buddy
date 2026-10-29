@@ -70,7 +70,8 @@ export function createToolInputTap(tools: ReadonlySet<string>, emit: Emit) {
               }
             }
             let newline = offset
-            while (newline < chunk.length && chunk[newline] !== 10 && chunk[newline] !== 13) newline += 1
+            while (newline < chunk.length && chunk[newline] !== 10 && chunk[newline] !== 13)
+              newline += 1
             const end = newline < chunk.length ? newline + 1 : newline
             lineBytes += newline - offset
             eventBytes += end - offset
@@ -89,7 +90,7 @@ export function createToolInputTap(tools: ReadonlySet<string>, emit: Emit) {
               const json = data.join("\n")
               data = []
               eventBytes = 0
-              if (json && json !== "[DONE]" && !await observer.observe(json)) {
+              if (json && json !== "[DONE]" && !(await observer.observe(json))) {
                 stop()
                 break
               }
@@ -106,28 +107,49 @@ export function createToolInputTap(tools: ReadonlySet<string>, emit: Emit) {
   })
 }
 
-export async function registerToolInputStream(ctx: {
-  readonly rpc: Pick<Context["rpc"], "register">
-  readonly session: Pick<Context["session"], "hook">
-}, tools: readonly RuntimeTool[]) {
+export async function registerToolInputStream(
+  ctx: {
+    readonly rpc: Pick<Context["rpc"], "register">
+    readonly session: Pick<Context["session"], "hook">
+  },
+  tools: readonly RuntimeTool[],
+) {
   const streamingTools = new Set(tools.filter((tool) => tool.streamInput).map((tool) => tool.id))
   if (streamingTools.size === 0) return
-  const carrier = await ctx.rpc.register({
-    id: "buddy.runtime",
-    methods: {},
-    events: { toolInputDelta: { schema: z.object({ sessionID: z.string(), callID: z.string(), delta: z.string() }) } },
-  }, {})
+  const carrier = await ctx.rpc.register(
+    {
+      id: "buddy.runtime",
+      methods: {},
+      events: {
+        toolInputDelta: {
+          schema: z.object({ sessionID: z.string(), callID: z.string(), delta: z.string() }),
+        },
+      },
+    },
+    {},
+  )
   const sockets = new Map<string, ReturnType<typeof observation> | null>()
   await ctx.session.hook("http.response", (event) => {
     try {
       const response = event.response
       const body = response.body
-      if (event.kind !== "primary" || !response.headers.get("content-type")?.includes("text/event-stream") || !body) return
+      if (
+        event.kind !== "primary" ||
+        !response.headers.get("content-type")?.includes("text/event-stream") ||
+        !body
+      )
+        return
       const tap = createToolInputTap(streamingTools, async (fragment) => {
         await carrier.events.emit("toolInputDelta", { sessionID: event.sessionID, ...fragment })
       })
-      event.response = new Response(body.pipeThrough(tap), { status: response.status, statusText: response.statusText, headers: response.headers })
-    } catch (error) { console.error(error instanceof Error ? error.name : "UnknownError") }
+      event.response = new Response(body.pipeThrough(tap), {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      })
+    } catch (error) {
+      console.error(error instanceof Error ? error.name : "UnknownError")
+    }
   })
   await ctx.session.hook("experimental.ws.receive", async (event) => {
     try {

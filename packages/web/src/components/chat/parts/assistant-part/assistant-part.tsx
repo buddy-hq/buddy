@@ -73,7 +73,8 @@ function assistantPartRendererEqual(
     return getToolStateHash(prevProps.part) === getToolStateHash(nextProps.part)
   }
 
-  if (prevProps.part.type === "notice" || prevProps.part.type === "compaction") return prevProps.part === nextProps.part
+  if (prevProps.part.type === "notice" || prevProps.part.type === "compaction")
+    return prevProps.part === nextProps.part
   return prevProps.part.type === nextProps.part.type
 }
 
@@ -142,11 +143,24 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
 
   if (part.type === "notice") {
     const completion = readSubagentCompletion(part.completion)
-    if (completion) return <SubagentCompletionRow completion={completion} onOpenSession={onOpenSession} />
-    return <div className="w-full border-l-2 border-border-weak-base py-1 pl-3 text-xs text-text-weak" role="status">{parseString(part.text) ?? "Activity completed"}</div>
+    if (completion)
+      return <SubagentCompletionRow completion={completion} onOpenSession={onOpenSession} />
+    return (
+      <div
+        className="w-full border-l-2 border-border-weak-base py-1 pl-3 text-xs text-text-weak"
+        role="status"
+      >
+        {parseString(part.text) ?? "Activity completed"}
+      </div>
+    )
   }
   if (part.type === "compaction") {
-    const label = part.status === "running" ? "Compacting chat…" : part.status === "failed" ? "Compaction failed" : "Chat compacted"
+    const label =
+      part.status === "running"
+        ? "Compacting chat…"
+        : part.status === "failed"
+          ? "Compaction failed"
+          : "Chat compacted"
     return <MessageDivider label={label} />
   }
 

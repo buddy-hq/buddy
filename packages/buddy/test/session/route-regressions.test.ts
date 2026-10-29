@@ -22,7 +22,8 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      code: "request.invalid", error: "Invalid JSON body",
+      code: "request.invalid",
+      error: "Invalid JSON body",
     })
   })
 
@@ -40,7 +41,8 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      code: "request.invalid", error: "Invalid JSON body",
+      code: "request.invalid",
+      error: "Invalid JSON body",
     })
   })
 
@@ -58,7 +60,8 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      code: "request.invalid", error: "Invalid JSON body",
+      code: "request.invalid",
+      error: "Invalid JSON body",
     })
   })
 
@@ -87,7 +90,8 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      code: "session.not_found", error: "Session not found",
+      code: "session.not_found",
+      error: "Session not found",
     })
     expect(readTeachingSessionState(project.path, "ses_missing")).toMatchObject({
       sessionId: "ses_missing",
@@ -112,7 +116,8 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      code: "session.not_found", error: "Session not found",
+      code: "session.not_found",
+      error: "Session not found",
     })
     expect(readTeachingSessionState(project.path, "ses_missing_new")).toBeUndefined()
   })
@@ -134,7 +139,8 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      code: "session.not_found", error: "Session not found",
+      code: "session.not_found",
+      error: "Session not found",
     })
     expect(readTeachingSessionState(project.path, "ses_missing_cmd")).toBeUndefined()
   })
@@ -156,7 +162,8 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      code: "session.not_found", error: "Session not found",
+      code: "session.not_found",
+      error: "Session not found",
     })
     expect(readTeachingSessionState(project.path, "ses_missing_async")).toBeUndefined()
   })
@@ -251,7 +258,8 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      code: "session.not_found", error: "Session not found",
+      code: "session.not_found",
+      error: "Session not found",
     })
   })
 
@@ -293,7 +301,8 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      code: "session.not_found", error: "Session not found",
+      code: "session.not_found",
+      error: "Session not found",
     })
   })
 })

@@ -96,7 +96,10 @@ function assertSanitizedSvg(source: string): void {
         if (localName !== "href") continue
         const link = parseTString(value)
         if (link === undefined) continue
-        const normalizedValue = link.trim().replace(/[\s\p{Cc}]/gu, "").toLowerCase()
+        const normalizedValue = link
+          .trim()
+          .replace(/[\s\p{Cc}]/gu, "")
+          .toLowerCase()
         if (
           normalizedValue.startsWith("javascript:") ||
           (normalizedValue.startsWith("data:") &&

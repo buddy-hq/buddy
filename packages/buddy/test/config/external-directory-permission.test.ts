@@ -19,25 +19,54 @@ describe("notebook file permissions", () => {
     const nested = path.join(repo.path, "nested")
     await import("node:fs/promises").then((fs) => fs.mkdir(nested))
     const global = await Config.getGlobal()
-    const notes = resolveNotesDirectoryState({ buddyHomeDirectory: resolveBuddyHomeState(global.notebook_home).resolvedPath,
-      configuredDirectory: global.notes_directory }).resolvedDirectory
+    const notes = resolveNotesDirectoryState({
+      buddyHomeDirectory: resolveBuddyHomeState(global.notebook_home).resolvedPath,
+      configuredDirectory: global.notes_directory,
+    }).resolvedDirectory
     writeProjectConfig(repo.path, JSON.stringify({ permission: { bash: "allow" } }))
     await syncOpenCodeProjectConfig(nested)
     const runtime = await getAgentRuntime()
     const rules = await runtime.catalog.agentRules(nested, "buddy")
     expect(evaluatePermission("read", ".env", rules).action).toBe("ask")
     expect(evaluatePermission("read", ".env.example", rules).action).toBe("allow")
-    expect(evaluatePermission("external_directory", path.join(notes, "lesson.md"), rules).action).toBe("allow")
+    expect(
+      evaluatePermission("external_directory", path.join(notes, "lesson.md"), rules).action,
+    ).toBe("allow")
     expect(evaluatePermission("read", path.join(notes, "lesson.md"), rules).action).toBe("allow")
     expect(evaluatePermission("edit", path.join(notes, "lesson.md"), rules).action).toBe("ask")
-    expect(evaluatePermission("edit", path.relative(nested, path.join(notes, "lesson.md")), rules).action).toBe("ask")
-    expect(evaluatePermission("shell", `echo > ${path.join(notes, "lesson.md")}`, rules).action).toBe("allow")
-    expect(evaluatePermission("external_directory", path.join(Global.Path.home, "unrelated", "file.md"), rules).action).toBe("ask")
+    expect(
+      evaluatePermission("edit", path.relative(nested, path.join(notes, "lesson.md")), rules)
+        .action,
+    ).toBe("ask")
+    expect(
+      evaluatePermission("shell", `echo > ${path.join(notes, "lesson.md")}`, rules).action,
+    ).toBe("allow")
+    expect(
+      evaluatePermission(
+        "external_directory",
+        path.join(Global.Path.home, "unrelated", "file.md"),
+        rules,
+      ).action,
+    ).toBe("ask")
   })
 
   test("matches Windows paths case-insensitively and rejects sibling prefix containment", () => {
-    expect(evaluatePermission("edit", "c:\\NOTES\\lesson.md", [{ permission: "edit", pattern: "C:/notes/*", action: "ask" }], "win32").action).toBe("ask")
-    expect(evaluatePermission("read", "c:\\NOTES\\lesson.md", [{ permission: "read", pattern: "C:/notes/*", action: "allow" }], "win32").action).toBe("allow")
+    expect(
+      evaluatePermission(
+        "edit",
+        "c:\\NOTES\\lesson.md",
+        [{ permission: "edit", pattern: "C:/notes/*", action: "ask" }],
+        "win32",
+      ).action,
+    ).toBe("ask")
+    expect(
+      evaluatePermission(
+        "read",
+        "c:\\NOTES\\lesson.md",
+        [{ permission: "read", pattern: "C:/notes/*", action: "allow" }],
+        "win32",
+      ).action,
+    ).toBe("allow")
     expect(isWithinDirectory("C:\\notes", "C:\\notes\\lesson.md", path.win32)).toBe(true)
     expect(isWithinDirectory("C:\\notes", "C:\\notes-other\\lesson.md", path.win32)).toBe(false)
     expect(isWithinDirectory("C:\\notes", "D:\\notes\\lesson.md", path.win32)).toBe(false)

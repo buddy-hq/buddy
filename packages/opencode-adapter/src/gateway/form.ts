@@ -17,7 +17,8 @@ const MaxMcpInputRequests = 256
 
 export function toBuddyQuestion(form: FormInfo): AgentQuestion | undefined {
   if (form.metadata?.kind !== "question" || form.sessionID === "global") return undefined
-  if (form.fields.some((field) => field.type !== "string" && field.type !== "multiselect")) return undefined
+  if (form.fields.some((field) => field.type !== "string" && field.type !== "multiselect"))
+    return undefined
   const tool = toolSchema.safeParse(form.metadata.tool)
   return {
     id: form.id,
@@ -25,7 +26,13 @@ export function toBuddyQuestion(form: FormInfo): AgentQuestion | undefined {
     questions: form.fields.map((field) => ({
       question: field.description ?? "",
       header: field.title ?? "",
-      options: "options" in field ? (field.options ?? []).map((option) => ({ label: option.label, description: option.description ?? "" })) : [],
+      options:
+        "options" in field
+          ? (field.options ?? []).map((option) => ({
+              label: option.label,
+              description: option.description ?? "",
+            }))
+          : [],
       multiple: field.type === "multiselect",
       custom: "custom" in field && field.custom === true,
     })),
@@ -33,21 +40,34 @@ export function toBuddyQuestion(form: FormInfo): AgentQuestion | undefined {
   }
 }
 
-export function toFormAnswer(form: FormInfo, answers: readonly (readonly string[])[]): { ok: true; answer: FormAnswer } | { ok: false; error: string } {
-  if (!toBuddyQuestion(form) || answers.length !== form.fields.length) return { ok: false, error: "Answers must match the pending questions" }
+export function toFormAnswer(
+  form: FormInfo,
+  answers: readonly (readonly string[])[],
+): { ok: true; answer: FormAnswer } | { ok: false; error: string } {
+  if (!toBuddyQuestion(form) || answers.length !== form.fields.length)
+    return { ok: false, error: "Answers must match the pending questions" }
   const answer: FormAnswer = {}
   for (const [index, field] of form.fields.entries()) {
     const values = answers[index] ?? []
-    if (field.type !== "string" && field.type !== "multiselect") return { ok: false, error: "Unsupported question field" }
-    if (field.type === "string" && values.length > 1) return { ok: false, error: "A single-choice question accepts one answer" }
+    if (field.type !== "string" && field.type !== "multiselect")
+      return { ok: false, error: "Unsupported question field" }
+    if (field.type === "string" && values.length > 1)
+      return { ok: false, error: "A single-choice question accepts one answer" }
     if (values.length === 0 && field.required !== true) continue
-    const selections = values.map((value) => field.options?.find((option) => option.label === value)?.value ?? value)
-    answer[field.key] = field.type === "multiselect" ? selections : selections[0] ?? ""
+    const selections = values.map(
+      (value) => field.options?.find((option) => option.label === value)?.value ?? value,
+    )
+    answer[field.key] = field.type === "multiselect" ? selections : (selections[0] ?? "")
   }
   return { ok: true, answer }
 }
 
-export function toBuddyQuestionEvent(event: OpenCodeEvent, directory: string, hiddenForms: Set<string>, mcpInputRequests: Set<string>): BuddyEvent | undefined {
+export function toBuddyQuestionEvent(
+  event: OpenCodeEvent,
+  directory: string,
+  hiddenForms: Set<string>,
+  mcpInputRequests: Set<string>,
+): BuddyEvent | undefined {
   if (event.type === "form.created") {
     const form = event.data.form
     const mcpInput = mcpInputMetadataSchema.safeParse(form.metadata)
@@ -85,12 +105,18 @@ export function toBuddyQuestionEvent(event: OpenCodeEvent, directory: string, hi
   }
   if (event.type !== "form.replied" && event.type !== "form.cancelled") return undefined
   if (mcpInputRequests.delete(event.data.id)) {
-    const payload: McpInputSettledEvent = { type: "mcp.input.settled", properties: { requestID: event.data.id } }
+    const payload: McpInputSettledEvent = {
+      type: "mcp.input.settled",
+      properties: { requestID: event.data.id },
+    }
     return { payload }
   }
   if (event.data.sessionID === "global") return undefined
   if (hiddenForms.has(event.data.id)) return undefined
-  const properties: QuestionSettlement = { sessionID: event.data.sessionID, requestID: event.data.id }
+  const properties: QuestionSettlement = {
+    sessionID: event.data.sessionID,
+    requestID: event.data.id,
+  }
   if (event.type === "form.replied") {
     const answers: string[][] = []
     for (const [key, value] of Object.entries(event.data.answer)) {

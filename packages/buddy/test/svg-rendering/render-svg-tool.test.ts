@@ -16,7 +16,12 @@ import { renderSvgTool } from "../../src/learning/features/svg-rendering/tools/r
 import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
 import { resolveDirectory } from "../../src/project/directory"
 import { tmpdir } from "../helpers/tmpdir"
-function createBuddyToolContext(input: { directory: string; agent: string; sessionID?: string; messageID?: string }): BuddyToolContext {
+function createBuddyToolContext(input: {
+  directory: string
+  agent: string
+  sessionID?: string
+  messageID?: string
+}): BuddyToolContext {
   return {
     ...input,
     sessionID: input.sessionID ?? "ses_svg_test",

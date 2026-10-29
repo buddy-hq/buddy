@@ -49,7 +49,9 @@ function questionError(error: Error) {
 }
 
 /** Creates notebook-scoped question endpoints using each session's runtime instance. */
-export function createQuestionRoutes(getRuntime: () => Promise<Pick<AgentRuntime, "forms">> = getAgentRuntime) {
+export function createQuestionRoutes(
+  getRuntime: () => Promise<Pick<AgentRuntime, "forms">> = getAgentRuntime,
+) {
   return new Hono()
     .get(
       "/",
@@ -70,14 +72,19 @@ export function createQuestionRoutes(getRuntime: () => Promise<Pick<AgentRuntime
       }),
       validator("query", directoryQuerySchema),
       async (c) =>
-        runRouteTask({ mapError: questionError, task: async () => {
-          const directoryResult = ensureAllowedDirectory(c)
-          if (!directoryResult.ok) return directoryResult.response
+        runRouteTask({
+          mapError: questionError,
+          task: async () => {
+            const directoryResult = ensureAllowedDirectory(c)
+            if (!directoryResult.ok) return directoryResult.response
 
-          const runtime = await getRuntime()
-          const questions: AgentQuestion[] = await runtime.forms.pending({ directory: directoryResult.directory })
-          return c.json(questions)
-        }}),
+            const runtime = await getRuntime()
+            const questions: AgentQuestion[] = await runtime.forms.pending({
+              directory: directoryResult.directory,
+            })
+            return c.json(questions)
+          },
+        }),
     )
     .post(
       "/:requestID/reply",
@@ -98,17 +105,22 @@ export function createQuestionRoutes(getRuntime: () => Promise<Pick<AgentRuntime
       validator("param", RequestIDParamSchema),
       validator("json", questionReplyRequestSchema),
       async (c) =>
-        runRouteTask({ mapError: questionError, task: async () => {
-          const directoryResult = ensureAllowedDirectory(c)
-          if (!directoryResult.ok) return directoryResult.response
+        runRouteTask({
+          mapError: questionError,
+          task: async () => {
+            const directoryResult = ensureAllowedDirectory(c)
+            if (!directoryResult.ok) return directoryResult.response
 
-          const runtime = await getRuntime()
-          const questions: AgentQuestion[] = await runtime.forms.pending({ directory: directoryResult.directory })
-          const form = questions.find((entry) => entry.id === c.req.valid("param").requestID)
-          if (!form) return c.json(routeErrorBody(404, "Question not found"), 404)
-          await runtime.forms.answer(form.sessionID, form.id, c.req.valid("json").answers)
-          return c.json(true)
-        }}),
+            const runtime = await getRuntime()
+            const questions: AgentQuestion[] = await runtime.forms.pending({
+              directory: directoryResult.directory,
+            })
+            const form = questions.find((entry) => entry.id === c.req.valid("param").requestID)
+            if (!form) return c.json(routeErrorBody(404, "Question not found"), 404)
+            await runtime.forms.answer(form.sessionID, form.id, c.req.valid("json").answers)
+            return c.json(true)
+          },
+        }),
     )
     .post(
       "/:requestID/reject",
@@ -128,17 +140,22 @@ export function createQuestionRoutes(getRuntime: () => Promise<Pick<AgentRuntime
       validator("query", directoryQuerySchema),
       validator("param", RequestIDParamSchema),
       async (c) =>
-        runRouteTask({ mapError: questionError, task: async () => {
-          const directoryResult = ensureAllowedDirectory(c)
-          if (!directoryResult.ok) return directoryResult.response
+        runRouteTask({
+          mapError: questionError,
+          task: async () => {
+            const directoryResult = ensureAllowedDirectory(c)
+            if (!directoryResult.ok) return directoryResult.response
 
-          const runtime = await getRuntime()
-          const questions: AgentQuestion[] = await runtime.forms.pending({ directory: directoryResult.directory })
-          const form = questions.find((entry) => entry.id === c.req.valid("param").requestID)
-          if (!form) return c.json(routeErrorBody(404, "Question not found"), 404)
-          await runtime.forms.dismiss(form.sessionID, form.id)
-          return c.json(true)
-        }}),
+            const runtime = await getRuntime()
+            const questions: AgentQuestion[] = await runtime.forms.pending({
+              directory: directoryResult.directory,
+            })
+            const form = questions.find((entry) => entry.id === c.req.valid("param").requestID)
+            if (!form) return c.json(routeErrorBody(404, "Question not found"), 404)
+            await runtime.forms.dismiss(form.sessionID, form.id)
+            return c.json(true)
+          },
+        }),
     )
 }
 

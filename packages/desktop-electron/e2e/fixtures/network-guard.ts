@@ -21,7 +21,10 @@ function block(host: string) {
 function browserURL(command: string, args: string[], environmentURL: string | undefined) {
   const executable = command.split(/[\\/]/u).at(-1)?.toLowerCase()
   let target: string | undefined
-  if (["open", "xdg-open", "explorer", "explorer.exe"].includes(executable ?? "") && args.length === 1) {
+  if (
+    ["open", "xdg-open", "explorer", "explorer.exe"].includes(executable ?? "") &&
+    args.length === 1
+  ) {
     target = args[0]
   } else if (executable === "cmd" || executable === "cmd.exe") {
     if (args[0]?.toLowerCase() !== "/c" || args[1]?.toLowerCase() !== "start") return
@@ -30,8 +33,10 @@ function browserURL(command: string, args: string[], environmentURL: string | un
   } else if (
     executable === "powershell.exe" &&
     args.length === 4 &&
-    args[0] === "-NoProfile" && args[1] === "-NonInteractive" &&
-    args[2] === "-Command" && args[3] === "Start-Process $env:BUDDY_MCP_AUTH_URL"
+    args[0] === "-NoProfile" &&
+    args[1] === "-NonInteractive" &&
+    args[2] === "-Command" &&
+    args[3] === "Start-Process $env:BUDDY_MCP_AUTH_URL"
   ) {
     target = environmentURL
   }
@@ -44,19 +49,37 @@ childProcess.execFile = new Proxy(childProcess.execFile, {
   apply(target, receiver, args) {
     const command = z.string().safeParse(args[0])
     const argv = z.array(z.string()).safeParse(args[1])
-    const options = z.object({ env: z.object({ BUDDY_MCP_AUTH_URL: z.string().optional() }).optional() }).safeParse(args[2])
-    const url = command.success && argv.success ? browserURL(command.data, argv.data, options.success ? options.data.env?.BUDDY_MCP_AUTH_URL : undefined) : undefined
+    const options = z
+      .object({ env: z.object({ BUDDY_MCP_AUTH_URL: z.string().optional() }).optional() })
+      .safeParse(args[2])
+    const url =
+      command.success && argv.success
+        ? browserURL(
+            command.data,
+            argv.data,
+            options.success ? options.data.env?.BUDDY_MCP_AUTH_URL : undefined,
+          )
+        : undefined
     if (!browserLogPath || !url) return Function.prototype.apply.call(target, receiver, args)
     fs.appendFileSync(browserLogPath, `${url}\n`)
     const child = new childProcess.ChildProcess()
     const output = z.union([z.string(), z.instanceof(Buffer)])
-    const callback = z.function({ input: [z.null(), output, output], output: z.unknown() }).safeParse(args.at(-1))
-    const bufferOutput = z.object({ encoding: z.union([z.literal("buffer"), z.null()]) }).safeParse(args[2]).success
+    const callback = z
+      .function({ input: [z.null(), output, output], output: z.unknown() })
+      .safeParse(args.at(-1))
+    const bufferOutput = z
+      .object({ encoding: z.union([z.literal("buffer"), z.null()]) })
+      .safeParse(args[2]).success
     process.nextTick(() => {
       child.emit("spawn")
       Object.defineProperty(child, "exitCode", { value: 0, configurable: true })
       child.emit("exit", 0, null)
-      if (callback.success) callback.data(null, bufferOutput ? Buffer.alloc(0) : "", bufferOutput ? Buffer.alloc(0) : "")
+      if (callback.success)
+        callback.data(
+          null,
+          bufferOutput ? Buffer.alloc(0) : "",
+          bufferOutput ? Buffer.alloc(0) : "",
+        )
       child.emit("close", 0, null)
     })
     return child
@@ -68,14 +91,20 @@ globalThis.fetch = new Proxy(globalThis.fetch, {
     const input = args[0]
     const url = input instanceof Request ? new URL(input.url) : new URL(input)
     if (networkProtocols.has(url.protocol)) {
-      try { block(url.hostname) }
-      catch (error) { return Promise.reject(error) }
+      try {
+        block(url.hostname)
+      } catch (error) {
+        return Promise.reject(error)
+      }
     }
     return Function.prototype.apply.call(target, receiver, args)
   },
 })
 
-const socketOptions = z.object({ port: z.union([z.number(), z.string()]), host: z.string().optional() })
+const socketOptions = z.object({
+  port: z.union([z.number(), z.string()]),
+  host: z.string().optional(),
+})
 net.Socket.prototype.connect = new Proxy(net.Socket.prototype.connect, {
   apply(target, socket, args) {
     const first = Array.isArray(args[0]) ? args[0][0] : args[0]

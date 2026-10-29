@@ -203,7 +203,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     [globalConfigQuery.data],
   )
   const primaryUse = readPersonalization(globalConfigQuery.data ?? {}).primaryUse
-  const getStartedFlow = useGetStartedFlow(props.currentDirectory, props.selectedModel, props.providers)
+  const getStartedFlow = useGetStartedFlow(
+    props.currentDirectory,
+    props.selectedModel,
+    props.providers,
+  )
   const teacherStandardsAutoSetupComplete = useUiPreferences(
     (state) => state.teacherStandardsAutoSetupComplete,
   )

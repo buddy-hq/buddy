@@ -146,7 +146,16 @@ describe("concise response chat state", () => {
 
   test("treats a pre-toggle chat as having the original concise base", async () => {
     await using harness = await createRuntimeHarness()
-    const session = await harness.seedTextConversation({ title: "Existing chat", text: "Existing chat" })
-    expect(await readConciseResponseChatState({ directory: harness.directory, sessionID: session.sessionID, configured: false })).toEqual({ base: true, applied: true })
+    const session = await harness.seedTextConversation({
+      title: "Existing chat",
+      text: "Existing chat",
+    })
+    expect(
+      await readConciseResponseChatState({
+        directory: harness.directory,
+        sessionID: session.sessionID,
+        configured: false,
+      }),
+    ).toEqual({ base: true, applied: true })
   })
 })

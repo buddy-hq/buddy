@@ -1,4 +1,9 @@
-import type { OpenCodeClient, OpenCodeEvent, SessionMessageAssistantTool, SessionMessageInfo } from "@opencode/client"
+import type {
+  OpenCodeClient,
+  OpenCodeEvent,
+  SessionMessageAssistantTool,
+  SessionMessageInfo,
+} from "@opencode/client"
 import { open } from "node:fs/promises"
 import { parseStringValue } from "@buddy/transcript-contract/parse-external"
 import { shellObserverFor } from "../shell-observer"
@@ -15,16 +20,20 @@ function scheduleOutput(tick: () => void) {
 }
 
 export function runningShellID(part: SessionMessageAssistantTool): string | undefined {
-  if ((part.name !== "shell" && part.name !== "bash") || part.state.status !== "running") return undefined
+  if ((part.name !== "shell" && part.name !== "bash") || part.state.status !== "running")
+    return undefined
   return parseStringValue(part.state.metadata.shellID)
 }
 
-export async function readShellOutput(client: ShellOutputClient, input: {
-  readonly id: string
-  readonly directory: string
-  readonly previous?: LiveShellOutput
-  readonly signal?: AbortSignal
-}): Promise<LiveShellOutput | undefined> {
+export async function readShellOutput(
+  client: ShellOutputClient,
+  input: {
+    readonly id: string
+    readonly directory: string
+    readonly previous?: LiveShellOutput
+    readonly signal?: AbortSignal
+  },
+): Promise<LiveShellOutput | undefined> {
   const observer = shellObserverFor(client)
   const capture = observer?.running(input.directory).find((shell) => shell.id === input.id)
   if (!capture || input.signal?.aborted) return undefined
@@ -36,7 +45,11 @@ export async function readShellOutput(client: ShellOutputClient, input: {
       const start = Math.max(0, size - MaxOutputBytes)
       const bytes = Buffer.alloc(size - start)
       const { bytesRead } = await file.read(bytes, 0, bytes.length, start)
-      if (input.signal?.aborted || !observer?.running(input.directory).some((shell) => shell.id === input.id)) return undefined
+      if (
+        input.signal?.aborted ||
+        !observer?.running(input.directory).some((shell) => shell.id === input.id)
+      )
+        return undefined
       return { output: bytes.subarray(0, bytesRead).toString("utf8"), cursor: start + bytesRead }
     } finally {
       await file.close()
@@ -46,7 +59,11 @@ export async function readShellOutput(client: ShellOutputClient, input: {
   }
 }
 
-export async function readMessageShellOutput(client: ShellOutputClient, messages: readonly SessionMessageInfo[], directory: string) {
+export async function readMessageShellOutput(
+  client: ShellOutputClient,
+  messages: readonly SessionMessageInfo[],
+  directory: string,
+) {
   const output = new Map<string, LiveShellOutput>()
   for (const message of messages) {
     if (message.type !== "assistant" || message.time.completed !== undefined) continue
@@ -61,18 +78,30 @@ export async function readMessageShellOutput(client: ShellOutputClient, messages
   return output
 }
 
-export async function* shellOutputTicks(events: AsyncIterable<OpenCodeEvent>, input: {
-  readonly signal: AbortSignal
-  readonly active: () => boolean
-  readonly stop: () => void
-}): AsyncGenerator<OpenCodeEvent | undefined> {
+export async function* shellOutputTicks(
+  events: AsyncIterable<OpenCodeEvent>,
+  input: {
+    readonly signal: AbortSignal
+    readonly active: () => boolean
+    readonly stop: () => void
+  },
+): AsyncGenerator<OpenCodeEvent | undefined> {
   const iterator = events[Symbol.asyncIterator]()
   let wake = Promise.withResolvers<void>()
   let pending: IteratorResult<OpenCodeEvent> | undefined
   let failed: { readonly cause: unknown } | undefined
   let tick = false
   const next = () => {
-    void iterator.next().then((value) => { pending = value; wake.resolve() }, (cause: unknown) => { failed = { cause }; wake.resolve() })
+    void iterator.next().then(
+      (value) => {
+        pending = value
+        wake.resolve()
+      },
+      (cause: unknown) => {
+        failed = { cause }
+        wake.resolve()
+      },
+    )
   }
   const unschedule = scheduleOutput(() => {
     if (!input.active()) return

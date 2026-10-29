@@ -157,8 +157,12 @@ describe("experimental feature gating", () => {
     )
     expect(sessionRuntime.access.subagents[LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY]).toBeUndefined()
     expect(
-      evaluatePermission("subagent", LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY, sessionPermission, process.platform === "win32" ? "win32" : "posix")
-        .action,
+      evaluatePermission(
+        "subagent",
+        LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY,
+        sessionPermission,
+        process.platform === "win32" ? "win32" : "posix",
+      ).action,
     ).toBe("deny")
   })
 
@@ -182,7 +186,8 @@ describe("experimental feature gating", () => {
 
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.toEqual({
-      code: "request.forbidden", error: "Memory is an experimental feature that is not enabled",
+      code: "request.forbidden",
+      error: "Memory is an experimental feature that is not enabled",
     })
   })
 

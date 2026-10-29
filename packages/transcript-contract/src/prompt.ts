@@ -25,14 +25,23 @@ export const PromptPresentation = Schema.Struct({
 })
 export type PromptPresentation = typeof PromptPresentation.Type
 
-export function readPromptPresentation<TValue>(metadata: TValue, text: string): PromptPresentation | undefined {
+export function readPromptPresentation<TValue>(
+  metadata: TValue,
+  text: string,
+): PromptPresentation | undefined {
   const buddy = parseJsonObject(parseJsonObject(metadata)?.buddy)
   const prompt = buddy?.prompt
   if (!Schema.is(PromptPresentation)(prompt)) return undefined
   let end = 0
   for (const segment of prompt.segments) {
-    if (!Number.isSafeInteger(segment.start) || !Number.isSafeInteger(segment.end) ||
-      segment.start < end || segment.end < segment.start || segment.end > text.length) return undefined
+    if (
+      !Number.isSafeInteger(segment.start) ||
+      !Number.isSafeInteger(segment.end) ||
+      segment.start < end ||
+      segment.end < segment.start ||
+      segment.end > text.length
+    )
+      return undefined
     end = segment.end
   }
   return prompt

@@ -8,9 +8,18 @@ import {
   updateKnownConfigDocument,
 } from "../contract/document.js"
 import { preserveConfigSecrets } from "../contract/web-safe"
-import { deleteUnusedMcpSecrets, storeEnteredMcpSecrets, withMcpSecretConfigLock } from "../secrets/mcp-secrets"
+import {
+  deleteUnusedMcpSecrets,
+  storeEnteredMcpSecrets,
+  withMcpSecretConfigLock,
+} from "../secrets/mcp-secrets"
 import { JsonError } from "../contract/errors.js"
-import { parseConfigObject, parseConfigString, parseNodeErrorCode, type TConfigJsonValue } from "../parse-values.js"
+import {
+  parseConfigObject,
+  parseConfigString,
+  parseNodeErrorCode,
+  type TConfigJsonValue,
+} from "../parse-values.js"
 import { resetGlobalConfigCache } from "./global-cache.js"
 import {
   resolveGlobalConfigFile,
@@ -52,20 +61,25 @@ function preserveConfigReferences(
     return text
   }
   if (Array.isArray(next)) {
-    return next.map((entry, index) => preserveConfigReferences(
-      entry,
-      Array.isArray(current) ? current[index] : undefined,
-      Array.isArray(resolved) ? resolved[index] : undefined,
-    ) ?? null)
+    return next.map(
+      (entry, index) =>
+        preserveConfigReferences(
+          entry,
+          Array.isArray(current) ? current[index] : undefined,
+          Array.isArray(resolved) ? resolved[index] : undefined,
+        ) ?? null,
+    )
   }
   const nextRecord = parseConfigObject(next)
   if (!nextRecord) return next
   const currentRecord = parseConfigObject(current)
   const resolvedRecord = parseConfigObject(resolved)
-  return Object.fromEntries(Object.entries(nextRecord).map(([key, value]) => [
-    key,
-    preserveConfigReferences(value, currentRecord?.[key], resolvedRecord?.[key]),
-  ]))
+  return Object.fromEntries(
+    Object.entries(nextRecord).map(([key, value]) => [
+      key,
+      preserveConfigReferences(value, currentRecord?.[key], resolvedRecord?.[key]),
+    ]),
+  )
 }
 
 async function writeConfigDocument<TConfig>(input: {
@@ -76,14 +90,20 @@ async function writeConfigDocument<TConfig>(input: {
   storeMcpSecrets?: boolean
 }): Promise<void> {
   const current = await input.load(input.before, input.filepath)
-  const resolved = await input.load(input.before, input.filepath, { resolveSubstitutions: true }).catch(() => undefined)
-  const references = resolved === undefined ? input.next : preserveConfigReferences(
-    parseConfigObject(input.next),
-    parseConfigObject(current),
-    parseConfigObject(resolved),
-  )
+  const resolved = await input
+    .load(input.before, input.filepath, { resolveSubstitutions: true })
+    .catch(() => undefined)
+  const references =
+    resolved === undefined
+      ? input.next
+      : preserveConfigReferences(
+          parseConfigObject(input.next),
+          parseConfigObject(current),
+          parseConfigObject(resolved),
+        )
   const preserved = preserveConfigSecrets(references, current)
-  const next = input.storeMcpSecrets === true ? await storeEnteredMcpSecrets(preserved, current) : preserved
+  const next =
+    input.storeMcpSecrets === true ? await storeEnteredMcpSecrets(preserved, current) : preserved
   let updated = updateKnownConfigDocument(input.before, current, next, input.filepath)
 
   updated = removeConfigDocumentValue(updated, input.filepath, [
@@ -99,10 +119,14 @@ function loadGlobalConfigDocument(
   filepath: string,
   options: { resolveSubstitutions?: boolean } = { resolveSubstitutions: false },
 ): Promise<ConfigInfo> {
-  return loadConfigText(text, {
-    dir: path.dirname(filepath),
-    source: filepath,
-  }, options)
+  return loadConfigText(
+    text,
+    {
+      dir: path.dirname(filepath),
+      source: filepath,
+    },
+    options,
+  )
 }
 
 function loadProjectConfigDocument(
@@ -110,10 +134,14 @@ function loadProjectConfigDocument(
   filepath: string,
   options: { resolveSubstitutions?: boolean } = { resolveSubstitutions: false },
 ): Promise<ProjectConfigInfo> {
-  return loadProjectConfigText(text, {
-    dir: path.dirname(filepath),
-    source: filepath,
-  }, options)
+  return loadProjectConfigText(
+    text,
+    {
+      dir: path.dirname(filepath),
+      source: filepath,
+    },
+    options,
+  )
 }
 
 async function withGlobalConfigChangeLock<T>(task: () => Promise<T>): Promise<T> {
@@ -168,7 +196,9 @@ export async function setProjectMcpConfig(
 
     const before = await readConfigTextOrDefault(filepath)
     const current = await loadProjectConfigDocument(before, filepath)
-    const resolved = await loadProjectConfigDocument(before, filepath, { resolveSubstitutions: true }).catch(() => undefined)
+    const resolved = await loadProjectConfigDocument(before, filepath, {
+      resolveSubstitutions: true,
+    }).catch(() => undefined)
     const next = ProjectInfo.parse({
       ...current,
       mcp: {
@@ -176,12 +206,18 @@ export async function setProjectMcpConfig(
         [name]: mcp,
       },
     })
-    const references = resolved === undefined ? next : preserveConfigReferences(next, current, resolved)
+    const references =
+      resolved === undefined ? next : preserveConfigReferences(next, current, resolved)
     const preserved = preserveConfigSecrets(references, current)
     let updated = removeConfigDocumentValue(before, filepath, [
       ...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH,
     ])
-    updated = updateKnownConfigDocument(updated, current, await storeEnteredMcpSecrets(preserved, current), filepath)
+    updated = updateKnownConfigDocument(
+      updated,
+      current,
+      await storeEnteredMcpSecrets(preserved, current),
+      filepath,
+    )
     await loadProjectConfigDocument(updated, filepath)
     await fsp.writeFile(filepath, updated, "utf8")
   })
@@ -195,7 +231,10 @@ export async function replaceGlobalConfig(config: ConfigInfo): Promise<ConfigInf
   return mutateGlobalConfig(() => config)
 }
 
-async function writeGlobalConfig(filepath: string, mutation: GlobalConfigMutation): Promise<string> {
+async function writeGlobalConfig(
+  filepath: string,
+  mutation: GlobalConfigMutation,
+): Promise<string> {
   return withMcpSecretConfigLock(async () => {
     const before = await readConfigTextOrDefault(filepath)
     const current = await loadGlobalConfigDocument(before, filepath)

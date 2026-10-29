@@ -77,7 +77,8 @@ export function findLatestTodoSnapshot(input: {
 
     for (let partIndex = message.parts.length - 1; partIndex >= 0; partIndex -= 1) {
       const part = message.parts[partIndex]
-      if (!part || !isChatToolPart(part) || readToolSummaryKind(part) !== UPDATE_PLAN_TOOL_KIND) continue
+      if (!part || !isChatToolPart(part) || readToolSummaryKind(part) !== UPDATE_PLAN_TOOL_KIND)
+        continue
 
       const state = parseToolState(part)
       if (state.status === "error") continue

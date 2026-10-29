@@ -40,13 +40,18 @@ function nativeFilePart(tool: NativeFileTool, phase: ToolPresentationPhase): Mes
   const presentation = resolveToolPresentationSnapshot(descriptor, {
     toolID: tool,
     phase,
-    detail: tool !== "apply_patch" || phase === "running" || phase === "completed" ? "existing.md" : undefined,
+    detail:
+      tool !== "apply_patch" || phase === "running" || phase === "completed"
+        ? "existing.md"
+        : undefined,
     input,
     metadata: phase === "pending" || phase === "error" ? {} : metadata,
   })
   const normalized = {
     summary: tool === "apply_patch" ? { kind } : { kind, subject: "/workspace/existing.md" },
-    fileChanges: [{ path: "/workspace/existing.md", relativePath: "existing.md", kind: "update" as const }],
+    fileChanges: [
+      { path: "/workspace/existing.md", relativePath: "existing.md", kind: "update" as const },
+    ],
   }
   const base = {
     id: `part_${tool}_${phase}`,
@@ -62,7 +67,10 @@ function nativeFilePart(tool: NativeFileTool, phase: ToolPresentationPhase): Mes
     case "pending":
       return { ...base, state: { status: phase, input, raw: "{}" } }
     case "running":
-      return { ...base, state: { status: phase, input, metadata, ...normalized, time: { start: 1 } } }
+      return {
+        ...base,
+        state: { status: phase, input, metadata, ...normalized, time: { start: 1 } },
+      }
     case "completed":
       return {
         ...base,

@@ -4,19 +4,9 @@
   "client_uri": "https://hibuddy.in",
   "logo_uri": "https://hibuddy.in/apple-touch-icon.png",
   "application_type": "native",
-  "redirect_uris": [
-    "http://127.0.0.1/callback",
-    "http://localhost/callback"
-  ],
-  "grant_types": [
-    "authorization_code",
-    "refresh_token"
-  ],
-  "response_types": [
-    "code"
-  ],
+  "redirect_uris": ["http://127.0.0.1/callback", "http://localhost/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
   "token_endpoint_auth_method": "none",
-  "token_endpoint_auth_methods_supported": [
-    "none"
-  ]
+  "token_endpoint_auth_methods_supported": ["none"]
 }

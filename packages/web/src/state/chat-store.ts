@@ -503,7 +503,9 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionStatusByID: nextSessionStatusByID,
             pendingPermissions: switchedSession
               ? current.pendingPermissions.filter(
-                  (request: PermissionRequest) => activeSessionID !== undefined && sessionFamilyIDs(nextSessions, activeSessionID).includes(request.sessionID),
+                  (request: PermissionRequest) =>
+                    activeSessionID !== undefined &&
+                    sessionFamilyIDs(nextSessions, activeSessionID).includes(request.sessionID),
                 )
               : current.pendingPermissions,
             pendingQuestions: current.pendingQuestions,
@@ -611,7 +613,9 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionTitle: activeInfo?.title ?? current.sessionTitle,
             pendingPermissions: switchedSession
               ? current.pendingPermissions.filter(
-                  (request: PermissionRequest) => sessionID !== undefined && sessionFamilyIDs(current.sessions, sessionID).includes(request.sessionID),
+                  (request: PermissionRequest) =>
+                    sessionID !== undefined &&
+                    sessionFamilyIDs(current.sessions, sessionID).includes(request.sessionID),
                 )
               : current.pendingPermissions,
             pendingQuestions: current.pendingQuestions,
@@ -691,7 +695,9 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionTitle: nextActiveInfo?.title ?? DEFAULT_TITLE,
             pendingPermissions: switchedActiveSession
               ? current.pendingPermissions.filter(
-                  (request: PermissionRequest) => nextSessionID !== undefined && sessionFamilyIDs(current.sessions, nextSessionID).includes(request.sessionID),
+                  (request: PermissionRequest) =>
+                    nextSessionID !== undefined &&
+                    sessionFamilyIDs(current.sessions, nextSessionID).includes(request.sessionID),
                 )
               : current.pendingPermissions,
             pendingQuestions: current.pendingQuestions,
@@ -708,7 +714,11 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
         set((state) => {
           const current = state.directories[directory] ?? emptyDirectoryState()
           const previous = current.stoppedTurnBySessionID?.[sessionID]
-          if (previous?.assistantMessageID === stoppedTurn.assistantMessageID && previous.reason === stoppedTurn.reason) return
+          if (
+            previous?.assistantMessageID === stoppedTurn.assistantMessageID &&
+            previous.reason === stoppedTurn.reason
+          )
+            return
           current.stoppedTurnBySessionID ??= {}
           current.stoppedTurnBySessionID[sessionID] = stoppedTurn
           state.directories[directory] = current

@@ -4,7 +4,11 @@ import fs from "node:fs/promises"
 import z from "zod"
 import { Flock } from "@opencode/util/flock"
 import { openSeedSqlite, type SeedSqlite } from "./seed-sqlite"
-import { V1_IMPORT_GUARD_TABLE, writeV1ImportCommandDisplays, writeV1ImportContentCounts } from "./v1-import-guard"
+import {
+  V1_IMPORT_GUARD_TABLE,
+  writeV1ImportCommandDisplays,
+  writeV1ImportContentCounts,
+} from "./v1-import-guard"
 
 const SEED_LOCK_NAME = "buddy-v2-database-seed"
 const LOCK_DIRECTORY_NAME = ".locks"
@@ -81,7 +85,11 @@ async function removeUninitializedDatabase(file: string) {
   for (const suffix of SIDECAR_SUFFIXES) {
     if (((await fileSize(`${file}${suffix}`)) ?? 0) > 0) return
   }
-  await Promise.all([file, ...SIDECAR_SUFFIXES.map((suffix) => `${file}${suffix}`)].map((entry) => fs.rm(entry, { force: true })))
+  await Promise.all(
+    [file, ...SIDECAR_SUFFIXES.map((suffix) => `${file}${suffix}`)].map((entry) =>
+      fs.rm(entry, { force: true }),
+    ),
+  )
 }
 
 function temporaryNamePattern(v2Database: string) {
@@ -94,7 +102,9 @@ async function removeTemporaryCopies(v2Database: string) {
   const pattern = temporaryNamePattern(v2Database)
   const entries = await fs.readdir(directory)
   await Promise.all(
-    entries.filter((entry) => pattern.test(entry)).map((entry) => fs.rm(path.join(directory, entry), { recursive: true, force: true })),
+    entries
+      .filter((entry) => pattern.test(entry))
+      .map((entry) => fs.rm(path.join(directory, entry), { recursive: true, force: true })),
   )
 }
 
@@ -140,7 +150,10 @@ async function classifySource(db: SeedSqlite): Promise<V2DatabaseSeedSource | un
   if (tables.has(V2_TABLE)) return "v2"
   if (!V1_TABLES.every((table) => tables.has(table))) return undefined
   if (!tables.has("kv")) return "v1"
-  const state = await db.all(migrationStateRowSchema, "SELECT value FROM kv WHERE key = 'migration.v1-v2'")
+  const state = await db.all(
+    migrationStateRowSchema,
+    "SELECT value FROM kv WHERE key = 'migration.v1-v2'",
+  )
   return state.length === 0 ? "v1" : "v2"
 }
 
@@ -155,12 +168,15 @@ async function prepareCopy(db: SeedSqlite, source: V2DatabaseSeedSource) {
   }
   const check = await db.all(quickCheckRowSchema, "PRAGMA quick_check")
   if (check.length !== 1 || check[0]?.quick_check !== "ok") {
-    throw new V2DatabaseSeedError(`The copied chat database failed its integrity check: ${check.map((row) => row.quick_check).join("; ")}`)
+    throw new V2DatabaseSeedError(
+      `The copied chat database failed its integrity check: ${check.map((row) => row.quick_check).join("; ")}`,
+    )
   }
   const tables = await tableNames(db)
   const required = source === "v1" ? [...V1_TABLES, V1_IMPORT_GUARD_TABLE] : [V2_TABLE]
   const missing = required.filter((table) => !tables.has(table))
-  if (missing.length > 0) throw new V2DatabaseSeedError(`The copied chat database is missing ${missing.join(", ")}`)
+  if (missing.length > 0)
+    throw new V2DatabaseSeedError(`The copied chat database is missing ${missing.join(", ")}`)
 }
 
 async function syncFile(file: string, flags: number) {
@@ -184,7 +200,8 @@ export async function publish(
   } catch (error) {
     const code = errnoCode(error)
     if (code === "EEXIST") return false
-    if (!["EPERM", "ENOTSUP", "EOPNOTSUPP", "ENOSYS", "EINVAL", "EXDEV"].includes(code ?? "")) throw error
+    if (!["EPERM", "ENOTSUP", "EOPNOTSUPP", "ENOSYS", "EINVAL", "EXDEV"].includes(code ?? ""))
+      throw error
     if ((await fileSize(v2Database)) !== undefined) return false
     await fs.rename(temporary, v2Database)
   }
@@ -213,7 +230,11 @@ async function withSeedSqlite<TResult>(
   return result
 }
 
-async function copyAndPublish(paths: V2DatabaseSeedPaths, workDirectory: string, options: V2DatabaseSeedOptions): Promise<CopyOutcome> {
+async function copyAndPublish(
+  paths: V2DatabaseSeedPaths,
+  workDirectory: string,
+  options: V2DatabaseSeedOptions,
+): Promise<CopyOutcome> {
   const temporary = path.join(workDirectory, path.basename(paths.v2Database))
   const copied = await withSeedSqlite(paths.v1Database, { readOnly: true }, async (source) => {
     const kind = await classifySource(source)
@@ -233,7 +254,10 @@ async function copyAndPublish(paths: V2DatabaseSeedPaths, workDirectory: string,
   return { kind: "seeded", source: copied.kind, seededBytes, copyMs: copied.copyMs, prepareMs }
 }
 
-async function copyUnderLock(paths: V2DatabaseSeedPaths, options: V2DatabaseSeedOptions): Promise<V2DatabaseSeedResult> {
+async function copyUnderLock(
+  paths: V2DatabaseSeedPaths,
+  options: V2DatabaseSeedOptions,
+): Promise<V2DatabaseSeedResult> {
   const started = performance.now()
   if (await isInitializedDatabase(paths.v2Database)) return { kind: "published-elsewhere" }
   if ((await fileSize(paths.v1Database)) === undefined) return { kind: "no-source" }
@@ -248,7 +272,10 @@ async function copyUnderLock(paths: V2DatabaseSeedPaths, options: V2DatabaseSeed
   } catch (error) {
     await fs.rm(workDirectory, { recursive: true, force: true }).catch(() => undefined)
     if (error instanceof V2DatabaseSeedError) throw error
-    throw new V2DatabaseSeedError(`Could not copy your chats to the new version: ${asError(error).message}`, { cause: asError(error) })
+    throw new V2DatabaseSeedError(
+      `Could not copy your chats to the new version: ${asError(error).message}`,
+      { cause: asError(error) },
+    )
   }
   await fs.rm(workDirectory, { recursive: true, force: true }).catch((error) => {
     console.warn("Could not remove the temporary copy of your chats:", asError(error).message)
@@ -263,11 +290,19 @@ export type V2DatabaseLock = {
 }
 
 export async function v2DatabaseLock(v2Database: string, name: string): Promise<V2DatabaseLock> {
-  const directory = await fs.realpath(path.dirname(v2Database)).catch(() => path.resolve(path.dirname(v2Database)))
-  return { key: `${name}:${path.join(directory, path.basename(v2Database))}`, dir: path.join(directory, LOCK_DIRECTORY_NAME) }
+  const directory = await fs
+    .realpath(path.dirname(v2Database))
+    .catch(() => path.resolve(path.dirname(v2Database)))
+  return {
+    key: `${name}:${path.join(directory, path.basename(v2Database))}`,
+    dir: path.join(directory, LOCK_DIRECTORY_NAME),
+  }
 }
 
-export async function seedV2Database(paths: V2DatabaseSeedPaths, options: V2DatabaseSeedOptions = {}): Promise<V2DatabaseSeedResult> {
+export async function seedV2Database(
+  paths: V2DatabaseSeedPaths,
+  options: V2DatabaseSeedOptions = {},
+): Promise<V2DatabaseSeedResult> {
   if (await isInitializedDatabase(paths.v2Database)) return { kind: "present" }
   if ((await fileSize(paths.v1Database)) === undefined) return { kind: "no-source" }
   options.onUpgrade?.()
@@ -284,10 +319,17 @@ type SeedAttempt = { readonly pending: Promise<V2DatabaseSeedResult>; failedAt?:
 
 const seeded = new Map<string, SeedAttempt>()
 
-export function ensureV2DatabaseSeeded(paths: V2DatabaseSeedPaths, options: V2DatabaseSeedOptions = {}): Promise<V2DatabaseSeedResult> {
+export function ensureV2DatabaseSeeded(
+  paths: V2DatabaseSeedPaths,
+  options: V2DatabaseSeedOptions = {},
+): Promise<V2DatabaseSeedResult> {
   const key = path.resolve(paths.v2Database)
   const existing = seeded.get(key)
-  if (existing && (existing.failedAt === undefined || Date.now() - existing.failedAt < SEED_RETRY_DELAY_MS)) return existing.pending
+  if (
+    existing &&
+    (existing.failedAt === undefined || Date.now() - existing.failedAt < SEED_RETRY_DELAY_MS)
+  )
+    return existing.pending
   const attempt: SeedAttempt = { pending: seedV2Database(paths, options) }
   seeded.set(key, attempt)
   void attempt.pending.then(

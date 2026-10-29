@@ -6,7 +6,11 @@ export type SeedSqliteParameter = string | number | null
 
 export type SeedSqlite = {
   readonly exec: (sql: string) => Promise<void>
-  readonly all: <TRow>(schema: z.ZodType<TRow>, sql: string, parameters?: readonly SeedSqliteParameter[]) => Promise<readonly TRow[]>
+  readonly all: <TRow>(
+    schema: z.ZodType<TRow>,
+    sql: string,
+    parameters?: readonly SeedSqliteParameter[],
+  ) => Promise<readonly TRow[]>
   readonly run: (sql: string, parameters?: readonly SeedSqliteParameter[]) => Promise<number>
   readonly copyTo: (target: string) => Promise<void>
   readonly close: () => Promise<void>
@@ -72,7 +76,11 @@ export class SeedSqliteError extends Error {
 
 type WorkerRequest =
   | { readonly op: "exec"; readonly sql: string }
-  | { readonly op: "all" | "run"; readonly sql: string; readonly parameters: readonly SeedSqliteParameter[] }
+  | {
+      readonly op: "all" | "run"
+      readonly sql: string
+      readonly parameters: readonly SeedSqliteParameter[]
+    }
   | { readonly op: "copy"; readonly target: string }
   | { readonly op: "close" }
 
@@ -103,7 +111,8 @@ async function openNodeSeedSqlite(file: string, readOnly: boolean): Promise<Seed
     const entry = pending.get(reply.data.id)
     if (!entry) return
     pending.delete(reply.data.id)
-    if (reply.data.error) entry.reject(new SeedSqliteError(reply.data.error.message, reply.data.error.code))
+    if (reply.data.error)
+      entry.reject(new SeedSqliteError(reply.data.error.message, reply.data.error.code))
     else entry.resolve(reply.data.result)
   })
   worker.on("error", (error) => failAll(error))
@@ -155,7 +164,9 @@ async function openNodeSeedSqlite(file: string, readOnly: boolean): Promise<Seed
 
 function openBunSeedSqlite(file: string, readOnly: boolean): SeedSqlite {
   const { Database }: typeof import("bun:sqlite") = require(BUN_SQLITE_MODULE)
-  const db = readOnly ? new Database(file, { readonly: true }) : new Database(file, { create: false, readwrite: true })
+  const db = readOnly
+    ? new Database(file, { readonly: true })
+    : new Database(file, { create: false, readwrite: true })
   db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`)
   const attempt = async <TResult>(run: () => TResult): Promise<TResult> => {
     try {
@@ -167,15 +178,23 @@ function openBunSeedSqlite(file: string, readOnly: boolean): SeedSqlite {
   }
   let closed = false
   return {
-    exec: (sql) => attempt(() => { db.exec(sql) }),
-    all: (schema, sql, parameters = []) => attempt(() => z.array(schema).parse(db.query(sql).all(...parameters))),
+    exec: (sql) =>
+      attempt(() => {
+        db.exec(sql)
+      }),
+    all: (schema, sql, parameters = []) =>
+      attempt(() => z.array(schema).parse(db.query(sql).all(...parameters))),
     run: (sql, parameters = []) => attempt(() => db.query(sql).run(...parameters).changes),
-    copyTo: (target) => attempt(() => { db.query("VACUUM INTO ?").run(target) }),
-    close: () => attempt(() => {
-      if (closed) return
-      closed = true
-      db.close(false)
-    }),
+    copyTo: (target) =>
+      attempt(() => {
+        db.query("VACUUM INTO ?").run(target)
+      }),
+    close: () =>
+      attempt(() => {
+        if (closed) return
+        closed = true
+        db.close(false)
+      }),
   }
 }
 
@@ -186,7 +205,10 @@ function codeOf(error: Error): string | undefined {
   return parsed.success ? parsed.data.code : undefined
 }
 
-export async function openSeedSqlite(file: string, options: { readonly readOnly: boolean }): Promise<SeedSqlite> {
+export async function openSeedSqlite(
+  file: string,
+  options: { readonly readOnly: boolean },
+): Promise<SeedSqlite> {
   if (process.versions.bun) return openBunSeedSqlite(file, options.readOnly)
   return openNodeSeedSqlite(file, options.readOnly)
 }

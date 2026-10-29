@@ -14,7 +14,10 @@ type OpenOwnedSubagentBenchInput = {
   activeSessionID: string | undefined
   selectSession: (directory: string, sessionID: string) => Promise<boolean>
   openSubagentBench: (directory: string, sessionID: string) => Promise<boolean>
-  loadSession?: (directory: string, sessionID: string) => Promise<Pick<SessionInfo, "id" | "parentID">>
+  loadSession?: (
+    directory: string,
+    sessionID: string,
+  ) => Promise<Pick<SessionInfo, "id" | "parentID">>
 }
 
 export function subagentBenchSelection(
@@ -59,7 +62,9 @@ export async function openOwnedSubagentBench(
         session = await input.loadSession(input.directory, sessionID)
         if (session.id !== sessionID) return false
         sessions.set(session.id, session)
-      } catch { return false }
+      } catch {
+        return false
+      }
     }
     if (!session) return sessionID === input.sessionID ? undefined : false
     sessionID = session.parentID

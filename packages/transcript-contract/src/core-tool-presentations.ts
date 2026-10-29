@@ -5,11 +5,29 @@ import {
 } from "./tool-presentation"
 
 export const CORE_TOOL_PRESENTATION_KINDS = [
-  "invalid-tool-call", "ask-questions", "run-command", "read-file", "find-files",
-  "search-files", "edit-file", "write-file", "delegate", "fetch-url", "update-plan",
-  "search-web", "use-skill", "change-files", "run-connected-tools", "inspect-code",
-  "finish-plan", "list-resources", "list-resource-templates", "read-resource",
-  "list-files", "search-code", "read-plan",
+  "invalid-tool-call",
+  "ask-questions",
+  "run-command",
+  "read-file",
+  "find-files",
+  "search-files",
+  "edit-file",
+  "write-file",
+  "delegate",
+  "fetch-url",
+  "update-plan",
+  "search-web",
+  "use-skill",
+  "change-files",
+  "run-connected-tools",
+  "inspect-code",
+  "finish-plan",
+  "list-resources",
+  "list-resource-templates",
+  "read-resource",
+  "list-files",
+  "search-code",
+  "read-plan",
 ] as const
 
 export type CoreToolPresentationKind = (typeof CORE_TOOL_PRESENTATION_KINDS)[number]
@@ -164,7 +182,7 @@ const catalog = {
       error: "Failed to create",
     },
   }),
-  "delegate": defineToolPresentation({
+  delegate: defineToolPresentation({
     archetype: "inline-output",
     icon: "subagent",
     renderer: "task",

@@ -13,11 +13,17 @@ import { createBuddySubagentHooks } from "../../src/runtime/buddy-subagents"
 import { tmpdir } from "../helpers/tmpdir"
 
 const sessions: SessionAccess = {
-  async get(sessionID) { return { id: sessionID, rules: [] } },
+  async get(sessionID) {
+    return { id: sessionID, rules: [] }
+  },
   async patchMetadata() {},
   async setRules() {},
-  async agentRules() { return [] },
-  async toolPermissions() { return {} },
+  async agentRules() {
+    return []
+  },
+  async toolPermissions() {
+    return {}
+  },
 }
 
 function deliveredState(sessionId: string): TeachingSessionState {
@@ -76,7 +82,11 @@ describe("context delivery after compaction", () => {
         return originalGet.call(runtime.conversations, sessionID)
       }
       const transform = orchestrateSessionMessageTransform({
-        context: { directory: project.path, sessionID: session.id, request: new Request("http://localhost") },
+        context: {
+          directory: project.path,
+          sessionID: session.id,
+          request: new Request("http://localhost"),
+        },
         body: { content: "Continue learning", persona: "buddy" },
       })
       void transform.catch(paused.reject)
@@ -124,6 +134,9 @@ describe("context delivery after compaction", () => {
         focusGoalIds: ["learn-compaction"],
       })
     }
-    expect(readTeachingSessionState(continued.path, "ses_unrelated")?.lastDeliveredTeachingTurnContextDigest).toBe("delivered-teaching")
+    expect(
+      readTeachingSessionState(continued.path, "ses_unrelated")
+        ?.lastDeliveredTeachingTurnContextDigest,
+    ).toBe("delivered-teaching")
   })
 })

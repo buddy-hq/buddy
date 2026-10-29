@@ -77,7 +77,8 @@ async function canonicalizeEditorFilePath(filepath: string): Promise<string> {
     if (
       !isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.notFound) &&
       !isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.notDirectory)
-    ) throw error
+    )
+      throw error
     return path.join(
       await canonicalizeEditorFilePath(path.dirname(resolvedPath)),
       path.basename(resolvedPath),
@@ -256,15 +257,14 @@ export async function saveProjectTextFile(input: {
   expectedVersion?: string | null
 }): Promise<ProjectTextFileSaveResult> {
   const normalizedPath = normalizeRelativePath(input.path)
-  const initialContainedFile = await resolveContainedFile(
-    input.directory,
-    normalizedPath,
-  ).catch((error) => {
-    if (error instanceof ProjectFileNotFoundError) {
-      return undefined
-    }
-    throw error
-  })
+  const initialContainedFile = await resolveContainedFile(input.directory, normalizedPath).catch(
+    (error) => {
+      if (error instanceof ProjectFileNotFoundError) {
+        return undefined
+      }
+      throw error
+    },
+  )
 
   if (initialContainedFile) {
     await assertTextEditableFile(input.directory, normalizedPath)
@@ -292,29 +292,30 @@ export async function saveProjectTextFile(input: {
     }
 
     const nextPath = containedFile?.realPath ?? path.resolve(input.directory, normalizedPath)
-    const save = () => withNotebookConfigWriteLock(input.directory, [nextPath], () =>
-      writeTextFileAtomic(nextPath, input.content, async () => {
-        const latestContainedFile = await resolveContainedFile(
-          input.directory,
-          normalizedPath,
-        ).catch((error) => {
-          if (error instanceof ProjectFileNotFoundError) return undefined
-          throw error
-        })
-        const latestPath = latestContainedFile?.realPath ?? lexicalTargetPath
-        if (latestPath !== nextPath) {
-          throw new ProjectTextFileVersionConflictError(PROJECT_TEXT_FILE_CONFLICT_ERROR)
-        }
+    const save = () =>
+      withNotebookConfigWriteLock(input.directory, [nextPath], () =>
+        writeTextFileAtomic(nextPath, input.content, async () => {
+          const latestContainedFile = await resolveContainedFile(
+            input.directory,
+            normalizedPath,
+          ).catch((error) => {
+            if (error instanceof ProjectFileNotFoundError) return undefined
+            throw error
+          })
+          const latestPath = latestContainedFile?.realPath ?? lexicalTargetPath
+          if (latestPath !== nextPath) {
+            throw new ProjectTextFileVersionConflictError(PROJECT_TEXT_FILE_CONFLICT_ERROR)
+          }
 
-        const currentContent = latestContainedFile
-          ? await readFileContent(latestContainedFile.realPath)
-          : undefined
-        const currentVersion = textContentVersion(currentContent)
-        if (input.expectedVersion !== undefined && input.expectedVersion !== currentVersion) {
-          throw new ProjectTextFileVersionConflictError(PROJECT_TEXT_FILE_CONFLICT_ERROR)
-        }
-      }),
-    )
+          const currentContent = latestContainedFile
+            ? await readFileContent(latestContainedFile.realPath)
+            : undefined
+          const currentVersion = textContentVersion(currentContent)
+          if (input.expectedVersion !== undefined && input.expectedVersion !== currentVersion) {
+            throw new ProjectTextFileVersionConflictError(PROJECT_TEXT_FILE_CONFLICT_ERROR)
+          }
+        }),
+      )
 
     if (nextPath === lexicalTargetPath) {
       await save()

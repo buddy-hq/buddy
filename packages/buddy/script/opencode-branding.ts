@@ -51,8 +51,8 @@ const replacements = new Map<string, readonly Replacement[]>([
         replacement: () => 'footnote: "Close this window and try again from Buddy.",',
       },
       {
-        original: '<title>${escapeHtml(input.title)} · OpenCode</title>',
-        replacement: () => '<title>${escapeHtml(input.title)} · Buddy</title>',
+        original: "<title>${escapeHtml(input.title)} · OpenCode</title>",
+        replacement: () => "<title>${escapeHtml(input.title)} · Buddy</title>",
       },
       {
         original:
@@ -81,8 +81,10 @@ const replacements = new Map<string, readonly Replacement[]>([
     path.join(vendorRoot, "mcp/oauth.ts").replaceAll("\\", "/"),
     [
       {
-        original: 'export const CLIENT_METADATA_URL = "https://opencode.ai/oauth/opencode/client.json"',
-        replacement: () => 'export const CLIENT_METADATA_URL = "https://hibuddy.in/oauth/buddy/client.json"',
+        original:
+          'export const CLIENT_METADATA_URL = "https://opencode.ai/oauth/opencode/client.json"',
+        replacement: () =>
+          'export const CLIENT_METADATA_URL = "https://hibuddy.in/oauth/buddy/client.json"',
       },
       {
         original: 'client_name: "opencode",',

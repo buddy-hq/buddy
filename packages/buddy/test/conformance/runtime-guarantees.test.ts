@@ -16,22 +16,35 @@ function expectChatRules(api: Harness, marker: string) {
 describe("Runtime guarantees", () => {
   test("block on failure: refuse a chat without a reply, then retry chat-rules setup", async () => {
     let attempts = 0
-    await using api = await createRuntimeGuaranteesHarness({ extension: (buddy) => ({
-      ...buddy,
-      hooks(location, sessions) {
-        attempts += 1
-        if (attempts === 1) throw new Error("Conformance chat-rules setup failed")
-        return buddy.hooks(location, sessions)
-      },
-    }) })
+    await using api = await createRuntimeGuaranteesHarness({
+      extension: (buddy) => ({
+        ...buddy,
+        hooks(location, sessions) {
+          attempts += 1
+          if (attempts === 1) throw new Error("Conformance chat-rules setup failed")
+          return buddy.hooks(location, sessions)
+        },
+      }),
+    })
     const session = await api.create()
-    const refused = await api.prompt(session.id, scenario({ kind: "reply", text: "Refused answer" }))
-    expect(refused).toMatchObject({ ok: false, error: { kind: "internal", message: "UnexpectedStatus: 500" } })
-    expect((await api.messages(session.id)).filter((message) => message.info.role === "assistant")).toEqual([])
+    const refused = await api.prompt(
+      session.id,
+      scenario({ kind: "reply", text: "Refused answer" }),
+    )
+    expect(refused).toMatchObject({
+      ok: false,
+      error: { kind: "internal", message: "UnexpectedStatus: 500" },
+    })
+    expect(
+      (await api.messages(session.id)).filter((message) => message.info.role === "assistant"),
+    ).toEqual([])
     expect(api.requests.filter((request) => request.text.includes("Refused answer"))).toEqual([])
     expect(attempts).toBe(1)
 
-    const retried = await api.prompt(session.id, scenario({ kind: "reply", text: "Answer with chat rules" }))
+    const retried = await api.prompt(
+      session.id,
+      scenario({ kind: "reply", text: "Answer with chat rules" }),
+    )
     expect(retried.ok).toBe(true)
     if (!retried.ok) throw retried.error
     expect(messageText(retried.value)).toBe("Answer with chat rules")
@@ -43,32 +56,51 @@ describe("Runtime guarantees", () => {
     const recovering = Promise.withResolvers<void>()
     const releaseRecovery = Promise.withResolvers<void>()
     let restarting = false
-    await using api = await createRuntimeGuaranteesHarness({ extension: (buddy) => ({
-      ...buddy,
-      async tools(location) {
-        if (restarting) {
-          recovering.resolve()
-          await releaseRecovery.promise
-        }
-        return buddy.tools(location)
-      },
-    }) })
+    await using api = await createRuntimeGuaranteesHarness({
+      extension: (buddy) => ({
+        ...buddy,
+        async tools(location) {
+          if (restarting) {
+            recovering.resolve()
+            await releaseRecovery.promise
+          }
+          return buddy.tools(location)
+        },
+      }),
+    })
     const session = await api.create()
     const gate = api.gate()
     const marker = "Reply interrupted before restart"
     await using originalEvents = await api.events()
-    const pending = api.prompt(session.id, scenario({ kind: "stream", key: gate.key, text: marker }))
+    const pending = api.prompt(
+      session.id,
+      scenario({ kind: "stream", key: gate.key, text: marker }),
+    )
     try {
       await gate.entered
-      await originalEvents.until((event) => event.type === "session.text.delta" && event.data.sessionID === session.id && event.data.delta === marker)
+      await originalEvents.until(
+        (event) =>
+          event.type === "session.text.delta" &&
+          event.data.sessionID === session.id &&
+          event.data.delta === marker,
+      )
       const interrupted = await api.messages(session.id)
-      expect(interrupted.some((message) => message.info.role === "assistant" && message.info.time.completed === undefined)).toBe(true)
+      expect(
+        interrupted.some(
+          (message) =>
+            message.info.role === "assistant" && message.info.time.completed === undefined,
+        ),
+      ).toBe(true)
       await api.close()
       await pending
       const before = api.requests.length
       restarting = true
       await api.restart()
-      expect((await api.messages(session.id)).some((message) => message.info.role === "assistant" && messageText(message) === marker)).toBe(true)
+      expect(
+        (await api.messages(session.id)).some(
+          (message) => message.info.role === "assistant" && messageText(message) === marker,
+        ),
+      ).toBe(true)
       await recovering.promise
       await using events = await api.events()
       releaseRecovery.resolve()
@@ -82,7 +114,11 @@ describe("Runtime guarantees", () => {
       }
       if (outcome.type === "session.execution.succeeded") {
         expect(resumed.length).toBeGreaterThan(0)
-        expect((await api.messages(session.id)).some((message) => message.info.role === "assistant" && message.info.finish === "stop")).toBe(true)
+        expect(
+          (await api.messages(session.id)).some(
+            (message) => message.info.role === "assistant" && message.info.finish === "stop",
+          ),
+        ).toBe(true)
       } else {
         expect(outcome.data.error).toMatchObject({ type: expect.any(String) })
       }
@@ -97,12 +133,18 @@ describe("Runtime guarantees", () => {
     await using api = await createRuntimeGuaranteesHarness()
     const session = await api.create()
     expect(await api.messages(session.id)).toEqual([])
-    const reply = await api.prompt(session.id, scenario({ kind: "reply", text: "First notebook answer" }))
+    const reply = await api.prompt(
+      session.id,
+      scenario({ kind: "reply", text: "First notebook answer" }),
+    )
     expect(reply.ok).toBe(true)
     if (!reply.ok) throw reply.error
     expect(messageText(reply.value)).toBe("First notebook answer")
     expectChatRules(api, "First notebook answer")
-    const captured = await readCapturedSessionSystemPrompt({ directory: api.directory, sessionID: session.id })
+    const captured = await readCapturedSessionSystemPrompt({
+      directory: api.directory,
+      sessionID: session.id,
+    })
     expect(captured).toContain("conformance-kept-instruction")
     expect(captured).not.toContain("conformance-excluded-instruction")
   })

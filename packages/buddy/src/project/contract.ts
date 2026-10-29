@@ -14,13 +14,15 @@ export const projectUpdateSchema = z.object({
   commands: projectCommandsSchema.optional(),
 })
 
-export const projectSchema: z.ZodType<ProjectInfo> = z.object({
-  id: z.string(),
-  worktree: z.string(),
-  vcs: z.string().optional(),
-  name: z.string().optional(),
-  icon: projectIconSchema.optional(),
-  commands: projectCommandsSchema.optional(),
-  time: z.object({ created: z.number(), updated: z.number(), initialized: z.number() }),
-  sandboxes: z.array(z.string()),
-}).meta({ id: "Project" })
+export const projectSchema: z.ZodType<ProjectInfo> = z
+  .object({
+    id: z.string(),
+    worktree: z.string(),
+    vcs: z.string().optional(),
+    name: z.string().optional(),
+    icon: projectIconSchema.optional(),
+    commands: projectCommandsSchema.optional(),
+    time: z.object({ created: z.number(), updated: z.number(), initialized: z.number() }),
+    sandboxes: z.array(z.string()),
+  })
+  .meta({ id: "Project" })

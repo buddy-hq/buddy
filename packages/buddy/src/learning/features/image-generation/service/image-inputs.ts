@@ -5,7 +5,6 @@ import type { MessageWithParts, Part } from "@buddy/transcript-contract/message"
 import { mimeTypeForPath } from "../../../../http/mime"
 import { resolveTrustedGeneratedImagePath } from "./generated-image-authorization"
 
-
 const IMAGE_DATA_URL_PREFIX = "data:image/"
 const BASE64_DATA_URL_ENCODING = ";base64"
 const DEFAULT_IMAGE_MIME_TYPE = "application/octet-stream"

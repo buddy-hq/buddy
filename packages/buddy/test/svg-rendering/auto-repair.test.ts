@@ -26,7 +26,10 @@ function repairInput(directory: string) {
 }
 
 function recordFile(directory: string, requestID: string) {
-  return path.join(path.dirname(svgAutoRepairScratchFile(directory, requestID)), `${requestID}.json`)
+  return path.join(
+    path.dirname(svgAutoRepairScratchFile(directory, requestID)),
+    `${requestID}.json`,
+  )
 }
 
 describe("SVG auto-repair lookup after import", () => {
@@ -61,11 +64,22 @@ describe("SVG auto-repair lookup after import", () => {
     await using project = await tmpdir()
     const input = repairInput(project.path)
     const older = (await createSvgAutoRepairRequest(input)).request
-    const newer = (await createSvgAutoRepairRequest({ ...input, partID: "prt_second_v1_part" })).request
-    await fs.utimes(recordFile(project.path, older.repairRequestID), new Date("2020-01-01"), new Date("2020-01-01"))
-    await fs.utimes(recordFile(project.path, newer.repairRequestID), new Date("2021-01-01"), new Date("2021-01-01"))
+    const newer = (await createSvgAutoRepairRequest({ ...input, partID: "prt_second_v1_part" }))
+      .request
+    await fs.utimes(
+      recordFile(project.path, older.repairRequestID),
+      new Date("2020-01-01"),
+      new Date("2020-01-01"),
+    )
+    await fs.utimes(
+      recordFile(project.path, newer.repairRequestID),
+      new Date("2021-01-01"),
+      new Date("2021-01-01"),
+    )
 
-    expect(await findSvgAutoRepairRequest({ ...input, partID: "prt_msg_imported_svg_0_text" })).toMatchObject({
+    expect(
+      await findSvgAutoRepairRequest({ ...input, partID: "prt_msg_imported_svg_0_text" }),
+    ).toMatchObject({
       repairRequestID: newer.repairRequestID,
     })
     expect(await findSvgAutoRepairRequest(input)).toMatchObject({
@@ -77,12 +91,17 @@ describe("SVG auto-repair lookup after import", () => {
     await using project = await tmpdir()
     const input = repairInput(project.path)
     const { request } = await createSvgAutoRepairRequest(input)
-    await fs.writeFile(recordFile(project.path, request.repairRequestID), JSON.stringify({
-      ...request,
-      runtimeID: randomUUID(),
-    }))
+    await fs.writeFile(
+      recordFile(project.path, request.repairRequestID),
+      JSON.stringify({
+        ...request,
+        runtimeID: randomUUID(),
+      }),
+    )
 
-    expect(await findSvgAutoRepairRequest({ ...input, partID: "prt_msg_imported_svg_0_text" })).toMatchObject({
+    expect(
+      await findSvgAutoRepairRequest({ ...input, partID: "prt_msg_imported_svg_0_text" }),
+    ).toMatchObject({
       repairRequestID: request.repairRequestID,
       status: "exhausted",
       lastErrorMessage: "Automatic SVG repair was interrupted by a backend restart.",

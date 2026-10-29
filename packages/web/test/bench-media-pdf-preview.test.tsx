@@ -109,16 +109,19 @@ describe("Bench PDF preview", () => {
     )
   })
 
-  test.each([200, 404])("ignores a late response (%i) after its source was replaced", async (status) => {
-    const staleResponse = Promise.withResolvers<Response>()
-    preview.fetchSpy.mockReturnValueOnce(staleResponse.promise)
+  test.each([200, 404])(
+    "ignores a late response (%i) after its source was replaced",
+    async (status) => {
+      const staleResponse = Promise.withResolvers<Response>()
+      preview.fetchSpy.mockReturnValueOnce(staleResponse.promise)
 
-    await render()
-    await render("/api/objects/replacement/raw")
-    await act(async () => staleResponse.resolve(new Response("%PDF-stale", { status })))
+      await render()
+      await render("/api/objects/replacement/raw")
+      await act(async () => staleResponse.resolve(new Response("%PDF-stale", { status })))
 
-    expect(preview.container.querySelector("iframe")?.getAttribute("src")).toBe("blob:bench-pdf")
-    expect(preview.container.textContent).not.toContain("Buddy couldn't preview this PDF.")
-    expect(preview.createObjectURL.mock.calls).toHaveLength(1)
-  })
+      expect(preview.container.querySelector("iframe")?.getAttribute("src")).toBe("blob:bench-pdf")
+      expect(preview.container.textContent).not.toContain("Buddy couldn't preview this PDF.")
+      expect(preview.createObjectURL.mock.calls).toHaveLength(1)
+    },
+  )
 })

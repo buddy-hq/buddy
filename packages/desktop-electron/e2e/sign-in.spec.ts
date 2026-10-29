@@ -4,7 +4,9 @@ import z from "zod"
 import { expect, test } from "./fixtures/app"
 import { createOAuthMcpServer } from "./fixtures/oauth-mcp-server"
 
-test("MCP sign-in brands the callback and registration as Buddy and restores its window", async ({ buddy }) => {
+test("MCP sign-in brands the callback and registration as Buddy and restores its window", async ({
+  buddy,
+}) => {
   const server = await createOAuthMcpServer()
   try {
     const { page, notebook, electron } = buddy
@@ -30,19 +32,28 @@ test("MCP sign-in brands the callback and registration as Buddy and restores its
     const browserLog = path.join(buddy.root, "browser-urls.txt")
     await fs.writeFile(browserLog, "")
     await row.getByRole("button", { name: "Sign in", exact: true }).click()
-    await expect.poll(async () => (await fs.readFile(browserLog, "utf8")).trim(), {
-      message: "The harness must capture the MCP authorization URL without opening a browser",
-    }).not.toBe("")
-    const captured = z.array(z.string().url()).length(1).parse((await fs.readFile(browserLog, "utf8")).trim().split("\n"))
+    await expect
+      .poll(async () => (await fs.readFile(browserLog, "utf8")).trim(), {
+        message: "The harness must capture the MCP authorization URL without opening a browser",
+      })
+      .not.toBe("")
+    const captured = z
+      .array(z.string().url())
+      .length(1)
+      .parse((await fs.readFile(browserLog, "utf8")).trim().split("\n"))
     const authorizationURL = new URL(captured[0])
     expect(authorizationURL.origin).toBe(server.origin)
     expect(authorizationURL.pathname).toBe("/authorize")
 
-    expect(server.registrations).toEqual(expect.arrayContaining([expect.objectContaining({
-      client_name: "Buddy",
-      client_uri: "https://hibuddy.in",
-      logo_uri: expect.stringMatching(/^https:\/\/.+/u),
-    })]))
+    expect(server.registrations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          client_name: "Buddy",
+          client_uri: "https://hibuddy.in",
+          logo_uri: expect.stringMatching(/^https:\/\/.+/u),
+        }),
+      ]),
+    )
 
     const window = await electron.browserWindow(page)
     await window.evaluate((window) => window.minimize())
@@ -66,7 +77,14 @@ test("MCP sign-in brands the callback and registration as Buddy and restores its
     expect(document.text).not.toMatch(/opencode/iu)
 
     await expect(row.getByText("Connected", { exact: true })).toBeVisible()
-    await expect.poll(() => window.evaluate((window) => ({ minimized: window.isMinimized(), visible: window.isVisible() }))).toEqual({ minimized: false, visible: true })
+    await expect
+      .poll(() =>
+        window.evaluate((window) => ({
+          minimized: window.isMinimized(),
+          visible: window.isVisible(),
+        })),
+      )
+      .toEqual({ minimized: false, visible: true })
   } finally {
     await server.close()
   }

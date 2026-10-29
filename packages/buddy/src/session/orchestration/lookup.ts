@@ -15,14 +15,21 @@ export function isSessionNotFoundError(cause: unknown): boolean {
 
 export function runtimeSessionLookupErrorResponse(cause: unknown): Response {
   const status = runtimeErrorStatus(cause)
-  const message = isNotFound(cause, "session") ? SESSION_NOT_FOUND_ERROR : cause instanceof Error ? cause.message : "Request failed"
+  const message = isNotFound(cause, "session")
+    ? SESSION_NOT_FOUND_ERROR
+    : cause instanceof Error
+      ? cause.message
+      : "Request failed"
   return Response.json({ error: message }, { status })
 }
 
-export async function loadRuntimeSessionInDirectory(directory: string, sessionID: string): Promise<RuntimeSessionInfo | undefined> {
+export async function loadRuntimeSessionInDirectory(
+  directory: string,
+  sessionID: string,
+): Promise<RuntimeSessionInfo | undefined> {
   try {
     const session = await (await getAgentRuntime()).conversations.get(sessionID)
-    return await isSessionInRequestedProject(directory, session) ? session : undefined
+    return (await isSessionInRequestedProject(directory, session)) ? session : undefined
   } catch (error) {
     if (isNotFound(error, "session")) return undefined
     throw error

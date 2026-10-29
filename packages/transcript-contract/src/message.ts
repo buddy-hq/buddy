@@ -35,21 +35,39 @@ export const OutputFormat = Schema.Union([
 export type OutputFormat = typeof OutputFormat.Type
 
 const messageErrorCode = Schema.Literals([
-  "auth", "credits_exhausted", "quota_exceeded", "rate_limited", "temporarily_unavailable",
-  "model_unavailable", "region_blocked", "access_denied", "network", "context_limit",
-  "content_blocked", "invalid_output", "output_limit", "stopped", "unknown",
+  "auth",
+  "credits_exhausted",
+  "quota_exceeded",
+  "rate_limited",
+  "temporarily_unavailable",
+  "model_unavailable",
+  "region_blocked",
+  "access_denied",
+  "network",
+  "context_limit",
+  "content_blocked",
+  "invalid_output",
+  "output_limit",
+  "stopped",
+  "unknown",
 ])
 
 export const MessageError = Schema.Struct({
   name: Schema.String,
   message: OptionalString,
   code: Schema.optional(messageErrorCode),
-  anonymousCode: Schema.optional(messageErrorCode).annotate({ description: "Alternate code when the bundled provider is used without credentials" }),
-  limit: Schema.optional(Schema.Struct({
-    plan: OptionalString,
-    resetsAt: Schema.optional(Schema.Finite).annotate({ description: "Reset time in Unix seconds" }),
-    resetsInSeconds: Schema.optional(Schema.Finite),
-  })),
+  anonymousCode: Schema.optional(messageErrorCode).annotate({
+    description: "Alternate code when the bundled provider is used without credentials",
+  }),
+  limit: Schema.optional(
+    Schema.Struct({
+      plan: OptionalString,
+      resetsAt: Schema.optional(Schema.Finite).annotate({
+        description: "Reset time in Unix seconds",
+      }),
+      resetsInSeconds: Schema.optional(Schema.Finite),
+    }),
+  ),
   data: Schema.Struct({
     message: Schema.String,
     providerID: OptionalString,
@@ -106,7 +124,9 @@ export const AssistantMessage = Schema.Struct({
 }).annotate({ identifier: "AssistantMessage" })
 export type AssistantMessage = typeof AssistantMessage.Type
 
-export const Message = Schema.Union([UserMessage, AssistantMessage]).annotate({ identifier: "Message" })
+export const Message = Schema.Union([UserMessage, AssistantMessage]).annotate({
+  identifier: "Message",
+})
 export type Message = typeof Message.Type
 
 export const TextPart = Schema.Struct({
@@ -115,7 +135,9 @@ export const TextPart = Schema.Struct({
   text: Schema.String,
   synthetic: Schema.optional(Schema.Boolean),
   ignored: Schema.optional(Schema.Boolean),
-  time: Schema.optional(Schema.Struct({ start: Schema.Finite, end: Schema.optional(Schema.Finite) })),
+  time: Schema.optional(
+    Schema.Struct({ start: Schema.Finite, end: Schema.optional(Schema.Finite) }),
+  ),
 }).annotate({ identifier: "TextPart" })
 export type TextPart = typeof TextPart.Type
 
@@ -129,10 +151,23 @@ export type ReasoningPart = typeof ReasoningPart.Type
 
 const SourceText = Schema.Struct({ value: Schema.String, start: Schema.Finite, end: Schema.Finite })
 export const FileSource = Schema.Union([
-  Schema.Struct({ type: Schema.Literals(["file", "symbol"]), path: Schema.String, text: Schema.optional(SourceText) }),
-  Schema.Struct({ type: Schema.Literal("resource"), clientName: Schema.String, uri: Schema.String, text: Schema.optional(SourceText) }),
+  Schema.Struct({
+    type: Schema.Literals(["file", "symbol"]),
+    path: Schema.String,
+    text: Schema.optional(SourceText),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("resource"),
+    clientName: Schema.String,
+    uri: Schema.String,
+    text: Schema.optional(SourceText),
+  }),
   Schema.Struct({ type: Schema.Literal("inline"), text: Schema.optional(SourceText) }),
-  Schema.Struct({ type: Schema.Literal("uri"), uri: Schema.String, text: Schema.optional(SourceText) }),
+  Schema.Struct({
+    type: Schema.Literal("uri"),
+    uri: Schema.String,
+    text: Schema.optional(SourceText),
+  }),
 ]).annotate({ identifier: "FileSource" })
 export type FileSource = typeof FileSource.Type
 
@@ -150,7 +185,9 @@ export const AgentPart = Schema.Struct({
   ...PartBase,
   type: Schema.Literal("agent"),
   name: Schema.String,
-  source: Schema.optional(Schema.Struct({ value: Schema.String, start: Schema.Finite, end: Schema.Finite })),
+  source: Schema.optional(
+    Schema.Struct({ value: Schema.String, start: Schema.Finite, end: Schema.Finite }),
+  ),
 }).annotate({ identifier: "AgentPart" })
 export type AgentPart = typeof AgentPart.Type
 
@@ -177,15 +214,21 @@ export const ToolSummary = Schema.Struct({
   subject: OptionalString,
   detail: OptionalString,
   agent: OptionalString,
-  args: Schema.optional(Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.Union([Schema.String, Schema.Finite]) }))),
+  args: Schema.optional(
+    Schema.Array(
+      Schema.Struct({ name: Schema.String, value: Schema.Union([Schema.String, Schema.Finite]) }),
+    ),
+  ),
   items: Schema.optional(Schema.Array(Schema.String)),
   requested: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
-  result: Schema.optional(Schema.Struct({
-    unit: Schema.String,
-    count: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
-    text: OptionalString,
-    truncated: Schema.optional(Schema.Boolean),
-  })),
+  result: Schema.optional(
+    Schema.Struct({
+      unit: Schema.String,
+      count: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
+      text: OptionalString,
+      truncated: Schema.optional(Schema.Boolean),
+    }),
+  ),
 }).annotate({ identifier: "ToolSummary" })
 export type ToolSummary = typeof ToolSummary.Type
 
@@ -226,7 +269,13 @@ const ToolStateBase = {
 }
 export const ToolState = Schema.Union([
   Schema.Struct({ ...ToolStateBase, status: Schema.Literal("pending"), raw: Schema.String }),
-  Schema.Struct({ ...ToolStateBase, status: Schema.Literal("running"), metadata: JsonObject, title: OptionalString, time: ToolTime }),
+  Schema.Struct({
+    ...ToolStateBase,
+    status: Schema.Literal("running"),
+    metadata: JsonObject,
+    title: OptionalString,
+    time: ToolTime,
+  }),
   Schema.Struct({
     ...ToolStateBase,
     status: Schema.Literal("completed"),
@@ -236,7 +285,13 @@ export const ToolState = Schema.Union([
     time: ToolTime,
     attachments: Schema.optional(Schema.Array(FilePart)),
   }),
-  Schema.Struct({ ...ToolStateBase, status: Schema.Literal("error"), error: Schema.String, errorType: OptionalString, time: ToolTime }),
+  Schema.Struct({
+    ...ToolStateBase,
+    status: Schema.Literal("error"),
+    error: Schema.String,
+    errorType: OptionalString,
+    time: ToolTime,
+  }),
 ]).annotate({ identifier: "ToolState" })
 export type ToolState = typeof ToolState.Type
 
@@ -270,7 +325,9 @@ export const CompactionPart = Schema.Struct({
 }).annotate({ identifier: "CompactionPart" })
 
 export const StepStartPart = Schema.Struct({
-  ...PartBase, type: Schema.Literal("step-start"), snapshot: OptionalString,
+  ...PartBase,
+  type: Schema.Literal("step-start"),
+  snapshot: OptionalString,
 }).annotate({ identifier: "StepStartPart" })
 export const StepFinishPart = Schema.Struct({
   ...PartBase,
@@ -281,12 +338,23 @@ export const StepFinishPart = Schema.Struct({
   snapshot: OptionalString,
 }).annotate({ identifier: "StepFinishPart" })
 export const PatchPart = Schema.Struct({
-  ...PartBase, type: Schema.Literal("patch"), hash: Schema.String, files: Schema.Array(Schema.String),
+  ...PartBase,
+  type: Schema.Literal("patch"),
+  hash: Schema.String,
+  files: Schema.Array(Schema.String),
 }).annotate({ identifier: "PatchPart" })
 
 export const Part = Schema.Union([
-  TextPart, ReasoningPart, FilePart, AgentPart, ToolPart, NoticePart, CompactionPart,
-  StepStartPart, StepFinishPart, PatchPart,
+  TextPart,
+  ReasoningPart,
+  FilePart,
+  AgentPart,
+  ToolPart,
+  NoticePart,
+  CompactionPart,
+  StepStartPart,
+  StepFinishPart,
+  PatchPart,
 ]).annotate({ identifier: "Part" })
 export type Part = typeof Part.Type
 

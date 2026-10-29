@@ -32,25 +32,45 @@ export function parseProviderConfirmationCode(input?: string) {
   return input.split(":")[1]?.trim() ?? ""
 }
 
-export function activeProviderAuthPrompts(method: ProviderAuthMethod, answers: Record<string, string>) {
+export function activeProviderAuthPrompts(
+  method: ProviderAuthMethod,
+  answers: Record<string, string>,
+) {
   const prompts = method.prompts ?? []
-  const values = { ...Object.fromEntries(prompts.filter((prompt) => prompt.default !== undefined).map((prompt) => [prompt.key, prompt.default])), ...answers }
-  return prompts.filter((prompt) => prompt.when?.every((condition) => {
-    const value = values[condition.key]
-    if (value === undefined) return false
-    return condition.op === "eq" ? value === condition.value : value !== condition.value
-  }) ?? true)
+  const values = {
+    ...Object.fromEntries(
+      prompts
+        .filter((prompt) => prompt.default !== undefined)
+        .map((prompt) => [prompt.key, prompt.default]),
+    ),
+    ...answers,
+  }
+  return prompts.filter(
+    (prompt) =>
+      prompt.when?.every((condition) => {
+        const value = values[condition.key]
+        if (value === undefined) return false
+        return condition.op === "eq" ? value === condition.value : value !== condition.value
+      }) ?? true,
+  )
 }
 
-export function resolveProviderAuthAnswers(method: ProviderAuthMethod, answers: Record<string, string>) {
-  return Object.fromEntries(activeProviderAuthPrompts(method, answers).flatMap((prompt) => {
-    const value = answers[prompt.key] ?? prompt.default
-    return value === undefined || value === "" ? [] : [[prompt.key, value]]
-  }))
+export function resolveProviderAuthAnswers(
+  method: ProviderAuthMethod,
+  answers: Record<string, string>,
+) {
+  return Object.fromEntries(
+    activeProviderAuthPrompts(method, answers).flatMap((prompt) => {
+      const value = answers[prompt.key] ?? prompt.default
+      return value === undefined || value === "" ? [] : [[prompt.key, value]]
+    }),
+  )
 }
 
 export function findPreferredOAuthMethodIndex(provider: ProviderInfo) {
-  const legacyBrowser = provider.methods.findIndex((method) => "id" in method && method.id === "chatgpt-browser")
+  const legacyBrowser = provider.methods.findIndex(
+    (method) => "id" in method && method.id === "chatgpt-browser",
+  )
   if (legacyBrowser >= 0) return legacyBrowser
   const browserMatch = provider.methods.findIndex(
     (method) =>
@@ -58,7 +78,9 @@ export function findPreferredOAuthMethodIndex(provider: ProviderInfo) {
   )
   if (browserMatch >= 0) return browserMatch
 
-  const codexBrowser = provider.methods.findIndex((method) => method.type === "oauth" && /codex.*browser/iu.test(method.label))
+  const codexBrowser = provider.methods.findIndex(
+    (method) => method.type === "oauth" && /codex.*browser/iu.test(method.label),
+  )
   if (codexBrowser >= 0) return codexBrowser
 
   const chatGptMatch = provider.methods.findIndex(
@@ -80,10 +102,16 @@ export async function authorizeProviderOAuth(input: {
   const client = getBuddyClient(input.directory)
   const methods = await client.provider.auth({}, { throwOnError: true })
   const available = methods.data?.[input.providerID] ?? []
-  const method = input.methodID ? available.find((entry) => entry.id === input.methodID) : available[input.methodIndex]
+  const method = input.methodID
+    ? available.find((entry) => entry.id === input.methodID)
+    : available[input.methodIndex]
   if (!method || method.type !== "oauth") throw new Error("OAuth method is unavailable")
   const result = await client.provider.oauth.authorize(
-    { providerID: input.providerID, methodID: method.id, answers: resolveProviderAuthAnswers(method, input.answers ?? {}) },
+    {
+      providerID: input.providerID,
+      methodID: method.id,
+      answers: resolveProviderAuthAnswers(method, input.answers ?? {}),
+    },
     { throwOnError: true },
   )
   return result.data ?? undefined
@@ -114,7 +142,11 @@ export async function completeProviderOAuth(input: {
   }
 }
 
-export async function cancelProviderOAuth(input: { directory?: string; providerID: string; attemptID: string }) {
+export async function cancelProviderOAuth(input: {
+  directory?: string
+  providerID: string
+  attemptID: string
+}) {
   const client = getBuddyClient(input.directory)
   await client.provider.oauth.cancel(
     {

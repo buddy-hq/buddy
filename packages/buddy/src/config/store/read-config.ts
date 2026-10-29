@@ -6,7 +6,11 @@ import {
   loadProjectConfigFile as loadProjectConfigDocument,
 } from "../contract/document.js"
 import { getCachedGlobalConfig } from "./global-cache.js"
-import { resolveGlobalConfigFile, resolveProjectConfigContext, resolveProjectConfigFile } from "./config-paths.js"
+import {
+  resolveGlobalConfigFile,
+  resolveProjectConfigContext,
+  resolveProjectConfigFile,
+} from "./config-paths.js"
 import {
   applyEnvironmentPermission,
   applySkillPermissionDefaults,
@@ -22,7 +26,10 @@ export async function getGlobalConfig(): Promise<Info> {
   return getCachedGlobalConfig()
 }
 
-export async function loadProjectConfigFile(directory: string, options?: { resolveSubstitutions?: boolean }): Promise<ProjectInfo> {
+export async function loadProjectConfigFile(
+  directory: string,
+  options?: { resolveSubstitutions?: boolean },
+): Promise<ProjectInfo> {
   const context = await resolveProjectConfigContext(directory)
 
   if (Flag.BUDDY_DISABLE_PROJECT_CONFIG) {
@@ -32,13 +39,19 @@ export async function loadProjectConfigFile(directory: string, options?: { resol
   return loadProjectConfigDocument(resolveProjectConfigFile(context.configDirectory), options)
 }
 
-export async function loadProjectConfig(directory: string, options?: { resolveSubstitutions?: boolean }): Promise<Info> {
+export async function loadProjectConfig(
+  directory: string,
+  options?: { resolveSubstitutions?: boolean },
+): Promise<Info> {
   const context = await resolveProjectConfigContext(directory)
   let result: Info = {}
 
-  result = mergeInfo(result, options?.resolveSubstitutions === false
-    ? await loadConfigFile(resolveGlobalConfigFile(), options)
-    : await getCachedGlobalConfig())
+  result = mergeInfo(
+    result,
+    options?.resolveSubstitutions === false
+      ? await loadConfigFile(resolveGlobalConfigFile(), options)
+      : await getCachedGlobalConfig(),
+  )
 
   if (Flag.BUDDY_CONFIG) {
     result = mergeInfo(result, await loadConfigFile(Flag.BUDDY_CONFIG, options))
@@ -57,10 +70,14 @@ export async function loadProjectConfig(directory: string, options?: { resolveSu
   if (Flag.BUDDY_CONFIG_CONTENT) {
     result = mergeInfo(
       result,
-      await loadConfigText(Flag.BUDDY_CONFIG_CONTENT, {
-        dir: context.directory,
-        source: "BUDDY_CONFIG_CONTENT",
-      }, options),
+      await loadConfigText(
+        Flag.BUDDY_CONFIG_CONTENT,
+        {
+          dir: context.directory,
+          source: "BUDDY_CONFIG_CONTENT",
+        },
+        options,
+      ),
     )
   }
 

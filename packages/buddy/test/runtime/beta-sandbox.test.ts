@@ -42,10 +42,7 @@ test("packaged Beta bootstraps only sandbox roots and preserves Stable files", a
       path.join(stableTmp, "buddy", "opencode", "bench-captures", "stable.png"),
       Buffer.from("Stable capture survives"),
     ],
-    [
-      path.join(home, ".opencode", "opencode.json"),
-      Buffer.from('{"model":"stable/user-model"}\n'),
-    ],
+    [path.join(home, ".opencode", "opencode.json"), Buffer.from('{"model":"stable/user-model"}\n')],
   ])
   for (const [filename, bytes] of stableFiles) {
     await fs.mkdir(path.dirname(filename), { recursive: true })
@@ -56,8 +53,7 @@ test("packaged Beta bootstraps only sandbox roots and preserves Stable files", a
   }
 
   const notebookHome = path.join(documents, "Buddy Beta")
-  const xdg = (category: string, ...rest: string[]) =>
-    path.join(userData, "xdg", category, ...rest)
+  const xdg = (category: string, ...rest: string[]) => path.join(userData, "xdg", category, ...rest)
   const betaEnvironment = {
     XDG_DATA_HOME: xdg("data"),
     XDG_CACHE_HOME: xdg("cache"),
@@ -116,8 +112,9 @@ test("packaged Beta bootstraps only sandbox roots and preserves Stable files", a
     OPENCODE_AUTH_CONTENT: '{"stable":{"type":"api","key":"sandbox-inherited-key"}}',
   }
   const environment = Object.fromEntries(
-    Object.entries({ ...inheritedEnvironment, ...betaEnvironment })
-      .filter(([key]) => !strippedKeys.has(key)),
+    Object.entries({ ...inheritedEnvironment, ...betaEnvironment }).filter(
+      ([key]) => !strippedKeys.has(key),
+    ),
   )
   const runtimeModule = path.resolve(import.meta.dir, "../../src/runtime/runtime-paths.ts")
   const globalModule = path.resolve(import.meta.dir, "../../src/storage/global.ts")
@@ -126,7 +123,10 @@ test("packaged Beta bootstraps only sandbox roots and preserves Stable files", a
     "../../src/learning/skill-management/service/paths.ts",
   )
   const secretsModule = path.resolve(import.meta.dir, "../../src/config/secrets/secret-store.ts")
-  const capturesModule = path.resolve(import.meta.dir, "../../src/learning/features/bench/captures.ts")
+  const capturesModule = path.resolve(
+    import.meta.dir,
+    "../../src/learning/features/bench/captures.ts",
+  )
   const script = `
     const assert = (await import("node:assert/strict")).default;
     const fs = await import("node:fs/promises");
@@ -233,7 +233,9 @@ test("packaged Beta bootstraps only sandbox roots and preserves Stable files", a
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
   )
   expect(await Bun.file(staleBetaCapture).exists()).toBe(false)
-  expect((await fs.stat(path.join(expectedBuddy.config, "skills", "custom"))).isDirectory()).toBe(true)
+  expect((await fs.stat(path.join(expectedBuddy.config, "skills", "custom"))).isDirectory()).toBe(
+    true,
+  )
   for (const [filename, bytes] of stableFiles) {
     expect(await fs.readFile(filename)).toEqual(bytes)
   }

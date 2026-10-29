@@ -7,7 +7,14 @@ export type RuntimeUpgradeState =
 
 export type RuntimeV1ImportStatus =
   | { readonly status: "required" | "completed" }
-  | { readonly status: "running"; readonly progress: { readonly label: string; readonly numerator?: number; readonly denominator?: number } }
+  | {
+      readonly status: "running"
+      readonly progress: {
+        readonly label: string
+        readonly numerator?: number
+        readonly denominator?: number
+      }
+    }
   | { readonly status: "error"; readonly error: string }
 
 export type RuntimeV1ImportReport = {
@@ -60,7 +67,9 @@ export function waitForRuntimeUpgrade(): RuntimeUpgradeWait {
 
 export const RUNTIME_UPGRADE_VERSION = AGENT_RUNTIME_INFO.version
 
-export function runtimeUpgradeSeedPauseMs(environment: Readonly<Record<string, string | undefined>> = process.env): number | undefined {
+export function runtimeUpgradeSeedPauseMs(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): number | undefined {
   const value = Number(environment[BUDDY_ENV.TEST_V2_SEED_PAUSE_MS])
   return Number.isFinite(value) && value > 0 ? value : undefined
 }

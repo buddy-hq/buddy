@@ -44,5 +44,8 @@ export async function isSessionInRequestedProject<TSession>(
     }),
   ])
   if (!owningLocation) return false
-  return resolveDirectory(requestedLocation.project.canonical) === resolveDirectory(owningLocation.project.canonical)
+  return (
+    resolveDirectory(requestedLocation.project.canonical) ===
+    resolveDirectory(owningLocation.project.canonical)
+  )
 }

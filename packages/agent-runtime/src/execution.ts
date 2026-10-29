@@ -58,14 +58,28 @@ export type TurnObservation = {
 }
 
 export interface Execution {
-  observe(input: { readonly sessionID: string; readonly messageID: string; readonly signal?: AbortSignal }): TurnObservation
+  observe(input: {
+    readonly sessionID: string
+    readonly messageID: string
+    readonly signal?: AbortSignal
+  }): TurnObservation
   admit(input: PromptInput): Promise<RuntimeResult<PromptAdmission>>
   prompt(input: PromptInput, options: TurnOptions): Promise<RuntimeResult<MessageWithParts>>
-  command(input: CommandInput, options: TurnOptions): Promise<RuntimeResult<MessageWithParts | Session>>
-  compact(input: TurnSelection & { readonly sessionID: string }, signal?: AbortSignal): Promise<RuntimeResult<true>>
+  command(
+    input: CommandInput,
+    options: TurnOptions,
+  ): Promise<RuntimeResult<MessageWithParts | Session>>
+  compact(
+    input: TurnSelection & { readonly sessionID: string },
+    signal?: AbortSignal,
+  ): Promise<RuntimeResult<true>>
   interrupt(sessionID: string): Promise<boolean>
   background(sessionID: string): Promise<void>
   statuses(): Promise<Record<string, SessionStatus>>
   wait(sessionID: string): Promise<TurnOutcome | undefined>
-  generate(input: { readonly sessionID: string; readonly prompt: string; readonly signal?: AbortSignal }): Promise<string>
+  generate(input: {
+    readonly sessionID: string
+    readonly prompt: string
+    readonly signal?: AbortSignal
+  }): Promise<string>
 }

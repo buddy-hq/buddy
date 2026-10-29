@@ -15,7 +15,9 @@ import {
 } from "./helpers/parse"
 import { temporaryDirectory } from "./helpers/temporary-directory"
 
-const app = new Hono().route("/api/project", ProjectRoutes).route("/api/open-projects", OpenProjectsRoutes)
+const app = new Hono()
+  .route("/api/project", ProjectRoutes)
+  .route("/api/open-projects", OpenProjectsRoutes)
 afterEach(closeAgentRuntime)
 
 async function createFixedDateGitRepo(prefix: string) {
@@ -135,10 +137,15 @@ describe("project routes", () => {
 
   test("returns 404 for a valid update body with a missing native project", async () => {
     const response = await app.request("/api/project/project-does-not-exist", {
-      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Renamed" }),
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Renamed" }),
     })
     expect(response.status).toBe(404)
-    expect(await response.json()).toEqual({ code: "request.not_found", error: "Project not found: project-does-not-exist" })
+    expect(await response.json()).toEqual({
+      code: "request.not_found",
+      error: "Project not found: project-does-not-exist",
+    })
   })
 
   test("preserves upstream project associations for local clones", async () => {
@@ -146,8 +153,12 @@ describe("project routes", () => {
     await using secondRepo = await createFixedDateGitRepo("buddy-route-project-clone-second")
     await openProject(firstRepo.path)
     await openProject(secondRepo.path)
-    const first = await app.request("/api/project/current", { headers: { "x-buddy-directory": firstRepo.path } })
-    const second = await app.request("/api/project/current", { headers: { "x-buddy-directory": secondRepo.path } })
+    const first = await app.request("/api/project/current", {
+      headers: { "x-buddy-directory": firstRepo.path },
+    })
+    const second = await app.request("/api/project/current", {
+      headers: { "x-buddy-directory": secondRepo.path },
+    })
     expect(first.status).toBe(200)
     expect(second.status).toBe(200)
     const firstProject = requireJsonObject(await first.json())

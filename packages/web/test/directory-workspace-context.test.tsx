@@ -729,7 +729,6 @@ describe("DirectoryWorkspaceProvider", () => {
 
     expect(container.querySelector('[data-action="chat-pop-out"]')).toBeNull()
     expect(container.querySelector('[aria-label="New chat"]')).toBeNull()
-
   })
 
   test("floating Bench root titlebar hosts tabs and docks the chat", async () => {

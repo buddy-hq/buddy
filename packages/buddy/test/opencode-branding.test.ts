@@ -8,7 +8,9 @@ test("brands CRLF checkouts of the real OAuth sources exactly once and emits LF"
   const vendorRoot = path.resolve(import.meta.dir, "../../../vendor/opencode/packages/core/src")
   const pagePath = path.join(vendorRoot, "oauth/page.ts")
   const mcpPath = path.join(vendorRoot, "mcp/oauth.ts")
-  const pageSource = readFileSync(pagePath, "utf8").replaceAll("\r\n", "\n").replaceAll("\n", "\r\n")
+  const pageSource = readFileSync(pagePath, "utf8")
+    .replaceAll("\r\n", "\n")
+    .replaceAll("\n", "\r\n")
   const mcpSource = readFileSync(mcpPath, "utf8").replaceAll("\r\n", "\n").replaceAll("\n", "\r\n")
   const page = rewriteOpenCodeBranding(pagePath, pageSource)
   const mcp = rewriteOpenCodeBranding(mcpPath, mcpSource)
@@ -48,8 +50,10 @@ test("brands the current OAuth sources and refuses an upstream snippet change", 
   expect(mcp).toContain('client_uri: "https://hibuddy.in"')
   expect(mcp).toContain('logo_uri: "https://hibuddy.in/apple-touch-icon.png"')
   expect(mcp).toContain('clientInfo: { name: "buddy" }')
-  expect(() => rewriteOpenCodeBranding(
-    pagePath,
-    pageSource.replace("OpenCode is now authorized.", "Authorization complete."),
-  )).toThrow()
+  expect(() =>
+    rewriteOpenCodeBranding(
+      pagePath,
+      pageSource.replace("OpenCode is now authorized.", "Authorization complete."),
+    ),
+  ).toThrow()
 })

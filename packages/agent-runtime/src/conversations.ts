@@ -53,7 +53,10 @@ export interface Conversations {
   fork(sessionID: string, input?: { readonly beforeMessageID?: string }): Promise<Session>
   revert(sessionID: string, messageID: string): Promise<Session>
   unrevert(sessionID: string): Promise<Session>
-  history(scope: HistoryScope, page?: { readonly limit?: number; readonly before?: string }): Promise<HistoryPage>
+  history(
+    scope: HistoryScope,
+    page?: { readonly limit?: number; readonly before?: string },
+  ): Promise<HistoryPage>
   message(scope: HistoryScope, messageID: string): Promise<MessageWithParts | undefined>
   transcript(sessionID: string): Promise<ConversationTranscript>
 }

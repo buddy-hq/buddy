@@ -4,7 +4,10 @@ import type { OpenCodeHost } from "./host"
 
 const metadataUpdates = new Map<string, Promise<void>>()
 
-export async function withSessionMetadataLock<T>(sessionID: string, run: () => Promise<T>): Promise<T> {
+export async function withSessionMetadataLock<T>(
+  sessionID: string,
+  run: () => Promise<T>,
+): Promise<T> {
   const previous = metadataUpdates.get(sessionID)
   const done = Promise.withResolvers<void>()
   metadataUpdates.set(sessionID, done.promise)
@@ -17,7 +20,11 @@ export async function withSessionMetadataLock<T>(sessionID: string, run: () => P
   }
 }
 
-export function patchSessionMetadata(session: Pick<OpenCodeHost["session"], "get" | "update">, sessionID: string, patch: MetadataPatch): Promise<void> {
+export function patchSessionMetadata(
+  session: Pick<OpenCodeHost["session"], "get" | "update">,
+  sessionID: string,
+  patch: MetadataPatch,
+): Promise<void> {
   return withSessionMetadataLock(sessionID, async () => {
     const current = await session.get({ sessionID })
     const metadata = new Map(Object.entries(current.metadata ?? {}))

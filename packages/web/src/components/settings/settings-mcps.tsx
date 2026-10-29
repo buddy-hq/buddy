@@ -310,7 +310,10 @@ export function McpsSettings() {
             ) : (
               entries.map((name) => {
                 const config = configByName[name]
-                const missingSecret = parseBuddyConfigObject(parseBuddyConfigObject(globalConfigQuery.data?.mcp)?.[name])?.missingSecret === true
+                const missingSecret =
+                  parseBuddyConfigObject(
+                    parseBuddyConfigObject(globalConfigQuery.data?.mcp)?.[name],
+                  )?.missingSecret === true
                 const removing = pendingRemove.has(name)
                 const notebookDefinitionShadowsGlobal = notebookDefinesMcp(
                   activeProjectConfig,

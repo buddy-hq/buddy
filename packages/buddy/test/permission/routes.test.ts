@@ -6,18 +6,22 @@ describe("permission routes", () => {
   test("returns the Buddy JSON error envelope for malformed permission reply JSON", async () => {
     await using project = await tmpdir({ git: true })
 
-    const response = await app.request("/api/permission/req_malformed/reply?sessionID=ses_malformed", {
-      method: "POST",
-      headers: {
-        "x-buddy-directory": project.path,
-        "content-type": "application/json",
+    const response = await app.request(
+      "/api/permission/req_malformed/reply?sessionID=ses_malformed",
+      {
+        method: "POST",
+        headers: {
+          "x-buddy-directory": project.path,
+          "content-type": "application/json",
+        },
+        body: '{"reply":"allow"',
       },
-      body: '{"reply":"allow"',
-    })
+    )
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      code: "request.invalid", error: "Invalid JSON body",
+      code: "request.invalid",
+      error: "Invalid JSON body",
     })
   })
 

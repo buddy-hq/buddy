@@ -33,11 +33,7 @@ import {
 import type { FlashcardDeck } from "../../src/learning/features/flashcards/types"
 import type { SaveFlashcardDeckInput } from "../../src/learning/features/flashcards/tools/save-flashcard-deck"
 import { tmpdir } from "../helpers/tmpdir"
-import {
-  createBuddyToolContext,
-  requireTool,
-  listBuddyTools,
-} from "../helpers/tools"
+import { createBuddyToolContext, requireTool, listBuddyTools } from "../helpers/tools"
 
 const OPEN_PROJECT_REGISTRY_FILE = path.join(Global.Path.state, "desktop-notebooks.json")
 const OPEN_PROJECT_REGISTRY_BACKUP_FILE = `${OPEN_PROJECT_REGISTRY_FILE}.bak`
@@ -822,30 +818,30 @@ describe("flashcard tools and routes", () => {
 
     await expect(
       (async () => {
-          const tools = await listBuddyTools()
-          const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
+        const tools = await listBuddyTools()
+        const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
 
-          await saveFlashcardDeck.run(
-            {
-              title: "Broken deck",
-              notes: [
-                {
-                  type: "cloze",
-                  fields: {
-                    text: "This note has no deletions.",
-                  },
-                  tags: [],
+        await saveFlashcardDeck.run(
+          {
+            title: "Broken deck",
+            notes: [
+              {
+                type: "cloze",
+                fields: {
+                  text: "This note has no deletions.",
                 },
-              ],
-            },
-            createBuddyToolContext({
-              directory: project.path,
-              sessionID: "ses_flashcard_author",
-              messageID: "msg_flashcard_author",
-              agent: "flashcard-author",
-            }),
-          )
-        })(),
+                tags: [],
+              },
+            ],
+          },
+          createBuddyToolContext({
+            directory: project.path,
+            sessionID: "ses_flashcard_author",
+            messageID: "msg_flashcard_author",
+            agent: "flashcard-author",
+          }),
+        )
+      })(),
     ).rejects.toThrow("must contain at least one")
   })
 

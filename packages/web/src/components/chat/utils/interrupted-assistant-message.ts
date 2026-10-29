@@ -11,12 +11,14 @@ function isNoticeMessage(message: MessageWithParts): boolean {
   return message.parts.length > 0 && message.parts.every((part) => part.type === "notice")
 }
 
-export function interruptedAssistantMessageID(messages: readonly MessageWithParts[]): string | undefined {
+export function interruptedAssistantMessageID(
+  messages: readonly MessageWithParts[],
+): string | undefined {
   const latestReply = messages.findLast(
     (message) => message.info.role === "assistant" && !isNoticeMessage(message),
   )
-  return (
-    latestReply?.info.role === "assistant" &&
+  return latestReply?.info.role === "assistant" &&
     (isAssistantAbortFinish(latestReply.info.finish) || isMessageAbortError(latestReply.info.error))
-  ) ? latestReply.info.id : undefined
+    ? latestReply.info.id
+    : undefined
 }

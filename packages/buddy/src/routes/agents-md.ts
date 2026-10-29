@@ -2,10 +2,7 @@ import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import {
-  readNotebookAgentsMd,
-  saveNotebookAgentsMd,
-} from "../agents-md/service"
+import { readNotebookAgentsMd, saveNotebookAgentsMd } from "../agents-md/service"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 
 const agentsMdReadResponseSchema = z.object({

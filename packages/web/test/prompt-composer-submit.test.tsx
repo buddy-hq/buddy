@@ -321,10 +321,9 @@ describe("prompt composer submit", () => {
       },
       { type: "text", text: " " },
     ]
-    usePromptStore.getState().replaceDraft(
-      promptKey,
-      createTextPromptDraft(serializePromptParts(parts)),
-    )
+    usePromptStore
+      .getState()
+      .replaceDraft(promptKey, createTextPromptDraft(serializePromptParts(parts)))
     let submitted: Parameters<Parameters<typeof PromptComposer>[0]["onSubmit"]>[0] | undefined
     const renderSession = (sessionID: string) =>
       renderPromptComposer({
@@ -1057,9 +1056,9 @@ describe("prompt composer submit", () => {
       expect(editor?.textContent).toContain("Read @docs")
       expect(editor?.querySelector(`[data-type="${REFERENCE_PART_TYPE}"]`)).not.toBeNull()
       expect(
-        container.querySelector('[data-component="prompt-attachment-item"]')?.getAttribute(
-          "data-filename",
-        ),
+        container
+          .querySelector('[data-component="prompt-attachment-item"]')
+          ?.getAttribute("data-filename"),
       ).toBe("diagram.png")
     }
 

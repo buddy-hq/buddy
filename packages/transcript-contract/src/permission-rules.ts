@@ -15,40 +15,76 @@ export type SessionPermissionRule = {
   effect: PermissionAction
 }
 export type SessionPermissionRuleset = SessionPermissionRule[]
-export type PermissionConfig = PermissionAction | Record<string, PermissionAction | Record<string, PermissionAction>>
+export type PermissionConfig =
+  | PermissionAction
+  | Record<string, PermissionAction | Record<string, PermissionAction>>
 
 export function canonicalPermissionAction(action: string): string {
   switch (action) {
-    case "task": return "subagent"
-    case "bash": return "shell"
+    case "task":
+      return "subagent"
+    case "bash":
+      return "shell"
     case "write":
     case "patch":
     case "apply_patch":
-    case "multiedit": return "edit"
-    case "list_mcp_resources": return "opencode_list_mcp_resources"
-    case "read_mcp_resource": return "opencode_read_mcp_resource"
-    default: return action
+    case "multiedit":
+      return "edit"
+    case "list_mcp_resources":
+      return "opencode_list_mcp_resources"
+    case "read_mcp_resource":
+      return "opencode_read_mcp_resource"
+    default:
+      return action
   }
 }
 
-export function toSessionPermissionRules(rules: readonly PermissionRuleset[number][]): SessionPermissionRuleset {
-  return rules.map((rule) => ({ action: canonicalPermissionAction(rule.permission), resource: rule.pattern, effect: rule.action }))
+export function toSessionPermissionRules(
+  rules: readonly PermissionRuleset[number][],
+): SessionPermissionRuleset {
+  return rules.map((rule) => ({
+    action: canonicalPermissionAction(rule.permission),
+    resource: rule.pattern,
+    effect: rule.action,
+  }))
 }
 
-export function toBuddyPermissionRules(rules: readonly SessionPermissionRuleset[number][]): PermissionRuleset {
-  return rules.map((rule) => ({ permission: rule.action, pattern: rule.resource, action: rule.effect }))
+export function toBuddyPermissionRules(
+  rules: readonly SessionPermissionRuleset[number][],
+): PermissionRuleset {
+  return rules.map((rule) => ({
+    permission: rule.action,
+    pattern: rule.resource,
+    action: rule.effect,
+  }))
 }
 
-export function permissionRulesEqual(left: readonly SessionPermissionRuleset[number][], right: readonly SessionPermissionRuleset[number][]): boolean {
-  return left.length === right.length && left.every((rule, index) => {
-    const other = right[index]
-    return other !== undefined && rule.action === other.action && rule.resource === other.resource && rule.effect === other.effect
-  })
+export function permissionRulesEqual(
+  left: readonly SessionPermissionRuleset[number][],
+  right: readonly SessionPermissionRuleset[number][],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((rule, index) => {
+      const other = right[index]
+      return (
+        other !== undefined &&
+        rule.action === other.action &&
+        rule.resource === other.resource &&
+        rule.effect === other.effect
+      )
+    })
+  )
 }
 
-export function matchPermissionPattern(input: string, pattern: string, platform: "posix" | "win32" = "posix"): boolean {
+export function matchPermissionPattern(
+  input: string,
+  pattern: string,
+  platform: "posix" | "win32" = "posix",
+): boolean {
   const normalized = input.replaceAll("\\", "/")
-  let escaped = pattern.replaceAll("\\", "/")
+  let escaped = pattern
+    .replaceAll("\\", "/")
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
     .replace(/\*/g, ".*")
     .replace(/\?/g, ".")
@@ -56,19 +92,42 @@ export function matchPermissionPattern(input: string, pattern: string, platform:
   return new RegExp("^" + escaped + "$", platform === "win32" ? "si" : "s").test(normalized)
 }
 
-export function matchPermissionRule(permission: string, pattern: string, rules: readonly PermissionRule[], platform: "posix" | "win32" = "posix"): PermissionRule | undefined {
-  return rules.findLast((rule) => matchPermissionPattern(permission, rule.permission, platform) && matchPermissionPattern(pattern, rule.pattern, platform))
+export function matchPermissionRule(
+  permission: string,
+  pattern: string,
+  rules: readonly PermissionRule[],
+  platform: "posix" | "win32" = "posix",
+): PermissionRule | undefined {
+  return rules.findLast(
+    (rule) =>
+      matchPermissionPattern(permission, rule.permission, platform) &&
+      matchPermissionPattern(pattern, rule.pattern, platform),
+  )
 }
 
-export function evaluatePermission(permission: string, pattern: string, rules: readonly PermissionRule[], platform: "posix" | "win32" = "posix"): PermissionRule {
-  return matchPermissionRule(permission, pattern, rules, platform) ?? { permission, pattern: "*", action: "ask" }
+export function evaluatePermission(
+  permission: string,
+  pattern: string,
+  rules: readonly PermissionRule[],
+  platform: "posix" | "win32" = "posix",
+): PermissionRule {
+  return (
+    matchPermissionRule(permission, pattern, rules, platform) ?? {
+      permission,
+      pattern: "*",
+      action: "ask",
+    }
+  )
 }
 
 export function permissionRulesFromConfig(config: PermissionConfig): PermissionRuleset {
-  if (Schema.is(PermissionAction)(config)) return [{ permission: "*", pattern: "*", action: config }]
-  return Object.entries(config).flatMap(([permission, value]) => Schema.is(PermissionAction)(value)
-    ? [{ permission, pattern: "*", action: value }]
-    : Object.entries(value).map(([pattern, action]) => ({ permission, pattern, action })))
+  if (Schema.is(PermissionAction)(config))
+    return [{ permission: "*", pattern: "*", action: config }]
+  return Object.entries(config).flatMap(([permission, value]) =>
+    Schema.is(PermissionAction)(value)
+      ? [{ permission, pattern: "*", action: value }]
+      : Object.entries(value).map(([pattern, action]) => ({ permission, pattern, action })),
+  )
 }
 
 export function withDynamicToolPermissionGrants(input: {
@@ -79,29 +138,59 @@ export function withDynamicToolPermissionGrants(input: {
   const managed = new Set(input.managedToolIDs)
   const grants = new Set(input.toolIDs.filter((tool) => managed.has(tool)))
   for (const rule of input.existing) {
-    if (managed.has(rule.permission) && rule.pattern === "*" && rule.action === "allow" && evaluatePermission(rule.permission, "*", input.existing).action === "allow") grants.add(rule.permission)
+    if (
+      managed.has(rule.permission) &&
+      rule.pattern === "*" &&
+      rule.action === "allow" &&
+      evaluatePermission(rule.permission, "*", input.existing).action === "allow"
+    )
+      grants.add(rule.permission)
   }
-  const preserved = input.existing.filter((rule) => !(managed.has(rule.permission) && rule.pattern === "*"))
+  const preserved = input.existing.filter(
+    (rule) => !(managed.has(rule.permission) && rule.pattern === "*"),
+  )
   return [
-    ...Array.from(grants, (permission): PermissionRule => ({ permission, pattern: "*", action: "allow" })),
+    ...Array.from(
+      grants,
+      (permission): PermissionRule => ({ permission, pattern: "*", action: "allow" }),
+    ),
     ...preserved,
-    ...input.managedToolIDs.filter((tool) => !grants.has(tool)).map((permission): PermissionRule => ({ permission, pattern: "*", action: "deny" })),
+    ...input.managedToolIDs
+      .filter((tool) => !grants.has(tool))
+      .map((permission): PermissionRule => ({ permission, pattern: "*", action: "deny" })),
   ]
 }
 
-export function resetDynamicToolPermissionGrants(existing: readonly PermissionRule[], managedToolIDs: readonly string[]): PermissionRuleset {
+export function resetDynamicToolPermissionGrants(
+  existing: readonly PermissionRule[],
+  managedToolIDs: readonly string[],
+): PermissionRuleset {
   const managed = new Set(managedToolIDs)
   return [
     ...existing.filter((rule) => !(managed.has(rule.permission) && rule.pattern === "*")),
-    ...managedToolIDs.map((permission): PermissionRule => ({ permission, pattern: "*", action: "deny" })),
+    ...managedToolIDs.map(
+      (permission): PermissionRule => ({ permission, pattern: "*", action: "deny" }),
+    ),
   ]
 }
 
-export function constrainPermissionGrants(rules: PermissionRuleset, configured: readonly PermissionRule[], managedActions: readonly string[], platform: "posix" | "win32" = "posix"): PermissionRuleset {
+export function constrainPermissionGrants(
+  rules: PermissionRuleset,
+  configured: readonly PermissionRule[],
+  managedActions: readonly string[],
+  platform: "posix" | "win32" = "posix",
+): PermissionRuleset {
   const managed = new Set(managedActions)
   return rules.filter((rule) => {
     if (rule.action === "deny" || !managed.has(rule.permission)) return true
-    if (rule.pattern !== "*") return evaluatePermission(rule.permission, rule.pattern, configured, platform).action !== "deny"
-    return !configured.some((policy) => policy.action === "deny" && matchPermissionPattern(rule.permission, policy.permission, platform))
+    if (rule.pattern !== "*")
+      return (
+        evaluatePermission(rule.permission, rule.pattern, configured, platform).action !== "deny"
+      )
+    return !configured.some(
+      (policy) =>
+        policy.action === "deny" &&
+        matchPermissionPattern(rule.permission, policy.permission, platform),
+    )
   })
 }

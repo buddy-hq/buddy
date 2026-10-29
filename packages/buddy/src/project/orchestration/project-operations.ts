@@ -114,7 +114,9 @@ export async function updateProjectFromPayload<TPayload>(input: {
   }
 
   try {
-    const project = await (await getAgentRuntime()).workspace.updateProject(input.projectID, body.data)
+    const project = await (
+      await getAgentRuntime()
+    ).workspace.updateProject(input.projectID, body.data)
     return {
       ok: true,
       project,

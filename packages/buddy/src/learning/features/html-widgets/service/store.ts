@@ -56,7 +56,14 @@ const HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES = new Set([
 ])
 const HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS = new Set([".log"])
 const HTML_WIDGET_UNSERVABLE_ASSET_ERROR_CODES = new Set([
-  "ENOENT", "ENOTDIR", "ENAMETOOLONG", "ELOOP", "EACCES", "EPERM", "EISDIR", "EINVAL",
+  "ENOENT",
+  "ENOTDIR",
+  "ENAMETOOLONG",
+  "ELOOP",
+  "EACCES",
+  "EPERM",
+  "EISDIR",
+  "EINVAL",
   "ERR_INVALID_ARG_VALUE",
 ])
 const HTML_WIDGET_DEFAULT_CONTENT_TYPE = "application/octet-stream" as const
@@ -387,22 +394,36 @@ export async function resolveHtmlWidgetObjectRuntimeFile(input: {
   assetPath: string
   version?: string | null
   requireVersioned?: boolean
-}): Promise<{
-  filePath: string
-  contentType: string
-  isDocument: boolean
-  immutable: boolean
-  versioned: boolean
-} | undefined> {
+}): Promise<
+  | {
+      filePath: string
+      contentType: string
+      isDocument: boolean
+      immutable: boolean
+      versioned: boolean
+    }
+  | undefined
+> {
   if (
     input.assetPath.includes("\0") ||
-    (process.platform === "win32" && Array.from(input.assetPath).some(
-      (character) => character.charCodeAt(0) < 32 || '<>:"|?*'.includes(character),
-    ))
-  ) return undefined
-  if (input.requireVersioned && input.assetPath.replaceAll("\\", "/").split("/").some(
-    (name) => HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES.has(name.toLowerCase()) || HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS.has(path.extname(name).toLowerCase()),
-  )) return undefined
+    (process.platform === "win32" &&
+      Array.from(input.assetPath).some(
+        (character) => character.charCodeAt(0) < 32 || '<>:"|?*'.includes(character),
+      ))
+  )
+    return undefined
+  if (
+    input.requireVersioned &&
+    input.assetPath
+      .replaceAll("\\", "/")
+      .split("/")
+      .some(
+        (name) =>
+          HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES.has(name.toLowerCase()) ||
+          HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS.has(path.extname(name).toLowerCase()),
+      )
+  )
+    return undefined
   await readHtmlWidgetObjectManifest(input.directory, input.objectID)
   validateSafeRelativePath(input.assetPath, "HTML widget runtime asset path")
   const sourceRoot = BuddyObjectPath.sourceRoot(
@@ -416,7 +437,8 @@ export async function resolveHtmlWidgetObjectRuntimeFile(input: {
   const stats = await assertPathInsideRoot(sourceRoot, filePath)
     .then(() => fs.stat(filePath))
     .catch((error) => {
-      if (HTML_WIDGET_UNSERVABLE_ASSET_ERROR_CODES.has(parseNodeErrorCode(error) ?? "")) return undefined
+      if (HTML_WIDGET_UNSERVABLE_ASSET_ERROR_CODES.has(parseNodeErrorCode(error) ?? ""))
+        return undefined
       throw error
     })
   if (!stats) return undefined
@@ -711,7 +733,8 @@ async function readHtmlWidgetSourceVersion(sourceRoot: string): Promise<{
     const entries = await fs.readdir(currentPath, { withFileTypes: true })
     for (const entry of entries.toSorted((left, right) => left.name.localeCompare(right.name))) {
       if (HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES.has(entry.name.toLowerCase())) continue
-      if (HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue
+      if (HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
+        continue
       const entryPath = path.join(currentPath, entry.name)
       const relativePath = path.relative(sourceRoot, entryPath).split(path.sep).join("/")
       if (entry.isDirectory()) {

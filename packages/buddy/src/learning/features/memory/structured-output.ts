@@ -1,5 +1,8 @@
 import z from "zod"
-import { parseJsonObjectFromText, type TJsonObject } from "@buddy/transcript-contract/parse-external"
+import {
+  parseJsonObjectFromText,
+  type TJsonObject,
+} from "@buddy/transcript-contract/parse-external"
 
 export function parseMemoryObject<T>(text: string, schema: z.ZodType<T>) {
   return schema.safeParse(extractJsonFromText(text))
@@ -99,4 +102,3 @@ function* jsonObjectCandidates(text: string): Generator<string> {
     }
   }
 }
-

@@ -25,7 +25,10 @@ const KEY = "migration.v1-v2"
 let counter = 0
 const opened: Database[] = []
 
-function createDatabase(state: { readonly phase: string; readonly cursor?: string } | undefined, options: { readonly kv?: boolean } = {}) {
+function createDatabase(
+  state: { readonly phase: string; readonly cursor?: string } | undefined,
+  options: { readonly kv?: boolean } = {},
+) {
   counter += 1
   const directory = path.join(TEST_SANDBOX.root, "v1-import-guard")
   fs.mkdirSync(directory, { recursive: true })
@@ -34,8 +37,11 @@ function createDatabase(state: { readonly phase: string; readonly cursor?: strin
   seed.exec("CREATE TABLE session (id TEXT PRIMARY KEY)")
   for (const id of SESSIONS) seed.query("INSERT INTO session (id) VALUES (?)").run(id)
   if (options.kv !== false) {
-    seed.exec("CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL, time_created INTEGER, time_updated INTEGER)")
-    if (state) seed.query("INSERT INTO kv (key, value) VALUES (?, ?)").run(KEY, JSON.stringify(state))
+    seed.exec(
+      "CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL, time_created INTEGER, time_updated INTEGER)",
+    )
+    if (state)
+      seed.query("INSERT INTO kv (key, value) VALUES (?, ?)").run(KEY, JSON.stringify(state))
   }
   seed.close(false)
   return file
@@ -50,7 +56,9 @@ function open(file: string) {
 function stateText(file: string) {
   const db = new BunDatabase(file, { readonly: true })
   try {
-    return z.object({ value: z.string() }).parse(db.query("SELECT value FROM kv WHERE key = ?").get(KEY)).value
+    return z
+      .object({ value: z.string() })
+      .parse(db.query("SELECT value FROM kv WHERE key = ?").get(KEY)).value
   } finally {
     db.close(false)
   }
@@ -61,11 +69,20 @@ function attemptOf(file: string): V1ImportAttempt | undefined {
   try {
     const table = db.query("SELECT name FROM sqlite_master WHERE name = '_buddy_v1_import'").get()
     if (!table) return undefined
-    const row = z.object({ value: z.string() }).safeParse(db.query("SELECT value FROM _buddy_v1_import WHERE key = 'attempt'").get())
+    const row = z
+      .object({ value: z.string() })
+      .safeParse(db.query("SELECT value FROM _buddy_v1_import WHERE key = 'attempt'").get())
     if (!row.success) return undefined
-    return z.object({
-      cursor: z.string().nullable(), candidate: z.string(), running: z.boolean(), failures: z.number(), interruptions: z.number(), lastError: z.string().nullable(),
-    }).parse(JSON.parse(row.data.value))
+    return z
+      .object({
+        cursor: z.string().nullable(),
+        candidate: z.string(),
+        running: z.boolean(),
+        failures: z.number(),
+        interruptions: z.number(),
+        lastError: z.string().nullable(),
+      })
+      .parse(JSON.parse(row.data.value))
   } finally {
     db.close(false)
   }
@@ -82,14 +99,19 @@ function fail(file: string, error: string) {
 
 function advance(file: string, cursor: string) {
   const db = new BunDatabase(file)
-  db.query("UPDATE kv SET value = ? WHERE key = ?").run(JSON.stringify({ phase: "sessions", cursor }), KEY)
+  db.query("UPDATE kv SET value = ? WHERE key = ?").run(
+    JSON.stringify({ phase: "sessions", cursor }),
+    KEY,
+  )
   db.close(false)
 }
 
 function writeAttempt(file: string, attempt: V1ImportAttempt) {
   const db = new BunDatabase(file)
   db.exec("CREATE TABLE IF NOT EXISTS _buddy_v1_import (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-  db.query("INSERT OR REPLACE INTO _buddy_v1_import (key, value) VALUES ('attempt', ?)").run(JSON.stringify(attempt))
+  db.query("INSERT OR REPLACE INTO _buddy_v1_import (key, value) VALUES ('attempt', ?)").run(
+    JSON.stringify(attempt),
+  )
   db.close(false)
 }
 
@@ -101,9 +123,15 @@ function complete(file: string) {
 
 async function writeImportOwner(file: string, pid: number) {
   const lock = await v2DatabaseLock(file, "buddy-v1-chat-import")
-  const recordPath = path.join(lock.dir, `buddy-v1-import-owner-${createHash("sha256").update(lock.key).digest("hex").slice(0, 16)}.json`)
+  const recordPath = path.join(
+    lock.dir,
+    `buddy-v1-import-owner-${createHash("sha256").update(lock.key).digest("hex").slice(0, 16)}.json`,
+  )
   fs.mkdirSync(lock.dir, { recursive: true })
-  fs.writeFileSync(recordPath, JSON.stringify({ pid, hostname: os.hostname(), token: randomUUID() }))
+  fs.writeFileSync(
+    recordPath,
+    JSON.stringify({ pid, hostname: os.hostname(), token: randomUUID() }),
+  )
   return recordPath
 }
 
@@ -113,7 +141,11 @@ afterEach(() => {
 
 describe("v1 import guard", () => {
   test("does nothing without the importer's state, without a kv table, or once the import is completed", () => {
-    for (const file of [createDatabase(undefined), createDatabase(undefined, { kv: false }), createDatabase({ phase: "completed" })]) {
+    for (const file of [
+      createDatabase(undefined),
+      createDatabase(undefined, { kv: false }),
+      createDatabase({ phase: "completed" }),
+    ]) {
       expect(start(file)).toBeUndefined()
       fail(file, "UNIQUE constraint failed: session_message.id")
       fail(file, "UNIQUE constraint failed: session_message.id")
@@ -126,24 +158,43 @@ describe("v1 import guard", () => {
   })
 
   test("the candidate is the importer's own next session: the newest ID below the cursor, or the newest without one", () => {
-    expect(readV1ImportPosition(open(createDatabase({ phase: "sessions" })))?.candidate).toBe("ses_d")
-    expect(readV1ImportPosition(open(createDatabase({ phase: "sessions", cursor: "ses_c" })))?.candidate).toBe("ses_b")
-    expect(readV1ImportPosition(open(createDatabase({ phase: "sessions", cursor: "ses_a" })))).toBeUndefined()
+    expect(readV1ImportPosition(open(createDatabase({ phase: "sessions" })))?.candidate).toBe(
+      "ses_d",
+    )
+    expect(
+      readV1ImportPosition(open(createDatabase({ phase: "sessions", cursor: "ses_c" })))?.candidate,
+    ).toBe("ses_b")
+    expect(
+      readV1ImportPosition(open(createDatabase({ phase: "sessions", cursor: "ses_a" }))),
+    ).toBeUndefined()
   })
 
   test("two non-transient failures at the same cursor skip that session by moving the cursor to it", () => {
     const file = createDatabase({ phase: "sessions", cursor: "ses_c" })
     start(file)
     fail(file, "UNIQUE constraint failed: session_message.id")
-    expect(attemptOf(file)).toMatchObject({ cursor: "ses_c", candidate: "ses_b", failures: 1, running: false })
+    expect(attemptOf(file)).toMatchObject({
+      cursor: "ses_c",
+      candidate: "ses_b",
+      failures: 1,
+      running: false,
+    })
     start(file)
     fail(file, "UNIQUE constraint failed: session_message.id")
     expect(attemptOf(file)).toMatchObject({ failures: 2 })
     expect(stateText(file)).toBe(JSON.stringify({ phase: "sessions", cursor: "ses_c" }))
     const marked = start(file)
     expect(stateText(file)).toBe(JSON.stringify({ phase: "sessions", cursor: "ses_b" }))
-    expect(readV1ImportRecord(file).skipped).toMatchObject([{ id: "ses_b", error: "UNIQUE constraint failed: session_message.id" }])
-    expect(marked).toMatchObject({ cursor: "ses_b", candidate: "ses_a", running: true, failures: 0, interruptions: 0 })
+    expect(readV1ImportRecord(file).skipped).toMatchObject([
+      { id: "ses_b", error: "UNIQUE constraint failed: session_message.id" },
+    ])
+    expect(marked).toMatchObject({
+      cursor: "ses_b",
+      candidate: "ses_a",
+      running: true,
+      failures: 0,
+      interruptions: 0,
+    })
   })
 
   test("a failure is attributed to the session the importer stopped at, not the one it started from", () => {
@@ -159,7 +210,13 @@ describe("v1 import guard", () => {
     const db = open(moved)
     const position = readV1ImportPosition(db)
     if (!position) throw new Error("Expected an import position")
-    const attempt = { ...position, running: false, failures: 2, interruptions: 0, lastError: "boom" }
+    const attempt = {
+      ...position,
+      running: false,
+      failures: 2,
+      interruptions: 0,
+      lastError: "boom",
+    }
     advance(moved, "ses_b")
     skipV1ImportCandidate(db, position, attempt, [])
     expect(stateText(moved)).toBe(JSON.stringify({ phase: "sessions", cursor: "ses_b" }))
@@ -170,9 +227,16 @@ describe("v1 import guard", () => {
     const before = readV1ImportPosition(completedDb)
     if (!before) throw new Error("Expected an import position")
     const writer = new BunDatabase(completed)
-    writer.query("UPDATE kv SET value = ? WHERE key = ?").run(JSON.stringify({ phase: "completed" }), KEY)
+    writer
+      .query("UPDATE kv SET value = ? WHERE key = ?")
+      .run(JSON.stringify({ phase: "completed" }), KEY)
     writer.close(false)
-    skipV1ImportCandidate(completedDb, before, { ...before, running: false, failures: 2, interruptions: 0, lastError: "boom" }, [])
+    skipV1ImportCandidate(
+      completedDb,
+      before,
+      { ...before, running: false, failures: 2, interruptions: 0, lastError: "boom" },
+      [],
+    )
     expect(stateText(completed)).toBe(JSON.stringify({ phase: "completed" }))
     expect(readV1ImportRecord(completed).skipped).toEqual([])
     expect(start(completed)).toBeUndefined()
@@ -213,9 +277,16 @@ describe("v1 import guard", () => {
   })
 
   test("a failed insert counts by its SQLite cause, not by words in the chat content it carried", () => {
-    const query = 'Failed query: insert into "session_message" ("data") values (?)\nparams: {"error":{"type":"tool.interrupted","message":"Tool execution was interrupted before V2 migration","detail":"out of memory, database is locked"}}'
-    expect(isUncountedV1ImportFailure(`${query}\nCaused by: UNIQUE constraint failed: session_message.id`)).toBe(false)
-    expect(isUncountedV1ImportFailure(`${query}\nCaused by: SQLITE_BUSY: database is locked`)).toBe(true)
+    const query =
+      'Failed query: insert into "session_message" ("data") values (?)\nparams: {"error":{"type":"tool.interrupted","message":"Tool execution was interrupted before V2 migration","detail":"out of memory, database is locked"}}'
+    expect(
+      isUncountedV1ImportFailure(
+        `${query}\nCaused by: UNIQUE constraint failed: session_message.id`,
+      ),
+    ).toBe(false)
+    expect(isUncountedV1ImportFailure(`${query}\nCaused by: SQLITE_BUSY: database is locked`)).toBe(
+      true,
+    )
   })
 
   test("three starts that end without an outcome at the same cursor skip that session; a graceful close never counts", () => {
@@ -243,7 +314,11 @@ describe("v1 import guard", () => {
       fail(file, "boom")
     }
     start(file)
-    expect(readV1ImportRecord(file).skipped.map((entry) => entry.id)).toEqual(["ses_d", "ses_c", "ses_b"])
+    expect(readV1ImportRecord(file).skipped.map((entry) => entry.id)).toEqual([
+      "ses_d",
+      "ses_c",
+      "ses_b",
+    ])
     const capped = stateText(file)
     expect(capped).toBe(JSON.stringify({ phase: "sessions", cursor: "ses_b" }))
     for (const _ of [1, 2, 3, 4]) {
@@ -257,7 +332,14 @@ describe("v1 import guard", () => {
 
   test("one launch imports at a time: the next waits as migrating, a stale running mark counts once, and a completed import is not started again", async () => {
     const file = createDatabase({ phase: "sessions", cursor: "ses_d" })
-    writeAttempt(file, { cursor: "ses_d", candidate: "ses_c", running: true, failures: 0, interruptions: 0, lastError: null })
+    writeAttempt(file, {
+      cursor: "ses_d",
+      candidate: "ses_c",
+      running: true,
+      failures: 0,
+      interruptions: 0,
+      lastError: null,
+    })
     const unexpectedWaits: string[] = []
     const first = await startV1ImportLaunch(file, { onWait: () => unexpectedWaits.push("first") })
     expect(first.importRan).toBe(true)
@@ -265,10 +347,12 @@ describe("v1 import guard", () => {
 
     const secondWaiting = Promise.withResolvers<void>()
     let secondStarted = false
-    const second = startV1ImportLaunch(file, { onWait: () => secondWaiting.resolve() }).then((guard) => {
-      secondStarted = true
-      return guard
-    })
+    const second = startV1ImportLaunch(file, { onWait: () => secondWaiting.resolve() }).then(
+      (guard) => {
+        secondStarted = true
+        return guard
+      },
+    )
     await secondWaiting.promise
     expect(secondStarted).toBe(false)
     expect(attemptOf(file)).toMatchObject({ interruptions: 1 })
@@ -297,21 +381,32 @@ describe("v1 import guard", () => {
     let timer: ReturnType<typeof setTimeout> | undefined
     try {
       const lock = await v2DatabaseLock(file, "buddy-v1-chat-import")
-      const directory = fs.readdirSync(lock.dir, { withFileTypes: true }).find((entry) => entry.isDirectory() && entry.name.endsWith(".lock"))
+      const directory = fs
+        .readdirSync(lock.dir, { withFileTypes: true })
+        .find((entry) => entry.isDirectory() && entry.name.endsWith(".lock"))
       if (!directory) throw new Error("Expected the first launch's Flock directory")
       const lockDirectory = path.join(lock.dir, directory.name)
       const stalledAt = new Date(Date.now() - 2 * 60_000)
-      for (const name of fs.readdirSync(lockDirectory)) fs.utimesSync(path.join(lockDirectory, name), stalledAt, stalledAt)
+      for (const name of fs.readdirSync(lockDirectory))
+        fs.utimesSync(path.join(lockDirectory, name), stalledAt, stalledAt)
       fs.utimesSync(lockDirectory, stalledAt, stalledAt)
 
       const secondWaiting = Promise.withResolvers<void>()
-      timer = setTimeout(() => secondWaiting.reject(new Error("The second launch did not wait within 1.5 seconds")), 1_500)
+      timer = setTimeout(
+        () => secondWaiting.reject(new Error("The second launch did not wait within 1.5 seconds")),
+        1_500,
+      )
       let secondStarted = false
-      second = startV1ImportLaunch(file, { onWait: () => secondWaiting.resolve() }).then((guard) => {
-        secondStarted = true
-        return guard
-      })
-      const outcome = await Promise.race([secondWaiting.promise.then(() => "waiting"), second.then(() => "started")])
+      second = startV1ImportLaunch(file, { onWait: () => secondWaiting.resolve() }).then(
+        (guard) => {
+          secondStarted = true
+          return guard
+        },
+      )
+      const outcome = await Promise.race([
+        secondWaiting.promise.then(() => "waiting"),
+        second.then(() => "started"),
+      ])
       expect(outcome).toBe("waiting")
       expect(secondStarted).toBe(false)
       await first.close()
@@ -325,7 +420,11 @@ describe("v1 import guard", () => {
 
   test("a dead owner record does not delay the next import launch", async () => {
     const file = createDatabase({ phase: "sessions", cursor: "ses_d" })
-    const child = Bun.spawn([process.execPath, "-e", ""], { stdin: "ignore", stdout: "ignore", stderr: "ignore" })
+    const child = Bun.spawn([process.execPath, "-e", ""], {
+      stdin: "ignore",
+      stdout: "ignore",
+      stderr: "ignore",
+    })
     expect(await child.exited).toBe(0)
     await writeImportOwner(file, child.pid)
     const waits: string[] = []
@@ -363,10 +462,12 @@ describe("v1 import guard", () => {
     expect(fs.existsSync(file)).toBe(false)
     const secondWaiting = Promise.withResolvers<void>()
     let secondStarted = false
-    const second = startV1ImportLaunch(file, { onWait: () => secondWaiting.resolve() }).then((guard) => {
-      secondStarted = true
-      return guard
-    })
+    const second = startV1ImportLaunch(file, { onWait: () => secondWaiting.resolve() }).then(
+      (guard) => {
+        secondStarted = true
+        return guard
+      },
+    )
     await secondWaiting.promise
     expect(secondStarted).toBe(false)
     first.watch({ status: () => Promise.resolve({ status: "completed" }) })
@@ -383,10 +484,12 @@ describe("v1 import guard", () => {
     const first = await startV1ImportLaunch(file, { onWait: () => undefined })
     const secondWaiting = Promise.withResolvers<void>()
     let secondStarted = false
-    const second = startV1ImportLaunch(file, { onWait: () => secondWaiting.resolve() }).then((guard) => {
-      secondStarted = true
-      return guard
-    })
+    const second = startV1ImportLaunch(file, { onWait: () => secondWaiting.resolve() }).then(
+      (guard) => {
+        secondStarted = true
+        return guard
+      },
+    )
     await secondWaiting.promise
     expect(secondStarted).toBe(false)
     first.watch({ status: () => Promise.resolve({ status: "completed" }) })

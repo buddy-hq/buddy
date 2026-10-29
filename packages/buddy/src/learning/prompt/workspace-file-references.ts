@@ -342,7 +342,10 @@ async function expandPromptTextPart(input: {
       source: "raw",
     })
     for (const part of resolvedParts) {
-      pieces.push({ ...part, source: { text: { value: token, start: tokenStart, end: tokenStart + token.length } } })
+      pieces.push({
+        ...part,
+        source: { text: { value: token, start: tokenStart, end: tokenStart + token.length } },
+      })
     }
   }
   return pieces
@@ -543,7 +546,8 @@ function parseReferencePart<T>(part: T): ReferencePart | undefined {
   if (
     object === undefined ||
     (object.type !== REFERENCE_PART_TYPE && object.type !== LEGACY_REFERENCE_PART_TYPE)
-  ) return undefined
+  )
+    return undefined
   if (name === undefined || pathValue === undefined) return undefined
   return {
     type: REFERENCE_PART_TYPE,
@@ -934,9 +938,10 @@ export function runtimePromptFromParts(input: {
     const start = parsePromptFiniteNumber(range?.start)
     const end = parsePromptFiniteNumber(range?.end)
     const value = parsePromptString(range?.value)
-    const mention = start !== undefined && end !== undefined && value !== undefined
-      ? { text: value, start: segmentStart + start, end: segmentStart + end }
-      : undefined
+    const mention =
+      start !== undefined && end !== undefined && value !== undefined
+        ? { text: value, start: segmentStart + start, end: segmentStart + end }
+        : undefined
     const uri = parsePromptString(part.url)
     if (part.type === "file" && uri !== undefined) {
       const file: TJsonObject = { uri }
@@ -954,7 +959,12 @@ export function runtimePromptFromParts(input: {
   }
   const prompt: TJsonObject = { segments }
   if (input.system) prompt.system = input.system
-  return { text, files, agents, metadata: { ...input.metadata, buddy: { ...parseJsonObject(input.metadata?.buddy), prompt } } }
+  return {
+    text,
+    files,
+    agents,
+    metadata: { ...input.metadata, buddy: { ...parseJsonObject(input.metadata?.buddy), prompt } },
+  }
 }
 
 function isWorkspaceRelativePath(filepath: string) {
@@ -971,7 +981,10 @@ function isPathInsideWorkspace(directory: string, filepath: string) {
   return relpath.length === 0 || (!relpath.startsWith("..") && !path.isAbsolute(relpath))
 }
 
-async function resolveAgentReferenceName(directory: string, rawName: string): Promise<string | undefined> {
+async function resolveAgentReferenceName(
+  directory: string,
+  rawName: string,
+): Promise<string | undefined> {
   try {
     const agents = await (await getAgentRuntime()).catalog.agents(directory)
     return agents.find((agent) => agent.id === rawName || agent.name === rawName)?.id

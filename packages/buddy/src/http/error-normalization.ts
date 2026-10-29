@@ -117,20 +117,29 @@ export async function normalizeErrorResponse(
     ? await safeReadJson(response, { clone: true })
     : undefined
   const record = parseTJsonObject(payload)
-  const rawMessage = extractValidationErrorMessage(payload) ?? extractErrorMessage(payload)
-    ?? ((await response.clone().text()).trim() || response.statusText || "Request failed")
-  const message = response.status === 400 && rawMessage === "Malformed JSON in request body"
-    ? "Invalid JSON body" : rawMessage
+  const rawMessage =
+    extractValidationErrorMessage(payload) ??
+    extractErrorMessage(payload) ??
+    ((await response.clone().text()).trim() || response.statusText || "Request failed")
+  const message =
+    response.status === 400 && rawMessage === "Malformed JSON in request body"
+      ? "Invalid JSON body"
+      : rawMessage
 
   const busy = /busy/i.test(message)
   const status = forceBusyAs409 && busy ? 409 : response.status
   const readableMessage = forceBusyAs409 && busy ? "Session is already running" : message
   const code = parseTString(record?.code)
-  const body = code !== undefined
-    ? { ...record, error: readableMessage, code }
-    : status === 500
-      ? await (await routeErrorResponse(new Error("Upstream route failed", { cause: payload ?? message }))).json()
-      : routeErrorBody(status, readableMessage)
+  const body =
+    code !== undefined
+      ? { ...record, error: readableMessage, code }
+      : status === 500
+        ? await (
+            await routeErrorResponse(
+              new Error("Upstream route failed", { cause: payload ?? message }),
+            )
+          ).json()
+        : routeErrorBody(status, readableMessage)
   const headers = new Headers(response.headers)
   headers.delete("content-length")
   headers.set("content-type", "application/json; charset=UTF-8")

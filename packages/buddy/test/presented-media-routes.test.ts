@@ -16,13 +16,13 @@ describe("presented media raw routes", () => {
     await fs.writeFile(localPath, "local-image")
 
     const output = await buildPresentedMediaObjectOutput({
-          directory: repo.path,
-          items: [
-            {
-              path: localPath,
-            },
-          ],
-        })
+      directory: repo.path,
+      items: [
+        {
+          path: localPath,
+        },
+      ],
+    })
 
     const rawUrl = output.output.items[0]?.rawUrl
     expect(rawUrl).toBeTruthy()
@@ -44,13 +44,13 @@ describe("presented media raw routes", () => {
     await fs.writeFile(localPath, "local-image")
 
     const output = await buildPresentedMediaObjectOutput({
-          directory: repo.path,
-          items: [
-            {
-              path: localPath,
-            },
-          ],
-        })
+      directory: repo.path,
+      items: [
+        {
+          path: localPath,
+        },
+      ],
+    })
 
     const rawUrl = output.output.items[0]?.rawUrl
     expect(rawUrl).toBeTruthy()
@@ -75,9 +75,9 @@ describe("presented media raw routes", () => {
     await fs.writeFile(imagePath, "cat-image")
 
     const output = await buildPresentedMediaObjectOutput({
-          directory: repo.path,
-          items: [{ path: localPath }],
-        })
+      directory: repo.path,
+      items: [{ path: localPath }],
+    })
     const rawUrl = output.output.items[0]?.rawUrl ?? ""
 
     const response = await app.request(`${rawUrl}&relativePath=images%2Fcat.png`)
@@ -99,9 +99,9 @@ describe("presented media raw routes", () => {
     await fs.writeFile(localPath, "local-image")
 
     const output = await buildPresentedMediaObjectOutput({
-          directory: repo.path,
-          items: [{ path: localPath }],
-        })
+      directory: repo.path,
+      items: [{ path: localPath }],
+    })
     await fs.rm(localPath)
 
     const availabilityUrl = `/api/objects/media-presentation/${output.output.objectID}/items/media_item_1/availability?directory=${encodeURIComponent(repo.path)}`
@@ -117,7 +117,10 @@ describe("presented media raw routes", () => {
       `/api/objects/media-presentation/${output.output.objectID}/items/unknown/availability?directory=${encodeURIComponent(repo.path)}`,
     )
     expect(missingItemResponse.status).toBe(404)
-    expect(await missingItemResponse.json()).toEqual({ code: "media.invalid", error: "File not found" })
+    expect(await missingItemResponse.json()).toEqual({
+      code: "media.invalid",
+      error: "File not found",
+    })
   })
 
   test("serves bounded, open-ended, and suffix byte ranges", async () => {
@@ -129,9 +132,9 @@ describe("presented media raw routes", () => {
     await fs.writeFile(localPath, "0123456789")
 
     const output = await buildPresentedMediaObjectOutput({
-          directory: repo.path,
-          items: [{ path: localPath }],
-        })
+      directory: repo.path,
+      items: [{ path: localPath }],
+    })
     const rawUrl = output.output.items[0]?.rawUrl ?? ""
 
     const bounded = await app.request(rawUrl, {
@@ -166,9 +169,9 @@ describe("presented media raw routes", () => {
     await fs.writeFile(localPath, "0123456789")
 
     const output = await buildPresentedMediaObjectOutput({
-          directory: repo.path,
-          items: [{ path: localPath }],
-        })
+      directory: repo.path,
+      items: [{ path: localPath }],
+    })
     const rawUrl = output.output.items[0]?.rawUrl ?? ""
 
     for (const range of [
@@ -270,7 +273,10 @@ describe("presented media file routes", () => {
     const presentUrl = `/api/objects/media-presentation/files?directory=${encodeURIComponent(repo.path)}`
 
     expect((await postMediaFile(presentUrl, warmPath)).status).toBe(200)
-    const presented = await buildPresentedMediaObjectOutput({ directory: repo.path, items: [{ path: presentedPath }] })
+    const presented = await buildPresentedMediaObjectOutput({
+      directory: repo.path,
+      items: [{ path: presentedPath }],
+    })
 
     const reopened = await postMediaFile(presentUrl, presentedPath)
     expect(await reopened.json()).toEqual({ objectID: presented.output.objectID })
@@ -313,9 +319,9 @@ describe("presented media file routes", () => {
     const notebookID = await mediaObjectID(await postMediaFile(presentUrl, notebookPath))
     const outsideID = await mediaObjectID(await postMediaFile(presentUrl, outsidePath))
     const gallery = await buildPresentedMediaObjectOutput({
-          directory: repo.path,
-          items: [{ path: notebookPath }, { path: otherNotebookPath }],
-        })
+      directory: repo.path,
+      items: [{ path: notebookPath }, { path: otherNotebookPath }],
+    })
 
     const listed = await app.request(`/api/objects?directory=${directory}&kind=media-presentation`)
     expect(listed.status).toBe(200)

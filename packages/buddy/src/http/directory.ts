@@ -189,7 +189,10 @@ function validateAllowedDirectory(requestURL: URL, directory: string): AllowedDi
   if (!allowedByRoots && !allowedByOpenProjectRegistry) {
     return {
       ok: false,
-      response: Response.json({ error: "Directory is outside allowed roots", code: "request.forbidden" }, { status: 403 }),
+      response: Response.json(
+        { error: "Directory is outside allowed roots", code: "request.forbidden" },
+        { status: 403 },
+      ),
     }
   }
 

@@ -113,7 +113,9 @@ function mergeBuddyAndConfiguredAgents(
     const nextAgent = normalizeConfiguredAgentOverride(name, baseAgent, agent)
     const combined = baseAgent ? mergeBuddyAgentConfig(baseAgent, nextAgent) : nextAgent
     const role = getBuddySubagentDefinition(name)
-    merged[name] = role ? { ...combined, mode: "subagent", hidden: !role.delegatable || combined.hidden } : combined
+    merged[name] = role
+      ? { ...combined, mode: "subagent", hidden: !role.delegatable || combined.hidden }
+      : combined
   }
 
   return merged

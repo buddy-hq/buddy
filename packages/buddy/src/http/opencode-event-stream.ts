@@ -16,16 +16,32 @@ export type TBuddyEventStreamMultiplexer<TEvent> = {
   subscribe(listener: (event: TEvent) => void): () => void
 }
 
-export function containedWorkspaceRelativePath(directory: string, absolutePath: string): string | undefined {
-  const windows = /^[a-zA-Z]:[\\/]/u.test(directory) || /^[a-zA-Z]:[\\/]/u.test(absolutePath) || directory.startsWith("\\\\")
+export function containedWorkspaceRelativePath(
+  directory: string,
+  absolutePath: string,
+): string | undefined {
+  const windows =
+    /^[a-zA-Z]:[\\/]/u.test(directory) ||
+    /^[a-zA-Z]:[\\/]/u.test(absolutePath) ||
+    directory.startsWith("\\\\")
   const paths = windows ? path.win32 : path.posix
   if (!paths.isAbsolute(absolutePath)) return undefined
   const relative = paths.relative(directory, absolutePath)
-  if (!relative || relative === "." || relative === ".." || relative.startsWith(`..${paths.sep}`) || paths.isAbsolute(relative)) return undefined
+  if (
+    !relative ||
+    relative === "." ||
+    relative === ".." ||
+    relative.startsWith(`..${paths.sep}`) ||
+    paths.isAbsolute(relative)
+  )
+    return undefined
   return relative.replaceAll(paths.sep, "/")
 }
 
-export function normalizeBuddyStreamEvent<TValue>(value: TValue, directory: string): BuddyEvent | undefined {
+export function normalizeBuddyStreamEvent<TValue>(
+  value: TValue,
+  directory: string,
+): BuddyEvent | undefined {
   const record = parseTJsonObject(value)
   const payload = parseTJsonObject(record?.payload)
   const properties = parseTJsonObject(payload?.properties)
@@ -36,7 +52,9 @@ export function normalizeBuddyStreamEvent<TValue>(value: TValue, directory: stri
   const watcher = readWorkspaceFileWatcherUpdatePayload(event.payload)
   if (!watcher) return event
   const relativePath = containedWorkspaceRelativePath(directory, watcher.absolutePath)
-  return relativePath ? { ...event, payload: { ...event.payload, properties: { ...properties, relativePath } } } : undefined
+  return relativePath
+    ? { ...event, payload: { ...event.payload, properties: { ...properties, relativePath } } }
+    : undefined
 }
 
 export function createBuddyEventStreamResponse<TEvent>(input: {
@@ -88,7 +106,11 @@ export function createBuddyEventStreamResponse<TEvent>(input: {
         if (!event) return
         const frame = encoder.encode(`data: ${JSON.stringify(event)}\n\n`)
         const accounted = Math.min(frame.byteLength, MaxAccountedFrameBytes)
-        if (queue.length >= MaxQueuedEvents || queuedBytes + accounted > MaxQueuedBytes || (queue.length > 0 && queuedRealBytes + frame.byteLength > MaxQueuedRealBytes)) {
+        if (
+          queue.length >= MaxQueuedEvents ||
+          queuedBytes + accounted > MaxQueuedBytes ||
+          (queue.length > 0 && queuedRealBytes + frame.byteLength > MaxQueuedRealBytes)
+        ) {
           fail(new Error("Transcript event consumer fell behind"))
           return
         }
@@ -100,7 +122,14 @@ export function createBuddyEventStreamResponse<TEvent>(input: {
       const global = input.globalEvents ?? { subscribe: () => noop, initialEvents: [] }
       const unsubscribeGlobal = global.subscribe(push)
       const unsubscribeBuddy = input.buddyEvents?.subscribe(push)
-      const heartbeat = setInterval(() => push({ directory: input.directory, payload: { type: "server.heartbeat", properties: {} } }), 5000)
+      const heartbeat = setInterval(
+        () =>
+          push({
+            directory: input.directory,
+            payload: { type: "server.heartbeat", properties: {} },
+          }),
+        5000,
+      )
       const onAbort = () => {
         if (closed) return
         closed = true
@@ -123,19 +152,29 @@ export function createBuddyEventStreamResponse<TEvent>(input: {
       for (const event of global.initialEvents ?? []) push(event)
       void (async () => {
         try {
-          for await (const event of input.events.stream({ directory: input.directory, signal: abort.signal })) {
+          for await (const event of input.events.stream({
+            directory: input.directory,
+            signal: abort.signal,
+          })) {
             push(event)
             if (closed) break
           }
           ended = true
           flush()
         } catch (error) {
-          if (!abort.signal.aborted) fail(error instanceof Error ? error : new Error("Transcript event stream failed", { cause: error }))
+          if (!abort.signal.aborted)
+            fail(
+              error instanceof Error
+                ? error
+                : new Error("Transcript event stream failed", { cause: error }),
+            )
         }
       })()
       drain = flush
     },
-    pull() { drain() },
+    pull() {
+      drain()
+    },
     cancel() {
       if (closed) return
       closed = true
@@ -145,5 +184,11 @@ export function createBuddyEventStreamResponse<TEvent>(input: {
       cleanup()
     },
   })
-  return new Response(stream, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "x-accel-buffering": "no" } })
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+      "x-accel-buffering": "no",
+    },
+  })
 }

@@ -15,13 +15,24 @@ export async function createV2TestHost() {
     tmp: path.join(root.path, "tmp"),
   }
   try {
-    await Promise.all(Object.values(paths).map((directory) => fs.mkdir(directory, { recursive: true })))
-    const host = await createOpenCodeHost({ clientName: "buddy-test", paths, databasePath: path.join(paths.data, "opencode.db"), fetchModels: false })
+    await Promise.all(
+      Object.values(paths).map((directory) => fs.mkdir(directory, { recursive: true })),
+    )
+    const host = await createOpenCodeHost({
+      clientName: "buddy-test",
+      paths,
+      databasePath: path.join(paths.data, "opencode.db"),
+      fetchModels: false,
+    })
     return {
       host,
       path: root.path,
       async [Symbol.asyncDispose]() {
-        try { await host.close() } finally { await root[Symbol.asyncDispose]() }
+        try {
+          await host.close()
+        } finally {
+          await root[Symbol.asyncDispose]()
+        }
       },
     }
   } catch (error) {

@@ -1,4 +1,7 @@
-import { parsePermissionRequest, parsePermissionReplied } from "@buddy/transcript-contract/permission"
+import {
+  parsePermissionRequest,
+  parsePermissionReplied,
+} from "@buddy/transcript-contract/permission"
 import type { PermissionRequest } from "@/state/permission-types"
 import { sessionFamilyIDs } from "@/lib/session-family"
 import { z } from "zod"
@@ -71,7 +74,11 @@ import type {
   SessionStatusInfo,
   SessionInfo,
 } from "@/state/chat-types"
-import type { EventStreamData, McpInputRequestedEvent, McpInputSettledEvent } from "@buddy/sdk/types"
+import type {
+  EventStreamData,
+  McpInputRequestedEvent,
+  McpInputSettledEvent,
+} from "@buddy/sdk/types"
 import { encodeDirectory } from "../directory-token"
 import { getTranscriptPerformanceProbe } from "./transcript-performance-probe"
 import {
@@ -88,7 +95,9 @@ const McpInputRequestedPropertiesSchema = z.object({
   message: z.string().optional(),
   toolPrefix: z.string(),
 }) satisfies z.ZodType<McpInputRequestedEvent["properties"]>
-const McpInputSettledPropertiesSchema = z.object({ requestID: z.string() }) satisfies z.ZodType<McpInputSettledEvent["properties"]>
+const McpInputSettledPropertiesSchema = z.object({ requestID: z.string() }) satisfies z.ZodType<
+  McpInputSettledEvent["properties"]
+>
 
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
 const PERMISSION_NOTIFICATION_COOLDOWN_MS = 15_000
@@ -419,7 +428,9 @@ export function useChatSync(props: UseChatSyncProps) {
           return
         }
         if (payload.type === "server.connected") {
-          void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
+          void loadPermissions(directory)
+            .then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests))
+            .catch(() => undefined)
           return
         }
         if (!("properties" in payload)) {
@@ -451,7 +462,9 @@ export function useChatSync(props: UseChatSyncProps) {
           const sessionID = parseTNonEmptyString(properties.sessionID)
           if (sessionID && properties.reason === "inactivity") {
             previousInactivityStop = { directory, sessionID }
-            const assistantMessageID = interruptedAssistantMessageID(getTranscriptMessages(directory, sessionID))
+            const assistantMessageID = interruptedAssistantMessageID(
+              getTranscriptMessages(directory, sessionID),
+            )
             if (assistantMessageID) {
               useChatStore.getState().setSessionStoppedTurn(directory, sessionID, {
                 assistantMessageID,
@@ -465,8 +478,14 @@ export function useChatSync(props: UseChatSyncProps) {
         if (payload.type === "session.resync") {
           const sessionID = parseTNonEmptyString(properties.sessionID)
           const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
-          if (sessionID && (sessionID === activeSessionID || getTranscriptMessages(directory, sessionID).length > 0)) {
-            void loadTranscriptMessages(directory, sessionID, { force: true }).catch(() => undefined)
+          if (
+            sessionID &&
+            (sessionID === activeSessionID ||
+              getTranscriptMessages(directory, sessionID).length > 0)
+          ) {
+            void loadTranscriptMessages(directory, sessionID, { force: true }).catch(
+              () => undefined,
+            )
           }
           return
         }
@@ -501,10 +520,12 @@ export function useChatSync(props: UseChatSyncProps) {
               const notificationPreferences = useNotificationPreferences.getState().preferences
               if (notificationPreferences.agent) {
                 const title = sessionDescription(directory, statusSessionID)
-                const description = precedingInactivityStop?.directory === directory && precedingInactivityStop.sessionID === statusSessionID
-                  ? "Stopped after an hour with no activity."
-                  : readLatestAssistantResponsePreview(directory, statusSessionID) ??
-                    language.t("notification.session.responseReady.fallbackDescription")
+                const description =
+                  precedingInactivityStop?.directory === directory &&
+                  precedingInactivityStop.sessionID === statusSessionID
+                    ? "Stopped after an hour with no activity."
+                    : (readLatestAssistantResponsePreview(directory, statusSessionID) ??
+                      language.t("notification.session.responseReady.fallbackDescription"))
                 void platform.notify(title, description, sessionHref(directory, statusSessionID))
               }
             }
@@ -561,7 +582,13 @@ export function useChatSync(props: UseChatSyncProps) {
             markTranscriptSessionOptimistic(directory, info.sessionID, false)
           }
           applyMessageUpdated(directory, info)
-          if (info.role === "user" && info.sessionID && info.agent && info.model.providerID && info.model.modelID) {
+          if (
+            info.role === "user" &&
+            info.sessionID &&
+            info.agent &&
+            info.model.providerID &&
+            info.model.modelID
+          ) {
             useModelSelectionStore
               .getState()
               .restoreSessionSelection(getModelSelectionScopeKey(directory, info.sessionID), {
@@ -633,9 +660,15 @@ export function useChatSync(props: UseChatSyncProps) {
           const permissionRequest = parsePermissionRequest(properties)
           if (permissionRequest === undefined) return
           const current = useChatStore.getState().directories[directory]
-          const family = current?.sessionID ? sessionFamilyIDs(current.sessions, current.sessionID) : []
+          const family = current?.sessionID
+            ? sessionFamilyIDs(current.sessions, current.sessionID)
+            : []
           if (!family.includes(permissionRequest.sessionID)) {
-            void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
+            void loadPermissions(directory)
+              .then((requests) =>
+                setDirectoryPermissionsQueryData(queryClient, directory, requests),
+              )
+              .catch(() => undefined)
             notifyPermissionAsked(directory, permissionRequest)
             return
           }
@@ -645,7 +678,9 @@ export function useChatSync(props: UseChatSyncProps) {
           })
           applyPermissionAsked(directory, permissionRequest)
           upsertDirectoryPermissionQueryData(queryClient, directory, permissionRequest)
-          void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
+          void loadPermissions(directory)
+            .then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests))
+            .catch(() => undefined)
           notifyPermissionAsked(directory, permissionRequest)
           return
         }
@@ -657,7 +692,9 @@ export function useChatSync(props: UseChatSyncProps) {
           removeTranscriptPendingInput(directory, requestID)
           applyPermissionReplied(directory, requestID)
           removeDirectoryPermissionQueryData(queryClient, directory, requestID)
-          void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
+          void loadPermissions(directory)
+            .then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests))
+            .catch(() => undefined)
           return
         }
 

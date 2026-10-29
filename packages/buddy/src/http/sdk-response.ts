@@ -69,7 +69,9 @@ export async function sdkErrorResponse<TData>(
   const payload = parseTJsonObject(result.error)
   const code = parseTString(payload?.code)
   if (status === 500 && code === undefined) {
-    const response = await routeErrorResponse(new Error("SDK request failed", { cause: result.error }))
+    const response = await routeErrorResponse(
+      new Error("SDK request failed", { cause: result.error }),
+    )
     return new Response(response.body, { status, headers: response.headers })
   }
   const body = routeErrorBody(status, busy ? "Session is already running" : message, code)

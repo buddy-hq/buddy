@@ -744,7 +744,9 @@ function readTranscriptMeta(record: TranscriptSessionRecord): TranscriptSessionM
 
 export function subscribeTranscriptChanges(listener: () => void): () => void {
   transcriptListeners.add(listener)
-  return () => { transcriptListeners.delete(listener) }
+  return () => {
+    transcriptListeners.delete(listener)
+  }
 }
 
 export function getTranscriptMessages(

@@ -19,7 +19,8 @@ async function runWithCommandInvocationDisplay<T>(
   const name = input.command.replace(/^\/+/, "").trim()
   const argumentsText = input.argumentsText.trim()
   const display: CommandDisplay = {
-    name, arguments: argumentsText,
+    name,
+    arguments: argumentsText,
     display: `/${name}${argumentsText ? ` ${argumentsText}` : ""}`,
   }
   const queue = pending.get(input.sessionID) ?? []
@@ -38,7 +39,10 @@ export function applyCommandInvocationDisplay(event: SessionPrompt): void {
   const queue = pending.get(event.sessionID)
   const command = queue?.shift()
   if (!command) return
-  event.metadata = { ...event.metadata, buddy: { ...parseJsonObject(event.metadata?.buddy), command } }
+  event.metadata = {
+    ...event.metadata,
+    buddy: { ...parseJsonObject(event.metadata?.buddy), command },
+  }
 }
 
 export function withBuddyCommandDisplay(client: OpenCodeHost): OpenCodeHost {
@@ -58,9 +62,17 @@ export function withBuddyCommandDisplay(client: OpenCodeHost): OpenCodeHost {
   const session: OpenCodeHost["session"] = {
     ...client.session,
     prompt: (input, options) => admit(input.sessionID, () => client.session.prompt(input, options)),
-    command: (input, options) => admit(input.sessionID, () => runWithCommandInvocationDisplay({
-      sessionID: input.sessionID, command: input.name, argumentsText: input.text ?? "",
-    }, () => client.session.command(input, options))),
+    command: (input, options) =>
+      admit(input.sessionID, () =>
+        runWithCommandInvocationDisplay(
+          {
+            sessionID: input.sessionID,
+            command: input.name,
+            argumentsText: input.text ?? "",
+          },
+          () => client.session.command(input, options),
+        ),
+      ),
   }
   return { ...client, session, sessions: session }
 }

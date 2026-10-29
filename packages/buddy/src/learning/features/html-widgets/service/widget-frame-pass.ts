@@ -19,8 +19,10 @@ export function redactWidgetFramePasses(text: string): string {
   } catch {}
   let redacted = text
   for (const match of decoded.matchAll(pattern)) {
-    const encodedPattern = Array.from(match[0], (character) =>
-      `(?:${character === "." ? "\\." : character}|%${character.charCodeAt(0).toString(16)})`,
+    const encodedPattern = Array.from(
+      match[0],
+      (character) =>
+        `(?:${character === "." ? "\\." : character}|%${character.charCodeAt(0).toString(16)})`,
     ).join("")
     redacted = redacted.replace(new RegExp(encodedPattern, "giu"), "[pass]")
   }

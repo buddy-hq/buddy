@@ -9,7 +9,10 @@ import {
   readProjectConfig,
   syncOpenCodeProjectConfig,
 } from "../runtime/opencode-sync.js"
-import { renderOpenCodeHostConfig, syncOpenCodeHostConfig } from "../runtime/opencode-host-config.js"
+import {
+  renderOpenCodeHostConfig,
+  syncOpenCodeHostConfig,
+} from "../runtime/opencode-host-config.js"
 import { resolveProjectConfigContext, resolveProjectConfigFile } from "../store/config-paths.js"
 import { InvalidError } from "../contract/errors.js"
 import { loadProjectConfigFile } from "../store/read-config"
@@ -184,7 +187,10 @@ export async function patchGlobalConfig<TPayload>(payload: TPayload) {
   })
   if (previousHostConfig !== renderOpenCodeHostConfig(next)) {
     await syncOpenCodeHostConfig().catch((error) => {
-      console.warn("Failed to apply global compaction settings to the running OpenCode host:", error)
+      console.warn(
+        "Failed to apply global compaction settings to the running OpenCode host:",
+        error,
+      )
     })
   }
   return next

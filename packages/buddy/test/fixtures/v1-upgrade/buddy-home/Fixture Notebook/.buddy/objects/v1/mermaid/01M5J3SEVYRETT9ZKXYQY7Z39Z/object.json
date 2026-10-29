@@ -32,11 +32,7 @@
     {
       "viewID": "rendered",
       "label": "Diagram",
-      "surfaces": [
-        "inline",
-        "bench",
-        "library"
-      ],
+      "surfaces": ["inline", "bench", "library"],
       "availability": {
         "status": "available"
       },

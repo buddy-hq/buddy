@@ -12,11 +12,7 @@ import {
 } from "../../src/objects"
 import type { RenderFigureInput } from "../../src/learning/features/figure-rendering/geometry/tools/render-figure"
 import { tmpdir } from "../helpers/tmpdir"
-import {
-  createBuddyToolContext,
-  requireTool,
-  listBuddyTools,
-} from "../helpers/tools"
+import { createBuddyToolContext, requireTool, listBuddyTools } from "../helpers/tools"
 
 const FIGURE_SVG_FILE_NAME = "figure.svg"
 

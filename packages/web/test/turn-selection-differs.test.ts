@@ -15,12 +15,12 @@ describe("turnSelectionDiffers", () => {
   })
 
   test("a different model waits for the running turn", () => {
-    expect(
-      turnSelectionDiffers(turn, { ...next, model: { ...model, modelID: "gpt-y" } }),
-    ).toBe(true)
-    expect(
-      turnSelectionDiffers(turn, { ...next, model: { ...model, providerID: "azure" } }),
-    ).toBe(true)
+    expect(turnSelectionDiffers(turn, { ...next, model: { ...model, modelID: "gpt-y" } })).toBe(
+      true,
+    )
+    expect(turnSelectionDiffers(turn, { ...next, model: { ...model, providerID: "azure" } })).toBe(
+      true,
+    )
   })
 
   test("a different variant waits for the running turn", () => {
@@ -28,9 +28,9 @@ describe("turnSelectionDiffers", () => {
   })
 
   test("default and absent variants are the same choice", () => {
-    expect(
-      turnSelectionDiffers({ agent: "buddy", model }, { ...next, variant: "default" }),
-    ).toBe(false)
+    expect(turnSelectionDiffers({ agent: "buddy", model }, { ...next, variant: "default" })).toBe(
+      false,
+    )
     expect(
       turnSelectionDiffers(
         { agent: "buddy", model: { ...model, variant: "default" } },

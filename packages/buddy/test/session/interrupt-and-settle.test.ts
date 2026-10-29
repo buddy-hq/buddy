@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import type { BuddyEvent } from "@buddy/transcript-contract/event"
-import { interruptAndSettle, stopSessionFamily } from "../../src/session/orchestration/abort-actions"
+import {
+  interruptAndSettle,
+  stopSessionFamily,
+} from "../../src/session/orchestration/abort-actions"
 
 function createStopNoticeRuntime() {
   const queue: BuddyEvent[] = []
@@ -21,16 +24,51 @@ function createStopNoticeRuntime() {
     available = Promise.withResolvers<void>()
   }
   function emitCompletion() {
-    emit({ payload: { type: "message.updated", properties: { info: { id: "completion", sessionID: "p", role: "assistant", kind: "synthetic" } } } })
-    emit({ payload: { type: "message.part.updated", properties: { part: { type: "notice", sessionID: "p", completion: { childSessionID: "c", outcome: "cancelled" } } } } })
+    emit({
+      payload: {
+        type: "message.updated",
+        properties: {
+          info: { id: "completion", sessionID: "p", role: "assistant", kind: "synthetic" },
+        },
+      },
+    })
+    emit({
+      payload: {
+        type: "message.part.updated",
+        properties: {
+          part: {
+            type: "notice",
+            sessionID: "p",
+            completion: { childSessionID: "c", outcome: "cancelled" },
+          },
+        },
+      },
+    })
   }
   const runtime = {
     conversations: {
       async get() {
-        return { id: "p", projectID: "project", directory: "/fixture", title: "Parent", time: { created: 0, updated: 0 } }
+        return {
+          id: "p",
+          projectID: "project",
+          directory: "/fixture",
+          title: "Parent",
+          time: { created: 0, updated: 0 },
+        }
       },
       async children(sessionID: string) {
-        return sessionID === "p" ? [{ id: "c", parentID: "p", projectID: "project", directory: "/fixture", title: "Child", time: { created: 0, updated: 0 } }] : []
+        return sessionID === "p"
+          ? [
+              {
+                id: "c",
+                parentID: "p",
+                projectID: "project",
+                directory: "/fixture",
+                title: "Child",
+                time: { created: 0, updated: 0 },
+              },
+            ]
+          : []
       },
     },
     events: {
@@ -70,11 +108,18 @@ function createStopNoticeRuntime() {
           parentRunning = false
           parentInterrupts += 1
           parentStopped.resolve()
-          emit({ payload: { type: "session.status", properties: { sessionID: "p", status: { type: "idle" } } } })
+          emit({
+            payload: {
+              type: "session.status",
+              properties: { sessionID: "p", status: { type: "idle" } },
+            },
+          })
         }
         return true
       },
-      async wait() { return "interrupted" as const },
+      async wait() {
+        return "interrupted" as const
+      },
     },
   }
   return {
@@ -87,16 +132,35 @@ function createStopNoticeRuntime() {
     subscriptions: () => subscriptions,
     enqueueCompletion: emitCompletion,
     deliverUserPrompt() {
-      const info = { id: "user", sessionID: "p", role: "user" as const, agent: "buddy", model: { providerID: "test", modelID: "test" }, time: { created: Date.now() } }
+      const info = {
+        id: "user",
+        sessionID: "p",
+        role: "user" as const,
+        agent: "buddy",
+        model: { providerID: "test", modelID: "test" },
+        time: { created: Date.now() },
+      }
       emit({ payload: { type: "message.updated", properties: { info } } })
     },
     replayOriginalPrompt() {
-      const info = { id: "prompt", sessionID: "p", role: "user" as const, agent: "buddy", model: { providerID: "test", modelID: "test" }, time: { created: promptCreatedBeforeStop } }
+      const info = {
+        id: "prompt",
+        sessionID: "p",
+        role: "user" as const,
+        agent: "buddy",
+        model: { providerID: "test", modelID: "test" },
+        time: { created: promptCreatedBeforeStop },
+      }
       emit({ payload: { type: "message.updated", properties: { info } } })
     },
     wakeParent() {
       parentRunning = true
-      emit({ payload: { type: "session.status", properties: { sessionID: "p", status: { type: "busy" } } } })
+      emit({
+        payload: {
+          type: "session.status",
+          properties: { sessionID: "p", status: { type: "busy" } },
+        },
+      })
     },
     async [Symbol.asyncDispose]() {
       closed = true
@@ -178,54 +242,82 @@ describe("interruptAndSettle", () => {
 })
 
 describe("stopSessionFamily", () => {
-  test.each([true, false])("stops active descendants in parallel before the parent (parent interrupted: %s)", async (parentInterrupted) => {
-    const order: string[] = []
-    const children = new Map([["p", ["c", "idle"]], ["c", ["g"]], ["g", ["p"]]])
-    const runtime = {
-      conversations: {
-        async get() {
-          return { id: "p", projectID: "project", directory: "/fixture", title: "Parent", time: { created: 0, updated: 0 } }
+  test.each([true, false])(
+    "stops active descendants in parallel before the parent (parent interrupted: %s)",
+    async (parentInterrupted) => {
+      const order: string[] = []
+      const children = new Map([
+        ["p", ["c", "idle"]],
+        ["c", ["g"]],
+        ["g", ["p"]],
+      ])
+      const runtime = {
+        conversations: {
+          async get() {
+            return {
+              id: "p",
+              projectID: "project",
+              directory: "/fixture",
+              title: "Parent",
+              time: { created: 0, updated: 0 },
+            }
+          },
+          async children(sessionID: string) {
+            return (children.get(sessionID) ?? []).map((id) => ({
+              id,
+              parentID: sessionID,
+              projectID: "project",
+              directory: "/fixture",
+              title: id,
+              time: { created: 0, updated: 0 },
+            }))
+          },
         },
-        async children(sessionID: string) {
-          return (children.get(sessionID) ?? []).map((id) => ({
-            id,
-            parentID: sessionID,
-            projectID: "project",
-            directory: "/fixture",
-            title: id,
-            time: { created: 0, updated: 0 },
-          }))
+        events: {
+          async *stream(): AsyncGenerator<BuddyEvent> {
+            yield { payload: { type: "server.connected", properties: {} } }
+            for (const childSessionID of ["g", "c"]) {
+              yield {
+                payload: {
+                  type: "message.part.updated",
+                  properties: {
+                    part: {
+                      type: "notice",
+                      sessionID: childSessionID === "g" ? "c" : "p",
+                      completion: { childSessionID, outcome: "cancelled" },
+                    },
+                  },
+                },
+              }
+            }
+          },
         },
-      },
-      events: {
-        async *stream(): AsyncGenerator<BuddyEvent> {
-          yield { payload: { type: "server.connected", properties: {} } }
-          for (const childSessionID of ["g", "c"]) {
-            yield { payload: { type: "message.part.updated", properties: { part: { type: "notice", sessionID: childSessionID === "g" ? "c" : "p", completion: { childSessionID, outcome: "cancelled" } } } } }
-          }
+        execution: {
+          async statuses() {
+            return { c: { type: "busy" as const }, g: { type: "busy" as const } }
+          },
+          async interrupt(sessionID: string) {
+            order.push(`interrupt:${sessionID}`)
+            return sessionID === "p" ? parentInterrupted : true
+          },
+          async wait(sessionID: string) {
+            order.push(`wait:${sessionID}`)
+            return "interrupted" as const
+          },
         },
-      },
-      execution: {
-        async statuses() {
-          return { c: { type: "busy" as const }, g: { type: "busy" as const } }
-        },
-        async interrupt(sessionID: string) {
-          order.push(`interrupt:${sessionID}`)
-          return sessionID === "p" ? parentInterrupted : true
-        },
-        async wait(sessionID: string) {
-          order.push(`wait:${sessionID}`)
-          return "interrupted" as const
-        },
-      },
-    }
+      }
 
-    expect(await stopSessionFamily(runtime, "p")).toBe(true)
-    expect(order).toEqual([
-      "interrupt:g", "interrupt:c", "wait:g", "wait:c", "interrupt:p",
-      ...(parentInterrupted ? ["wait:p"] : []),
-    ])
-  })
+      expect(await stopSessionFamily(runtime, "p")).toBe(true)
+      expect(order).toEqual([
+        "interrupt:g",
+        "interrupt:c",
+        "wait:g",
+        "wait:c",
+        "interrupt:p",
+        ...(parentInterrupted ? ["wait:p"] : []),
+      ])
+    },
+  )
 
   test("interrupts the parent again after a delayed cancelled completion wakes it", async () => {
     const parentStopped = Promise.withResolvers<void>()
@@ -236,10 +328,27 @@ describe("stopSessionFamily", () => {
     const runtime = {
       conversations: {
         async get() {
-          return { id: "p", projectID: "project", directory: "/fixture", title: "Parent", time: { created: 0, updated: 0 } }
+          return {
+            id: "p",
+            projectID: "project",
+            directory: "/fixture",
+            title: "Parent",
+            time: { created: 0, updated: 0 },
+          }
         },
         async children(sessionID: string) {
-          return sessionID === "p" ? [{ id: "c", parentID: "p", projectID: "project", directory: "/fixture", title: "Child", time: { created: 0, updated: 0 } }] : []
+          return sessionID === "p"
+            ? [
+                {
+                  id: "c",
+                  parentID: "p",
+                  projectID: "project",
+                  directory: "/fixture",
+                  title: "Child",
+                  time: { created: 0, updated: 0 },
+                },
+              ]
+            : []
         },
       },
       events: {
@@ -264,13 +373,26 @@ describe("stopSessionFamily", () => {
           }
           return true
         },
-        async wait() { return "interrupted" as const },
+        async wait() {
+          return "interrupted" as const
+        },
       },
     }
     const delivery = parentStopped.promise.then(async () => {
       await new Promise<void>((resolve) => setImmediate(resolve))
       parentRunning = true
-      completion.resolve({ payload: { type: "message.part.updated", properties: { part: { type: "notice", sessionID: "p", completion: { childSessionID: "c", outcome: "cancelled" } } } } })
+      completion.resolve({
+        payload: {
+          type: "message.part.updated",
+          properties: {
+            part: {
+              type: "notice",
+              sessionID: "p",
+              completion: { childSessionID: "c", outcome: "cancelled" },
+            },
+          },
+        },
+      })
     })
 
     const stopping = stopSessionFamily(runtime, "p")

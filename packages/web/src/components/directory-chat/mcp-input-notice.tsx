@@ -22,7 +22,10 @@ export function McpInputNotice(props: McpInputNoticeProps): ReactElement | null 
         <div key={request.requestID} className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
           <Card role="alert" aria-live="assertive" className="gap-0 py-0">
             <CardHeader className={request.message ? "pb-4 pt-4" : "py-4"}>
-              <p><strong>{request.server}</strong> may be waiting for your input, which Buddy can't show yet.</p>
+              <p>
+                <strong>{request.server}</strong> may be waiting for your input, which Buddy can't
+                show yet.
+              </p>
             </CardHeader>
             {request.message ? (
               <CardContent className="flex flex-col gap-2 px-4 pb-4 pt-0">
@@ -32,7 +35,9 @@ export function McpInputNotice(props: McpInputNoticeProps): ReactElement | null 
               </CardContent>
             ) : null}
             <CardFooter className="flex-wrap justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={props.onStop}>Stop</Button>
+              <Button size="sm" variant="outline" onClick={props.onStop}>
+                Stop
+              </Button>
             </CardFooter>
           </Card>
         </div>

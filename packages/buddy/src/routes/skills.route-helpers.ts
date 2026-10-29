@@ -1,7 +1,4 @@
-import {
-  SKILL_ROUTE_ACTIONS,
-  SKILL_ROUTE_QUERY,
-} from "./skills.constants"
+import { SKILL_ROUTE_ACTIONS, SKILL_ROUTE_QUERY } from "./skills.constants"
 
 type SkillToggleInput = {
   action?: "allow" | "deny"

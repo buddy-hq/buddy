@@ -9,9 +9,11 @@ const CHAT_OUTPUT_POLICY = { maxLines: 500_000, maxBytes: 5_000_000 }
 
 function messageBlock(message: MessageWithParts): string {
   if (message.info.role === "user") {
-    const text = message.parts.flatMap((part) =>
-      part.type === "text" && !part.synthetic && !part.ignored ? [part.text] : [],
-    ).join("")
+    const text = message.parts
+      .flatMap((part) =>
+        part.type === "text" && !part.synthetic && !part.ignored ? [part.text] : [],
+      )
+      .join("")
     const attachments = message.parts.flatMap((part) => {
       if (part.type !== "file") return []
       const label = `[Attachment: ${part.filename || "unnamed"} (${part.mime})]`
@@ -36,10 +38,21 @@ function messageBlock(message: MessageWithParts): string {
   const text = message.parts.flatMap((part) => {
     if (part.type === "text") return [part.text]
     if (part.type !== "tool") return []
-    const outcome = part.state.status === "completed"
-      ? [part.state.output, ...(part.state.attachments ?? []).map((file) =>
-        [file.filename, file.mime, file.url.startsWith("data:") ? undefined : file.url].filter(Boolean).join(" "))].filter(Boolean).join("\n")
-      : part.state.status === "error" ? part.state.error : ""
+    const outcome =
+      part.state.status === "completed"
+        ? [
+            part.state.output,
+            ...(part.state.attachments ?? []).map((file) =>
+              [file.filename, file.mime, file.url.startsWith("data:") ? undefined : file.url]
+                .filter(Boolean)
+                .join(" "),
+            ),
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : part.state.status === "error"
+          ? part.state.error
+          : ""
     return [`Tool ${part.tool} (${part.state.status}):\n${outcome}`]
   })
   return `Assistant:\n${text.join("\n")}`
@@ -67,9 +80,15 @@ function boundedTranscript(messages: readonly MessageWithParts[], latest?: numbe
       if (blocks.length === 0) {
         const label = message.info.role === "user" ? "User:" : "Assistant:"
         const prefix = `${notice}${label}\n[Latest message truncated to fit the output limit.]\n`
-        const tail = block.split("\n").slice(-(CHAT_OUTPUT_POLICY.maxLines - prefix.split("\n").length)).join("\n")
+        const tail = block
+          .split("\n")
+          .slice(-(CHAT_OUTPUT_POLICY.maxLines - prefix.split("\n").length))
+          .join("\n")
         const encoded = Buffer.from(tail)
-        let start = Math.max(0, encoded.length - (CHAT_OUTPUT_POLICY.maxBytes - Buffer.byteLength(prefix)))
+        let start = Math.max(
+          0,
+          encoded.length - (CHAT_OUTPUT_POLICY.maxBytes - Buffer.byteLength(prefix)),
+        )
         while (start < encoded.length && ((encoded[start] ?? 0) & 0xc0) === 0x80) start += 1
         return prefix + encoded.subarray(start).toString("utf8")
       }
@@ -86,10 +105,19 @@ export const benchReadChatTool = createBuddyTool({
   id: "bench_read_chat",
   description:
     "Read the transcript of a chat in this notebook: a chat or subagent chat tab's target.sessionID from bench_read_context, or a chat the user mentioned. Returns its messages oldest first: the user's text, the assistant's text, and each tool call with its outcome. Set latest to read only the most recent messages. Reading never changes the chat.",
-  parameters: z.object({
-    sessionID: z.string().describe("ID of the chat in this notebook to read."),
-    latest: z.number().int().positive().optional().describe("Read only the latest N messages. Omit to read the whole chat within the output limit."),
-  }).strict(),
+  parameters: z
+    .object({
+      sessionID: z.string().describe("ID of the chat in this notebook to read."),
+      latest: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe(
+          "Read only the latest N messages. Omit to read the whole chat within the output limit.",
+        ),
+    })
+    .strict(),
   presentation: {
     archetype: "activity",
     icon: "read",
@@ -116,7 +144,9 @@ export const benchReadChatTool = createBuddyTool({
       throw error
     })
     if (!session) throw new Error("Chat not found in this notebook")
-    const { items } = await (await getAgentRuntime()).conversations.history({
+    const { items } = await (
+      await getAgentRuntime()
+    ).conversations.history({
       directory: ctx.directory,
       sessionID: session.id,
     })

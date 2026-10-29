@@ -284,22 +284,33 @@ function clampPostFullTextIngestReserve(value: number) {
   )
 }
 
-async function resolveActiveModel<TExtra>(directory: string, messages: MessageWithParts[], extra: TExtra) {
+async function resolveActiveModel<TExtra>(
+  directory: string,
+  messages: MessageWithParts[],
+  extra: TExtra,
+) {
   const fromExtra = normalizeActiveModel(extra)
   if (fromExtra) {
     return fromExtra
   }
 
-  const models = await (await getAgentRuntime())
-    .providers.catalog(directory)
-    .then((catalog) => catalog.all.filter((provider) => catalog.connected.includes(provider.id)).flatMap((provider) => Object.values(provider.models)))
+  const models = await (
+    await getAgentRuntime()
+  ).providers
+    .catalog(directory)
+    .then((catalog) =>
+      catalog.all
+        .filter((provider) => catalog.connected.includes(provider.id))
+        .flatMap((provider) => Object.values(provider.models)),
+    )
     .catch(() => [])
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
     if (message.info.role !== "user") continue
     const modelRef = message.info.model
-    const model = models.find((candidate) =>
-      candidate.providerID === modelRef.providerID && candidate.id === modelRef.modelID,
+    const model = models.find(
+      (candidate) =>
+        candidate.providerID === modelRef.providerID && candidate.id === modelRef.modelID,
     )
     if (model) return normalizeActiveModel(model)
   }

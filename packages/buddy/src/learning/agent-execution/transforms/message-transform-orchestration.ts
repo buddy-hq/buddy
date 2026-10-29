@@ -141,8 +141,7 @@ export async function orchestrateSessionMessageTransform(input: {
               : undefined,
             previousState?.lastDeliveredLearnerContextItems
               ? {
-                  lastDeliveredLearnerContextItems:
-                    previousState.lastDeliveredLearnerContextItems,
+                  lastDeliveredLearnerContextItems: previousState.lastDeliveredLearnerContextItems,
                 }
               : undefined,
             previousState?.lastDeliveredLearnerContextMessageId

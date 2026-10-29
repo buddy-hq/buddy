@@ -6,13 +6,20 @@ import path from "node:path"
 import z from "zod"
 import { TEST_SANDBOX } from "../../../script/test-preload"
 import { configureOpenCodeGlobalPaths, createOpenCodeHost } from "../src/host"
-import { ensureV2DatabaseSeeded, seedV2Database, type V2DatabaseSeedResult } from "../src/seed-v2-database"
+import {
+  ensureV2DatabaseSeeded,
+  seedV2Database,
+  type V2DatabaseSeedResult,
+} from "../src/seed-v2-database"
 import { listMessages } from "../src/gateway/message"
 import { readV1ImportCommandDisplays, readV1ImportRecord } from "../src/v1-import-guard"
 
 const FIXTURE = path.resolve(import.meta.dir, "../../buddy/test/fixtures/v1-upgrade/opencode.db")
 const SEED_MODULE = path.resolve(import.meta.dir, "../src/seed-v2-database.ts")
-const FLOCK_MODULE = path.resolve(import.meta.dir, "../../../vendor/opencode/packages/util/src/flock.ts")
+const FLOCK_MODULE = path.resolve(
+  import.meta.dir,
+  "../../../vendor/opencode/packages/util/src/flock.ts",
+)
 let counter = 0
 
 function workspace(name: string) {
@@ -51,7 +58,10 @@ function count(file: string, sql: string) {
 function tables(file: string) {
   const db = new Database(file, { readonly: true })
   try {
-    return z.array(z.object({ name: z.string() })).parse(db.query("SELECT name FROM sqlite_master WHERE type = 'table'").all()).map((row) => row.name)
+    return z
+      .array(z.object({ name: z.string() }))
+      .parse(db.query("SELECT name FROM sqlite_master WHERE type = 'table'").all())
+      .map((row) => row.name)
   } finally {
     db.close(false)
   }
@@ -96,7 +106,8 @@ describe("seeding the v2 database", () => {
     expectSeeded(result, "v1")
     expect(reported).toEqual(["upgrade"])
     expect(duringPreparation.map((entry) => entry.directory)).toEqual([true])
-    if (process.platform !== "win32") expect(duringPreparation.map((entry) => entry.mode)).toEqual([0o700])
+    if (process.platform !== "win32")
+      expect(duringPreparation.map((entry) => entry.mode)).toEqual([0o700])
     expect(sha(place.v1Database)).toBe(before)
     expect(count(place.v2Database, "SELECT COUNT(*) AS value FROM event")).toBe(0)
     expect(count(place.v2Database, "SELECT COUNT(*) AS value FROM session")).toBe(3)
@@ -113,7 +124,8 @@ describe("seeding the v2 database", () => {
   test("a stale temporary copy, its side files and a stale private copy folder are removed and the copy is redone", async () => {
     const place = workspace("stale")
     fs.copyFileSync(FIXTURE, place.v1Database)
-    for (const suffix of ["", "-wal", "-shm", "-journal"]) fs.writeFileSync(`${place.v2Database}.4242.tmp${suffix}`, "stale")
+    for (const suffix of ["", "-wal", "-shm", "-journal"])
+      fs.writeFileSync(`${place.v2Database}.4242.tmp${suffix}`, "stale")
     fs.mkdirSync(`${place.v2Database}.4343.tmp`)
     fs.writeFileSync(path.join(`${place.v2Database}.4343.tmp`, "opencode-v2.db"), "stale")
     fs.writeFileSync(path.join(place.paths.data, "unrelated.tmp"), "kept")
@@ -220,7 +232,9 @@ describe("seeding the v2 database", () => {
     const edit = new Database(noEvents.v1Database)
     edit.exec("DROP TABLE event")
     edit.exec("DROP TABLE event_sequence")
-    edit.exec("DELETE FROM migration WHERE id IN ('20260323234822_events', '20260504145000_add_sync_owner')")
+    edit.exec(
+      "DELETE FROM migration WHERE id IN ('20260323234822_events', '20260504145000_add_sync_owner')",
+    )
     edit.close(false)
     expect(tables(noEvents.v1Database)).not.toContain("event")
     expectSeeded(await seedV2Database(noEvents), "v1")
@@ -249,7 +263,13 @@ describe("seeding the v2 database", () => {
     const db = new Database(place.v1Database)
     const sessionID = "ses_e9bc34367ffeUhIRiVk04oUEhK"
     const base = { sessionID, time: { created: 1_790_000_000_000 } }
-    const user = { ...base, id: "msg_1643cbd00001aaaaaaaaaaaaaa", role: "user", agent: "buddy", model: { providerID: "test", modelID: "test-model" } }
+    const user = {
+      ...base,
+      id: "msg_1643cbd00001aaaaaaaaaaaaaa",
+      role: "user",
+      agent: "buddy",
+      model: { providerID: "test", modelID: "test-model" },
+    }
     const assistant = {
       ...base,
       id: "msg_1643cbd00002aaaaaaaaaaaaaa",
@@ -263,23 +283,86 @@ describe("seeding the v2 database", () => {
       cost: 0,
       tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
     }
-    const insertMessage = db.query("INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)")
-    const insertPart = db.query("INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)")
-    insertMessage.run(user.id, sessionID, 1_790_000_000_000, 1_790_000_000_000, JSON.stringify(user))
-    insertMessage.run(assistant.id, sessionID, 1_790_000_000_001, 1_790_000_000_001, JSON.stringify(assistant))
-    insertPart.run("prt_1643cbd00001aaaaaaaaaaaaaa", user.id, sessionID, 1, 1, JSON.stringify({
-      type: "subtask", prompt: "Summarise the lesson", description: "Summary", agent: "general", command: "summarise",
-    }))
-    insertPart.run("prt_1643cbd00002aaaaaaaaaaaaaa", assistant.id, sessionID, 1, 1, JSON.stringify({
-      type: "tool", callID: "call_1", tool: "task",
-      state: { status: "completed", input: {}, output: "Done", title: "Summary", metadata: {}, time: { start: 1, end: 2 } },
-    }))
-    insertPart.run("prt_1643cbd00003aaaaaaaaaaaaaa", assistant.id, sessionID, 1, 1, JSON.stringify({
-      type: "file", mime: "text/plain", filename: "notes.txt", url: "data:text/plain;base64,aGk=",
-    }))
-    insertPart.run("prt_1643cbd00004aaaaaaaaaaaaaa", "msg_1643cbcd1001lwyv8oVoYEm23s", sessionID, 1, 1, JSON.stringify({
-      type: "file", mime: "image/png", filename: "chart.png", url: "data:image/png;base64,aGk=",
-    }))
+    const insertMessage = db.query(
+      "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+    )
+    const insertPart = db.query(
+      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    insertMessage.run(
+      user.id,
+      sessionID,
+      1_790_000_000_000,
+      1_790_000_000_000,
+      JSON.stringify(user),
+    )
+    insertMessage.run(
+      assistant.id,
+      sessionID,
+      1_790_000_000_001,
+      1_790_000_000_001,
+      JSON.stringify(assistant),
+    )
+    insertPart.run(
+      "prt_1643cbd00001aaaaaaaaaaaaaa",
+      user.id,
+      sessionID,
+      1,
+      1,
+      JSON.stringify({
+        type: "subtask",
+        prompt: "Summarise the lesson",
+        description: "Summary",
+        agent: "general",
+        command: "summarise",
+      }),
+    )
+    insertPart.run(
+      "prt_1643cbd00002aaaaaaaaaaaaaa",
+      assistant.id,
+      sessionID,
+      1,
+      1,
+      JSON.stringify({
+        type: "tool",
+        callID: "call_1",
+        tool: "task",
+        state: {
+          status: "completed",
+          input: {},
+          output: "Done",
+          title: "Summary",
+          metadata: {},
+          time: { start: 1, end: 2 },
+        },
+      }),
+    )
+    insertPart.run(
+      "prt_1643cbd00003aaaaaaaaaaaaaa",
+      assistant.id,
+      sessionID,
+      1,
+      1,
+      JSON.stringify({
+        type: "file",
+        mime: "text/plain",
+        filename: "notes.txt",
+        url: "data:text/plain;base64,aGk=",
+      }),
+    )
+    insertPart.run(
+      "prt_1643cbd00004aaaaaaaaaaaaaa",
+      "msg_1643cbcd1001lwyv8oVoYEm23s",
+      sessionID,
+      1,
+      1,
+      JSON.stringify({
+        type: "file",
+        mime: "image/png",
+        filename: "chart.png",
+        url: "data:image/png;base64,aGk=",
+      }),
+    )
     db.close(false)
     expectSeeded(await seedV2Database(place), "v1")
     expect(readV1ImportRecord(place.v2Database).content).toEqual([
@@ -292,29 +375,127 @@ describe("seeding the v2 database", () => {
     fs.copyFileSync(FIXTURE, place.v1Database)
     const db = new Database(place.v1Database)
     const sessionID = "ses_e9bc34367ffeUhIRiVk04oUEhK"
-    const user = (id: string, created: number) => ({ id, sessionID, role: "user", agent: "buddy", model: { providerID: "test", modelID: "test-model" }, time: { created } })
+    const user = (id: string, created: number) => ({
+      id,
+      sessionID,
+      role: "user",
+      agent: "buddy",
+      model: { providerID: "test", modelID: "test-model" },
+      time: { created },
+    })
     const command = user("msg_1643cbd00011aaaaaaaaaaaaaa", 1_790_000_000_000)
     const typed = user("msg_1643cbd00012aaaaaaaaaaaaaa", 1_790_000_000_001)
-    const insertMessage = db.query("INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)")
-    const insertPart = db.query("INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)")
-    insertMessage.run(command.id, sessionID, command.time.created, command.time.created, JSON.stringify(command))
-    insertMessage.run(typed.id, sessionID, typed.time.created, typed.time.created, JSON.stringify(typed))
-    insertPart.run("prt_1643cbd00011aaaaaaaaaaaaaa", command.id, sessionID, 1, 1, JSON.stringify({ type: "text", text: "/quiz photosynthesis", ignored: true }))
-    insertPart.run("prt_1643cbd00012aaaaaaaaaaaaaa", command.id, sessionID, 1, 1, JSON.stringify({ type: "text", text: "Quiz the learner on photosynthesis.", synthetic: true }))
-    insertPart.run("prt_1643cbd00013aaaaaaaaaaaaaa", typed.id, sessionID, 1, 1, JSON.stringify({ type: "text", text: "/note remember this", ignored: true }))
-    insertPart.run("prt_1643cbd00014aaaaaaaaaaaaaa", typed.id, sessionID, 1, 1, JSON.stringify({ type: "text", text: "What is chlorophyll?" }))
-    const expansion = JSON.stringify({ type: "text", text: "Expanded command instructions.", synthetic: true })
+    const insertMessage = db.query(
+      "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+    )
+    const insertPart = db.query(
+      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    insertMessage.run(
+      command.id,
+      sessionID,
+      command.time.created,
+      command.time.created,
+      JSON.stringify(command),
+    )
+    insertMessage.run(
+      typed.id,
+      sessionID,
+      typed.time.created,
+      typed.time.created,
+      JSON.stringify(typed),
+    )
+    insertPart.run(
+      "prt_1643cbd00011aaaaaaaaaaaaaa",
+      command.id,
+      sessionID,
+      1,
+      1,
+      JSON.stringify({ type: "text", text: "/quiz photosynthesis", ignored: true }),
+    )
+    insertPart.run(
+      "prt_1643cbd00012aaaaaaaaaaaaaa",
+      command.id,
+      sessionID,
+      1,
+      1,
+      JSON.stringify({
+        type: "text",
+        text: "Quiz the learner on photosynthesis.",
+        synthetic: true,
+      }),
+    )
+    insertPart.run(
+      "prt_1643cbd00013aaaaaaaaaaaaaa",
+      typed.id,
+      sessionID,
+      1,
+      1,
+      JSON.stringify({ type: "text", text: "/note remember this", ignored: true }),
+    )
+    insertPart.run(
+      "prt_1643cbd00014aaaaaaaaaaaaaa",
+      typed.id,
+      sessionID,
+      1,
+      1,
+      JSON.stringify({ type: "text", text: "What is chlorophyll?" }),
+    )
+    const expansion = JSON.stringify({
+      type: "text",
+      text: "Expanded command instructions.",
+      synthetic: true,
+    })
     const legacyMessages = [
-      { id: "msg_1643cbd00021aaaaaaaaaaaaaa", parts: [{ type: "text", text: 123, ignored: true }, { type: "text", text: "Number display", synthetic: true }] },
-      { id: "msg_1643cbd00022aaaaaaaaaaaaaa", parts: [{ type: "text", text: "/summarise lesson", ignored: true }, { type: "subtask", prompt: "Summarise", description: "Summary", agent: "general" }] },
-      { id: "msg_1643cbd00023aaaaaaaaaaaaaa", parts: [{ type: "text", text: "/recap", ignored: true }, { type: "text" }] },
-      { id: "msg_1643cbd00024aaaaaaaaaaaaaa", parts: [{ type: "text", text: "Not a command", ignored: 1 }] },
+      {
+        id: "msg_1643cbd00021aaaaaaaaaaaaaa",
+        parts: [
+          { type: "text", text: 123, ignored: true },
+          { type: "text", text: "Number display", synthetic: true },
+        ],
+      },
+      {
+        id: "msg_1643cbd00022aaaaaaaaaaaaaa",
+        parts: [
+          { type: "text", text: "/summarise lesson", ignored: true },
+          { type: "subtask", prompt: "Summarise", description: "Summary", agent: "general" },
+        ],
+      },
+      {
+        id: "msg_1643cbd00023aaaaaaaaaaaaaa",
+        parts: [{ type: "text", text: "/recap", ignored: true }, { type: "text" }],
+      },
+      {
+        id: "msg_1643cbd00024aaaaaaaaaaaaaa",
+        parts: [{ type: "text", text: "Not a command", ignored: 1 }],
+      },
     ]
     for (const [index, legacy] of legacyMessages.entries()) {
       const message = user(legacy.id, 1_790_000_000_002 + index)
-      insertMessage.run(message.id, sessionID, message.time.created, message.time.created, JSON.stringify(message))
-      for (const [partIndex, part] of legacy.parts.entries()) insertPart.run(`prt_1643cbd0002${index}${partIndex}aaaaaaaaaaaaa`, message.id, sessionID, 1, 1, JSON.stringify(part))
-      insertPart.run(`prt_1643cbd0002${index}9aaaaaaaaaaaaa`, message.id, sessionID, 1, 1, expansion)
+      insertMessage.run(
+        message.id,
+        sessionID,
+        message.time.created,
+        message.time.created,
+        JSON.stringify(message),
+      )
+      for (const [partIndex, part] of legacy.parts.entries())
+        insertPart.run(
+          `prt_1643cbd0002${index}${partIndex}aaaaaaaaaaaaa`,
+          message.id,
+          sessionID,
+          1,
+          1,
+          JSON.stringify(part),
+        )
+      insertPart.run(
+        `prt_1643cbd0002${index}9aaaaaaaaaaaaa`,
+        message.id,
+        sessionID,
+        1,
+        1,
+        expansion,
+      )
     }
     db.close(false)
     expectSeeded(await seedV2Database(place), "v1")
@@ -341,32 +522,54 @@ describe("seeding the v2 database", () => {
     }
     expect(status.status).toBe("completed")
     const context = { sessionID, directory: place.root }
-    expect((await listMessages(host, context)).items.map((message) => message.info.id)).not.toContain(command.id)
-    const listed = (await listMessages(host, { ...context, importedCommandDisplay: (messageID: string) => displays.get(messageID) })).items
+    expect(
+      (await listMessages(host, context)).items.map((message) => message.info.id),
+    ).not.toContain(command.id)
+    const listed = (
+      await listMessages(host, {
+        ...context,
+        importedCommandDisplay: (messageID: string) => displays.get(messageID),
+      })
+    ).items
     const row = listed.find((message) => message.info.id === command.id)
     expect(row?.info.role).toBe("user")
-    expect(row?.parts.map((part) => part.type === "text" ? part.text : undefined)).toEqual(["/quiz photosynthesis"])
-    expect(listed.find((message) => message.info.id === typed.id)?.parts.map((part) => part.type === "text" ? part.text : undefined)).toEqual(["What is chlorophyll?"])
+    expect(row?.parts.map((part) => (part.type === "text" ? part.text : undefined))).toEqual([
+      "/quiz photosynthesis",
+    ])
+    expect(
+      listed
+        .find((message) => message.info.id === typed.id)
+        ?.parts.map((part) => (part.type === "text" ? part.text : undefined)),
+    ).toEqual(["What is chlorophyll?"])
   })
 
   test("two processes seeding at once make one copy and leave no temporary file", async () => {
     const place = workspace("two-seeders")
     fs.copyFileSync(FIXTURE, place.v1Database)
     const script = path.join(place.root, "seed.ts")
-    fs.writeFileSync(script, [
-      `import { Flock } from ${JSON.stringify(FLOCK_MODULE)}`,
-      `import { seedV2Database } from ${JSON.stringify(SEED_MODULE)}`,
-      `Flock.setGlobal({ state: ${JSON.stringify(place.paths.state)} })`,
-      `const result = await seedV2Database(${JSON.stringify({ v1Database: place.v1Database, v2Database: place.v2Database })}, { beforePrepare: () => Bun.sleep(500) })`,
-      "console.log(JSON.stringify(result.kind))",
-    ].join("\n"))
+    fs.writeFileSync(
+      script,
+      [
+        `import { Flock } from ${JSON.stringify(FLOCK_MODULE)}`,
+        `import { seedV2Database } from ${JSON.stringify(SEED_MODULE)}`,
+        `Flock.setGlobal({ state: ${JSON.stringify(place.paths.state)} })`,
+        `const result = await seedV2Database(${JSON.stringify({ v1Database: place.v1Database, v2Database: place.v2Database })}, { beforePrepare: () => Bun.sleep(500) })`,
+        "console.log(JSON.stringify(result.kind))",
+      ].join("\n"),
+    )
     const run = () => Bun.spawn([process.execPath, script], { stdout: "pipe", stderr: "pipe" })
     const children = [run(), run()]
-    const outputs = await Promise.all(children.map(async (child) => {
-      const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()])
-      if (code !== 0) throw new Error(stderr)
-      return z.string().parse(JSON.parse(stdout.trim()))
-    }))
+    const outputs = await Promise.all(
+      children.map(async (child) => {
+        const [code, stdout, stderr] = await Promise.all([
+          child.exited,
+          new Response(child.stdout).text(),
+          new Response(child.stderr).text(),
+        ])
+        if (code !== 0) throw new Error(stderr)
+        return z.string().parse(JSON.parse(stdout.trim()))
+      }),
+    )
     expect(outputs.toSorted()).toEqual(["published-elsewhere", "seeded"])
     expect(temporaryEntries(place.paths.data)).toEqual([])
     expect(count(place.v2Database, "SELECT COUNT(*) AS value FROM session")).toBe(3)
@@ -380,7 +583,10 @@ describe("seeding the v2 database", () => {
       source.exec("PRAGMA journal_mode = WAL")
       source.exec("PRAGMA wal_autocheckpoint = 0")
       source.exec("CREATE TABLE IF NOT EXISTS writer_probe (id INTEGER PRIMARY KEY, value TEXT)")
-      const rows = Array.from({ length: 100 }, (_, index) => ({ id: index + 1, value: `committed-${index + 1}` }))
+      const rows = Array.from({ length: 100 }, (_, index) => ({
+        id: index + 1,
+        value: `committed-${index + 1}`,
+      }))
       source.transaction(() => {
         const insert = source.query("INSERT INTO writer_probe (id, value) VALUES (?, ?)")
         for (const row of rows) insert.run(row.id, row.value)
@@ -411,16 +617,19 @@ describe("seeding the v2 database", () => {
     const tablesBefore = digestTables(place.v1Database)
     const stop = path.join(place.root, "stop")
     const writerScript = path.join(place.root, "writer.ts")
-    fs.writeFileSync(writerScript, [
-      'import { Database } from "bun:sqlite"',
-      'import { existsSync } from "node:fs"',
-      `const db = new Database(${JSON.stringify(place.v1Database)})`,
-      'db.exec("PRAGMA busy_timeout = 5000")',
-      "let rows = 0",
-      `while (!existsSync(${JSON.stringify(stop)})) { db.query("INSERT INTO writer_probe (value) VALUES (?)").run("x".repeat(512)); rows += 1 }`,
-      "db.close(false)",
-      "console.log(rows)",
-    ].join("\n"))
+    fs.writeFileSync(
+      writerScript,
+      [
+        'import { Database } from "bun:sqlite"',
+        'import { existsSync } from "node:fs"',
+        `const db = new Database(${JSON.stringify(place.v1Database)})`,
+        'db.exec("PRAGMA busy_timeout = 5000")',
+        "let rows = 0",
+        `while (!existsSync(${JSON.stringify(stop)})) { db.query("INSERT INTO writer_probe (value) VALUES (?)").run("x".repeat(512)); rows += 1 }`,
+        "db.close(false)",
+        "console.log(rows)",
+      ].join("\n"),
+    )
     const writer = Bun.spawn([process.execPath, writerScript], { stdout: "pipe", stderr: "pipe" })
     await Bun.sleep(200)
     let committedRows = 0
@@ -437,7 +646,9 @@ describe("seeding the v2 database", () => {
     expect(check.query("PRAGMA quick_check").all()).toEqual([{ quick_check: "ok" }])
     check.close(false)
     expect(count(place.v1Database, "SELECT COUNT(*) AS value FROM writer_probe")).toBe(rows)
-    expect(count(place.v2Database, "SELECT COUNT(*) AS value FROM writer_probe")).toBeGreaterThanOrEqual(committedRows)
+    expect(
+      count(place.v2Database, "SELECT COUNT(*) AS value FROM writer_probe"),
+    ).toBeGreaterThanOrEqual(committedRows)
     expect(digestTables(place.v1Database)).toEqual(tablesBefore)
   })
 })
@@ -445,10 +656,24 @@ describe("seeding the v2 database", () => {
 function digestTables(file: string) {
   const db = new Database(file, { readonly: true })
   try {
-    const names = z.array(z.object({ name: z.string() })).parse(
-      db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name != 'writer_probe' ORDER BY name").all(),
-    ).map((row) => row.name)
-    return Object.fromEntries(names.map((name) => [name, createHash("sha256").update(JSON.stringify(db.query(`SELECT * FROM "${name}" ORDER BY rowid`).all())).digest("hex")]))
+    const names = z
+      .array(z.object({ name: z.string() }))
+      .parse(
+        db
+          .query(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name != 'writer_probe' ORDER BY name",
+          )
+          .all(),
+      )
+      .map((row) => row.name)
+    return Object.fromEntries(
+      names.map((name) => [
+        name,
+        createHash("sha256")
+          .update(JSON.stringify(db.query(`SELECT * FROM "${name}" ORDER BY rowid`).all()))
+          .digest("hex"),
+      ]),
+    )
   } finally {
     db.close(false)
   }

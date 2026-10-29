@@ -88,12 +88,22 @@ function removeUnknownConfigIssues(
     if (issue.code === "unrecognized_keys") {
       changed = removeUnknownConfigKeys(input, issue, options) || changed
     } else if (issue.code === "invalid_union") {
-      const compatible = issue.errors.filter((branch) => branch.every((error) => error.code === "unrecognized_keys" && !error.keys.includes("type")))
+      const compatible = issue.errors
+        .filter((branch) =>
+          branch.every(
+            (error) => error.code === "unrecognized_keys" && !error.keys.includes("type"),
+          ),
+        )
         .toSorted((left, right) => left.length - right.length)[0]
       if (!compatible) continue
       for (const nested of compatible) {
         if (nested.code !== "unrecognized_keys") continue
-        changed = removeUnknownConfigKeys(input, { ...nested, path: [...issue.path, ...nested.path] }, options) || changed
+        changed =
+          removeUnknownConfigKeys(
+            input,
+            { ...nested, path: [...issue.path, ...nested.path] },
+            options,
+          ) || changed
       }
     }
   }

@@ -9,7 +9,12 @@ import { buildNotebookRuntimePlan } from "./notebook-runtime-plan"
 import { readProjectConfig, readProjectConfigFile } from "./project-config"
 import { ConfigSyncError } from "./config-sync-error"
 
-export { buildOpenCodeConfigOverlay, mergeBuddyAndConfiguredAgents, parseConfiguredModel, resolveConfiguredAgentKey } from "../opencode/overlay-builder"
+export {
+  buildOpenCodeConfigOverlay,
+  mergeBuddyAndConfiguredAgents,
+  parseConfiguredModel,
+  resolveConfiguredAgentKey,
+} from "../opencode/overlay-builder"
 export { configErrorMessage, isConfigValidationError, readProjectConfig, readProjectConfigFile }
 export { readOpenCodeHostConfig } from "./notebook-runtime-plan"
 
@@ -17,17 +22,31 @@ const tasks = new Map<string, Promise<void>>()
 const preparing = new Set<string>()
 let reconciliation: Promise<void> | undefined
 
-async function withNotebookConfigLock(directory: string, operation: () => Promise<void>): Promise<void> {
+async function withNotebookConfigLock(
+  directory: string,
+  operation: () => Promise<void>,
+): Promise<void> {
   const previous = tasks.get(directory) ?? Promise.resolve()
   const task = previous.catch(() => undefined).then(operation)
   tasks.set(directory, task)
-  try { await task } finally { if (tasks.get(directory) === task) tasks.delete(directory) }
+  try {
+    await task
+  } finally {
+    if (tasks.get(directory) === task) tasks.delete(directory)
+  }
 }
 
-async function refreshNotebookConfig(runtime: Pick<AgentRuntime, "catalog">, directory: string, force = false): Promise<string> {
+async function refreshNotebookConfig(
+  runtime: Pick<AgentRuntime, "catalog">,
+  directory: string,
+  force = false,
+): Promise<string> {
   preparing.add(directory)
   try {
-    const plan = await buildNotebookRuntimePlan({ config: await readProjectConfig(directory), directory })
+    const plan = await buildNotebookRuntimePlan({
+      config: await readProjectConfig(directory),
+      directory,
+    })
     const revision = await runtime.catalog.publishNotebookPlan(directory, plan)
     await runtime.catalog.syncActiveNotebookLocations(directory, revision, { force })
     return revision
@@ -35,15 +54,23 @@ async function refreshNotebookConfig(runtime: Pick<AgentRuntime, "catalog">, dir
     if (isConfigValidationError(cause)) throw cause
     const { configDirectory } = await resolveProjectConfigContext(directory)
     throw new ConfigSyncError(resolveProjectConfigFile(configDirectory), cause)
-  } finally { preparing.delete(directory) }
+  } finally {
+    preparing.delete(directory)
+  }
 }
-export async function syncNotebookRuntimeConfig(directory: string, options: { force?: boolean; runtime?: Pick<AgentRuntime, "catalog"> } = {}): Promise<void> {
+export async function syncNotebookRuntimeConfig(
+  directory: string,
+  options: { force?: boolean; runtime?: Pick<AgentRuntime, "catalog"> } = {},
+): Promise<void> {
   const { force = false } = options
-  const runtime = options.runtime ?? await getAgentRuntime()
+  const runtime = options.runtime ?? (await getAgentRuntime())
   const key = canonicalizeRuntimeConfigDirectory(directory)
   resetGlobalConfigCache()
-  reconciliation ??= reconcileWithdrawnLibrarySkills(undefined, { refreshSkillRuntime: async () => undefined })
-    .finally(() => { reconciliation = undefined })
+  reconciliation ??= reconcileWithdrawnLibrarySkills(undefined, {
+    refreshSkillRuntime: async () => undefined,
+  }).finally(() => {
+    reconciliation = undefined
+  })
   await reconciliation
   await withNotebookConfigLock(key, async () => {
     const revision = await refreshNotebookConfig(runtime, key, force)
@@ -59,7 +86,9 @@ export async function syncNotebookRuntimeConfig(directory: string, options: { fo
   for (const sibling of siblings) {
     if (sibling === key || preparing.has(sibling)) continue
     if ((await resolveProjectConfigContext(sibling)).configDirectory !== configDirectory) continue
-    await withNotebookConfigLock(sibling, async () => { await refreshNotebookConfig(runtime, sibling, force) })
+    await withNotebookConfigLock(sibling, async () => {
+      await refreshNotebookConfig(runtime, sibling, force)
+    })
   }
 }
 
@@ -77,7 +106,9 @@ export async function refreshActiveNotebookConfigs(): Promise<void> {
   const directories = new Set(await runtime.catalog.activeNotebookDirectories())
   for (const directory of directories) {
     if (preparing.has(directory)) continue
-    await withNotebookConfigLock(directory, async () => { await refreshNotebookConfig(runtime, directory) })
+    await withNotebookConfigLock(directory, async () => {
+      await refreshNotebookConfig(runtime, directory)
+    })
   }
 }
 

@@ -2,7 +2,13 @@ import { Hono } from "hono"
 import type { AgentRuntime } from "@buddy/agent-runtime/runtime"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { providerListSchema, providerAuthSchema, providerAuthorizationSchema, providerOAuthStartSchema, providerOAuthAttemptSchema } from "@buddy/agent-runtime/providers"
+import {
+  providerListSchema,
+  providerAuthSchema,
+  providerAuthorizationSchema,
+  providerOAuthStartSchema,
+  providerOAuthAttemptSchema,
+} from "@buddy/agent-runtime/providers"
 import {
   routeErrors,
   directoryQuerySchema,
@@ -13,7 +19,11 @@ import {
 import { syncOpenCodeProjectConfig } from "../config/runtime/opencode-sync"
 import { mapConfigRouteError } from "../config/orchestration/route-errors"
 import { getAgentRuntime } from "../runtime/agent-runtime"
-import { chatGPTIdentitySchema, chatGPTModelAvailabilitySchema, chatGPTUsageSchema } from "@buddy/agent-runtime/chatgpt"
+import {
+  chatGPTIdentitySchema,
+  chatGPTModelAvailabilitySchema,
+  chatGPTUsageSchema,
+} from "@buddy/agent-runtime/chatgpt"
 import { ensureGlobalBootstrapWorkspaceDirectory } from "../project/directory"
 
 function resolveBootstrapDirectory(
@@ -32,7 +42,11 @@ function runProviderRoute(task: () => Promise<Response>) {
   return runRouteTask({ task, mapError: mapConfigRouteError })
 }
 
-export function createProviderRoutes(input: { getRuntime: () => Promise<Pick<AgentRuntime, "providers" | "chatgpt">> } = { getRuntime: getAgentRuntime }) {
+export function createProviderRoutes(
+  input: { getRuntime: () => Promise<Pick<AgentRuntime, "providers" | "chatgpt">> } = {
+    getRuntime: getAgentRuntime,
+  },
+) {
   async function getSyncedRuntime(directory: string) {
     const runtime = await input.getRuntime()
     await syncOpenCodeProjectConfig(directory)
@@ -136,9 +150,7 @@ export function createProviderRoutes(input: { getRuntime: () => Promise<Pick<Age
           if (!directoryResult.ok) return directoryResult.response
 
           const runtime = await getSyncedRuntime(directoryResult.directory)
-          return c.json(
-            await runtime.chatgpt.models(directoryResult.directory, { refresh: false }),
-          )
+          return c.json(await runtime.chatgpt.models(directoryResult.directory, { refresh: false }))
         }),
     )
     .post(
@@ -163,9 +175,7 @@ export function createProviderRoutes(input: { getRuntime: () => Promise<Pick<Age
           if (!directoryResult.ok) return directoryResult.response
 
           const runtime = await getSyncedRuntime(directoryResult.directory)
-          return c.json(
-            await runtime.chatgpt.models(directoryResult.directory, { refresh: true }),
-          )
+          return c.json(await runtime.chatgpt.models(directoryResult.directory, { refresh: true }))
         }),
     )
     .get(
@@ -228,9 +238,7 @@ export function createProviderRoutes(input: { getRuntime: () => Promise<Pick<Age
             description: "Provider auth initiation payload",
             content: {
               "application/json": {
-                schema: resolver(
-                  providerAuthorizationSchema,
-                ),
+                schema: resolver(providerAuthorizationSchema),
               },
             },
           },
@@ -248,7 +256,9 @@ export function createProviderRoutes(input: { getRuntime: () => Promise<Pick<Age
           const providerID = c.req.valid("param").providerID
           const body = c.req.valid("json")
           const runtime = await getSyncedRuntime(directoryResult.directory)
-          return c.json(await runtime.providers.startOAuth(directoryResult.directory, providerID, body))
+          return c.json(
+            await runtime.providers.startOAuth(directoryResult.directory, providerID, body),
+          )
         }),
     )
     .post(
@@ -277,7 +287,12 @@ export function createProviderRoutes(input: { getRuntime: () => Promise<Pick<Age
           const providerID = c.req.valid("param").providerID
           const body = c.req.valid("json")
           const runtime = await getSyncedRuntime(directoryResult.directory)
-          await runtime.providers.completeOAuth(directoryResult.directory, providerID, body, c.req.raw.signal)
+          await runtime.providers.completeOAuth(
+            directoryResult.directory,
+            providerID,
+            body,
+            c.req.raw.signal,
+          )
           return c.json(true)
         }),
     )
@@ -306,11 +321,14 @@ export function createProviderRoutes(input: { getRuntime: () => Promise<Pick<Age
 
           const providerID = c.req.valid("param").providerID
           const runtime = await getSyncedRuntime(directoryResult.directory)
-          await runtime.providers.cancelOAuth(directoryResult.directory, providerID, c.req.valid("json").attemptID)
+          await runtime.providers.cancelOAuth(
+            directoryResult.directory,
+            providerID,
+            c.req.valid("json").attemptID,
+          )
           return c.json(true)
         }),
     )
-
 }
 
 export const ProviderRoutes = createProviderRoutes()

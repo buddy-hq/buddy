@@ -1,5 +1,11 @@
 import { z } from "zod"
-import type { FileChange, ToolOutcome, ToolQuestion, ToolSummary, ToolTodo } from "@buddy/transcript-contract/message"
+import type {
+  FileChange,
+  ToolOutcome,
+  ToolQuestion,
+  ToolSummary,
+  ToolTodo,
+} from "@buddy/transcript-contract/message"
 import {
   EMPTY_JSON_OBJECT,
   parseTJsonObject,
@@ -80,7 +86,10 @@ const toolOutcomeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("dismissed") }),
 ]) satisfies z.ZodType<ToolOutcome>
 
-function parseWith<TOutput>(schema: z.ZodType<TOutput>, value: TJsonValue | undefined): TOutput | undefined {
+function parseWith<TOutput>(
+  schema: z.ZodType<TOutput>,
+  value: TJsonValue | undefined,
+): TOutput | undefined {
   const parsed = schema.safeParse(value)
   return parsed.success ? parsed.data : undefined
 }

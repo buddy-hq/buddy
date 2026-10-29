@@ -28,8 +28,16 @@ export type ExecutableCommand = {
 export interface Catalog {
   publishNotebookPlan(directory: string, plan: NotebookPlan): Promise<string>
   activeNotebookDirectories(): Promise<string[]>
-  syncActiveNotebookLocations(directory: string, revision: string, options?: { force?: boolean }): Promise<void>
-  syncNotebookLocation(directory: string, revision: string, options?: { force?: boolean }): Promise<void>
+  syncActiveNotebookLocations(
+    directory: string,
+    revision: string,
+    options?: { force?: boolean },
+  ): Promise<void>
+  syncNotebookLocation(
+    directory: string,
+    revision: string,
+    options?: { force?: boolean },
+  ): Promise<void>
   awaitNotebookPlan(directory: string): Promise<void>
   agents(directory: string): Promise<AgentSummary[]>
   agentRules(directory: string, agentID: string): Promise<PermissionRuleset>

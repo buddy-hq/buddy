@@ -558,9 +558,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 {props.group.sessions.length === 0 && (
                   <>
                     <div className="mx-3 my-0.5 h-px bg-border-weaker-base" />
-                    <p className="py-3 text-center text-[11px] text-icon-base">
-                      {emptyMessage}
-                    </p>
+                    <p className="py-3 text-center text-[11px] text-icon-base">{emptyMessage}</p>
                   </>
                 )}
                 {props.group.sessions.map((session) => (

@@ -29,6 +29,11 @@ export function renderSubagentTool({ part, state, onOpenSession, directory }: To
   }
 
   return (
-    <TaskToolCard subagent={subagent} state={state} onOpenSession={onOpenSession} directory={directory} />
+    <TaskToolCard
+      subagent={subagent}
+      state={state}
+      onOpenSession={onOpenSession}
+      directory={directory}
+    />
   )
 }

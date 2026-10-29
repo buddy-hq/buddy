@@ -46,13 +46,24 @@ function interruptedMessages(id: string) {
 
 function interruptedTurn(id: string, turn: number): MessageWithParts[] {
   return [
-    createMessageWithParts(createUserMessageInfo({
-      id: `msg_${id}_user_${turn}`, sessionID: id, time: { created: turn * 2 },
-    }), []),
-    createMessageWithParts(createAssistantMessageInfo({
-      id: `msg_${id}_assistant_${turn}`, sessionID: id, parentID: `msg_${id}_user_${turn}`,
-      time: { created: turn * 2 + 1, completed: turn * 2 + 2 }, finish: "interrupted",
-    }), []),
+    createMessageWithParts(
+      createUserMessageInfo({
+        id: `msg_${id}_user_${turn}`,
+        sessionID: id,
+        time: { created: turn * 2 },
+      }),
+      [],
+    ),
+    createMessageWithParts(
+      createAssistantMessageInfo({
+        id: `msg_${id}_assistant_${turn}`,
+        sessionID: id,
+        parentID: `msg_${id}_user_${turn}`,
+        time: { created: turn * 2 + 1, completed: turn * 2 + 2 },
+        finish: "interrupted",
+      }),
+      [],
+    ),
   ]
 }
 
@@ -191,15 +202,28 @@ describe("interrupted chat rendering", () => {
     expect(container.textContent).not.toContain("\\frac")
   })
 
-  test.each(["missed start", "undo and redo", "retry notification", "live start", "no assistant", "replacement", "specialist notice"] as const)("keeps an inactivity stop on its original turn: %s", async (scenario) => {
+  test.each([
+    "missed start",
+    "undo and redo",
+    "retry notification",
+    "live start",
+    "no assistant",
+    "replacement",
+    "specialist notice",
+  ] as const)("keeps an inactivity stop on its original turn: %s", async (scenario) => {
     const otherSessionID = "ses_other_interrupted"
     const originalFetch = globalThis.fetch
     const connection = getServerConnection()
     const sessions = [sessionID, otherSessionID].map((id) => ({
-      id, title: id, directory, time: { created: 1, updated: 1 },
+      id,
+      title: id,
+      directory,
+      time: { created: 1, updated: 1 },
     }))
     const messagesBySessionID = {
-      [sessionID]: interruptedMessages(sessionID).filter((message) => scenario !== "no assistant" || message.info.role === "user"),
+      [sessionID]: interruptedMessages(sessionID).filter(
+        (message) => scenario !== "no assistant" || message.info.role === "user",
+      ),
       [otherSessionID]: interruptedMessages(otherSessionID),
     }
     const stream = Promise.withResolvers<ReadableStreamDefaultController<Uint8Array>>()
@@ -208,17 +232,24 @@ describe("interrupted chat rendering", () => {
       const request = input instanceof Request ? input : new Request(input)
       const pathname = new URL(request.url).pathname
       if (pathname === "/api/event") {
-        return new Response(new ReadableStream<Uint8Array>({
-          start(controller) {
-            stream.resolve(controller)
-            request.signal.addEventListener("abort", () => controller.close(), { once: true })
-          },
-        }), { headers: { "content-type": "text/event-stream" } })
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              stream.resolve(controller)
+              request.signal.addEventListener("abort", () => controller.close(), { once: true })
+            },
+          }),
+          { headers: { "content-type": "text/event-stream" } },
+        )
       }
       if (pathname === "/api/session") return Response.json(sessions)
       const session = sessions.find((item) => pathname.includes(item.id))
       if (pathname.endsWith("/message")) {
-        return Response.json(session?.id === otherSessionID ? messagesBySessionID[otherSessionID] : messagesBySessionID[sessionID])
+        return Response.json(
+          session?.id === otherSessionID
+            ? messagesBySessionID[otherSessionID]
+            : messagesBySessionID[sessionID],
+        )
       }
       if (session) return Response.json(session)
       if (pathname === "/api/session/status") return Response.json({})
@@ -229,22 +260,36 @@ describe("interrupted chat rendering", () => {
     setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     try {
       seedDirectoryChatState(directory, {
-        sessionID, sessions, isReady: true,
+        sessionID,
+        sessions,
+        isReady: true,
         messagesBySessionID,
       })
       await act(async () => {
         root.render(
-          <PlatformProvider value={{
-            ...createBrowserPlatform(),
-            fetch: transport,
-            async notify(_title, body) { notifications.push(body) },
-          }}>
+          <PlatformProvider
+            value={{
+              ...createBrowserPlatform(),
+              fetch: transport,
+              async notify(_title, body) {
+                notifications.push(body)
+              },
+            }}
+          >
             <ChatSyncHarness />
             <section data-session="stopped">
-              <ChatTranscript directory={directory} sessionID={sessionID} scrollViewportRef={transcriptViewport.ref} />
+              <ChatTranscript
+                directory={directory}
+                sessionID={sessionID}
+                scrollViewportRef={transcriptViewport.ref}
+              />
             </section>
             <section data-session="other">
-              <ChatTranscript directory={directory} sessionID={otherSessionID} scrollViewportRef={transcriptViewport.ref} />
+              <ChatTranscript
+                directory={directory}
+                sessionID={otherSessionID}
+                scrollViewportRef={transcriptViewport.ref}
+              />
             </section>
           </PlatformProvider>,
         )
@@ -252,26 +297,48 @@ describe("interrupted chat rendering", () => {
       })
       const controller = await stream.promise
       const send = (...payloads: TranscriptEvent[]) => {
-        controller.enqueue(new TextEncoder().encode(payloads.map((payload) => `data: ${JSON.stringify({ directory, payload })}\n\n`).join("")))
+        controller.enqueue(
+          new TextEncoder().encode(
+            payloads
+              .map((payload) => `data: ${JSON.stringify({ directory, payload })}\n\n`)
+              .join(""),
+          ),
+        )
       }
-      const dividers = (selector = '[data-session="stopped"]') => Array.from(
-        container.querySelectorAll(`${selector} [data-timeline-row="TurnDivider"]`),
-        (element) => element.textContent,
+      const dividers = (selector = '[data-session="stopped"]') =>
+        Array.from(
+          container.querySelectorAll(`${selector} [data-timeline-row="TurnDivider"]`),
+          (element) => element.textContent,
+        )
+      await waitFor(
+        () =>
+          dividers().length === (scenario === "no assistant" ? 0 : 2) &&
+          dividers('[data-session="other"]').length === 2,
       )
-      await waitFor(() => dividers().length === (scenario === "no assistant" ? 0 : 2) && dividers('[data-session="other"]').length === 2)
       await act(async () => {
         send({ type: "session.status", properties: { sessionID, status: { type: "busy" } } })
       })
       await waitFor(() => useChatStore.getState().directories[directory]?.isBusy === true)
       if (scenario === "specialist notice") {
         await act(async () => {
-          applyTranscriptMessageUpdated(directory, createAssistantMessageInfo({
-            id: "msg_latest_notice", sessionID, kind: "synthetic", finish: "stop",
-            time: { created: 7, completed: 7 },
-          }))
+          applyTranscriptMessageUpdated(
+            directory,
+            createAssistantMessageInfo({
+              id: "msg_latest_notice",
+              sessionID,
+              kind: "synthetic",
+              finish: "stop",
+              time: { created: 7, completed: 7 },
+            }),
+          )
           applyTranscriptPartUpdated(directory, {
-            id: "prt_latest_notice", sessionID, messageID: "msg_latest_notice",
-            type: "notice", text: "The specialist finished.", source: "subagent", status: "completed",
+            id: "prt_latest_notice",
+            sessionID,
+            messageID: "msg_latest_notice",
+            type: "notice",
+            text: "The specialist finished.",
+            source: "subagent",
+            status: "completed",
           })
         })
       }
@@ -286,7 +353,8 @@ describe("interrupted chat rendering", () => {
       expect(notifications).toEqual(["Stopped after an hour with no activity."])
       if (scenario === "no assistant") {
         await act(async () => {
-          for (const message of interruptedMessages(sessionID)) applyTranscriptMessageUpdated(directory, message.info)
+          for (const message of interruptedMessages(sessionID))
+            applyTranscriptMessageUpdated(directory, message.info)
         })
         await waitFor(() => dividers().length === 2)
         expect(dividers()).toEqual(["Stopped", "Stopped"])
@@ -302,12 +370,15 @@ describe("interrupted chat rendering", () => {
         if (!session) throw new Error("Missing session fixture")
         await act(async () => {
           useChatStore.getState().applySessionUpdated(directory, {
-            ...session, revert: { messageID: `msg_${sessionID}_user_2` },
+            ...session,
+            revert: { messageID: `msg_${sessionID}_user_2` },
           })
         })
         await waitFor(() => dividers().length === 1)
         expect(dividers()).toEqual(["Stopped"])
-        await act(async () => { useChatStore.getState().applySessionUpdated(directory, session) })
+        await act(async () => {
+          useChatStore.getState().applySessionUpdated(directory, session)
+        })
         await waitFor(() => dividers().length === 2)
         expect(dividers()).toEqual(["Stopped", explanation])
         return
@@ -329,39 +400,65 @@ describe("interrupted chat rendering", () => {
       await act(async () => {
         useChatStore.getState().applySessionStatus(directory, sessionID, { type: "busy" })
         for (const message of successor) {
-          applyTranscriptMessageUpdated(directory, message.info.role === "assistant"
-            ? { ...replyInfo, time: { created: replyInfo.time.created }, finish: undefined }
-            : message.info)
+          applyTranscriptMessageUpdated(
+            directory,
+            message.info.role === "assistant"
+              ? { ...replyInfo, time: { created: replyInfo.time.created }, finish: undefined }
+              : message.info,
+          )
         }
         useChatStore.getState().applySessionStatus(directory, sessionID, { type: "busy" })
       })
       if (scenario === "retry notification") {
         await act(async () => {
-          send({ type: "session.status", properties: { sessionID, status: { type: "retry", attempt: 1, message: "Retrying", next: 0 } } })
+          send({
+            type: "session.status",
+            properties: {
+              sessionID,
+              status: { type: "retry", attempt: 1, message: "Retrying", next: 0 },
+            },
+          })
         })
-        await waitFor(() => useChatStore.getState().directories[directory]?.sessionStatusByID[sessionID]?.type === "retry")
+        await waitFor(
+          () =>
+            useChatStore.getState().directories[directory]?.sessionStatusByID[sessionID]?.type ===
+            "retry",
+        )
       }
       await act(async () => {
         applyTranscriptMessageUpdated(directory, replyInfo)
         applyTranscriptPartUpdated(directory, {
-          id: "prt_successor", sessionID, messageID: replyInfo.id, type: "text", text: "Ordinary response preview.",
+          id: "prt_successor",
+          sessionID,
+          messageID: replyInfo.id,
+          type: "text",
+          text: "Ordinary response preview.",
         })
         if (scenario === "replacement") {
           send({ type: "session.stopped", properties: { sessionID, reason: "inactivity" } })
         }
         send({ type: "session.status", properties: { sessionID, status: { type: "idle" } } })
       })
-      await waitFor(() => useChatStore.getState().directories[directory]?.isBusy === false && dividers().length === 3)
+      await waitFor(
+        () =>
+          useChatStore.getState().directories[directory]?.isBusy === false &&
+          dividers().length === 3,
+      )
       if (scenario === "replacement") {
         expect(dividers()).toEqual(["Stopped", "Stopped", explanation])
       } else if (scenario === "retry notification") {
         await waitFor(() => notifications.length === 2)
-        expect(notifications).toEqual(["Stopped after an hour with no activity.", "Ordinary response preview."])
+        expect(notifications).toEqual([
+          "Stopped after an hour with no activity.",
+          "Ordinary response preview.",
+        ])
       } else {
         expect(dividers()).toEqual(["Stopped", explanation, "Stopped"])
       }
     } finally {
-      await act(async () => { root.render(null) })
+      await act(async () => {
+        root.render(null)
+      })
       restoreTestFetch(originalFetch)
       setRuntimeServerConnection(connection)
     }

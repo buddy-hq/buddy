@@ -19,7 +19,11 @@ async function request<T>(operation: () => Promise<T>): Promise<T> {
   } catch (cause) {
     const error = toRuntimeError(cause)
     if (cause instanceof RuntimeError || error.kind === "internal") throw error
-    if (error.kind === "not_found" && (error.subject === "session" || error.subject === "permission")) throw error
+    if (
+      error.kind === "not_found" &&
+      (error.subject === "session" || error.subject === "permission")
+    )
+      throw error
     throw new RuntimeError("internal", error.message, { subject: error.subject, cause })
   }
 }
@@ -44,11 +48,13 @@ export function createApprovals(host: OpenCodeHost, _options: OpenCodeRuntimeOpt
     sessionRules(sessionID) {
       return request(async () => {
         const session = await readSessionPermissions(host, sessionID)
-        return session === undefined ? undefined : {
-          rules: session.permissions,
-          hasParentSession: session.hasParentSession,
-          agent: session.agent,
-        }
+        return session === undefined
+          ? undefined
+          : {
+              rules: session.permissions,
+              hasParentSession: session.hasParentSession,
+              agent: session.agent,
+            }
       })
     },
     updateSessionRules(sessionID, update) {

@@ -162,7 +162,20 @@ export function generateScale(seed: HexColor, isDark: boolean): HexColor[] {
         clamp(base.l + 0.033, 0.868, 0.943),
         0.984,
       ]
-    : [0.993, 0.983, 0.962, 0.936, 0.906, 0.866, 0.811, 0.74, base.l, Math.max(0, base.l - 0.036), 0.49, 0.27]
+    : [
+        0.993,
+        0.983,
+        0.962,
+        0.936,
+        0.906,
+        0.866,
+        0.811,
+        0.74,
+        base.l,
+        Math.max(0, base.l - 0.036),
+        0.49,
+        0.27,
+      ]
 
   const chromaMultipliers = isDark
     ? [0.52, 0.68, 0.86, 1.02, 1.14, 1.24, 1.36, 1.48, 1.56, 1.64, 1.62, 1.15]
@@ -217,7 +230,20 @@ export function generateNeutralScale(seed: HexColor, isDark: boolean, ink?: HexC
   const neutralChroma = Math.min(base.c, isDark ? 0.068 : 0.04)
 
   const lightSteps = isDark
-    ? [0.138, 0.156, 0.178, 0.202, 0.232, 0.272, 0.326, 0.404, clamp(base.l * 0.83, 0.43, 0.55), 0.596, 0.719, 0.956]
+    ? [
+        0.138,
+        0.156,
+        0.178,
+        0.202,
+        0.232,
+        0.272,
+        0.326,
+        0.404,
+        clamp(base.l * 0.83, 0.43, 0.55),
+        0.596,
+        0.719,
+        0.956,
+      ]
     : [0.991, 0.979, 0.964, 0.946, 0.931, 0.913, 0.891, 0.83, base.l, 0.617, 0.542, 0.205]
 
   for (let i = 0; i < 12; i++) {

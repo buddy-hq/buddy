@@ -28,21 +28,24 @@ const importerRewrites: readonly Rewrite[] = [
       '  return path.join(data, "opencode-next.db")',
       "}",
     ].join("\n"),
-    replacement: "function nextPath(_options: Options, _data: string): string | undefined {\n  return undefined\n}",
+    replacement:
+      "function nextPath(_options: Options, _data: string): string | undefined {\n  return undefined\n}",
   },
   {
     original: [
       '      const sqlite = yield* Effect.promise(() => import("bun:sqlite"))',
       "      return new sqlite.Database(sourcePath, { readonly: true, strict: true })",
     ].join("\n"),
-    replacement: "      return yield* Effect.die(new Error(`Buddy does not import opencode-next.db: ${sourcePath}`))",
+    replacement:
+      "      return yield* Effect.die(new Error(`Buddy does not import opencode-next.db: ${sourcePath}`))",
   },
 ]
 
 export function rewriteV1ImporterForNode(file: string, source: string): string {
   source = source.replaceAll("\r\n", "\n")
   const resolved = path.resolve(file.replaceAll("\\", "/")).replaceAll("\\", "/")
-  if (resolved !== V1_IMPORTER_SOURCE_PATH) throw new Error(`OpenCode v1 importer: unexpected file ${resolved}`)
+  if (resolved !== V1_IMPORTER_SOURCE_PATH)
+    throw new Error(`OpenCode v1 importer: unexpected file ${resolved}`)
   let contents = source
   for (const { original, replacement } of importerRewrites) {
     const matches = source.split(original).length - 1
@@ -54,7 +57,9 @@ export function rewriteV1ImporterForNode(file: string, source: string): string {
     contents = contents.replace(original, () => replacement)
   }
   if (contents.includes("Bun.") || contents.includes('import("bun:')) {
-    throw new Error(`OpenCode v1 importer: ${resolved} still uses a Bun runtime API after rewriting`)
+    throw new Error(
+      `OpenCode v1 importer: ${resolved} still uses a Bun runtime API after rewriting`,
+    )
   }
   return contents
 }
@@ -69,10 +74,16 @@ export function createNodeV1ImporterPlugin() {
         resolved += 1
         return { path: V1_IMPORTER_SOURCE_PATH }
       })
-      build.onLoad({ filter: /[\\/]core[\\/]src[\\/]database[\\/]v1-migration\.bun\.ts$/u }, async (args) => {
-        loaded += 1
-        return { contents: rewriteV1ImporterForNode(args.path, await Bun.file(args.path).text()), loader: "ts" }
-      })
+      build.onLoad(
+        { filter: /[\\/]core[\\/]src[\\/]database[\\/]v1-migration\.bun\.ts$/u },
+        async (args) => {
+          loaded += 1
+          return {
+            contents: rewriteV1ImporterForNode(args.path, await Bun.file(args.path).text()),
+            loader: "ts",
+          }
+        },
+      )
     },
   }
   return {

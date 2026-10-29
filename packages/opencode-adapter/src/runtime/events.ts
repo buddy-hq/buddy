@@ -8,7 +8,10 @@ export function createEvents(host: OpenCodeHost, options: OpenCodeRuntimeOptions
   return {
     async *stream(input) {
       try {
-        yield* subscribeBuddyEvents(host, { ...input, presentation: options.presentation?.(input.directory) })
+        yield* subscribeBuddyEvents(host, {
+          ...input,
+          presentation: options.presentation?.(input.directory),
+        })
       } catch (cause) {
         throw toRuntimeError(cause)
       }
@@ -21,9 +24,19 @@ export function createEvents(host: OpenCodeHost, options: OpenCodeRuntimeOptions
           } else if (event.type === "session.execution.failed") {
             yield { type: "turn.finished", sessionID: event.data.sessionID, outcome: "failed" }
           } else if (event.type === "session.execution.interrupted") {
-            yield { type: "turn.finished", sessionID: event.data.sessionID, outcome: "interrupted", reason: event.data.reason }
+            yield {
+              type: "turn.finished",
+              sessionID: event.data.sessionID,
+              outcome: "interrupted",
+              reason: event.data.reason,
+            }
           } else if (event.type === "session.renamed") {
-            yield { type: "conversation.renamed", sessionID: event.data.sessionID, title: event.data.title, directory: event.location?.directory }
+            yield {
+              type: "conversation.renamed",
+              sessionID: event.data.sessionID,
+              title: event.data.title,
+              directory: event.location?.directory,
+            }
           }
         }
       } catch (cause) {

@@ -19,6 +19,11 @@ test("patching the model before the first session lets its first prompt finish",
   expect(response.status).toBe(200)
   const reply = (await api.messages(session.id)).at(-1)
   if (!reply) throw new Error("Missing completed reply")
-  expect(reply.info).toMatchObject({ role: "assistant", ...patchModel, finish: "stop", time: { completed: expect.any(Number) } })
+  expect(reply.info).toMatchObject({
+    role: "assistant",
+    ...patchModel,
+    finish: "stop",
+    time: { completed: expect.any(Number) },
+  })
   expect(messageText(reply)).toBe("After config patch")
 }, 5_000)

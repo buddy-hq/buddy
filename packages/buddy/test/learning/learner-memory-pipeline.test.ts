@@ -31,20 +31,46 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
   test("preserves file and agent attachment source text in extraction source text", () => {
     const userMessage = {
       info: {
-        id: "msg_user", sessionID: "ses_source", role: "user", agent: "buddy",
+        id: "msg_user",
+        sessionID: "ses_source",
+        role: "user",
+        agent: "buddy",
         model: { providerID: "test-provider", modelID: "test-model" },
         time: { created: 1_777_777_777_000 },
       },
       parts: [
-        { id: "prt_text", messageID: "msg_user", sessionID: "ses_source", type: "text", text: "Use the attached learning materials." },
         {
-          id: "prt_file", messageID: "msg_user", sessionID: "ses_source", type: "file",
-          filename: "worked-example.md", mime: "text/markdown", url: "data:text/markdown;base64,",
-          source: { type: "uri", uri: "file:///worked-example.md", text: { start: 0, end: 42, value: "The learner benefits from fully worked examples." } },
+          id: "prt_text",
+          messageID: "msg_user",
+          sessionID: "ses_source",
+          type: "text",
+          text: "Use the attached learning materials.",
         },
         {
-          id: "prt_agent", messageID: "msg_user", sessionID: "ses_source", type: "agent", name: "teaching-assistant",
-          source: { start: 43, end: 84, value: "Focus on concrete explanations before abstraction." },
+          id: "prt_file",
+          messageID: "msg_user",
+          sessionID: "ses_source",
+          type: "file",
+          filename: "worked-example.md",
+          mime: "text/markdown",
+          url: "data:text/markdown;base64,",
+          source: {
+            type: "uri",
+            uri: "file:///worked-example.md",
+            text: { start: 0, end: 42, value: "The learner benefits from fully worked examples." },
+          },
+        },
+        {
+          id: "prt_agent",
+          messageID: "msg_user",
+          sessionID: "ses_source",
+          type: "agent",
+          name: "teaching-assistant",
+          source: {
+            start: 43,
+            end: 84,
+            value: "Focus on concrete explanations before abstraction.",
+          },
         },
       ],
     } satisfies MessageWithParts
@@ -63,13 +89,23 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
     const text = "I prefer worked examples"
     const userMessage = {
       info: {
-        id: "msg_user", sessionID: "ses_source", role: "user", agent: "buddy",
+        id: "msg_user",
+        sessionID: "ses_source",
+        role: "user",
+        agent: "buddy",
         model: { providerID: "test-provider", modelID: "test-model" },
         time: { created: 1_777_777_777_000 },
         sourceText: prelude + text,
       },
       parts: [
-        { id: "prt_context", messageID: "msg_user", sessionID: "ses_source", type: "text", text: prelude, synthetic: true },
+        {
+          id: "prt_context",
+          messageID: "msg_user",
+          sessionID: "ses_source",
+          type: "text",
+          text: prelude,
+          synthetic: true,
+        },
         { id: "prt_text", messageID: "msg_user", sessionID: "ses_source", type: "text", text },
       ],
     } satisfies MessageWithParts
@@ -83,15 +119,35 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
   test("excludes assistant reasoning from extraction source text", () => {
     const assistantMessage = {
       info: {
-        id: "msg_assistant", sessionID: "ses_source", role: "assistant", agent: "buddy", mode: "buddy",
-        parentID: "msg_user", providerID: "test-provider", modelID: "test-model",
-        path: { cwd: "/workspace", root: "/workspace" }, cost: 0,
+        id: "msg_assistant",
+        sessionID: "ses_source",
+        role: "assistant",
+        agent: "buddy",
+        mode: "buddy",
+        parentID: "msg_user",
+        providerID: "test-provider",
+        modelID: "test-model",
+        path: { cwd: "/workspace", root: "/workspace" },
+        cost: 0,
         tokens: { input: 10, output: 8, reasoning: 6, cache: { read: 0, write: 0 } },
         time: { created: 1_777_777_777_000 },
       },
       parts: [
-        { id: "prt_reasoning", messageID: "msg_assistant", sessionID: "ses_source", type: "reasoning", text: "private reasoning should not become learner memory evidence", time: { start: 1_777_777_777_000 } },
-        { id: "prt_text", messageID: "msg_assistant", sessionID: "ses_source", type: "text", text: "The learner prefers concrete worked examples." },
+        {
+          id: "prt_reasoning",
+          messageID: "msg_assistant",
+          sessionID: "ses_source",
+          type: "reasoning",
+          text: "private reasoning should not become learner memory evidence",
+          time: { start: 1_777_777_777_000 },
+        },
+        {
+          id: "prt_text",
+          messageID: "msg_assistant",
+          sessionID: "ses_source",
+          type: "text",
+          text: "The learner prefers concrete worked examples.",
+        },
       ],
     } satisfies MessageWithParts
 
@@ -105,26 +161,42 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
   })
 
   test("preserves ordered tool files and failures as memory evidence", async () => {
-    await using harness = await createRuntimeHarness({ toolResults: [
-      { name: "memory_evidence", parts: [
-        { type: "text", text: "Worked example" },
-        { type: "file", filename: "example.md", mime: "text/markdown", url: "file:///example.md" },
-        { type: "text", text: "Follow-up practice" },
-      ] },
-      { name: "memory_failure", parts: [], error: "Practice result unavailable" },
-    ] })
+    await using harness = await createRuntimeHarness({
+      toolResults: [
+        {
+          name: "memory_evidence",
+          parts: [
+            { type: "text", text: "Worked example" },
+            {
+              type: "file",
+              filename: "example.md",
+              mime: "text/markdown",
+              url: "file:///example.md",
+            },
+            { type: "text", text: "Follow-up practice" },
+          ],
+        },
+        { name: "memory_failure", parts: [], error: "Practice result unavailable" },
+      ],
+    })
     const session = await harness.create()
     await using events = await harness.events()
     for (const name of ["memory_evidence", "memory_failure"]) {
-      const response = await harness.prompt(session.id, scenario({ kind: "tool", name, arguments: {} }))
+      const response = await harness.prompt(
+        session.id,
+        scenario({ kind: "tool", name, arguments: {} }),
+      )
       expect(response.status).toBe(200)
       await events.idle(session.id)
     }
     const messages = await harness.messages(session.id)
-    const expectedText = "Worked example\nexample.md text/markdown file:///example.md\nFollow-up practice"
+    const expectedText =
+      "Worked example\nexample.md text/markdown file:///example.md\nFollow-up practice"
     const source = buildFilteredSessionSource({ messages, learningEvents: [] })
     expect(source.messages.some((message) => message.text.includes(expectedText))).toBe(true)
-    expect(source.messages.some((message) => message.text.includes("Practice result unavailable"))).toBe(true)
+    expect(
+      source.messages.some((message) => message.text.includes("Practice result unavailable")),
+    ).toBe(true)
   })
 
   test("preserves malformed memory blocks during registry rewrites", () => {

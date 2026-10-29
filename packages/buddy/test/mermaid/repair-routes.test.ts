@@ -146,7 +146,8 @@ describe("mermaid repair routes", () => {
 
     expect(firstResponse.status).toBe(503)
     await expect(firstResponse.json()).resolves.toEqual({
-      code: "request.unavailable", error: "Automatic Mermaid repair is temporarily disabled.",
+      code: "request.unavailable",
+      error: "Automatic Mermaid repair is temporarily disabled.",
     })
     expect(readTeachingSessionState(project.path, sessionID)?.lastLlmOutbound).toBeUndefined()
 
@@ -195,7 +196,8 @@ describe("mermaid repair routes", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      code: "request.not_found", error: "Mermaid object was not found for this session.",
+      code: "request.not_found",
+      error: "Mermaid object was not found for this session.",
     })
   })
 
@@ -344,7 +346,8 @@ describe("mermaid repair routes", () => {
 
     expect(startResponse.status).toBe(400)
     await expect(startResponse.json()).resolves.toEqual({
-      code: "request.invalid", error: "Invalid Buddy object id 'not-a-valid-object-id'.",
+      code: "request.invalid",
+      error: "Invalid Buddy object id 'not-a-valid-object-id'.",
     })
 
     const statusResponse = await app.request(
@@ -359,7 +362,8 @@ describe("mermaid repair routes", () => {
 
     expect(statusResponse.status).toBe(400)
     await expect(statusResponse.json()).resolves.toEqual({
-      code: "request.invalid", error: "Invalid Mermaid repair request id 'not-a-valid-repair-request'.",
+      code: "request.invalid",
+      error: "Invalid Mermaid repair request id 'not-a-valid-repair-request'.",
     })
   })
 })

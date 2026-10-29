@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import {
-  findLatestTodoSnapshot,
-  todoProgress,
-} from "../src/components/chat/tools/todo-state"
+import { findLatestTodoSnapshot, todoProgress } from "../src/components/chat/tools/todo-state"
 import {
   createAssistantMessageInfo,
   createMessageWithParts,

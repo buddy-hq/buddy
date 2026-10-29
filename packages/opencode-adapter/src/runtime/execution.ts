@@ -1,8 +1,17 @@
 import { RuntimeError, type RuntimeResult } from "@buddy/agent-runtime/errors"
 import type { Execution, PromptInput, TurnSelection } from "@buddy/agent-runtime/execution"
-import { observeSessionExecution, withdrawUndeliveredInput, type ExecutionResult } from "../gateway/execution"
+import {
+  observeSessionExecution,
+  withdrawUndeliveredInput,
+  type ExecutionResult,
+} from "../gateway/execution"
 import type { TurnOutcome } from "@buddy/agent-runtime/execution"
-import { backgroundSession, interruptSession, sessionStatuses, upstreamJson } from "../gateway/session"
+import {
+  backgroundSession,
+  interruptSession,
+  sessionStatuses,
+  upstreamJson,
+} from "../gateway/session"
 import { admitSessionPrompt, commandSession, compactSession, promptSession } from "../gateway/write"
 import type { OpenCodeHost } from "../host"
 import { runtimeFailure, toRuntimeError } from "./errors"
@@ -11,7 +20,13 @@ import type { OpenCodeRuntimeOptions } from "./options"
 function selection(input: TurnSelection) {
   return {
     agent: input.agent,
-    model: input.model ? { id: input.model.modelID, providerID: input.model.providerID, variant: input.model.variant } : undefined,
+    model: input.model
+      ? {
+          id: input.model.modelID,
+          providerID: input.model.providerID,
+          variant: input.model.variant,
+        }
+      : undefined,
   }
 }
 
@@ -24,7 +39,11 @@ function promptInput(input: PromptInput) {
     files: input.files,
     agents: input.agents,
     skills: input.skills,
-    metadata: input.metadata ? Object.fromEntries(Object.entries(input.metadata).map(([key, value]) => [key, upstreamJson(value)])) : undefined,
+    metadata: input.metadata
+      ? Object.fromEntries(
+          Object.entries(input.metadata).map(([key, value]) => [key, upstreamJson(value)]),
+        )
+      : undefined,
     delivery: input.delivery,
     resume: input.noReply === undefined ? undefined : !input.noReply,
   }
@@ -32,7 +51,10 @@ function promptInput(input: PromptInput) {
 
 function invalidMessageID(input: PromptInput): RuntimeResult<never> | undefined {
   if (input.messageID !== undefined && !input.messageID.startsWith("msg_")) {
-    return { ok: false, error: new RuntimeError("invalid", "Message ID must start with msg_", { subject: "message" }) }
+    return {
+      ok: false,
+      error: new RuntimeError("invalid", "Message ID must start with msg_", { subject: "message" }),
+    }
   }
   return undefined
 }
@@ -41,7 +63,9 @@ function admissionFailure<TCause>(cause: TCause): RuntimeResult<never> {
   const error = toRuntimeError(cause)
   return {
     ok: false,
-    error: /busy/i.test(error.message) ? new RuntimeError("busy", "Session is already running", { subject: "session", cause: error }) : error,
+    error: /busy/i.test(error.message)
+      ? new RuntimeError("busy", "Session is already running", { subject: "session", cause: error })
+      : error,
   }
 }
 
@@ -60,13 +84,21 @@ function observedOutcome(result: ExecutionResult): RuntimeResult<TurnOutcome> {
 export function createExecution(host: OpenCodeHost, options: OpenCodeRuntimeOptions): Execution {
   return {
     observe(input) {
-      const observation = observeSessionExecution(host, { sessionID: input.sessionID, promptID: input.messageID, signal: input.signal })
+      const observation = observeSessionExecution(host, {
+        sessionID: input.sessionID,
+        promptID: input.messageID,
+        signal: input.signal,
+      })
       return {
         ready: observation.ready.then((result) => result && observedOutcome(result)),
         result: observation.result.then(async (result) => {
           if (result.ok) {
             try {
-              await withdrawUndeliveredInput(host, { sessionID: input.sessionID, promptID: input.messageID }, result.value)
+              await withdrawUndeliveredInput(
+                host,
+                { sessionID: input.sessionID, promptID: input.messageID },
+                result.value,
+              )
             } catch (cause) {
               console.warn("Could not withdraw undelivered session input:", cause)
             }
@@ -81,7 +113,9 @@ export function createExecution(host: OpenCodeHost, options: OpenCodeRuntimeOpti
       if (invalid) return invalid
       try {
         const result = await admitSessionPrompt(host, promptInput(input))
-        return result.ok ? { ok: true, value: { messageID: result.value.id } } : admissionFailure(result.error)
+        return result.ok
+          ? { ok: true, value: { messageID: result.value.id } }
+          : admissionFailure(result.error)
       } catch (cause) {
         return admissionFailure(cause)
       }
@@ -90,10 +124,16 @@ export function createExecution(host: OpenCodeHost, options: OpenCodeRuntimeOpti
       const invalid = invalidMessageID(input)
       if (invalid) return invalid
       try {
-        const result = await promptSession(host, promptInput(input), {
-          directory: turn.directory,
-          presentation: options.presentation?.(turn.directory),
-        }, turn.signal, turn.onAccepted)
+        const result = await promptSession(
+          host,
+          promptInput(input),
+          {
+            directory: turn.directory,
+            presentation: options.presentation?.(turn.directory),
+          },
+          turn.signal,
+          turn.onAccepted,
+        )
         return result.ok ? result : runtimeFailure(result.error)
       } catch (cause) {
         return runtimeFailure(cause)
@@ -101,19 +141,25 @@ export function createExecution(host: OpenCodeHost, options: OpenCodeRuntimeOpti
     },
     async command(input, turn) {
       try {
-        const result = await commandSession(host, {
-          ...selection(input),
-          sessionID: input.sessionID,
-          name: input.name,
-          text: input.arguments,
-          files: input.files,
-          agents: input.agents,
-          skills: input.skills,
-          delivery: input.delivery,
-        }, {
-          directory: turn.directory,
-          presentation: options.presentation?.(turn.directory),
-        }, turn.signal, turn.onAccepted)
+        const result = await commandSession(
+          host,
+          {
+            ...selection(input),
+            sessionID: input.sessionID,
+            name: input.name,
+            text: input.arguments,
+            files: input.files,
+            agents: input.agents,
+            skills: input.skills,
+            delivery: input.delivery,
+          },
+          {
+            directory: turn.directory,
+            presentation: options.presentation?.(turn.directory),
+          },
+          turn.signal,
+          turn.onAccepted,
+        )
         return result.ok ? result : runtimeFailure(result.error)
       } catch (cause) {
         return runtimeFailure(cause)
@@ -121,7 +167,11 @@ export function createExecution(host: OpenCodeHost, options: OpenCodeRuntimeOpti
     },
     async compact(input, signal) {
       try {
-        const result = await compactSession(host, { ...selection(input), sessionID: input.sessionID }, signal)
+        const result = await compactSession(
+          host,
+          { ...selection(input), sessionID: input.sessionID },
+          signal,
+        )
         return result.ok ? { ok: true, value: true } : runtimeFailure(result.error)
       } catch (cause) {
         return runtimeFailure(cause)
@@ -143,7 +193,15 @@ export function createExecution(host: OpenCodeHost, options: OpenCodeRuntimeOpti
       })
     },
     generate(input) {
-      return request(async () => (await host.session.generate({ sessionID: input.sessionID, prompt: input.prompt }, { signal: input.signal })).text)
+      return request(
+        async () =>
+          (
+            await host.session.generate(
+              { sessionID: input.sessionID, prompt: input.prompt },
+              { signal: input.signal },
+            )
+          ).text,
+      )
     },
   }
 }

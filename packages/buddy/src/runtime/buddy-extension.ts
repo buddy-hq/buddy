@@ -8,7 +8,8 @@ import { allBuddyRuntimeTools } from "./buddy-tools"
 export function createBuddyRuntimeExtension(): RuntimeExtension {
   return {
     tools: (location) => allBuddyRuntimeTools(location.directory),
-    notebookPlan: async (directory) => buildNotebookRuntimePlan({ config: await readProjectConfig(directory), directory }),
+    notebookPlan: async (directory) =>
+      buildNotebookRuntimePlan({ config: await readProjectConfig(directory), directory }),
     hooks: createBuddyHooks,
     chatgpt: createChatGPTAccountService,
   }

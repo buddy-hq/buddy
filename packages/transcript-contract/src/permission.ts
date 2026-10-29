@@ -58,6 +58,9 @@ export function parsePermissionReplied<TValue>(value: TValue) {
   return Option.isSome(parsed) ? parsed.value : undefined
 }
 
-export function permissionReplyInput(reply: PermissionReply | PermissionReplyInput, message?: string): PermissionReplyInput {
+export function permissionReplyInput(
+  reply: PermissionReply | PermissionReplyInput,
+  message?: string,
+): PermissionReplyInput {
   return Schema.is(PermissionReply)(reply) ? { reply, message } : reply
 }

@@ -4,12 +4,24 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { providerAuthAnswersSchema } from "@buddy/agent-runtime/providers"
 import { ensureGlobalBootstrapWorkspaceDirectory } from "../project/directory"
-import { routeErrors, ProviderIDParamSchema, runRouteTask, directoryQuerySchema, resolveOptionalDirectoryRequestContext } from "../http"
+import {
+  routeErrors,
+  ProviderIDParamSchema,
+  runRouteTask,
+  directoryQuerySchema,
+  resolveOptionalDirectoryRequestContext,
+} from "../http"
 import { syncOpenCodeProjectConfig } from "../config/runtime/opencode-sync"
 import { mapConfigRouteError } from "../config/orchestration/route-errors"
 import { getAgentRuntime } from "../runtime/agent-runtime"
 
-const authSchema = z.object({ type: z.literal("api"), key: z.string().trim().min(1), answers: providerAuthAnswersSchema.optional() }).meta({ ref: "Auth" })
+const authSchema = z
+  .object({
+    type: z.literal("api"),
+    key: z.string().trim().min(1),
+    answers: providerAuthAnswersSchema.optional(),
+  })
+  .meta({ ref: "Auth" })
 
 const credentialSetResponseSchema = resolver(z.boolean())
 
@@ -17,7 +29,11 @@ function runProviderRoute(task: () => Promise<Response>) {
   return runRouteTask({ task, mapError: mapConfigRouteError })
 }
 
-export function createAuthRoutes(input: { getRuntime: () => Promise<Pick<AgentRuntime, "providers">> } = { getRuntime: getAgentRuntime }) {
+export function createAuthRoutes(
+  input: { getRuntime: () => Promise<Pick<AgentRuntime, "providers">> } = {
+    getRuntime: getAgentRuntime,
+  },
+) {
   return new Hono()
     .put(
       "/:providerID",
@@ -41,7 +57,8 @@ export function createAuthRoutes(input: { getRuntime: () => Promise<Pick<AgentRu
         runProviderRoute(async () => {
           const directoryResult = resolveOptionalDirectoryRequestContext(c)
           if (!directoryResult.ok) return directoryResult.response
-          const directory = directoryResult.context.directory ?? ensureGlobalBootstrapWorkspaceDirectory()
+          const directory =
+            directoryResult.context.directory ?? ensureGlobalBootstrapWorkspaceDirectory()
           const providerID = c.req.valid("param").providerID
           const runtime = await input.getRuntime()
           await syncOpenCodeProjectConfig(directory)
@@ -71,7 +88,8 @@ export function createAuthRoutes(input: { getRuntime: () => Promise<Pick<AgentRu
         runProviderRoute(async () => {
           const directoryResult = resolveOptionalDirectoryRequestContext(c)
           if (!directoryResult.ok) return directoryResult.response
-          const directory = directoryResult.context.directory ?? ensureGlobalBootstrapWorkspaceDirectory()
+          const directory =
+            directoryResult.context.directory ?? ensureGlobalBootstrapWorkspaceDirectory()
           const providerID = c.req.valid("param").providerID
           const runtime = await input.getRuntime()
           await syncOpenCodeProjectConfig(directory)
@@ -79,7 +97,6 @@ export function createAuthRoutes(input: { getRuntime: () => Promise<Pick<AgentRu
           return c.json(true)
         }),
     )
-
 }
 
 export const AuthRoutes = createAuthRoutes()

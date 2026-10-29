@@ -10,7 +10,11 @@ import {
   runtimePromptFromParts,
 } from "../../learning/prompt/workspace-file-references"
 import type { CitationLocationContext } from "../../learning/prompt/citation-source-location"
-import { parseTSessionJsonObject, parseTSessionString, type TSessionJsonObject } from "./parse-values"
+import {
+  parseTSessionJsonObject,
+  parseTSessionString,
+  type TSessionJsonObject,
+} from "./parse-values"
 
 async function parseRequestJsonObject(c: Context): Promise<TSessionJsonObject | Response> {
   try {
@@ -40,10 +44,19 @@ export async function prepareRuntimePromptBody(
 ): Promise<TSessionJsonObject> {
   const parts = Array.isArray(body.parts)
     ? await flattenRuntimeParts(body.parts, context)
-    : [{ type: "text", text: parseTSessionString(body.text) ?? parseTSessionString(body.content) ?? "" }]
+    : [
+        {
+          type: "text",
+          text: parseTSessionString(body.text) ?? parseTSessionString(body.content) ?? "",
+        },
+      ]
   const prompt = {
     ...body,
-    ...runtimePromptFromParts({ parts, metadata: parseTSessionJsonObject(body.metadata), system: parseTSessionString(body.system) }),
+    ...runtimePromptFromParts({
+      parts,
+      metadata: parseTSessionJsonObject(body.metadata),
+      system: parseTSessionString(body.system),
+    }),
   }
   return prompt
 }
@@ -69,22 +82,43 @@ export async function prepareRuntimeCommandBody(
   }
 }
 
-const Mention = z.object({ text: z.string(), start: z.number().int().nonnegative(), end: z.number().int().nonnegative() })
+const Mention = z.object({
+  text: z.string(),
+  start: z.number().int().nonnegative(),
+  end: z.number().int().nonnegative(),
+})
 const Model = z.union([
-  z.object({ providerID: z.string().min(1), modelID: z.string().min(1), variant: z.string().optional() }),
+  z.object({
+    providerID: z.string().min(1),
+    modelID: z.string().min(1),
+    variant: z.string().optional(),
+  }),
   z.string().transform((model, context) => {
     const slash = model.indexOf("/")
     if (slash <= 0 || slash === model.length - 1) {
       context.addIssue({ code: "custom", message: "Model must be provider/model" })
       return z.NEVER
     }
-    return { providerID: model.slice(0, slash), modelID: model.slice(slash + 1), variant: undefined }
+    return {
+      providerID: model.slice(0, slash),
+      modelID: model.slice(slash + 1),
+      variant: undefined,
+    }
   }),
 ])
 const RuntimePrompt = z.object({
   messageID: z.string().optional(),
   text: z.string(),
-  files: z.array(z.object({ uri: z.string(), name: z.string().optional(), description: z.string().optional(), mention: Mention.optional() })).optional(),
+  files: z
+    .array(
+      z.object({
+        uri: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        mention: Mention.optional(),
+      }),
+    )
+    .optional(),
   agents: z.array(z.object({ name: z.string(), mention: Mention.optional() })).optional(),
   skills: z.array(z.object({ id: z.string(), mention: Mention.optional() })).optional(),
   metadata: z.record(z.string(), z.json()).optional(),
@@ -101,9 +135,14 @@ export function buildSessionSdkParameters(input: {
   body: TSessionJsonObject
 }): PromptInput {
   const parsed = RuntimePrompt.safeParse(input.body)
-  if (!parsed.success) throw new SessionTransformValidationError(parsed.error.issues[0]?.message ?? "Invalid prompt")
+  if (!parsed.success)
+    throw new SessionTransformValidationError(parsed.error.issues[0]?.message ?? "Invalid prompt")
   const { variant, model, ...prompt } = parsed.data
-  return { ...prompt, sessionID: input.sessionID, model: model ? { ...model, variant: variant ?? model.variant } : undefined }
+  return {
+    ...prompt,
+    sessionID: input.sessionID,
+    model: model ? { ...model, variant: variant ?? model.variant } : undefined,
+  }
 }
 
 export function buildSessionCommandParameters(input: {
@@ -113,10 +152,29 @@ export function buildSessionCommandParameters(input: {
 }): CommandInput {
   const name = parseTSessionString(input.body.command)
   if (!name?.trim()) throw new SessionTransformValidationError("Command is required")
-  const parts = Array.isArray(input.body.parts) ? input.body.parts.flatMap((part) => {
-    const object = parseTSessionJsonObject(part)
-    return object ? [object] : []
-  }) : []
-  const prompt = buildSessionSdkParameters({ ...input, body: { ...input.body, ...runtimePromptFromParts({ parts }), text: parseTSessionString(input.body.arguments) ?? "" } })
-  return { sessionID: input.sessionID, name, arguments: prompt.text, files: prompt.files, agents: prompt.agents, skills: prompt.skills, delivery: prompt.delivery, agent: prompt.agent, model: prompt.model }
+  const parts = Array.isArray(input.body.parts)
+    ? input.body.parts.flatMap((part) => {
+        const object = parseTSessionJsonObject(part)
+        return object ? [object] : []
+      })
+    : []
+  const prompt = buildSessionSdkParameters({
+    ...input,
+    body: {
+      ...input.body,
+      ...runtimePromptFromParts({ parts }),
+      text: parseTSessionString(input.body.arguments) ?? "",
+    },
+  })
+  return {
+    sessionID: input.sessionID,
+    name,
+    arguments: prompt.text,
+    files: prompt.files,
+    agents: prompt.agents,
+    skills: prompt.skills,
+    delivery: prompt.delivery,
+    agent: prompt.agent,
+    model: prompt.model,
+  }
 }

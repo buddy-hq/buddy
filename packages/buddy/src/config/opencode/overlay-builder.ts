@@ -84,38 +84,33 @@ function buildOpenCodePermissionOverlay(
       permission?.[EXTERNAL_DIRECTORY_PERMISSION],
       [
         ...(skillPaths ?? []).map(
-          (skillPath) => [path.join(skillPath, ANY_PATTERN).replaceAll("\\", "/"), ALLOW_ACTION] as const,
+          (skillPath) =>
+            [path.join(skillPath, ANY_PATTERN).replaceAll("\\", "/"), ALLOW_ACTION] as const,
         ),
         [notesPermissionPatterns.absoluteRoot, ALLOW_ACTION],
         [notesPermissionPatterns.absoluteDescendants, ALLOW_ACTION],
       ],
     ),
-    [READ_PERMISSION]: appendPermissionRules(
-      permission?.[READ_PERMISSION],
-      [
-        [notesPermissionPatterns.absoluteRoot, ALLOW_ACTION],
-        [notesPermissionPatterns.absoluteDescendants, ALLOW_ACTION],
-        ...(notesPermissionPatterns.relative
+    [READ_PERMISSION]: appendPermissionRules(permission?.[READ_PERMISSION], [
+      [notesPermissionPatterns.absoluteRoot, ALLOW_ACTION],
+      [notesPermissionPatterns.absoluteDescendants, ALLOW_ACTION],
+      ...(notesPermissionPatterns.relative
         ? [
             [notesPermissionPatterns.relative.root, ALLOW_ACTION] as const,
             [notesPermissionPatterns.relative.descendants, ALLOW_ACTION] as const,
           ]
         : []),
-      ],
-    ),
-    [EDIT_PERMISSION]: appendPermissionRules(
-      permission?.[EDIT_PERMISSION],
-      [
-        [notesPermissionPatterns.absoluteRoot, ASK_ACTION],
-        [notesPermissionPatterns.absoluteDescendants, ASK_ACTION],
-        ...(notesPermissionPatterns.relative
+    ]),
+    [EDIT_PERMISSION]: appendPermissionRules(permission?.[EDIT_PERMISSION], [
+      [notesPermissionPatterns.absoluteRoot, ASK_ACTION],
+      [notesPermissionPatterns.absoluteDescendants, ASK_ACTION],
+      ...(notesPermissionPatterns.relative
         ? [
             [notesPermissionPatterns.relative.root, ASK_ACTION] as const,
             [notesPermissionPatterns.relative.descendants, ASK_ACTION] as const,
           ]
         : []),
-      ],
-    ),
+    ]),
   }
 }
 

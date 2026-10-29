@@ -1,11 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { listGoals } from "../../src/learning/features/memory/goals/storage"
 import { tmpdir } from "../helpers/tmpdir"
-import {
-  createBuddyToolContext,
-  requireTool,
-  listBuddyTools,
-} from "../helpers/tools"
+import { createBuddyToolContext, requireTool, listBuddyTools } from "../helpers/tools"
 
 describe("learner-store goal archiving", () => {
   test("committing a new set archives the previous active set for the same (scope, contextLabel)", async () => {
@@ -32,8 +28,7 @@ describe("learner-store goal archiving", () => {
             actionVerb: "implement",
             task: "Implement a typed desktop bridge command.",
             cognitiveLevel: "Application",
-            howToTest:
-              "Given one renderer call, return a typed result and verify it in a test.",
+            howToTest: "Given one renderer call, return a typed result and verify it in a test.",
           },
           {
             statement:
@@ -82,8 +77,7 @@ describe("learner-store goal archiving", () => {
               "Given two boundary options, choose one and justify the user-visible behavior.",
           },
           {
-            statement:
-              "At the end of this topic, you will be able to justify a bridge boundary.",
+            statement: "At the end of this topic, you will be able to justify a bridge boundary.",
             actionVerb: "justify",
             task: "Justify a bridge boundary.",
             cognitiveLevel: "Evaluation",

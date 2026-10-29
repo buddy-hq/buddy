@@ -7,7 +7,9 @@ import { SessionInfoEventSchema } from "@/lib/directory-chat/chat-event-schemas"
 import { useChatStore } from "@/state/chat-store"
 
 export async function loadSubagentBenchSession(directory: string, sessionID: string) {
-  const session = SessionInfoEventSchema.parse(requireBuddyData(await getBuddyClient(directory).session.get({ sessionID })))
+  const session = SessionInfoEventSchema.parse(
+    requireBuddyData(await getBuddyClient(directory).session.get({ sessionID })),
+  )
   useChatStore.getState().applySessionUpdated(directory, session)
   return session
 }

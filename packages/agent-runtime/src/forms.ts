@@ -17,6 +17,10 @@ export type QuestionScope = { readonly directory: string } | { readonly sessionI
 
 export interface Forms {
   pending(scope: QuestionScope): Promise<AgentQuestion[]>
-  answer(sessionID: string, questionID: string, answers: readonly (readonly string[])[]): Promise<void>
+  answer(
+    sessionID: string,
+    questionID: string,
+    answers: readonly (readonly string[])[],
+  ): Promise<void>
   dismiss(sessionID: string, questionID: string): Promise<void>
 }

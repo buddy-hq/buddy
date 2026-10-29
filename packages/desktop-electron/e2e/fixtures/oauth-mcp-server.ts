@@ -2,7 +2,9 @@ import { createHash, randomUUID } from "node:crypto"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import z from "zod"
 
-const registrationSchema = z.object({ redirect_uris: z.array(z.string().url()).min(1) }).passthrough()
+const registrationSchema = z
+  .object({ redirect_uris: z.array(z.string().url()).min(1) })
+  .passthrough()
 const rpcSchema = z.object({
   jsonrpc: z.literal("2.0"),
   id: z.union([z.string(), z.number()]).optional(),
@@ -31,7 +33,11 @@ export async function createOAuthMcpServer() {
     const url = new URL(request.url ?? "/", origin)
     const resource = `${origin}/mcp`
     if (request.method === "GET" && url.pathname === "/.well-known/oauth-protected-resource") {
-      return json(response, 200, { resource, authorization_servers: [origin], scopes_supported: ["tools:read"] })
+      return json(response, 200, {
+        resource,
+        authorization_servers: [origin],
+        scopes_supported: ["tools:read"],
+      })
     }
     if (request.method === "GET" && url.pathname === "/.well-known/oauth-authorization-server") {
       return json(response, 200, {
@@ -61,9 +67,11 @@ export async function createOAuthMcpServer() {
         params.get("response_type") !== "code" ||
         params.get("resource") !== resource ||
         params.get("code_challenge_method") !== "S256" ||
-        !challenge || !state ||
+        !challenge ||
+        !state ||
         !registrations.some((registration) => registration.redirect_uris.includes(redirectURI))
-      ) return json(response, 400, { error: "invalid_request" })
+      )
+        return json(response, 400, { error: "invalid_request" })
       const redirect = new URL(redirectURI)
       if (redirect.protocol !== "http:" || redirect.hostname !== "127.0.0.1") {
         return json(response, 400, { error: "invalid_request" })
@@ -85,14 +93,24 @@ export async function createOAuthMcpServer() {
         params.get("client_id") !== clientID ||
         params.get("resource") !== resource ||
         params.get("redirect_uri") !== authorization.redirectURI ||
-        createHash("sha256").update(params.get("code_verifier") ?? "").digest("base64url") !== authorization.challenge
-      ) return json(response, 400, { error: "invalid_grant" })
+        createHash("sha256")
+          .update(params.get("code_verifier") ?? "")
+          .digest("base64url") !== authorization.challenge
+      )
+        return json(response, 400, { error: "invalid_grant" })
       codes.delete(code)
-      return json(response, 200, { access_token: accessToken, token_type: "Bearer", scope: "tools:read" })
+      return json(response, 200, {
+        access_token: accessToken,
+        token_type: "Bearer",
+        scope: "tools:read",
+      })
     }
     if (url.pathname !== "/mcp") return json(response, 404, { error: "not_found" })
     if (request.headers.authorization !== `Bearer ${accessToken}`) {
-      response.setHeader("www-authenticate", `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource", scope="tools:read"`)
+      response.setHeader(
+        "www-authenticate",
+        `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource", scope="tools:read"`,
+      )
       return json(response, 401, { error: "unauthorized" })
     }
     if (request.method !== "POST") {
@@ -105,7 +123,8 @@ export async function createOAuthMcpServer() {
       response.writeHead(202).end()
       return
     }
-    const reply = <Result>(result: Result) => json(response, 200, { jsonrpc: "2.0", id: rpc.id, result })
+    const reply = <Result>(result: Result) =>
+      json(response, 200, { jsonrpc: "2.0", id: rpc.id, result })
     if (rpc.method === "initialize") {
       return reply({
         protocolVersion: "2025-11-25",
@@ -114,10 +133,22 @@ export async function createOAuthMcpServer() {
       })
     }
     if (rpc.method === "tools/list") {
-      return reply({ tools: [{ name: "fixture_status", description: "Read the local fixture status", inputSchema: { type: "object", properties: {} } }] })
+      return reply({
+        tools: [
+          {
+            name: "fixture_status",
+            description: "Read the local fixture status",
+            inputSchema: { type: "object", properties: {} },
+          },
+        ],
+      })
     }
     if (rpc.method === "ping") return reply({})
-    return json(response, 200, { jsonrpc: "2.0", id: rpc.id, error: { code: -32601, message: "Method not found" } })
+    return json(response, 200, {
+      jsonrpc: "2.0",
+      id: rpc.id,
+      error: { code: -32601, message: "Method not found" },
+    })
   }
 
   const server = createServer((request, response) => {
@@ -125,10 +156,14 @@ export async function createOAuthMcpServer() {
   })
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject)
-    server.listen(0, "127.0.0.1", () => { server.off("error", reject); resolve() })
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject)
+      resolve()
+    })
   })
   const address = server.address()
-  if (!address || z.string().safeParse(address).success) throw new Error("OAuth MCP fixture did not bind a TCP port")
+  if (!address || z.string().safeParse(address).success)
+    throw new Error("OAuth MCP fixture did not bind a TCP port")
   const { port } = z.object({ port: z.number() }).parse(address)
   origin = `http://127.0.0.1:${port}`
 
@@ -138,7 +173,7 @@ export async function createOAuthMcpServer() {
     registrations,
     async close() {
       await new Promise<void>((resolve, reject) => {
-        server.close((error) => error ? reject(error) : resolve())
+        server.close((error) => (error ? reject(error) : resolve()))
         server.closeAllConnections()
       })
     },

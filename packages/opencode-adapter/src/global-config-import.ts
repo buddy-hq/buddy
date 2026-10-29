@@ -19,7 +19,10 @@ function errorText<TError>(error: TError): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-async function statIfPresent(file: string, read: (file: string) => Promise<Stats>): Promise<Stats | undefined> {
+async function statIfPresent(
+  file: string,
+  read: (file: string) => Promise<Stats>,
+): Promise<Stats | undefined> {
   try {
     return await read(file)
   } catch (error) {
@@ -36,7 +39,11 @@ async function existingV2GlobalConfig(configDirectory: string): Promise<string |
   return undefined
 }
 
-export async function publishCopy(source: string, target: string, link: (existing: string, target: string) => Promise<void> = fs.link) {
+export async function publishCopy(
+  source: string,
+  target: string,
+  link: (existing: string, target: string) => Promise<void> = fs.link,
+) {
   const temporary = `${target}.${process.pid}.tmp`
   await fs.writeFile(temporary, await fs.readFile(source), { mode: PRIVATE_FILE_MODE })
   await fs.chmod(temporary, PRIVATE_FILE_MODE)
@@ -53,7 +60,10 @@ export async function publishCopy(source: string, target: string, link: (existin
       }
     }
     if (process.platform !== "win32") await fs.chmod(target, PRIVATE_FILE_MODE)
-    console.warn("Copied the previous version's global OpenCode config so this version reads it:", { from: source, to: target })
+    console.warn("Copied the previous version's global OpenCode config so this version reads it:", {
+      from: source,
+      to: target,
+    })
   } finally {
     await fs.rm(temporary, { force: true })
   }
@@ -66,11 +76,16 @@ export async function importV1GlobalConfig(configDirectory: string): Promise<voi
     if (!sourceStats?.isFile()) return
     const current = await existingV2GlobalConfig(configDirectory)
     if (current) {
-      console.warn(`${source} is no longer read; global OpenCode settings now come only from ${current}.`)
+      console.warn(
+        `${source} is no longer read; global OpenCode settings now come only from ${current}.`,
+      )
       return
     }
     await publishCopy(source, path.join(configDirectory, V2_GLOBAL_CONFIG_COPY_NAME))
   } catch (error) {
-    console.warn("Could not carry over the previous version's global OpenCode config:", errorText(error))
+    console.warn(
+      "Could not carry over the previous version's global OpenCode config:",
+      errorText(error),
+    )
   }
 }

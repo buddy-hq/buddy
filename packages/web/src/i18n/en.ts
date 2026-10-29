@@ -1258,11 +1258,15 @@ export const dict = {
   "sidebar.minimizePopOutChat": "Minimize pop-out chat",
   "sidebar.newBoard": "New board",
   "sidebar.chatImport.progress": "Bringing over your chats from the previous version…",
-  "sidebar.chatImport.error": "Some older chats haven't come across yet. Buddy will continue the next time it starts.",
-  "sidebar.chatImport.failed": "Couldn't bring over your chats from the previous version: {{error}}",
+  "sidebar.chatImport.error":
+    "Some older chats haven't come across yet. Buddy will continue the next time it starts.",
+  "sidebar.chatImport.failed":
+    "Couldn't bring over your chats from the previous version: {{error}}",
   "sidebar.chatImport.unknownError": "unknown error",
-  "sidebar.chatImport.skipped": "{{count}} older chats couldn't be brought over. The originals are kept in the previous version.",
-  "sidebar.chatImport.content": "Some command results in {{count}} older chats couldn't be brought over.",
+  "sidebar.chatImport.skipped":
+    "{{count}} older chats couldn't be brought over. The originals are kept in the previous version.",
+  "sidebar.chatImport.content":
+    "Some command results in {{count}} older chats couldn't be brought over.",
   "sidebar.newBrowserTab": "Browser",
   "sidebar.newChat": "New chat",
   "sidebar.newNote": "New note",

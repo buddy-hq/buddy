@@ -4,7 +4,11 @@ import { Alert, AlertDescription } from "@buddy/ui/components/ui/alert"
 import { language } from "@/context/language"
 import { restoreAwaitedImportedSession } from "@/lib/restore-imported-session"
 import { loadSessions } from "@/state/chat-actions"
-import { v1ImportInProgress, v1ImportQueryOptions, type V1ImportReport } from "@/state/v1-import-query"
+import {
+  v1ImportInProgress,
+  v1ImportQueryOptions,
+  type V1ImportReport,
+} from "@/state/v1-import-query"
 
 export type V1ImportNoticeLine = {
   readonly key: string
@@ -12,30 +16,53 @@ export type V1ImportNoticeLine = {
   readonly text: string
 }
 
-function v1ImportRanThisLaunch(report: V1ImportReport | undefined, observedImport: boolean): boolean {
+function v1ImportRanThisLaunch(
+  report: V1ImportReport | undefined,
+  observedImport: boolean,
+): boolean {
   if (!report) return false
   return report.importRan || observedImport || report.upgrade.state === "ready"
 }
 
-export function v1ImportNoticeLines(report: V1ImportReport | undefined, observedImport: boolean): readonly V1ImportNoticeLine[] {
+export function v1ImportNoticeLines(
+  report: V1ImportReport | undefined,
+  observedImport: boolean,
+): readonly V1ImportNoticeLine[] {
   if (!report) return []
   if (report.upgrade.state === "failed") {
-    return [{
-      key: "failed",
-      tone: "destructive",
-      text: language.t("sidebar.chatImport.failed", { error: report.upgrade.error ?? language.t("sidebar.chatImport.unknownError") }),
-    }]
+    return [
+      {
+        key: "failed",
+        tone: "destructive",
+        text: language.t("sidebar.chatImport.failed", {
+          error: report.upgrade.error ?? language.t("sidebar.chatImport.unknownError"),
+        }),
+      },
+    ]
   }
-  if (v1ImportInProgress(report)) return [{ key: "progress", tone: "default", text: language.t("sidebar.chatImport.progress") }]
+  if (v1ImportInProgress(report))
+    return [{ key: "progress", tone: "default", text: language.t("sidebar.chatImport.progress") }]
   const lines: V1ImportNoticeLine[] = []
-  if (report.import?.status === "error") lines.push({ key: "error", tone: "default", text: language.t("sidebar.chatImport.error") })
+  if (report.import?.status === "error")
+    lines.push({ key: "error", tone: "default", text: language.t("sidebar.chatImport.error") })
   const finished = report.import?.status === "completed" || report.import?.status === "error"
   if (!finished || !v1ImportRanThisLaunch(report, observedImport)) return lines
   if (report.skipped.length > 0) {
-    lines.push({ key: "skipped", tone: "default", text: language.t("sidebar.chatImport.skipped", { count: report.skipped.length }) })
+    lines.push({
+      key: "skipped",
+      tone: "default",
+      text: language.t("sidebar.chatImport.skipped", { count: report.skipped.length }),
+    })
   }
-  const dropped = report.content.filter((chat) => chat.subtaskPrompts + chat.subtaskResults + chat.assistantFiles > 0).length
-  if (dropped > 0) lines.push({ key: "content", tone: "default", text: language.t("sidebar.chatImport.content", { count: dropped }) })
+  const dropped = report.content.filter(
+    (chat) => chat.subtaskPrompts + chat.subtaskResults + chat.assistantFiles > 0,
+  ).length
+  if (dropped > 0)
+    lines.push({
+      key: "content",
+      tone: "default",
+      text: language.t("sidebar.chatImport.content", { count: dropped }),
+    })
   return lines
 }
 
@@ -66,7 +93,12 @@ export function V1ImportNotice(props: { readonly directories: readonly string[] 
   }, [status])
 
   useEffect(() => {
-    if (!ranThisLaunch || (status !== "completed" && status !== "error") || reloadedFor.current === status) return
+    if (
+      !ranThisLaunch ||
+      (status !== "completed" && status !== "error") ||
+      reloadedFor.current === status
+    )
+      return
     reloadedFor.current = status
     for (const directory of directories.current) {
       void loadSessions(directory)
@@ -78,7 +110,10 @@ export function V1ImportNotice(props: { readonly directories: readonly string[] 
   const lines = v1ImportNoticeLines(report, observedImport)
   if (lines.length === 0) return null
   return (
-    <div data-component="left-sidebar-chat-import-notice" className="flex flex-col gap-1.5 px-1.5 pb-3">
+    <div
+      data-component="left-sidebar-chat-import-notice"
+      className="flex flex-col gap-1.5 px-1.5 pb-3"
+    >
       {lines.map((line) => (
         <Alert key={line.key} variant={line.tone}>
           <AlertDescription>{line.text}</AlertDescription>

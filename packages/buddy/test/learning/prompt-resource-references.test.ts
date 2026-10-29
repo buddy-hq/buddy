@@ -57,20 +57,55 @@ async function waitForReadyResourceReference(input: {
 
 describe("message prompt resource references", () => {
   test("converts chip segments, synthetic context and file or agent mention offsets to v2 prompt metadata", () => {
-    const chip = { buddyPromptPart: { type: "notebook-reference", text: "Outline", title: "Outline", kind: "note" } }
-    expect(runtimePromptFromParts({ system: "Compiled context", metadata: { source: "buddy", buddy: { other: true } }, parts: [
-      { type: "text", text: "Private", synthetic: true },
-      { type: "text", text: "Read @note.md with @research " },
-      { type: "file", url: "file:///workspace/note.md", filename: "note.md", source: { text: { value: "@note.md", start: 5, end: 13 } } },
-      { type: "agent", name: "research", source: { value: "@research", start: 19, end: 28 } },
-      { type: "text", text: "Outline", metadata: chip },
-    ] })).toEqual({
+    const chip = {
+      buddyPromptPart: {
+        type: "notebook-reference",
+        text: "Outline",
+        title: "Outline",
+        kind: "note",
+      },
+    }
+    expect(
+      runtimePromptFromParts({
+        system: "Compiled context",
+        metadata: { source: "buddy", buddy: { other: true } },
+        parts: [
+          { type: "text", text: "Private", synthetic: true },
+          { type: "text", text: "Read @note.md with @research " },
+          {
+            type: "file",
+            url: "file:///workspace/note.md",
+            filename: "note.md",
+            source: { text: { value: "@note.md", start: 5, end: 13 } },
+          },
+          { type: "agent", name: "research", source: { value: "@research", start: 19, end: 28 } },
+          { type: "text", text: "Outline", metadata: chip },
+        ],
+      }),
+    ).toEqual({
       text: "PrivateRead @note.md with @research Outline",
-      files: [{ uri: "file:///workspace/note.md", name: "note.md", mention: { text: "@note.md", start: 12, end: 20 } }],
+      files: [
+        {
+          uri: "file:///workspace/note.md",
+          name: "note.md",
+          mention: { text: "@note.md", start: 12, end: 20 },
+        },
+      ],
       agents: [{ name: "research", mention: { text: "@research", start: 26, end: 35 } }],
-      metadata: { source: "buddy", buddy: { other: true, prompt: { system: "Compiled context", segments: [
-        { start: 0, end: 7, synthetic: true }, { start: 7, end: 36 }, { start: 36, end: 43, metadata: chip },
-      ] } } },
+      metadata: {
+        source: "buddy",
+        buddy: {
+          other: true,
+          prompt: {
+            system: "Compiled context",
+            segments: [
+              { start: 0, end: 7, synthetic: true },
+              { start: 7, end: 36 },
+              { start: 36, end: 43, metadata: chip },
+            ],
+          },
+        },
+      },
     })
   })
 
@@ -417,7 +452,13 @@ describe("message prompt resource references", () => {
     // Each pointer is its own synthetic part, so the user's message shows only the reference.
     expect(flattened.map((part) => [part.text, part.synthetic, part.metadata])).toEqual([
       [chat.text, undefined, { [BUDDY_PROMPT_PART_METADATA_KEY]: chat }],
-      [expect.stringContaining("Read the chat mentioned just before with bench_read_chat using its ID."), true, undefined],
+      [
+        expect.stringContaining(
+          "Read the chat mentioned just before with bench_read_chat using its ID.",
+        ),
+        true,
+        undefined,
+      ],
       [diagram.text, undefined, { [BUDDY_PROMPT_PART_METADATA_KEY]: diagram }],
       [
         `The mermaid mentioned just before is stored in folder ${path.join(directory, ".buddy", "objects", "v1", "mermaid", diagramID)}. Read it with your file tools.`,

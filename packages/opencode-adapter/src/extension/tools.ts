@@ -2,9 +2,19 @@ import type { JsonValue } from "@buddy/agent-runtime/common"
 import type { RuntimeTool, ToolApprovalRequest, ToolOutput } from "@buddy/agent-runtime/extension"
 import type { MessageWithParts } from "@buddy/transcript-contract/message"
 import { Permission } from "@opencode/schema/permission"
-import { Error as ToolError, type ToolContext, type Info as ToolInfo, type Result as ToolResult } from "@opencode/plugin/promise/tool"
+import {
+  Error as ToolError,
+  type ToolContext,
+  type Info as ToolInfo,
+  type Result as ToolResult,
+} from "@opencode/plugin/promise/tool"
 import z from "zod"
-import { openCodeV1ImportCommandDisplay, openCodeV1ImportHasCommandDisplays, type OpenCodeHost, type OpenCodeEvent } from "../host"
+import {
+  openCodeV1ImportCommandDisplay,
+  openCodeV1ImportHasCommandDisplays,
+  type OpenCodeHost,
+  type OpenCodeEvent,
+} from "../host"
 import { listContextMessages } from "../gateway/message"
 import { upstreamJson } from "../gateway/session"
 
@@ -36,7 +46,13 @@ export async function loadBuddyToolMessages(
   sessionID: string,
 ): Promise<MessageWithParts[]> {
   const session = await client.session.get({ sessionID })
-  const items = await listContextMessages(client, { sessionID, directory, importedCommandDisplay: openCodeV1ImportHasCommandDisplays() ? openCodeV1ImportCommandDisplay : undefined })
+  const items = await listContextMessages(client, {
+    sessionID,
+    directory,
+    importedCommandDisplay: openCodeV1ImportHasCommandDisplays()
+      ? openCodeV1ImportCommandDisplay
+      : undefined,
+  })
   return items.map((mapped) => {
     if (mapped.info.role === "user") {
       return Object.assign({}, mapped, {
@@ -53,16 +69,22 @@ export async function loadBuddyToolMessages(
 
 function toolResult(tool: RuntimeTool, result: ToolOutput): ToolResult {
   const metadata = withTitle(jsonMetadata(result.metadata), result.title)
-  if (tool.output &&
-    (tool.output.maxLines === undefined || result.output.split("\n").length <= tool.output.maxLines) &&
-    (tool.output.maxBytes === undefined || Buffer.byteLength(result.output) <= tool.output.maxBytes)) {
+  if (
+    tool.output &&
+    (tool.output.maxLines === undefined ||
+      result.output.split("\n").length <= tool.output.maxLines) &&
+    (tool.output.maxBytes === undefined || Buffer.byteLength(result.output) <= tool.output.maxBytes)
+  ) {
     metadata.truncated = false
   }
   return {
     content: [
       { type: "text", text: result.output },
       ...(result.attachments ?? []).map((attachment) => ({
-        type: attachment.type, uri: attachment.url, mime: attachment.mime, name: attachment.filename,
+        type: attachment.type,
+        uri: attachment.url,
+        mime: attachment.mime,
+        name: attachment.filename,
       })),
     ],
     metadata,
@@ -78,7 +100,9 @@ export function buddyToolToToolInfo(tool: RuntimeTool, runtime: ToolRuntime): To
       "~standard": {
         version: 1,
         vendor: "buddy",
-        validate<T>(value: T) { return { value } },
+        validate<T>(value: T) {
+          return { value }
+        },
         jsonSchema: { input: () => tool.jsonSchema, output: () => tool.jsonSchema },
       },
     },
@@ -95,16 +119,26 @@ export function buddyToolToToolInfo(tool: RuntimeTool, runtime: ToolRuntime): To
           callID: context.id,
           abort: context.signal,
           messages,
-          metadata: (update) => context.progress(withTitle(jsonMetadata(update.metadata ?? {}), update.title)),
-          ask: (request) => askBuddyToolPermission(client, {
-            sessionID: context.sessionID, agent: context.agent, messageID: context.messageID,
-            callID: context.id, request, signal: context.signal,
-          }),
+          metadata: (update) =>
+            context.progress(withTitle(jsonMetadata(update.metadata ?? {}), update.title)),
+          ask: (request) =>
+            askBuddyToolPermission(client, {
+              sessionID: context.sessionID,
+              agent: context.agent,
+              messageID: context.messageID,
+              callID: context.id,
+              request,
+              signal: context.signal,
+            }),
         })
         return toolResult(tool, result)
       } catch (cause) {
-        if (context.signal.aborted || cause instanceof ToolError ||
-          (cause instanceof DOMException && cause.name === "AbortError")) throw cause
+        if (
+          context.signal.aborted ||
+          cause instanceof ToolError ||
+          (cause instanceof DOMException && cause.name === "AbortError")
+        )
+          throw cause
         throw new ToolError({ message: cause instanceof Error ? cause.message : String(cause) })
       }
     },
@@ -143,9 +177,7 @@ type BuddyToolPermissionInput = {
   signal: AbortSignal
 }
 
-function omitUndefinedMetadata(
-  metadata: ToolApprovalRequest["metadata"],
-) {
+function omitUndefinedMetadata(metadata: ToolApprovalRequest["metadata"]) {
   const result: JsonMetadata = {}
   for (const [key, value] of Object.entries(metadata)) {
     if (value !== undefined) result[key] = upstreamJson(value)
@@ -202,8 +234,10 @@ export async function askBuddyToolPermission(
     }
     const event = await waitForEvent(
       events,
-      (event) => event.type === "permission.replied" &&
-        event.data.sessionID === input.sessionID && event.data.requestID === id,
+      (event) =>
+        event.type === "permission.replied" &&
+        event.data.sessionID === input.sessionID &&
+        event.data.requestID === id,
       signal,
     )
     settled = true
@@ -216,9 +250,13 @@ export async function askBuddyToolPermission(
     controller.abort()
     await events.return?.()
     if (requested && !settled) {
-      await client.permission.reply({
-        sessionID: input.sessionID, requestID: id, decision: "reject",
-      }).catch(() => undefined)
+      await client.permission
+        .reply({
+          sessionID: input.sessionID,
+          requestID: id,
+          decision: "reject",
+        })
+        .catch(() => undefined)
     }
   }
 }

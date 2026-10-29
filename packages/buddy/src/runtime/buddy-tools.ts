@@ -3,7 +3,8 @@ import { registerBuddyToolPresentationCatalog } from "./buddy-tool-presentation-
 
 export async function allBuddyRuntimeTools(directory: string): Promise<readonly RuntimeTool[]> {
   const [{ allBuddyTools }, { getDynamicToolSearchTools }] = await Promise.all([
-    import("../learning/runtime/feature-registry"), import("../learning/runtime/dynamic-tool-discovery"),
+    import("../learning/runtime/feature-registry"),
+    import("../learning/runtime/dynamic-tool-discovery"),
   ])
   const tools = [...allBuddyTools(), ...getDynamicToolSearchTools()]
   const seen = new Set<string>()

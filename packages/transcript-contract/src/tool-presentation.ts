@@ -361,9 +361,12 @@ export function resolveToolPresentationOutcome(
   }
 
   switch (context.outcome?.type) {
-    case "interrupted": return { type: "neutral", reason: "interrupted" }
-    case "rejected": return { type: "neutral", reason: "permission-denied" }
-    case "dismissed": return { type: "neutral", reason: "cancelled" }
+    case "interrupted":
+      return { type: "neutral", reason: "interrupted" }
+    case "rejected":
+      return { type: "neutral", reason: "permission-denied" }
+    case "dismissed":
+      return { type: "neutral", reason: "cancelled" }
   }
   return { type: "failure" }
 }

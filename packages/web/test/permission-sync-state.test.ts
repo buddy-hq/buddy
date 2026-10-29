@@ -23,7 +23,11 @@ describe("pending permission state", () => {
       { id: "per_other", sessionID: "other", action: "read", resources: ["other"] },
     ])
     store.setActiveSession(directory, "parent")
-    expect(useChatStore.getState().directories[directory]?.pendingPermissions.map((request) => request.id)).toEqual(["per_child_one", "per_child_two"])
+    expect(
+      useChatStore
+        .getState()
+        .directories[directory]?.pendingPermissions.map((request) => request.id),
+    ).toEqual(["per_child_one", "per_child_two"])
     store.applyPermissionReplied(directory, "per_child_one")
     store.applyPermissionReplied(directory, "per_child_two")
     expect(useChatStore.getState().directories[directory]?.pendingPermissions).toEqual([])
@@ -31,7 +35,12 @@ describe("pending permission state", () => {
   test("an authoritative reconnect list removes requests whose replies were missed", () => {
     const store = useChatStore.getState()
     store.ensureOpenProject(directory)
-    store.applyPermissionAsked(directory, { id: "per_stale", sessionID: "parent", action: "shell", resources: ["ls"] })
+    store.applyPermissionAsked(directory, {
+      id: "per_stale",
+      sessionID: "parent",
+      action: "shell",
+      resources: ["ls"],
+    })
     store.setPendingPermissions(directory, [])
     expect(useChatStore.getState().directories[directory]?.pendingPermissions).toEqual([])
   })

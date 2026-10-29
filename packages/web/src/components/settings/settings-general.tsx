@@ -85,7 +85,10 @@ function RememberedApprovals() {
   const approvals = useQuery({
     queryKey,
     enabled: directory !== undefined && directory !== "/",
-    queryFn: async () => directory === undefined ? [] : requireBuddyData(await getBuddyClient(directory).permission.saved.list()),
+    queryFn: async () =>
+      directory === undefined
+        ? []
+        : requireBuddyData(await getBuddyClient(directory).permission.saved.list()),
   })
   if (directory === undefined || directory === "/") return null
 
@@ -104,12 +107,41 @@ function RememberedApprovals() {
 
   return (
     <SettingsSection title="Remembered approvals">
-      <SettingsRow title="This notebook's project" description="Approvals saved with Always allow apply to every chat in this project." control={null} />
+      <SettingsRow
+        title="This notebook's project"
+        description="Approvals saved with Always allow apply to every chat in this project."
+        control={null}
+      />
       {approvals.isPending ? <SettingsRow title="Loading approvals…" control={null} /> : null}
-      {approvals.isError ? <SettingsRow title="Could not load approvals" control={<Button variant="outline" size="sm" onClick={() => void approvals.refetch()}>Retry</Button>} /> : null}
-      {approvals.data?.length === 0 ? <SettingsRow title="No remembered approvals" control={null} /> : null}
+      {approvals.isError ? (
+        <SettingsRow
+          title="Could not load approvals"
+          control={
+            <Button variant="outline" size="sm" onClick={() => void approvals.refetch()}>
+              Retry
+            </Button>
+          }
+        />
+      ) : null}
+      {approvals.data?.length === 0 ? (
+        <SettingsRow title="No remembered approvals" control={null} />
+      ) : null}
       {approvals.data?.map((approval) => (
-        <SettingsRow key={approval.id} title={approval.action.replaceAll("_", " ")} description={approval.resource} control={<Button variant="outline" size="sm" disabled={removing !== undefined} onClick={() => void removeApproval(approval.id)}>Remove</Button>} />
+        <SettingsRow
+          key={approval.id}
+          title={approval.action.replaceAll("_", " ")}
+          description={approval.resource}
+          control={
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={removing !== undefined}
+              onClick={() => void removeApproval(approval.id)}
+            >
+              Remove
+            </Button>
+          }
+        />
       ))}
     </SettingsSection>
   )

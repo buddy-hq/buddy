@@ -32,7 +32,9 @@ function inheritedSnapshot(): BuddyTeachingSnapshot {
   })
 }
 
-function fakeSessions(initial: SessionView): Pick<SessionAccess, "get" | "patchMetadata" | "agentRules"> {
+function fakeSessions(
+  initial: SessionView,
+): Pick<SessionAccess, "get" | "patchMetadata" | "agentRules"> {
   let session = initial
   const sessions: Pick<SessionAccess, "get" | "patchMetadata" | "agentRules"> = {
     async get(sessionID) {
@@ -48,7 +50,9 @@ function fakeSessions(initial: SessionView): Pick<SessionAccess, "get" | "patchM
       }
       session = { ...current, metadata }
     },
-    async agentRules() { return [] },
+    async agentRules() {
+      return []
+    },
   }
   return sessions
 }
@@ -61,10 +65,16 @@ describe("forked teaching snapshots", () => {
   test("hydrates a root fork with its inherited teaching surface and its own session ID", async () => {
     await using project = await tmpdir()
     const sessions = fakeSessions({
-      id: "ses_fork", rules: [], metadata: { buddyTeaching: inheritedSnapshot() },
+      id: "ses_fork",
+      rules: [],
+      metadata: { buddyTeaching: inheritedSnapshot() },
     })
 
-    const state = await hydrateBuddyTeachingState({ sessions, directory: project.path, sessionID: "ses_fork" })
+    const state = await hydrateBuddyTeachingState({
+      sessions,
+      directory: project.path,
+      sessionID: "ses_fork",
+    })
 
     expect(state).toMatchObject({ sessionId: "ses_fork", currentSurface: "flashcard" })
   })
@@ -72,7 +82,9 @@ describe("forked teaching snapshots", () => {
   test("publishes a fresh fork as its own owner and root while keeping its inherited surface", async () => {
     await using project = await tmpdir()
     const sessions = fakeSessions({
-      id: "ses_fork", rules: [], metadata: { buddyTeaching: inheritedSnapshot() },
+      id: "ses_fork",
+      rules: [],
+      metadata: { buddyTeaching: inheritedSnapshot() },
     })
 
     await publishBuddyDelegationSource({ sessions, directory: project.path, sessionID: "ses_fork" })
@@ -87,15 +99,24 @@ describe("forked teaching snapshots", () => {
   test("rejects a child whose snapshot belongs to another owner", async () => {
     await using project = await tmpdir()
     const snapshot = BuddyTeachingSnapshot.parse({
-      ...inheritedSnapshot(), roleID: "practice-agent", policyRevision: "child-policy",
+      ...inheritedSnapshot(),
+      roleID: "practice-agent",
+      policyRevision: "child-policy",
     })
     const sessions = fakeSessions({
-      id: "ses_child", parentID: "ses_source", agent: "practice-agent",
-      rules: [], metadata: { buddyTeaching: snapshot },
+      id: "ses_child",
+      parentID: "ses_source",
+      agent: "practice-agent",
+      rules: [],
+      metadata: { buddyTeaching: snapshot },
     })
 
-    await expect(hydrateBuddyTeachingState({
-      sessions, directory: project.path, sessionID: "ses_child",
-    })).rejects.toThrow("Buddy child is not prepared: ses_child")
+    await expect(
+      hydrateBuddyTeachingState({
+        sessions,
+        directory: project.path,
+        sessionID: "ses_child",
+      }),
+    ).rejects.toThrow("Buddy child is not prepared: ses_child")
   })
 })

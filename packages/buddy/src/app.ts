@@ -125,7 +125,11 @@ app.use(async (c, next) => {
   console.log(redactWidgetFramePasses(`<-- ${c.req.method} ${logPath}`))
   const started = Date.now()
   await next()
-  console.log(redactWidgetFramePasses(`--> ${c.req.method} ${logPath} ${c.res.status} ${Date.now() - started}ms`))
+  console.log(
+    redactWidgetFramePasses(
+      `--> ${c.req.method} ${logPath} ${c.res.status} ${Date.now() - started}ms`,
+    ),
+  )
 })
 app.use(cors({ origin: "*" }))
 app.use("*", async (c, next) => {

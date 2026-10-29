@@ -61,7 +61,14 @@ function toolStateText(part: ToolPart): string | undefined {
     case "running":
       return jsonText(state.input)
     case "completed":
-      return [state.output, ...(state.attachments ?? []).map((file) => [file.filename, file.mime, file.url].filter(Boolean).join(" "))].filter(Boolean).join("\n")
+      return [
+        state.output,
+        ...(state.attachments ?? []).map((file) =>
+          [file.filename, file.mime, file.url].filter(Boolean).join(" "),
+        ),
+      ]
+        .filter(Boolean)
+        .join("\n")
     case "error":
       return state.error
   }
@@ -81,32 +88,61 @@ function assistantPartText(part: Part): string | undefined {
 function userMessageText(message: MessageWithParts): string {
   if (message.info.role !== "user") return ""
   const textParts = message.parts.filter((part) => part.type === "text")
-  const text = textParts.length === 0
-    ? message.info.sourceText ?? ""
-    : textParts.flatMap((part) => !part.synthetic && !part.ignored && !isScaffoldText(part.text) ? [part.text] : []).join("")
+  const text =
+    textParts.length === 0
+      ? (message.info.sourceText ?? "")
+      : textParts
+          .flatMap((part) =>
+            !part.synthetic && !part.ignored && !isScaffoldText(part.text) ? [part.text] : [],
+          )
+          .join("")
   return [
     isScaffoldText(text) ? undefined : text,
     ...message.parts.flatMap((part) => {
       if (part.type !== "file") return []
-      return [[part.filename, part.mime, part.source?.type === "uri" ? part.source.uri : undefined, part.sourceText ?? part.source?.text?.value].filter(Boolean).join("\n")]
+      return [
+        [
+          part.filename,
+          part.mime,
+          part.source?.type === "uri" ? part.source.uri : undefined,
+          part.sourceText ?? part.source?.text?.value,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      ]
     }),
-    ...message.parts.flatMap((part) => part.type === "agent" ? [[part.name, part.sourceText ?? part.source?.value].filter(Boolean).join("\n")] : []),
-  ].filter(Boolean).join("\n")
+    ...message.parts.flatMap((part) =>
+      part.type === "agent"
+        ? [[part.name, part.sourceText ?? part.source?.value].filter(Boolean).join("\n")]
+        : [],
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n")
 }
 
 function filteredMessage(message: MessageWithParts): FilteredSessionMessage | undefined {
   if (message.info.role === "assistant" && message.info.kind) return undefined
-  const rawText = message.info.role === "user" ? userMessageText(message) : message.parts.flatMap((part) => assistantPartText(part) ?? []).join("\n")
+  const rawText =
+    message.info.role === "user"
+      ? userMessageText(message)
+      : message.parts.flatMap((part) => assistantPartText(part) ?? []).join("\n")
   const text = redactSecrets(rawText.trim())
   if (!text) return undefined
-  const outputTokens = message.info.role === "assistant" && message.info.usageRecorded !== false ? message.info.tokens.output + message.info.tokens.reasoning : undefined
+  const outputTokens =
+    message.info.role === "assistant" && message.info.usageRecorded !== false
+      ? message.info.tokens.output + message.info.tokens.reasoning
+      : undefined
   return Object.assign(
     {
       id: message.info.id,
       role: message.info.role,
       createdAt: new Date(message.info.time.created).toISOString(),
       text,
-      toolNames: message.info.role === "assistant" ? message.parts.flatMap((part) => part.type === "tool" ? [part.tool] : []) : [],
+      toolNames:
+        message.info.role === "assistant"
+          ? message.parts.flatMap((part) => (part.type === "tool" ? [part.tool] : []))
+          : [],
     },
     outputTokens !== undefined ? { outputTokens } : undefined,
   )

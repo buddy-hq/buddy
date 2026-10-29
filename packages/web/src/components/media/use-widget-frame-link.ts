@@ -16,8 +16,8 @@ export function useWidgetFrameLink(runtimeUrl: string, reloadKey = 0): WidgetFra
   useEffect(() => {
     const controller = new AbortController()
     let active = true
-    void getBuddyClient().widgetFrame
-      .exchange({ runtimeUrl }, { signal: controller.signal })
+    void getBuddyClient()
+      .widgetFrame.exchange({ runtimeUrl }, { signal: controller.signal })
       .then((result) => {
         const { url } = requireBuddyData(result)
         if (active) setLink({ status: "ready", url })

@@ -53,10 +53,7 @@ export async function withConfigSync(
         response,
       }
     }
-    throw new Error(
-      `Failed to sync config before ${input.operation}`,
-      { cause: error },
-    )
+    throw new Error(`Failed to sync config before ${input.operation}`, { cause: error })
   }
 
   return contextResult
@@ -107,7 +104,8 @@ export async function runRouteTask(input: {
   try {
     return await input.task()
   } catch (error) {
-    const response = await input.mapError?.(parseTRouteTaskError(error)) ?? await mapRouteError(error)
+    const response =
+      (await input.mapError?.(parseTRouteTaskError(error))) ?? (await mapRouteError(error))
     if (response) return normalizeErrorResponse(response)
     throw error
   }

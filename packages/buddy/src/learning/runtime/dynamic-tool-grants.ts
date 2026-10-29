@@ -1,4 +1,10 @@
-import { withDynamicToolPermissionGrants, resetDynamicToolPermissionGrants, evaluatePermission, constrainPermissionGrants, type PermissionRuleset } from "@buddy/transcript-contract/permission-rules"
+import {
+  withDynamicToolPermissionGrants,
+  resetDynamicToolPermissionGrants,
+  evaluatePermission,
+  constrainPermissionGrants,
+  type PermissionRuleset,
+} from "@buddy/transcript-contract/permission-rules"
 import { readAuthoredPermissionRules } from "../agent-execution/permissions/authored-permissions"
 import type { BuddyTool } from "./create-buddy-tool"
 import { getAgentRuntime } from "../../runtime/agent-runtime"
@@ -7,9 +13,7 @@ import {
   allDynamicLearningToolIds,
   isDynamicLearningToolID,
 } from "./dynamic-tool-catalog"
-import {
-  isExactDynamicLearningToolAllowRule,
-} from "./dynamic-tool-permissions"
+import { isExactDynamicLearningToolAllowRule } from "./dynamic-tool-permissions"
 
 type DynamicGrantKey = string
 type DynamicSessionSearchCandidates = {
@@ -30,7 +34,11 @@ function withDynamicLearningToolAllows(input: {
   existing: PermissionRuleset | undefined
   toolIDs: readonly string[]
 }): PermissionRuleset {
-  return withDynamicToolPermissionGrants({ existing: input.existing ?? [], toolIDs: input.toolIDs, managedToolIDs: allDynamicLearningToolIds() })
+  return withDynamicToolPermissionGrants({
+    existing: input.existing ?? [],
+    toolIDs: input.toolIDs,
+    managedToolIDs: allDynamicLearningToolIds(),
+  })
 }
 
 async function updateSessionPermission(input: {
@@ -42,7 +50,14 @@ async function updateSessionPermission(input: {
   const session = await runtime.approvals.sessionRules(input.sessionID)
   if (session === undefined) return false
   const configured = await readAuthoredPermissionRules(input.directory, session.agent)
-  const result = await runtime.approvals.updateSessionRules(input.sessionID, (existing) => constrainPermissionGrants(input.update(existing), configured, allDynamicLearningToolIds(), process.platform === "win32" ? "win32" : "posix"))
+  const result = await runtime.approvals.updateSessionRules(input.sessionID, (existing) =>
+    constrainPermissionGrants(
+      input.update(existing),
+      configured,
+      allDynamicLearningToolIds(),
+      process.platform === "win32" ? "win32" : "posix",
+    ),
+  )
   return result !== "missing"
 }
 
@@ -160,7 +175,16 @@ function clearDynamicLearningToolsForDeletedSessions(input: {
 }
 
 function exactDynamicAllowRules(rules: PermissionRuleset | undefined): PermissionRuleset {
-  return (rules ?? []).filter((rule) => isExactDynamicLearningToolAllowRule(rule) && evaluatePermission(rule.permission, "*", rules ?? [], process.platform === "win32" ? "win32" : "posix").action === "allow")
+  return (rules ?? []).filter(
+    (rule) =>
+      isExactDynamicLearningToolAllowRule(rule) &&
+      evaluatePermission(
+        rule.permission,
+        "*",
+        rules ?? [],
+        process.platform === "win32" ? "win32" : "posix",
+      ).action === "allow",
+  )
 }
 
 async function ensureDynamicLearningToolsRegisteredForSession(input: {

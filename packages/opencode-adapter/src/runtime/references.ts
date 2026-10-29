@@ -11,7 +11,9 @@ export function createReferences(host: OpenCodeHost, _options: OpenCodeRuntimeOp
         return (await host.reference.list({ location: { directory } })).data
       } catch (cause) {
         const error = toRuntimeError(cause, String(cause))
-        throw error.kind === "internal" ? error : new RuntimeError("internal", error.message, { subject: error.subject, cause })
+        throw error.kind === "internal"
+          ? error
+          : new RuntimeError("internal", error.message, { subject: error.subject, cause })
       }
     },
   }

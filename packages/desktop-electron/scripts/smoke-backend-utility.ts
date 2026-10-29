@@ -317,12 +317,17 @@ async function desktopHealthPasses(baseUrl: string): Promise<boolean> {
   return true
 }
 
-async function waitForDesktopHealth(input: { baseUrl: string; spawnedAt: number }): Promise<number> {
+async function waitForDesktopHealth(input: {
+  baseUrl: string
+  spawnedAt: number
+}): Promise<number> {
   while (true) {
     await delay(DESKTOP_HEALTH_POLL_MS)
     if (await desktopHealthPasses(input.baseUrl)) return performance.now() - input.spawnedAt
     if (performance.now() - input.spawnedAt > DESKTOP_HEALTH_DEADLINE_MS) {
-      throw new Error(`The desktop health check did not pass within ${DESKTOP_HEALTH_DEADLINE_MS}ms`)
+      throw new Error(
+        `The desktop health check did not pass within ${DESKTOP_HEALTH_DEADLINE_MS}ms`,
+      )
     }
   }
 }
@@ -334,7 +339,9 @@ const v1ImportReportSchema = z.object({
 })
 
 async function readV1ImportReport(baseUrl: string) {
-  const response = await fetch(new URL(V1_IMPORT_PATH, baseUrl), { headers: { authorization: authorizationHeader() } })
+  const response = await fetch(new URL(V1_IMPORT_PATH, baseUrl), {
+    headers: { authorization: authorizationHeader() },
+  })
   if (!response.ok) throw new Error(`${V1_IMPORT_PATH} returned ${response.status}`)
   return v1ImportReportSchema.parse(await response.json())
 }
@@ -343,14 +350,20 @@ function digestFile(file: string): string {
   return createHash("sha256").update(readFileSync(file)).digest("hex")
 }
 
-async function directoryJson(baseUrl: string, route: string, directory: string, init: RequestInit = {}) {
+async function directoryJson(
+  baseUrl: string,
+  route: string,
+  directory: string,
+  init: RequestInit = {},
+) {
   const url = new URL(`${API_BASE_PATH}/${route}`, baseUrl)
   url.searchParams.set("directory", directory)
   const response = await fetch(url, {
     ...init,
     headers: { authorization: authorizationHeader(), "content-type": "application/json" },
   })
-  if (!response.ok) throw new Error(`${route} returned ${response.status}: ${await response.text()}`)
+  if (!response.ok)
+    throw new Error(`${route} returned ${response.status}: ${await response.text()}`)
   const data: unknown = await response.json()
   return data
 }
@@ -361,12 +374,16 @@ async function assertV1Upgrade(input: {
   v1Digest: string
   v2Database: string
 }): Promise<void> {
-  const deadline = performance.now() + V1_IMPORT_DEADLINE_MS + (slowUpgrade ? SLOW_UPGRADE_PAUSE_MS : 0)
+  const deadline =
+    performance.now() + V1_IMPORT_DEADLINE_MS + (slowUpgrade ? SLOW_UPGRADE_PAUSE_MS : 0)
   let report = await readV1ImportReport(input.baseUrl)
   while (report.import?.status !== "completed") {
-    if (report.import?.status === "error") throw new Error(`The v1 chat import failed: ${report.import.error}`)
-    if (report.upgrade.state === "failed") throw new Error(`The upgrade failed: ${report.upgrade.error}`)
-    if (performance.now() > deadline) throw new Error(`The v1 chat import did not complete: ${JSON.stringify(report)}`)
+    if (report.import?.status === "error")
+      throw new Error(`The v1 chat import failed: ${report.import.error}`)
+    if (report.upgrade.state === "failed")
+      throw new Error(`The upgrade failed: ${report.upgrade.error}`)
+    if (performance.now() > deadline)
+      throw new Error(`The v1 chat import did not complete: ${JSON.stringify(report)}`)
     await delay(DEFAULT_POLL_INTERVAL_MS)
     report = await readV1ImportReport(input.baseUrl)
   }
@@ -376,29 +393,54 @@ async function assertV1Upgrade(input: {
   if (process.platform !== "win32" && (statSync(input.v2Database).mode & 0o777) !== 0o600) {
     throw new Error("opencode-v2.db is not restricted to its owner")
   }
-  if (digestFile(input.upgrade.v1Database) !== input.v1Digest) throw new Error("opencode.db changed during the upgrade")
+  if (digestFile(input.upgrade.v1Database) !== input.v1Digest)
+    throw new Error("opencode.db changed during the upgrade")
   await directoryJson(input.baseUrl, "open-projects", input.upgrade.notebook, {
     method: "POST",
     body: JSON.stringify({ directory: input.upgrade.notebook }),
   })
-  const sessions = z.array(z.object({ id: z.string() })).parse(
-    await directoryJson(input.baseUrl, "session?roots=true", input.upgrade.notebook),
-  )
-  const expected = [V1_UPGRADE_FIXTURE.parentSessionID, V1_UPGRADE_FIXTURE.separateSessionID].toSorted()
-  if (JSON.stringify(sessions.map((session) => session.id).toSorted()) !== JSON.stringify(expected)) {
+  const sessions = z
+    .array(z.object({ id: z.string() }))
+    .parse(await directoryJson(input.baseUrl, "session?roots=true", input.upgrade.notebook))
+  const expected = [
+    V1_UPGRADE_FIXTURE.parentSessionID,
+    V1_UPGRADE_FIXTURE.separateSessionID,
+  ].toSorted()
+  if (
+    JSON.stringify(sessions.map((session) => session.id).toSorted()) !== JSON.stringify(expected)
+  ) {
     throw new Error(`The upgraded notebook lists ${JSON.stringify(sessions)}`)
   }
-  const children = z.array(z.object({ id: z.string(), parentID: z.string().optional() })).parse(
-    await directoryJson(input.baseUrl, `session/${V1_UPGRADE_FIXTURE.parentSessionID}/children`, input.upgrade.notebook),
-  )
-  if (children[0]?.id !== V1_UPGRADE_FIXTURE.childSessionID || children[0]?.parentID !== V1_UPGRADE_FIXTURE.parentSessionID) {
+  const children = z
+    .array(z.object({ id: z.string(), parentID: z.string().optional() }))
+    .parse(
+      await directoryJson(
+        input.baseUrl,
+        `session/${V1_UPGRADE_FIXTURE.parentSessionID}/children`,
+        input.upgrade.notebook,
+      ),
+    )
+  if (
+    children[0]?.id !== V1_UPGRADE_FIXTURE.childSessionID ||
+    children[0]?.parentID !== V1_UPGRADE_FIXTURE.parentSessionID
+  ) {
     throw new Error(`The imported subagent chat lost its parent: ${JSON.stringify(children)}`)
   }
-  const messages = z.array(z.object({ info: z.object({ id: z.string() }) })).parse(
-    await directoryJson(input.baseUrl, `session/${V1_UPGRADE_FIXTURE.parentSessionID}/message`, input.upgrade.notebook),
-  )
+  const messages = z
+    .array(z.object({ info: z.object({ id: z.string() }) }))
+    .parse(
+      await directoryJson(
+        input.baseUrl,
+        `session/${V1_UPGRADE_FIXTURE.parentSessionID}/message`,
+        input.upgrade.notebook,
+      ),
+    )
   const ids = new Set(messages.map((message) => message.info.id))
-  for (const id of [V1_UPGRADE_FIXTURE.parentFirstMessageID, V1_UPGRADE_FIXTURE.citedMessageID, V1_UPGRADE_FIXTURE.mermaidMessageID]) {
+  for (const id of [
+    V1_UPGRADE_FIXTURE.parentFirstMessageID,
+    V1_UPGRADE_FIXTURE.citedMessageID,
+    V1_UPGRADE_FIXTURE.mermaidMessageID,
+  ]) {
     if (!ids.has(id)) throw new Error(`Imported message ${id} is missing`)
   }
 }
@@ -697,10 +739,17 @@ try {
   if (slowUpgrade) {
     const during = await readV1ImportReport(baseUrl)
     if (during.upgrade.state !== "copying") {
-      throw new Error(`Expected the upgrade to be copying during the injected pause: ${JSON.stringify(during)}`)
+      throw new Error(
+        `Expected the upgrade to be copying during the injected pause: ${JSON.stringify(during)}`,
+      )
     }
   }
-  await assertV1Upgrade({ baseUrl, upgrade: upgradeFixture, v1Digest: upgradeV1Digest, v2Database: upgradeV2Database })
+  await assertV1Upgrade({
+    baseUrl,
+    upgrade: upgradeFixture,
+    v1Digest: upgradeV1Digest,
+    v2Database: upgradeV2Database,
+  })
   console.log(`v1 chat import completed ${Math.round(performance.now() - spawnedAt)}ms after spawn`)
   const healthz = await probe({
     baseUrl,

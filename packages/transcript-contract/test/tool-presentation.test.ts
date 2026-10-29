@@ -167,7 +167,8 @@ describe("tool presentation contract", () => {
     })
 
     const dismissed = resolveToolPresentationSnapshot(descriptor, {
-      ...context("error"), outcome: { type: "dismissed" },
+      ...context("error"),
+      outcome: { type: "dismissed" },
     })
     expect(dismissed.outcome).toEqual({ type: "neutral", reason: "cancelled" })
     expect(denied.archetype === "activity" ? denied.action : undefined).toBe("Permission denied")

@@ -7,24 +7,13 @@ import {
   readExperimentalFeatureStatuses,
   setExperimentalFeatureEnabled,
 } from "../experimental-features"
-import {
-  readGlobalAgentsMd,
-  saveGlobalAgentsMd,
-} from "../agents-md/service"
-import {
-  booleanJsonResponse,
-  routeErrors,
-  runRouteTask,
-  runSdkRoute,
-} from "../http"
+import { readGlobalAgentsMd, saveGlobalAgentsMd } from "../agents-md/service"
+import { booleanJsonResponse, routeErrors, runRouteTask, runSdkRoute } from "../http"
 import { refreshActiveNotebookConfigs } from "../config/runtime/opencode-sync"
 import { loadConfigFile } from "../config/contract/document"
 import { resolveGlobalConfigFile } from "../config/store/config-paths"
 import { McpSettingsInfo, projectMcpSettingsConfig } from "../config/secrets/mcp-secrets"
-import {
-  readNotesDirectoryState,
-  saveNotesDirectory,
-} from "../notes/settings"
+import { readNotesDirectoryState, saveNotesDirectory } from "../notes/settings"
 import {
   listManagedNotebooks,
   readBuddyHomeDefaultAccessState,
@@ -105,7 +94,12 @@ export const GlobalRoutes = new Hono()
     }),
     async (c) =>
       runRouteTask({
-        task: async () => c.json(await projectMcpSettingsConfig(await loadConfigFile(resolveGlobalConfigFile(), { resolveSubstitutions: false }))),
+        task: async () =>
+          c.json(
+            await projectMcpSettingsConfig(
+              await loadConfigFile(resolveGlobalConfigFile(), { resolveSubstitutions: false }),
+            ),
+          ),
         mapError: mapConfigRouteError,
       }),
   )
@@ -127,7 +121,8 @@ export const GlobalRoutes = new Hono()
     validator("json", z.record(z.string(), z.unknown())),
     async (c) =>
       runRouteTask({
-        task: async () => c.json(await projectMcpSettingsConfig(await patchGlobalConfig(c.req.valid("json")))),
+        task: async () =>
+          c.json(await projectMcpSettingsConfig(await patchGlobalConfig(c.req.valid("json")))),
         mapError: mapConfigRouteError,
       }),
   )

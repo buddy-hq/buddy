@@ -349,7 +349,8 @@ describe("open project routes", () => {
 
       expect(createSessionResponse.status).toBe(403)
       await expect(createSessionResponse.json()).resolves.toEqual({
-        code: "request.forbidden", error: "Directory is outside allowed roots",
+        code: "request.forbidden",
+        error: "Directory is outside allowed roots",
       })
     } finally {
       if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
@@ -515,7 +516,8 @@ describe("open project routes", () => {
 
       expect(mismatchResponse.status).toBe(400)
       await expect(mismatchResponse.json()).resolves.toEqual({
-        code: "notebook.registry_failed", error: "Directory order must match the current open-project set",
+        code: "notebook.registry_failed",
+        error: "Directory order must match the current open-project set",
       })
     } finally {
       if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS

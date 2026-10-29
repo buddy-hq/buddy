@@ -128,7 +128,10 @@ if (!customElements.get("buddy-lifecycle-foliate-view")) {
   customElements.define("buddy-lifecycle-foliate-view", LifecycleView)
 }
 
-mock.module("foliate-js/view.js", () => ({ View: LifecycleView, makeBook: async () => makeLifecycleBook() }))
+mock.module("foliate-js/view.js", () => ({
+  View: LifecycleView,
+  makeBook: async () => makeLifecycleBook(),
+}))
 
 type DocumentReaderModule = typeof import("../src/components/readers/document-reader")
 let documentReaderModule: DocumentReaderModule | undefined

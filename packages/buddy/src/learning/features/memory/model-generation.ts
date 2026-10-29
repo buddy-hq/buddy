@@ -41,7 +41,8 @@ export async function generateMemoryObject<T>(input: {
       const parsed = parseMemoryObject(text, input.schema)
       if (parsed.success) return parsed.data
       if (attempt === input.retries) throw parsed.error
-      correction = "The previous response was not valid JSON matching the schema. Return a complete JSON object with all required fields."
+      correction =
+        "The previous response was not valid JSON matching the schema. Return a complete JSON object with all required fields."
     }
     throw new Error("Memory generation did not produce a response")
   } finally {

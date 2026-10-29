@@ -4,11 +4,7 @@ import {
   replaceActiveGoalSet,
 } from "../../src/learning/features/memory/goals/storage"
 import { tmpdir } from "../helpers/tmpdir"
-import {
-  createBuddyToolContext,
-  requireTool,
-  listBuddyTools,
-} from "../helpers/tools"
+import { createBuddyToolContext, requireTool, listBuddyTools } from "../helpers/tools"
 
 describe("goal tools", () => {
   test("archives only the prior goal set for the same scope and context", async () => {
@@ -60,8 +56,7 @@ describe("goal tools", () => {
       {
         scope: "topic",
         contextLabel: "Electron desktop bridge",
-        learnerRequest:
-          "I want to learn the Electron desktop bridge by shipping a small feature.",
+        learnerRequest: "I want to learn the Electron desktop bridge by shipping a small feature.",
         explicitlyRequestedSingleGoal: false,
         goals: [
           {
@@ -90,8 +85,7 @@ describe("goal tools", () => {
             howToTest: "Given one known bridge bug, write a failing test and verify the fix.",
           },
         ],
-        rationaleSummary:
-          "Optimized for shipping a small feature that uses the desktop bridge.",
+        rationaleSummary: "Optimized for shipping a small feature that uses the desktop bridge.",
       },
       ctx,
     )

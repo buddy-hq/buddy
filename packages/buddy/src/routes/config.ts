@@ -10,7 +10,11 @@ import {
   putProjectMcpConfig,
 } from "@buddy/backend/config/orchestration"
 import { loadProjectConfig, loadProjectConfigFile } from "../config/store/read-config"
-import { McpSettingsInfo, McpSettingsProjectInfo, projectMcpSettingsConfig } from "../config/secrets/mcp-secrets"
+import {
+  McpSettingsInfo,
+  McpSettingsProjectInfo,
+  projectMcpSettingsConfig,
+} from "../config/secrets/mcp-secrets"
 import { providerConfigSchema } from "@buddy/agent-runtime/providers"
 import {
   directoryQuerySchema,
@@ -154,7 +158,9 @@ export const ConfigRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const config = await loadProjectConfigFile(context.directory, { resolveSubstitutions: false })
+            const config = await loadProjectConfigFile(context.directory, {
+              resolveSubstitutions: false,
+            })
             return c.json(await projectMcpSettingsConfig(config))
           },
           mapError: mapConfigRouteError,
@@ -181,7 +187,9 @@ export const ConfigRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const config = await loadProjectConfig(context.directory, { resolveSubstitutions: false })
+            const config = await loadProjectConfig(context.directory, {
+              resolveSubstitutions: false,
+            })
             return c.json(await projectMcpSettingsConfig(config))
           },
           mapError: mapConfigRouteError,
@@ -213,7 +221,11 @@ export const ConfigRoutes = new Hono()
               directory: context.directory,
               payload: c.req.valid("json"),
             })
-            return c.json(await projectMcpSettingsConfig(await loadProjectConfig(context.directory, { resolveSubstitutions: false })))
+            return c.json(
+              await projectMcpSettingsConfig(
+                await loadProjectConfig(context.directory, { resolveSubstitutions: false }),
+              ),
+            )
           },
           mapError: mapConfigRouteError,
         }),
@@ -246,7 +258,11 @@ export const ConfigRoutes = new Hono()
               name: c.req.valid("param").name,
               payload: c.req.valid("json"),
             })
-            return c.json(await projectMcpSettingsConfig(await loadProjectConfig(context.directory, { resolveSubstitutions: false })))
+            return c.json(
+              await projectMcpSettingsConfig(
+                await loadProjectConfig(context.directory, { resolveSubstitutions: false }),
+              ),
+            )
           },
           mapError: mapConfigRouteError,
         }),

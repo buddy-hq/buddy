@@ -4,8 +4,12 @@ import { createImagePlanGate } from "../../src/learning/features/image-generatio
 
 function usage(plan: string | null): ChatGPTUsage {
   return {
-    status: "ready", plan, rateLimit: { primary: null, secondary: null },
-    additionalRateLimits: [], credits: null, fetchedAt: "2026-10-24T00:00:00Z",
+    status: "ready",
+    plan,
+    rateLimit: { primary: null, secondary: null },
+    additionalRateLimits: [],
+    credits: null,
+    fetchedAt: "2026-10-24T00:00:00Z",
   }
 }
 
@@ -16,23 +20,40 @@ describe("image plan gate", () => {
     { plan: "plus", unavailable: false },
     { plan: null, unavailable: false },
   ])("plan $plan returns $unavailable", async ({ plan, unavailable }) => {
-    const gate = createImagePlanGate(async () => usage(plan), () => 0)
+    const gate = createImagePlanGate(
+      async () => usage(plan),
+      () => 0,
+    )
     expect(await gate.unavailable()).toBe(unavailable)
   })
 
-  test.each(["not_connected", "error", "reconnect_required"] as const)("keeps the tool for %s", async (status) => {
-    const gate = createImagePlanGate(async () => ({ status }), () => 0)
-    expect(await gate.unavailable()).toBe(false)
-  })
+  test.each(["not_connected", "error", "reconnect_required"] as const)(
+    "keeps the tool for %s",
+    async (status) => {
+      const gate = createImagePlanGate(
+        async () => ({ status }),
+        () => 0,
+      )
+      expect(await gate.unavailable()).toBe(false)
+    },
+  )
 
   test("keeps the tool when the usage reader throws", async () => {
-    const gate = createImagePlanGate(async () => { throw new Error("Usage unavailable") }, () => 0)
+    const gate = createImagePlanGate(
+      async () => {
+        throw new Error("Usage unavailable")
+      },
+      () => 0,
+    )
     expect(await gate.unavailable()).toBe(false)
   })
 
   test("bounds the initial lookup to 1.5 seconds and caches its eventual result", async () => {
     const pending = Promise.withResolvers<ChatGPTUsage>()
-    const gate = createImagePlanGate(() => pending.promise, () => 0)
+    const gate = createImagePlanGate(
+      () => pending.promise,
+      () => 0,
+    )
     const started = performance.now()
     expect(await gate.unavailable()).toBe(false)
     const elapsed = performance.now() - started
@@ -46,10 +67,13 @@ describe("image plan gate", () => {
     let now = 0
     let reads = 0
     const refresh = Promise.withResolvers<ChatGPTUsage>()
-    const gate = createImagePlanGate(() => {
-      reads += 1
-      return reads === 1 ? Promise.resolve(usage("free")) : refresh.promise
-    }, () => now)
+    const gate = createImagePlanGate(
+      () => {
+        reads += 1
+        return reads === 1 ? Promise.resolve(usage("free")) : refresh.promise
+      },
+      () => now,
+    )
 
     expect(await gate.unavailable()).toBe(true)
     now = 60_000

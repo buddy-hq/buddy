@@ -14,7 +14,12 @@ import { importV1GlobalConfig } from "./global-config-import"
 import { repairLegacyOpenCodeMigrations } from "./legacy-migration-repair"
 import { formatOpenCodeLogDetails, redactLogText } from "./log-redaction"
 import { importV1McpSignIns } from "./mcp-auth-import"
-import { ensureV2DatabaseSeeded, isV2DatabaseUpgrade, v2DatabaseLock, type V2DatabaseSeedResult } from "./seed-v2-database"
+import {
+  ensureV2DatabaseSeeded,
+  isV2DatabaseUpgrade,
+  v2DatabaseLock,
+  type V2DatabaseSeedResult,
+} from "./seed-v2-database"
 import {
   startV1ImportGuard,
   v1ImportNeedsLockAt,
@@ -39,7 +44,11 @@ const MIGRATION_DIRECTORY_RELATIVE_PATH = "packages/buddy/migration"
 const V1_IMPORT_LOCK_NAME = "buddy-v1-chat-import"
 const V1_IMPORT_LOCK_TIMEOUT_MS = 30 * 60_000
 const V1_IMPORT_OWNER_MAX_AGE_MS = 10 * 60_000
-const v1ImportOwnerSchema = z.object({ pid: z.number().int().positive(), hostname: z.string(), token: z.string() })
+const v1ImportOwnerSchema = z.object({
+  pid: z.number().int().positive(),
+  hostname: z.string(),
+  token: z.string(),
+})
 
 export type OpenCodeHost = OpenCode.Interface
 export type OpenCodeLogEntry = OpenCode.LogEntry
@@ -182,20 +191,22 @@ export function configureOpenCodeGlobalPaths(paths: OpenCodeHostPaths) {
 export async function createOpenCodeHost(options: OpenCodeHostOptions): Promise<OpenCodeHost> {
   configureOpenCodeGlobalPaths(options.paths)
   const { OpenCode } = await import("@opencode/sdk")
-  return observeHostShells(await OpenCode.create({
-    app: {
-      name: options.clientName,
-      version: OPENCODE_VERSION,
-      channel: OPENCODE_RELEASE_CHANNEL,
-    },
-    database: { path: options.databasePath },
-    config: { ...options.config, directory: options.paths.config },
-    fs: options.fs,
-    models: { fetch: options.fetchModels ?? true },
-    plugins: options.plugins,
-    instances: options.instances,
-    log: options.log,
-  }))
+  return observeHostShells(
+    await OpenCode.create({
+      app: {
+        name: options.clientName,
+        version: OPENCODE_VERSION,
+        channel: OPENCODE_RELEASE_CHANNEL,
+      },
+      database: { path: options.databasePath },
+      config: { ...options.config, directory: options.paths.config },
+      fs: options.fs,
+      models: { fetch: options.fetchModels ?? true },
+      plugins: options.plugins,
+      instances: options.instances,
+      log: options.log,
+    }),
+  )
 }
 
 async function ensureRuntimeDirectories(temporaryDirectory: string) {
@@ -331,7 +342,8 @@ async function trackV1ImportOwner(lease: Flock.Lease, recordPath: string): Promi
   const release = async () => {
     clearInterval(heartbeat)
     try {
-      if ((await readV1ImportOwner(recordPath))?.token === owner.token) await rm(recordPath, { force: true })
+      if ((await readV1ImportOwner(recordPath))?.token === owner.token)
+        await rm(recordPath, { force: true })
     } catch (error) {
       console.warn("Could not release the v1 chat import lock:", errorText(error))
     }
@@ -340,10 +352,16 @@ async function trackV1ImportOwner(lease: Flock.Lease, recordPath: string): Promi
   return { release, [Symbol.asyncDispose]: release }
 }
 
-async function acquireV1ImportLock(databasePath: string, onWait: () => void): Promise<Flock.Lease | undefined> {
+async function acquireV1ImportLock(
+  databasePath: string,
+  onWait: () => void,
+): Promise<Flock.Lease | undefined> {
   if (!mayRunV1Import(databasePath)) return undefined
   const lock = await v2DatabaseLock(databasePath, V1_IMPORT_LOCK_NAME)
-  const recordPath = path.join(lock.dir, `buddy-v1-import-owner-${createHash("sha256").update(lock.key).digest("hex").slice(0, 16)}.json`)
+  const recordPath = path.join(
+    lock.dir,
+    `buddy-v1-import-owner-${createHash("sha256").update(lock.key).digest("hex").slice(0, 16)}.json`,
+  )
   const timeout = new AbortController()
   const timer = setTimeout(() => timeout.abort(), V1_IMPORT_LOCK_TIMEOUT_MS)
   timer.unref?.()
@@ -363,12 +381,19 @@ async function acquireV1ImportLock(databasePath: string, onWait: () => void): Pr
         })
         break
       } catch (error) {
-        if (timeout.signal.aborted || !(error instanceof Error && error.message === `Timed out waiting for lock: ${lock.key}`)) throw error
+        if (
+          timeout.signal.aborted ||
+          !(error instanceof Error && error.message === `Timed out waiting for lock: ${lock.key}`)
+        )
+          throw error
       }
     }
   } catch (error) {
     if (!timeout.signal.aborted) throw error
-    throw new Error("Another Buddy window is still importing your chats from the previous version. Try again once it has finished.", { cause: error })
+    throw new Error(
+      "Another Buddy window is still importing your chats from the previous version. Try again once it has finished.",
+      { cause: error },
+    )
   } finally {
     clearTimeout(timer)
   }
@@ -377,7 +402,10 @@ async function acquireV1ImportLock(databasePath: string, onWait: () => void): Pr
   return undefined
 }
 
-export async function startV1ImportLaunch(databasePath: string, options: { readonly onWait: () => void }): Promise<V1ImportGuard> {
+export async function startV1ImportLaunch(
+  databasePath: string,
+  options: { readonly onWait: () => void },
+): Promise<V1ImportGuard> {
   const lease = await acquireV1ImportLock(databasePath, options.onWait)
   let released = false
   const release = async () => {
@@ -416,7 +444,9 @@ function seedPause(pauseMs: number | undefined) {
   return () => delay(pauseMs)
 }
 
-export async function startOpenCodeHost(options: OpenCodeHostStartupOptions): Promise<OpenCodeHost> {
+export async function startOpenCodeHost(
+  options: OpenCodeHostStartupOptions,
+): Promise<OpenCodeHost> {
   const paths = installOpenCodeEnvironment(options.environment)
   await ensureRuntimeDirectories(paths.tmp)
   await options.initializeStorage()
@@ -435,7 +465,10 @@ export async function startOpenCodeHost(options: OpenCodeHostStartupOptions): Pr
   try {
     seed = await ensureV2DatabaseSeeded(
       { v1Database: paths.v1Database, v2Database: paths.database },
-      { onUpgrade: () => report({ state: "copying" }), beforePrepare: seedPause(options.upgrade?.seedPauseMs) },
+      {
+        onUpgrade: () => report({ state: "copying" }),
+        beforePrepare: seedPause(options.upgrade?.seedPauseMs),
+      },
     )
   } catch (error) {
     reportFailed(error)
@@ -459,7 +492,7 @@ export async function startOpenCodeHost(options: OpenCodeHostStartupOptions): Pr
       clientName: "buddy",
       paths,
       databasePath: paths.database,
-      ...await options.configure(),
+      ...(await options.configure()),
       log: { level: "warn", emit: forwardOpenCodeLog },
       fetchModels: !isEnabledFlag(process.env.OPENCODE_DISABLE_MODELS_FETCH),
     })

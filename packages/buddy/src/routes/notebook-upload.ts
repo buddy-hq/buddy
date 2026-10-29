@@ -4,9 +4,7 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import {
-  copyNativeResourceToNotebook,
-  } from "../notebook-uploads/notebook-upload-service"
+import { copyNativeResourceToNotebook } from "../notebook-uploads/notebook-upload-service"
 
 const NotebookUploadCreateBodySchema = z
   .object({

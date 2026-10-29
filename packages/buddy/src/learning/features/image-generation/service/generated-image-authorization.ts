@@ -10,7 +10,6 @@ import {
   type GeneratedImageProvenance,
 } from "./generated-image"
 
-
 const IMAGEGEN_TOOL_ID = "imagegen" as const
 
 type GeneratedImageAuthorizationContext = {

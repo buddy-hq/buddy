@@ -78,7 +78,9 @@ function collapseDisplayWhitespace(text: string) {
 }
 
 function hasTextSource(part: ChatAgentPart | ChatFilePart) {
-  return isChatFilePart(part) ? part.source?.text !== undefined : part.source !== null && part.source !== undefined
+  return isChatFilePart(part)
+    ? part.source?.text !== undefined
+    : part.source !== null && part.source !== undefined
 }
 
 function getReferencePath(part: StandaloneReferencePart) {

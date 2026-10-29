@@ -29,7 +29,9 @@ describe("backend request authentication", () => {
       registry.register(new EventEmitter())
       const unregistered = new EventEmitter()
 
-      expect(shouldInjectBackendAuth({ ...appRequest, isAppWindow: registry.has(unregistered) })).toBe(false)
+      expect(
+        shouldInjectBackendAuth({ ...appRequest, isAppWindow: registry.has(unregistered) }),
+      ).toBe(false)
     },
   )
 
@@ -43,8 +45,12 @@ describe("backend request authentication", () => {
 
     closed.emit("closed")
 
-    expect(shouldInjectBackendAuth({ ...appRequest, isAppWindow: registry.has(closed) })).toBe(false)
-    expect(shouldInjectBackendAuth({ ...appRequest, isAppWindow: registry.has(remaining) })).toBe(true)
+    expect(shouldInjectBackendAuth({ ...appRequest, isAppWindow: registry.has(closed) })).toBe(
+      false,
+    )
+    expect(shouldInjectBackendAuth({ ...appRequest, isAppWindow: registry.has(remaining) })).toBe(
+      true,
+    )
   })
 
   test.each(["image", "xhr", "mainFrame"])(
@@ -63,7 +69,12 @@ describe("backend request authentication", () => {
       resourceType: "subFrame",
     },
     { context: "webview contents", isAppWindow: false, isMainFrame: true, resourceType: "image" },
-    { context: "missing webContents", isAppWindow: false, isMainFrame: false, resourceType: "image" },
+    {
+      context: "missing webContents",
+      isAppWindow: false,
+      isMainFrame: false,
+      resourceType: "image",
+    },
     { context: "a missing frame", isAppWindow: true, isMainFrame: false, resourceType: "image" },
     { context: "a destroyed frame", isAppWindow: true, isMainFrame: false, resourceType: "image" },
     {
@@ -78,9 +89,14 @@ describe("backend request authentication", () => {
       isMainFrame: false,
       resourceType: "mainFrame",
     },
-  ])("withholds backend credentials from $context", ({ isAppWindow, isMainFrame, resourceType }) => {
-    expect(shouldInjectBackendAuth({ ...appRequest, isAppWindow, isMainFrame, resourceType })).toBe(false)
-  })
+  ])(
+    "withholds backend credentials from $context",
+    ({ isAppWindow, isMainFrame, resourceType }) => {
+      expect(
+        shouldInjectBackendAuth({ ...appRequest, isAppWindow, isMainFrame, resourceType }),
+      ).toBe(false)
+    },
+  )
 
   test("withholds backend credentials from other origins", () => {
     expect(

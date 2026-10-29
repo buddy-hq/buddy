@@ -8,7 +8,10 @@ import { closeAgentRuntime } from "../../src/runtime/agent-runtime"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { writeProjectConfig } from "../helpers/project-config"
 import { createRuntimeHarness, scenario } from "../conformance/harness"
-import { BUDDY_PROMPT_PART_METADATA_KEY, NATIVE_RESOURCE_ATTACHMENT_PART_TYPE } from "../../src/learning/prompt/native-resource-metadata"
+import {
+  BUDDY_PROMPT_PART_METADATA_KEY,
+  NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+} from "../../src/learning/prompt/native-resource-metadata"
 import { estimateTokenCountFromText } from "../../src/resource-packs"
 import { tmpdir } from "../helpers/tmpdir"
 import { requireString, requireToolMetadata, requireToolObjectResult } from "../helpers/parse"
@@ -56,18 +59,32 @@ const SMALL_TEST_ACTIVE_MODEL: ActiveProviderModel = {
   },
 }
 
-const { ingestFullTextTool } = await import("../../src/learning/features/reading/tools/ingest-full-text")
-const { prepareResourceTool } = await import("../../src/learning/features/reading/tools/prepare-resource")
+const { ingestFullTextTool } =
+  await import("../../src/learning/features/reading/tools/ingest-full-text")
+const { prepareResourceTool } =
+  await import("../../src/learning/features/reading/tools/prepare-resource")
 
 afterAll(closeAgentRuntime)
 
 async function configureModels(directory: string) {
-  writeProjectConfig(directory, JSON.stringify({
-    model: "scripted/test-model",
-    provider: { scripted: { npm: "@ai-sdk/perplexity", options: { apiKey: "test" }, models: Object.fromEntries(
-      [TEST_ACTIVE_MODEL, LARGE_TEST_ACTIVE_MODEL, SMALL_TEST_ACTIVE_MODEL].map((model) => [model.id, { limit: model.limit }]),
-    ) } },
-  }))
+  writeProjectConfig(
+    directory,
+    JSON.stringify({
+      model: "scripted/test-model",
+      provider: {
+        scripted: {
+          npm: "@ai-sdk/perplexity",
+          options: { apiKey: "test" },
+          models: Object.fromEntries(
+            [TEST_ACTIVE_MODEL, LARGE_TEST_ACTIVE_MODEL, SMALL_TEST_ACTIVE_MODEL].map((model) => [
+              model.id,
+              { limit: model.limit },
+            ]),
+          ),
+        },
+      },
+    }),
+  )
   await syncOpenCodeProjectConfig(directory)
 }
 
@@ -113,28 +130,33 @@ function createNativePdfMessageHistory(input: {
   if (!message || message.info.role !== "user") {
     throw new Error("Expected user message history")
   }
-  return [{
-    ...message,
-    parts: [...message.parts, {
-      id: "prt_native_pdf_metadata",
-      sessionID: input.sessionID,
-      messageID: message.info.id,
-      type: "text",
-      text: "Attached native learning resource metadata",
-      metadata: {
-        [BUDDY_PROMPT_PART_METADATA_KEY]: {
-          type: NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
-          filename: "Native.pdf",
-          sourcePath: input.sourcePath,
-          format: "pdf",
-          alias: "Native.pdf",
-          mime: "application/pdf",
-          delivery: input.delivery,
-          pageCount: 1,
+  return [
+    {
+      ...message,
+      parts: [
+        ...message.parts,
+        {
+          id: "prt_native_pdf_metadata",
+          sessionID: input.sessionID,
+          messageID: message.info.id,
+          type: "text",
+          text: "Attached native learning resource metadata",
+          metadata: {
+            [BUDDY_PROMPT_PART_METADATA_KEY]: {
+              type: NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+              filename: "Native.pdf",
+              sourcePath: input.sourcePath,
+              format: "pdf",
+              alias: "Native.pdf",
+              mime: "application/pdf",
+              delivery: input.delivery,
+              pageCount: 1,
+            },
+          },
         },
-      },
-    }],
-  }]
+      ],
+    },
+  ]
 }
 
 function createAssistantUsageMessage(
@@ -175,10 +197,21 @@ function createExecutionContext(input: {
 }): BuddyToolContext {
   return {
     ...createBuddyToolContext({
-    directory: input.directory, sessionID: input.sessionID, agent: "buddy" }),
-    messages: input.messages.map((message) => message.info.role === "user" ? {
-      ...message, info: { ...message.info, model: { providerID: input.model.providerID, modelID: input.model.id } },
-    } : message),
+      directory: input.directory,
+      sessionID: input.sessionID,
+      agent: "buddy",
+    }),
+    messages: input.messages.map((message) =>
+      message.info.role === "user"
+        ? {
+            ...message,
+            info: {
+              ...message.info,
+              model: { providerID: input.model.providerID, modelID: input.model.id },
+            },
+          }
+        : message,
+    ),
   }
 }
 
@@ -280,7 +313,8 @@ describe("ingest_full_text on v2", () => {
   test("keeps large full-text output intact through a real runtime tool turn", async () => {
     await using harness = await createRuntimeHarness()
     const directory = harness.directory
-    const repeatedLine = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron\n"
+    const repeatedLine =
+      "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron\n"
     const sourcePath = path.join(directory, "large-frames.md")
     writeFileSync(sourcePath, "# Large Frames\n\n" + repeatedLine.repeat(1_200), "utf8")
     await prepareResourceTool.run(
@@ -288,16 +322,29 @@ describe("ingest_full_text on v2", () => {
       createBuddyToolContext({ directory, agent: "buddy" }),
     )
     const session = await harness.create({ agent: "buddy" })
-    const response = await harness.prompt(session.id, scenario({ kind: "tool", name: "ingest_full_text", arguments: { resourceKey: "large-frames-md" } }), { agent: "buddy" })
+    const response = await harness.prompt(
+      session.id,
+      scenario({
+        kind: "tool",
+        name: "ingest_full_text",
+        arguments: { resourceKey: "large-frames-md" },
+      }),
+      { agent: "buddy" },
+    )
     expect(response.status).toBe(200)
     const history = await harness.messages(session.id)
-    const result = history.flatMap((message) => message.parts).find((part) => part.type === "tool" && part.tool === "ingest_full_text")
+    const result = history
+      .flatMap((message) => message.parts)
+      .find((part) => part.type === "tool" && part.tool === "ingest_full_text")
     expect(result?.type === "tool" ? result.state.status : undefined).toBe("completed")
-    if (result?.type !== "tool" || result.state.status !== "completed") throw new Error("Full-text tool did not complete")
+    if (result?.type !== "tool" || result.state.status !== "completed")
+      throw new Error("Full-text tool did not complete")
     expect(result.state.metadata).toMatchObject({ truncated: false })
     expect(result.state.output).toContain("<resource_full_text_ingestion")
     expect(result.state.output).toContain(repeatedLine.repeat(1_200).trim())
-    expect(result.state.output).not.toContain("The tool call succeeded but the output was truncated.")
+    expect(result.state.output).not.toContain(
+      "The tool call succeeded but the output was truncated.",
+    )
   })
 
   test("does not duplicate prepared full text for a natively delivered PDF", async () => {
@@ -426,9 +473,7 @@ describe("ingest_full_text on v2", () => {
     expect(boundaryMetadata.remainingAfterIngestion).toBe(
       FULL_TEXT_INPUT_WINDOW_CEILING_RESERVE_TOKENS,
     )
-    writeEstimatedTokenCount(
-      EMPTY_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS + ONE_TOKEN_OVER_BUDGET,
-    )
+    writeEstimatedTokenCount(EMPTY_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS + ONE_TOKEN_OVER_BUDGET)
     const overBoundaryResult = await ingestFullTextTool.run(
       { resourceKey: "capped-window-md" },
       createExecutionContext(contextInput),

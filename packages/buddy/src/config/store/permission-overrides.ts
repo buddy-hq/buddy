@@ -115,7 +115,13 @@ function defaultSkillPermissionRule(permission: Record<string, PermissionRule>):
       return []
     }
 
-    if (!matchPermissionPattern(SKILL_PERMISSION_KEY, permissionKey, process.platform === "win32" ? "win32" : "posix")) {
+    if (
+      !matchPermissionPattern(
+        SKILL_PERMISSION_KEY,
+        permissionKey,
+        process.platform === "win32" ? "win32" : "posix",
+      )
+    ) {
       return []
     }
 

@@ -1,5 +1,14 @@
 import z from "zod"
-import { ChatGPTReconnectRequired, type ChatGPTAccountModel, type ChatGPTAccountService, type ChatGPTAuth, type ChatGPTCredentials, type ChatGPTIdentity, type ChatGPTModelAvailability, type ChatGPTUsage } from "@buddy/agent-runtime/chatgpt"
+import {
+  ChatGPTReconnectRequired,
+  type ChatGPTAccountModel,
+  type ChatGPTAccountService,
+  type ChatGPTAuth,
+  type ChatGPTCredentials,
+  type ChatGPTIdentity,
+  type ChatGPTModelAvailability,
+  type ChatGPTUsage,
+} from "@buddy/agent-runtime/chatgpt"
 import type { ExtensionLocation } from "@buddy/agent-runtime/extension"
 import packageJson from "../../package.json"
 import { AGENT_RUNTIME_INFO } from "../runtime/runtime-info"
@@ -192,8 +201,13 @@ export function createChatGPTAccountService(
 ): ChatGPTAccountService {
   const request = options.fetch ?? ((input, init) => fetch(input, init))
   const currentTime = options.now ?? (() => Date.now())
-  const accountRequest = (input: FetchInput, init?: FetchInit) => request(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(5_000) })
-  const images = createCodexImagesClient({ fetch: (url, init) => request(url, init), resolveAuth: () => credentials.resolve(), onRejected: (auth) => credentials.reject(auth) })
+  const accountRequest = (input: FetchInput, init?: FetchInit) =>
+    request(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(5_000) })
+  const images = createCodexImagesClient({
+    fetch: (url, init) => request(url, init),
+    resolveAuth: () => credentials.resolve(),
+    onRejected: (auth) => credentials.reject(auth),
+  })
   let modelCache: ModelCache | undefined
   let modelFailure: FailureCache | undefined
   let modelRefresh: AccountRefresh<ModelCache> | undefined
@@ -228,7 +242,11 @@ export function createChatGPTAccountService(
       if (!result.success) return { status: "unavailable" }
 
       const currentAuth = await credentials.resolve()
-      if (!currentAuth || resolveAccountKey(currentAuth) !== resolveAccountKey(auth) || currentAuth.access !== auth.access) {
+      if (
+        !currentAuth ||
+        resolveAccountKey(currentAuth) !== resolveAccountKey(auth) ||
+        currentAuth.access !== auth.access
+      ) {
         return { status: "unavailable" }
       }
 
@@ -264,18 +282,24 @@ export function createChatGPTAccountService(
     }
 
     const parsed = codexModelsResponseSchema.parse(await response.json())
-    const models = parsed.models.filter((model) => model.visibility === LISTED_MODEL_VISIBILITY).map((model): ChatGPTAccountModel => {
-      const context = model.context_window ?? model.max_context_window
-      return {
-        id: model.slug,
-        name: model.display_name ?? undefined,
-        contextWindow: context ? Math.floor(context * (model.effective_context_window_percent ?? PERCENT_BASE) / PERCENT_BASE) : undefined,
-        maxOutputTokens: model.max_output_tokens ?? undefined,
-        inputModalities: model.input_modalities ?? undefined,
-        reasoningEfforts: model.supported_reasoning_levels?.map(({ effort }) => effort),
-        reasoningSummary: model.supports_reasoning_summary_parameter ?? undefined,
-      }
-    })
+    const models = parsed.models
+      .filter((model) => model.visibility === LISTED_MODEL_VISIBILITY)
+      .map((model): ChatGPTAccountModel => {
+        const context = model.context_window ?? model.max_context_window
+        return {
+          id: model.slug,
+          name: model.display_name ?? undefined,
+          contextWindow: context
+            ? Math.floor(
+                (context * (model.effective_context_window_percent ?? PERCENT_BASE)) / PERCENT_BASE,
+              )
+            : undefined,
+          maxOutputTokens: model.max_output_tokens ?? undefined,
+          inputModalities: model.input_modalities ?? undefined,
+          reasoningEfforts: model.supported_reasoning_levels?.map(({ effort }) => effort),
+          reasoningSummary: model.supports_reasoning_summary_parameter ?? undefined,
+        }
+      })
     const modelIDs = models.map((model) => model.id)
     if (modelIDs.length === 0) {
       throw new Error(EMPTY_MODEL_AVAILABILITY_ERROR)
@@ -357,7 +381,11 @@ export function createChatGPTAccountService(
       auth = await credentials.resolve()
       if (!auth) return undefined
       const currentAuth = await credentials.resolve()
-      if (!currentAuth || resolveAccountKey(currentAuth) !== resolveAccountKey(auth) || currentAuth.access !== auth.access) {
+      if (
+        !currentAuth ||
+        resolveAccountKey(currentAuth) !== resolveAccountKey(auth) ||
+        currentAuth.access !== auth.access
+      ) {
         return undefined
       }
       auth = currentAuth
@@ -583,7 +611,7 @@ export function createChatGPTAccountService(
 
   return {
     identity: readIdentity,
-    models: ({ refresh }) => refresh ? refreshModelAvailability() : readModelAvailability(),
+    models: ({ refresh }) => (refresh ? refreshModelAvailability() : readModelAvailability()),
     usage: ({ refresh }) => readUsage(refresh),
     image: (request) => images.createImage(request),
     accountModels: resolveModelCatalog,

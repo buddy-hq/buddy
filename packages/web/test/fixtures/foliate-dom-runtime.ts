@@ -5,20 +5,27 @@ export function installFoliateDomRuntime() {
   for (const method of ["setStart", "setEnd"] as const) {
     const original = Range.prototype[method]
     Range.prototype[method] = function (node, offset) {
-      const owner = Object.getOwnPropertySymbols(this).find((symbol) => symbol.description === "ownerDocument")
-      if (owner && node.ownerDocument) Object.defineProperty(this, owner, { value: node.ownerDocument })
+      const owner = Object.getOwnPropertySymbols(this).find(
+        (symbol) => symbol.description === "ownerDocument",
+      )
+      if (owner && node.ownerDocument)
+        Object.defineProperty(this, owner, { value: node.ownerDocument })
       original.call(this, node, offset)
     }
   }
-  const originalIterators = [document, HTMLDocument.prototype, XMLDocument.prototype].map((target) => ({
-    target,
-    descriptor: Object.getOwnPropertyDescriptor(target, "createNodeIterator"),
-  }))
+  const originalIterators = [document, HTMLDocument.prototype, XMLDocument.prototype].map(
+    (target) => ({
+      target,
+      descriptor: Object.getOwnPropertyDescriptor(target, "createNodeIterator"),
+    }),
+  )
   DOMParser.prototype.parseFromString = function (source, type) {
     const doc = originalParse.call(this, source, type)
     if (type !== "text/html") {
       for (const element of Array.from(doc.querySelectorAll("*"))) {
-        const localName = /^[A-Z][A-Z\d-]*$/.test(element.localName) ? element.localName.toLowerCase() : element.localName
+        const localName = /^[A-Z][A-Z\d-]*$/.test(element.localName)
+          ? element.localName.toLowerCase()
+          : element.localName
         const name = element.prefix ? `${element.prefix}:${localName}` : localName
         Object.defineProperties(element, {
           localName: { configurable: true, value: localName },
@@ -37,11 +44,18 @@ export function installFoliateDomRuntime() {
         root,
         whatToShow,
         filter,
-        get referenceNode() { return referenceNode },
-        get pointerBeforeReferenceNode() { return visited.size === 0 },
+        get referenceNode() {
+          return referenceNode
+        },
+        get pointerBeforeReferenceNode() {
+          return visited.size === 0
+        },
         nextNode: () => {
           const walker = document.createTreeWalker(root, whatToShow, filter)
-          const accepted = !filter || ("acceptNode" in filter ? filter.acceptNode(root) : filter(root)) === NodeFilter.FILTER_ACCEPT
+          const accepted =
+            !filter ||
+            ("acceptNode" in filter ? filter.acceptNode(root) : filter(root)) ===
+              NodeFilter.FILTER_ACCEPT
           const includesRoot = (whatToShow & (1 << (root.nodeType - 1))) !== 0 && accepted
           for (let node = includesRoot ? root : walker.nextNode(); node; node = walker.nextNode()) {
             if (visited.has(node)) continue

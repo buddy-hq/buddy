@@ -16,7 +16,12 @@ import { parseTNumber, parseTPartTime } from "./tools/types"
 import { parseToolState } from "./tools/parse-tool-state"
 import { parseToolPresentation } from "./tools/parse-tool-presentation"
 import type { AssistantRenderItem, ChatTurn } from "./types"
-import type { MessagePart, MessageWithParts, SessionStatusInfo, SessionStoppedTurn } from "@/state/chat-types"
+import type {
+  MessagePart,
+  MessageWithParts,
+  SessionStatusInfo,
+  SessionStoppedTurn,
+} from "@/state/chat-types"
 import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
 import { isSessionStatusRetry } from "@/state/session-status"
 import {
@@ -516,9 +521,10 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         key: `turn-divider:${userMessageID}:interrupted`,
         userMessageID,
         label: "interrupted",
-        stopReason: input.stoppedTurn && input.stoppedTurn.assistantMessageID === interruptedMessageID
-          ? input.stoppedTurn.reason
-          : undefined,
+        stopReason:
+          input.stoppedTurn && input.stoppedTurn.assistantMessageID === interruptedMessageID
+            ? input.stoppedTurn.reason
+            : undefined,
       })
     }
 

@@ -11,7 +11,10 @@ export function redactLogText(text: string): string {
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]")
 }
 
-export function formatOpenCodeLogDetails(entry: { attributes?: unknown; cause?: unknown }): string[] {
+export function formatOpenCodeLogDetails(entry: {
+  attributes?: unknown
+  cause?: unknown
+}): string[] {
   return [entry.attributes, entry.cause]
     .filter((value) => value !== undefined)
     .map((value) => {

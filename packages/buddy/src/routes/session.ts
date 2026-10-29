@@ -378,9 +378,7 @@ export const SessionRoutes = new Hono()
           description: "Session status map",
           content: {
             "application/json": {
-              schema: resolver(
-                toOpenApiSchema(Schema.Record(Schema.String, SessionStatus)),
-              ),
+              schema: resolver(toOpenApiSchema(Schema.Record(Schema.String, SessionStatus))),
             },
           },
         },
@@ -475,7 +473,12 @@ export const SessionRoutes = new Hono()
       operationId: "session.children",
       summary: "List child sessions",
       responses: {
-        200: { description: "Child sessions", content: { "application/json": { schema: resolver(toOpenApiSchema(Schema.Array(Session))) } } },
+        200: {
+          description: "Child sessions",
+          content: {
+            "application/json": { schema: resolver(toOpenApiSchema(Schema.Array(Session))) },
+          },
+        },
         ...routeErrors(403, 404),
       },
     }),
@@ -489,7 +492,10 @@ export const SessionRoutes = new Hono()
       operationId: "session.message",
       summary: "Get a transcript message",
       responses: {
-        200: { description: "Message with parts", content: { "application/json": { schema: resolver(toOpenApiSchema(MessageWithParts)) } } },
+        200: {
+          description: "Message with parts",
+          content: { "application/json": { schema: resolver(toOpenApiSchema(MessageWithParts)) } },
+        },
         ...routeErrors(403, 404),
       },
     }),
@@ -587,7 +593,9 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Completed command assistant or session after a command without a prompt",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(Schema.Union([MessageWithParts, Session]))) },
+            "application/json": {
+              schema: resolver(toOpenApiSchema(Schema.Union([MessageWithParts, Session]))),
+            },
           },
         },
         ...routeErrors(400, 403, 409),
@@ -661,7 +669,10 @@ export const SessionRoutes = new Hono()
         SESSION_SVG_REPAIR_MAX_REQUEST_BODY_BYTES,
       )
       if (result.status === "too_large") {
-        return c.json(routeErrorBody(413, "SVG repair request exceeds the request size limit."), 413)
+        return c.json(
+          routeErrorBody(413, "SVG repair request exceeds the request size limit."),
+          413,
+        )
       }
       c.req.raw = replayRequestBody(c.req.raw, result.body)
       await next()

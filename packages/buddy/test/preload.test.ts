@@ -19,19 +19,20 @@ if (process.env.BUDDY_TEST_PRELOAD_PROBE === "1") {
   })
 } else {
   test("the preload clears inherited Buddy and OpenCode path and config overrides", () => {
-    const result = spawnSync(process.execPath, [
-      "test",
-      "--preload",
-      path.join(import.meta.dir, "preload.ts"),
-      import.meta.path,
-    ], {
-      env: {
-        ...process.env,
-        ...Object.fromEntries(inheritedOverrides.map((key) => [key, path.join(TEST_SANDBOX.root, key)])),
-        BUDDY_TEST_PRELOAD_PROBE: "1",
+    const result = spawnSync(
+      process.execPath,
+      ["test", "--preload", path.join(import.meta.dir, "preload.ts"), import.meta.path],
+      {
+        env: {
+          ...process.env,
+          ...Object.fromEntries(
+            inheritedOverrides.map((key) => [key, path.join(TEST_SANDBOX.root, key)]),
+          ),
+          BUDDY_TEST_PRELOAD_PROBE: "1",
+        },
+        encoding: "utf8",
       },
-      encoding: "utf8",
-    })
+    )
     expect(result.status, result.stderr).toBe(0)
   })
 }

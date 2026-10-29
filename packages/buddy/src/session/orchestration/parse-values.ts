@@ -46,4 +46,3 @@ export function parseTSessionJsonValidator<TValue>(
   }
   return (target) => parseTSessionJsonObject(parsed.data(target)) ?? {}
 }
-

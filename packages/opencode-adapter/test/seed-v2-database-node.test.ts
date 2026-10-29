@@ -21,15 +21,22 @@ const outputSchema = z.union([
   z.object({ error: z.string(), node: z.string() }),
 ])
 
-type Runtime = { readonly name: string; readonly command: readonly string[]; readonly env: Readonly<Record<string, string>> }
+type Runtime = {
+  readonly name: string
+  readonly command: readonly string[]
+  readonly env: Readonly<Record<string, string>>
+}
 
 function electronBinary() {
   try {
-    const manifest = createRequire(import.meta.url).resolve("electron/package.json", { paths: [DESKTOP_PACKAGE] })
+    const manifest = createRequire(import.meta.url).resolve("electron/package.json", {
+      paths: [DESKTOP_PACKAGE],
+    })
     const dist = path.join(path.dirname(manifest), "dist")
-    const candidate = process.platform === "darwin"
-      ? path.join(dist, "Electron.app", "Contents", "MacOS", "Electron")
-      : path.join(dist, process.platform === "win32" ? "electron.exe" : "electron")
+    const candidate =
+      process.platform === "darwin"
+        ? path.join(dist, "Electron.app", "Contents", "MacOS", "Electron")
+        : path.join(dist, process.platform === "win32" ? "electron.exe" : "electron")
     return fs.existsSync(candidate) ? candidate : undefined
   } catch {
     return undefined
@@ -39,7 +46,8 @@ function electronBinary() {
 function runtimes(): Runtime[] {
   const found: Runtime[] = []
   const electron = electronBinary()
-  if (electron) found.push({ name: "electron", command: [electron], env: { ELECTRON_RUN_AS_NODE: "1" } })
+  if (electron)
+    found.push({ name: "electron", command: [electron], env: { ELECTRON_RUN_AS_NODE: "1" } })
   const node = Bun.which("node")
   if (node) found.push({ name: "node", command: [node], env: {} })
   return found
@@ -50,7 +58,13 @@ let counter = 0
 
 beforeAll(async () => {
   const outdir = path.join(TEST_SANDBOX.root, "seed-node-bundle")
-  const built = await Bun.build({ entrypoints: [ENTRY], outdir, target: "node", format: "esm", conditions: ["node"] })
+  const built = await Bun.build({
+    entrypoints: [ENTRY],
+    outdir,
+    target: "node",
+    format: "esm",
+    conditions: ["node"],
+  })
   if (!built.success) throw new Error(built.logs.map((log) => log.message).join("\n"))
   const output = built.outputs.find((artifact) => artifact.kind === "entry-point")
   if (!output) throw new Error("The Node seed entry was not built")
@@ -64,16 +78,36 @@ function place(name: string) {
   const state = path.join(root, "state")
   fs.mkdirSync(data, { recursive: true })
   fs.mkdirSync(state, { recursive: true })
-  return { root, data, state, v1Database: path.join(data, "opencode.db"), v2Database: path.join(data, "opencode-v2.db") }
+  return {
+    root,
+    data,
+    state,
+    v1Database: path.join(data, "opencode.db"),
+    v2Database: path.join(data, "opencode-v2.db"),
+  }
 }
 
 async function seed(runtime: Runtime, target: ReturnType<typeof place>, pauseMs = 0) {
-  const child = Bun.spawn([...runtime.command, bundle, target.state, target.v1Database, target.v2Database, String(pauseMs)], {
-    env: { ...process.env, ...runtime.env },
-    stdout: "pipe",
-    stderr: "pipe",
-  })
-  const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()])
+  const child = Bun.spawn(
+    [
+      ...runtime.command,
+      bundle,
+      target.state,
+      target.v1Database,
+      target.v2Database,
+      String(pauseMs),
+    ],
+    {
+      env: { ...process.env, ...runtime.env },
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  )
+  const [code, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ])
   if (code !== 0) throw new Error(`${runtime.name} exited with ${code}: ${stderr}`)
   return outputSchema.parse(JSON.parse(stdout.trim().split("\n").at(-1) ?? ""))
 }
@@ -94,10 +128,22 @@ function count(file: string, sql: string) {
 function digestTables(file: string, skip: string) {
   const db = new Database(file, { readonly: true })
   try {
-    const names = z.array(z.object({ name: z.string() })).parse(
-      db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name != ? ORDER BY name").all(skip),
-    ).map((row) => row.name)
-    return Object.fromEntries(names.map((name) => [name, createHash("sha256").update(JSON.stringify(db.query(`SELECT * FROM "${name}" ORDER BY rowid`).all())).digest("hex")]))
+    const names = z
+      .array(z.object({ name: z.string() }))
+      .parse(
+        db
+          .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name != ? ORDER BY name")
+          .all(skip),
+      )
+      .map((row) => row.name)
+    return Object.fromEntries(
+      names.map((name) => [
+        name,
+        createHash("sha256")
+          .update(JSON.stringify(db.query(`SELECT * FROM "${name}" ORDER BY rowid`).all()))
+          .digest("hex"),
+      ]),
+    )
   } finally {
     db.close(false)
   }
@@ -117,7 +163,10 @@ describe("seeding the v2 database on Node", () => {
         source.exec("PRAGMA journal_mode = WAL")
         source.exec("PRAGMA wal_autocheckpoint = 0")
         source.exec("CREATE TABLE IF NOT EXISTS writer_probe (id INTEGER PRIMARY KEY, value TEXT)")
-        const rows = Array.from({ length: 100 }, (_, index) => ({ id: index + 1, value: `committed-${index + 1}` }))
+        const rows = Array.from({ length: 100 }, (_, index) => ({
+          id: index + 1,
+          value: `committed-${index + 1}`,
+        }))
         source.transaction(() => {
           const insert = source.query("INSERT INTO writer_probe (id, value) VALUES (?, ?)")
           for (const row of rows) insert.run(row.id, row.value)
@@ -125,7 +174,9 @@ describe("seeding the v2 database on Node", () => {
         expect(fs.existsSync(`${target.v1Database}-wal`)).toBe(true)
         expect(fs.statSync(`${target.v1Database}-wal`).size).toBeGreaterThan(0)
 
-        expect(await seed(runtime, target)).toMatchObject({ result: { kind: "seeded", source: "v1" } })
+        expect(await seed(runtime, target)).toMatchObject({
+          result: { kind: "seeded", source: "v1" },
+        })
 
         const copy = new Database(target.v2Database, { readonly: true })
         try {
@@ -148,16 +199,19 @@ describe("seeding the v2 database on Node", () => {
       const before = digestTables(target.v1Database, "writer_probe")
       const stop = path.join(target.root, "stop")
       const writerScript = path.join(target.root, "writer.ts")
-      fs.writeFileSync(writerScript, [
-        'import { Database } from "bun:sqlite"',
-        'import { existsSync } from "node:fs"',
-        `const db = new Database(${JSON.stringify(target.v1Database)})`,
-        'db.exec("PRAGMA busy_timeout = 5000")',
-        "let rows = 0",
-        `while (!existsSync(${JSON.stringify(stop)})) { db.query("INSERT INTO writer_probe (value) VALUES (?)").run("x".repeat(512)); rows += 1 }`,
-        "db.close(false)",
-        "console.log(rows)",
-      ].join("\n"))
+      fs.writeFileSync(
+        writerScript,
+        [
+          'import { Database } from "bun:sqlite"',
+          'import { existsSync } from "node:fs"',
+          `const db = new Database(${JSON.stringify(target.v1Database)})`,
+          'db.exec("PRAGMA busy_timeout = 5000")',
+          "let rows = 0",
+          `while (!existsSync(${JSON.stringify(stop)})) { db.query("INSERT INTO writer_probe (value) VALUES (?)").run("x".repeat(512)); rows += 1 }`,
+          "db.close(false)",
+          "console.log(rows)",
+        ].join("\n"),
+      )
       const writer = Bun.spawn([process.execPath, writerScript], { stdout: "pipe", stderr: "pipe" })
       await Bun.sleep(200)
       let output: z.infer<typeof outputSchema>
@@ -171,7 +225,9 @@ describe("seeding the v2 database on Node", () => {
       const rows = Number((await new Response(writer.stdout).text()).trim())
       expect(await writer.exited).toBe(0)
       expect(output).toMatchObject({ result: { kind: "seeded", source: "v1" } })
-      expect("elapsedMs" in output ? output.elapsedMs : Number.POSITIVE_INFINITY).toBeLessThan(10_000)
+      expect("elapsedMs" in output ? output.elapsedMs : Number.POSITIVE_INFINITY).toBeLessThan(
+        10_000,
+      )
       expect(rows).toBeGreaterThan(0)
       const check = new Database(target.v2Database, { readonly: true })
       expect(check.query("PRAGMA quick_check").all()).toEqual([{ quick_check: "ok" }])
@@ -180,17 +236,24 @@ describe("seeding the v2 database on Node", () => {
       expect(count(target.v2Database, "SELECT COUNT(*) AS value FROM session")).toBe(3)
       expect(count(target.v2Database, "SELECT COUNT(*) AS value FROM event")).toBe(0)
       expect(count(target.v1Database, "SELECT COUNT(*) AS value FROM writer_probe")).toBe(rows)
-      expect(count(target.v2Database, "SELECT COUNT(*) AS value FROM writer_probe")).toBeGreaterThanOrEqual(committedRows)
+      expect(
+        count(target.v2Database, "SELECT COUNT(*) AS value FROM writer_probe"),
+      ).toBeGreaterThanOrEqual(committedRows)
       expect(digestTables(target.v1Database, "writer_probe")).toEqual(before)
       expect(temporaryEntries(target.data)).toEqual([])
-      if (process.platform !== "win32") expect(fs.statSync(target.v2Database).mode & 0o777).toBe(0o600)
+      if (process.platform !== "win32")
+        expect(fs.statSync(target.v2Database).mode & 0o777).toBe(0o600)
     }, 60_000)
 
     test(`${runtime.name}: two seeders make one copy and leave no temporary file`, async () => {
       const target = place(`${runtime.name}-two`)
       fs.copyFileSync(FIXTURE, target.v1Database)
       const outputs = await Promise.all([seed(runtime, target, 500), seed(runtime, target, 500)])
-      expect(outputs.map((output) => ("result" in output ? output.result.kind : output.error)).toSorted()).toEqual(["published-elsewhere", "seeded"])
+      expect(
+        outputs
+          .map((output) => ("result" in output ? output.result.kind : output.error))
+          .toSorted(),
+      ).toEqual(["published-elsewhere", "seeded"])
       expect(temporaryEntries(target.data)).toEqual([])
       expect(count(target.v2Database, "SELECT COUNT(*) AS value FROM session")).toBe(3)
     }, 60_000)
@@ -198,7 +261,8 @@ describe("seeding the v2 database on Node", () => {
     test(`${runtime.name}: a stale temporary copy is removed and a copy that fails its checks is never published`, async () => {
       const stale = place(`${runtime.name}-stale`)
       fs.copyFileSync(FIXTURE, stale.v1Database)
-      for (const suffix of ["", "-wal", "-shm", "-journal"]) fs.writeFileSync(`${stale.v2Database}.4242.tmp${suffix}`, "stale")
+      for (const suffix of ["", "-wal", "-shm", "-journal"])
+        fs.writeFileSync(`${stale.v2Database}.4242.tmp${suffix}`, "stale")
       expect(await seed(runtime, stale)).toMatchObject({ result: { kind: "seeded" } })
       expect(temporaryEntries(stale.data)).toEqual([])
 

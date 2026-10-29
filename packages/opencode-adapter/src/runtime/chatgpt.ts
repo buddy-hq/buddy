@@ -1,5 +1,11 @@
 import z from "zod"
-import { ChatGPTReconnectRequired, chatGPTIdentitySchema, chatGPTModelAvailabilitySchema, chatGPTUsageSchema, type ChatGPT } from "@buddy/agent-runtime/chatgpt"
+import {
+  ChatGPTReconnectRequired,
+  chatGPTIdentitySchema,
+  chatGPTModelAvailabilitySchema,
+  chatGPTUsageSchema,
+  type ChatGPT,
+} from "@buddy/agent-runtime/chatgpt"
 import type { OpenCodeHost } from "../host"
 import { toRuntimeError } from "./errors"
 import type { OpenCodeRuntimeOptions } from "./options"
@@ -9,13 +15,25 @@ const imageSchema = z.object({ base64: z.string().min(1), operation: z.enum(["ge
 const chatGPTErrorSchema = z.object({ type: z.string(), message: z.string() })
 
 export function createChatGPT(host: OpenCodeHost, _options: OpenCodeRuntimeOptions): ChatGPT {
-  async function call(directory: string, method: string, input: z.infer<typeof inputSchema>, signal?: AbortSignal) {
+  async function call(
+    directory: string,
+    method: string,
+    input: z.infer<typeof inputSchema>,
+    signal?: AbortSignal,
+  ) {
     try {
-      return (await host.rpc.call({ location: { directory }, rpcID: CHATGPT_RPC_ID, method, input }, signal ? { signal } : undefined)).output
+      return (
+        await host.rpc.call(
+          { location: { directory }, rpcID: CHATGPT_RPC_ID, method, input },
+          signal ? { signal } : undefined,
+        )
+      ).output
     } catch (cause) {
       const error = chatGPTErrorSchema.safeParse(cause)
-      if (error.success && error.data.type === "chatgpt.reconnect_required") throw new ChatGPTReconnectRequired()
-      if (error.success && error.data.type === "chatgpt.request_failed") throw toRuntimeError(new Error(error.data.message))
+      if (error.success && error.data.type === "chatgpt.reconnect_required")
+        throw new ChatGPTReconnectRequired()
+      if (error.success && error.data.type === "chatgpt.request_failed")
+        throw toRuntimeError(new Error(error.data.message))
       throw toRuntimeError(cause)
     }
   }
@@ -25,13 +43,22 @@ export function createChatGPT(host: OpenCodeHost, _options: OpenCodeRuntimeOptio
       return chatGPTIdentitySchema.parse(await call(directory, "identity", {}))
     },
     async models(directory, input) {
-      return chatGPTModelAvailabilitySchema.parse(await call(directory, "models", { refresh: input.refresh }))
+      return chatGPTModelAvailabilitySchema.parse(
+        await call(directory, "models", { refresh: input.refresh }),
+      )
     },
     async usage(directory, input) {
       return chatGPTUsageSchema.parse(await call(directory, "usage", { refresh: input.refresh }))
     },
     async image(directory, request) {
-      return imageSchema.parse(await call(directory, "image", { prompt: request.prompt, imageDataUrls: [...request.imageDataUrls] }, request.signal))
+      return imageSchema.parse(
+        await call(
+          directory,
+          "image",
+          { prompt: request.prompt, imageDataUrls: [...request.imageDataUrls] },
+          request.signal,
+        ),
+      )
     },
   }
 }
