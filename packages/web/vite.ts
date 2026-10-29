@@ -30,6 +30,7 @@ const WEB_OPTIMIZE_DEPS_EXCLUDES = [
   "pdfjs-dist",
   "pdfjs-dist/web/pdf_viewer.mjs",
   "foliate-js/view.js",
+  "foliate-js/epub.js",
   "foliate-js/overlayer.js",
 ]
 const WEB_DEDUPE_MODULES = ["react", "react-dom"]

@@ -1,11 +1,18 @@
 import { afterAll, beforeAll, expect, test } from "bun:test"
+import path from "node:path"
+import { QueryClient } from "@tanstack/react-query"
 import {
   TransformStream as WebTransformStream,
   WritableStream as WebWritableStream,
 } from "node:stream/web"
 import { View, makeBook } from "foliate-js/view.js"
 import { openFoliateBook } from "../src/components/readers/foliate-book"
+import { toFoliateInput } from "../src/components/readers/utils/foliate-helpers"
+import { getPlatform, setRuntimePlatform } from "../src/context/platform"
+import { getServerConnection, setRuntimeServerConnection } from "../src/context/server"
+import { withFetchPreconnect } from "../src/lib/fetch-transport"
 import { ensureFoliateRuntimeCompat } from "../src/lib/foliate/ensure-foliate-runtime-compat"
+import { readingResourceBlobQueryOptions } from "../src/state/resources-query"
 import { installFoliateDomRuntime } from "./fixtures/foliate-dom-runtime"
 
 type QuerySelectorAll<TParent> = <E extends Element = Element>(
@@ -143,6 +150,72 @@ afterAll(() => {
   if (originals.transformStream)
     Object.defineProperty(globalThis, "TransformStream", originals.transformStream)
   blobs.clear()
+})
+
+test.each([
+  ["Windows", path.win32.join("C:\\buddy-v2-e2e", "पढ़ाई"), path.win32.join("books", "éditions")],
+  ["macOS", "/buddy-v2-e2e/पढ़ाई", "books/éditions"],
+])("Sources EPUB bytes survive %s SDK requests", async (_platformName, directory, folder) => {
+  const platform = getPlatform()
+  const server = getServerConnection()
+  const queryClient = new QueryClient()
+  try {
+    setRuntimeServerConnection({
+      url: "http://127.0.0.1:43210",
+      username: "buddy",
+      password: "fixture-password",
+      isEmbeddedBackend: true,
+    })
+    for (const name of ["allow-list-book.epub", "scripted-chapter.epub"]) {
+      const bytes = await Bun.file(new URL(`./fixtures/${name}`, import.meta.url)).arrayBuffer()
+      setRuntimePlatform({
+        ...platform,
+        fetch: withFetchPreconnect(
+          async (input, init) => {
+            const request = new Request(input, init)
+            const url = new URL(request.url)
+            expect(url.origin).toBe("http://127.0.0.1:43210")
+            expect(url.pathname).toBe(`/api/file/raw/${name}`)
+            expect(url.searchParams.get("path")).toBe(`books/éditions/${name}`)
+            expect(request.headers.get("x-buddy-directory")).toBe(encodeURIComponent(directory))
+            expect(request.headers.get("authorization")).toBe(
+              `Basic ${btoa("buddy:fixture-password")}`,
+            )
+            return new Response(bytes, { headers: { "content-type": "application/epub+zip" } })
+          },
+          fetch,
+        ),
+      })
+      const blob = await queryClient.fetchQuery(
+        readingResourceBlobQueryOptions(directory, `${folder}/${name}`),
+      )
+      const input = toFoliateInput({ kind: "blob", blob, name })
+      expect(input).toBeInstanceOf(File)
+      if (!(input instanceof File)) throw new Error("Sources must provide a File to Foliate")
+      expect(await input.arrayBuffer()).toEqual(bytes)
+      const view = new View()
+      try {
+        expect(await openFoliateBook(view, input)).toEqual({ status: "opened" })
+        const chapter = view.book.sections[0]
+        if (!chapter) throw new Error("Sources EPUB has no readable chapter")
+        const chapterBlob = blobs.get(await chapter.load())
+        if (!chapterBlob) throw new Error("Sources EPUB did not produce a chapter blob")
+        const doc = new DOMParser().parseFromString(
+          await chapterBlob.text(),
+          "application/xhtml+xml",
+        )
+        expect(doc.querySelector("script")).toBeNull()
+        expect(doc.body.textContent?.trim().length).toBeGreaterThan(0)
+      } finally {
+        await view.book?.destroy?.()
+        view.remove()
+      }
+    }
+  } finally {
+    queryClient.clear()
+    setRuntimePlatform(platform)
+    setRuntimeServerConnection(server)
+  }
 })
 
 test("Buddy's real Foliate integration strips executable EPUB content before chapter blobs are made", async () => {
