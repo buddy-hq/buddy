@@ -9,6 +9,7 @@ import {
   WINDOWS_HOME_ENVIRONMENT_KEY,
 } from "../../../script/test-sandbox"
 import { BUDDY_ENV, OPENCODE_ENV, XDG_ENV } from "../src/storage/constants"
+import "./conformance/test-timeout"
 
 const configuredRootValue = process.env[BUDDY_ENV.TEST_XDG_ROOT]?.trim()
 const configuredRoot =
