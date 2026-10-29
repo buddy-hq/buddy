@@ -17,6 +17,7 @@ import z from "zod"
 import { BUDDY_ENV, DEFAULT_NOTEBOOK_HOME_SEGMENTS, OPENCODE_ENV } from "@buddy/script/storage-env"
 import { resolveElectronBin } from "../../scripts/electron-bin"
 import { resolveDevRuntimeEnvironment } from "../../src/main/storage-paths"
+import { buildElectronLaunchArgs } from "./launch-args"
 import { createModelServer } from "./model-server"
 import { createNotebook, scriptedConfig } from "./notebook"
 
@@ -219,7 +220,7 @@ async function createApp(options: AppOptions) {
   async function launch(ready?: (page: Page) => Promise<void>) {
     const electron = await _electron.launch({
       executablePath: resolveElectronBin(desktopDirectory),
-      args: ["--require", preload, desktopDirectory],
+      args: buildElectronLaunchArgs(preload, desktopDirectory),
       cwd: desktopDirectory,
       env,
       artifactsDir: path.join(root, "playwright"),
