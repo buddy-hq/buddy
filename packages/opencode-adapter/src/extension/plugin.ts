@@ -6,7 +6,8 @@ import { createPluginSessionAccess, registerExtensionHooks } from "./hooks"
 import { registerNotebookConfig, removeSuppressedOpenCodeSkills } from "./notebook"
 import { registerOpenCodeIdentity } from "./opencode-identity"
 import { stripOpenCodeHeaders } from "./provider-headers"
-import { buddyToolToToolInfo } from "./tools"
+import { createShellPermissionHook } from "./shell-permission"
+import { askBuddyToolPermission, buddyToolToToolInfo } from "./tools"
 import { registerToolInputStream } from "./tool-input-stream"
 import { registerWebSearchDefault } from "./websearch-default"
 
@@ -35,6 +36,22 @@ export function createRuntimeExtensionPlugin(
           ctx,
           extension.hooks(ctx.location, createPluginSessionAccess(ctx)),
           getClient,
+        )
+        await ctx.tool.hook(
+          "execute.before",
+          createShellPermissionHook({
+            location: ctx.location,
+            getClient,
+            ask: async (event, request, signal) =>
+              askBuddyToolPermission(await getClient(), {
+                sessionID: event.sessionID,
+                agent: event.agent,
+                messageID: event.messageID,
+                callID: event.id,
+                signal,
+                request,
+              }),
+          }),
         )
         await ctx.session.hook("prompt", applyCommandInvocationDisplay)
         return cleanupNotebookConfig

@@ -176,6 +176,9 @@
         "ai": "catalog:",
         "effect": "catalog:",
         "remeda": "^2.33.0",
+        "tree-sitter-bash": "0.25.0",
+        "tree-sitter-powershell": "0.25.10",
+        "web-tree-sitter": "0.25.10",
         "zod": "catalog:",
       },
       "devDependencies": {
