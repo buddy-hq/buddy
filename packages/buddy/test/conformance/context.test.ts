@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import z from "zod"
 import { createConfigConformanceHarness, type ConfigConformanceHarness } from "./harness-config"
-import { temporaryEnvironment, type TemporaryEnvironment } from "../helpers/temporary-environment"
+import { enableFileWatchers, fileWatchersSupported } from "../helpers/file-watchers"
+import type { TemporaryEnvironment } from "../helpers/temporary-environment"
 
 let harness: ConfigConformanceHarness
 let watchers: TemporaryEnvironment | undefined
@@ -10,7 +11,7 @@ const json = z.json()
 
 describe("Context port conformance", () => {
   beforeAll(async () => {
-    watchers = temporaryEnvironment({ OPENCODE_FILEWATCHER_DISABLE: "0" })
+    if (fileWatchersSupported) watchers = enableFileWatchers()
     harness = await createConfigConformanceHarness()
   })
   afterAll(async () => {
@@ -117,41 +118,44 @@ describe("Context port conformance", () => {
     expect(compacted).not.toContain("<teaching_ctx_ref ")
   })
 
-  test("the global auto-compaction setting changes compaction on a running conversation", async () => {
-    const notebook = await harness.notebook("global-compaction")
-    const session = await notebook.json("/session", sessionSchema, {
-      body: { title: "Global compaction" },
-    })
-    const history = z.array(
-      z.object({
-        parts: z.array(
-          z.object({
-            type: z.string(),
-            auto: z.boolean().optional(),
-            status: z.string().optional(),
-          }),
+  test.skipIf(!fileWatchersSupported)(
+    "the global auto-compaction setting changes compaction on a running conversation",
+    async () => {
+      const notebook = await harness.notebook("global-compaction")
+      const session = await notebook.json("/session", sessionSchema, {
+        body: { title: "Global compaction" },
+      })
+      const history = z.array(
+        z.object({
+          parts: z.array(
+            z.object({
+              type: z.string(),
+              auto: z.boolean().optional(),
+              status: z.string().optional(),
+            }),
+          ),
+        }),
+      )
+      await harness.patchGlobalConfig({ compaction: { auto: false, reserved: 99_999 } })
+      await notebook.json(`/session/${session.id}/message`, json, {
+        body: { content: "context-auto-disabled", persona: "buddy" },
+      })
+      expect(
+        (await notebook.json(`/session/${session.id}/message`, history))
+          .flatMap((message) => message.parts)
+          .filter((part) => part.type === "compaction"),
+      ).toEqual([])
+      await harness.patchGlobalConfig({ compaction: { auto: true } })
+      await notebook.json(`/session/${session.id}/message`, json, {
+        body: { content: "context-auto-enabled", persona: "buddy" },
+      })
+      expect(
+        (await notebook.json(`/session/${session.id}/message`, history)).flatMap(
+          (message) => message.parts,
         ),
-      }),
-    )
-    await harness.patchGlobalConfig({ compaction: { auto: false, reserved: 99_999 } })
-    await notebook.json(`/session/${session.id}/message`, json, {
-      body: { content: "context-auto-disabled", persona: "buddy" },
-    })
-    expect(
-      (await notebook.json(`/session/${session.id}/message`, history))
-        .flatMap((message) => message.parts)
-        .filter((part) => part.type === "compaction"),
-    ).toEqual([])
-    await harness.patchGlobalConfig({ compaction: { auto: true } })
-    await notebook.json(`/session/${session.id}/message`, json, {
-      body: { content: "context-auto-enabled", persona: "buddy" },
-    })
-    expect(
-      (await notebook.json(`/session/${session.id}/message`, history)).flatMap(
-        (message) => message.parts,
-      ),
-    ).toContainEqual(
-      expect.objectContaining({ type: "compaction", auto: true, status: "completed" }),
-    )
-  })
+      ).toContainEqual(
+        expect.objectContaining({ type: "compaction", auto: true, status: "completed" }),
+      )
+    },
+  )
 })

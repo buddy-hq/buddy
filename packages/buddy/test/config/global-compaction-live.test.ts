@@ -11,7 +11,7 @@ import {
   syncOpenCodeHostConfig,
 } from "../../src/config/runtime/opencode-host-config"
 import { createConfigConformanceHarness } from "../conformance/harness-config"
-import { temporaryEnvironment } from "../helpers/temporary-environment"
+import { enableFileWatchers, fileWatchersSupported } from "../helpers/file-watchers"
 
 const app = new Hono().route("/api/global", GlobalRoutes)
 const headers = { "content-type": "application/json" }
@@ -37,51 +37,55 @@ async function patchGlobal(body: Config.Info) {
 }
 
 describe("global compaction settings on a running host", () => {
-  test("applies an auto-compaction toggle from the settings route without restarting the host", async () => {
-    using watchers = temporaryEnvironment({ OPENCODE_FILEWATCHER_DISABLE: "0" })
-    void watchers
-    await using harness = await createConfigConformanceHarness()
-    const notebook = await harness.notebook("live-compaction")
-    const { directory } = notebook
-    const session = await notebook.json("/session", z.object({ id: z.string() }), {
-      body: { title: "Live compaction" },
-    })
-    const runtime = await getAgentRuntime()
-    const scope = { directory, sessionID: session.id }
-    await harness.patchGlobalConfig({ compaction: { auto: false, reserved: 99_999 } })
+  test.skipIf(!fileWatchersSupported)(
+    "applies an auto-compaction toggle from the settings route without restarting the host",
+    async () => {
+      using watchers = enableFileWatchers()
+      void watchers
+      await using harness = await createConfigConformanceHarness()
+      const notebook = await harness.notebook("live-compaction")
+      const { directory } = notebook
+      const session = await notebook.json("/session", z.object({ id: z.string() }), {
+        body: { title: "Live compaction" },
+      })
+      const runtime = await getAgentRuntime()
+      const scope = { directory, sessionID: session.id }
+      await harness.patchGlobalConfig({ compaction: { auto: false, reserved: 99_999 } })
 
-    expect(
-      await runtime.execution.prompt(
-        { sessionID: session.id, text: "First turn" },
-        { directory, signal: AbortSignal.timeout(10_000) },
-      ),
-    ).toMatchObject({ ok: true })
-    expect(
-      (await runtime.conversations.history(scope)).items
-        .flatMap((message) => message.parts)
-        .filter((part) => part.type === "compaction"),
-    ).toEqual([])
+      expect(
+        await runtime.execution.prompt(
+          { sessionID: session.id, text: "First turn" },
+          { directory, signal: AbortSignal.timeout(10_000) },
+        ),
+      ).toMatchObject({ ok: true })
+      expect(
+        (await runtime.conversations.history(scope)).items
+          .flatMap((message) => message.parts)
+          .filter((part) => part.type === "compaction"),
+      ).toEqual([])
 
-    expect((await harness.patchGlobalConfig({ compaction: { auto: true } })).compaction).toEqual({
-      auto: true,
-      reserved: 99_999,
-    })
-    expect(JSON.parse(await fs.readFile(openCodeHostConfigFile(), "utf8"))).toEqual({
-      compaction: { auto: true, buffer: 99_999 },
-    })
+      expect((await harness.patchGlobalConfig({ compaction: { auto: true } })).compaction).toEqual({
+        auto: true,
+        reserved: 99_999,
+      })
+      expect(JSON.parse(await fs.readFile(openCodeHostConfigFile(), "utf8"))).toEqual({
+        compaction: { auto: true, buffer: 99_999 },
+      })
 
-    expect(
-      await runtime.execution.prompt(
-        { sessionID: session.id, text: "Second turn" },
-        { directory, signal: AbortSignal.timeout(10_000) },
-      ),
-    ).toMatchObject({ ok: true })
-    expect(
-      (await runtime.conversations.history(scope)).items.flatMap((message) => message.parts),
-    ).toContainEqual(
-      expect.objectContaining({ type: "compaction", auto: true, status: "completed" }),
-    )
-  }, 30_000)
+      expect(
+        await runtime.execution.prompt(
+          { sessionID: session.id, text: "Second turn" },
+          { directory, signal: AbortSignal.timeout(10_000) },
+        ),
+      ).toMatchObject({ ok: true })
+      expect(
+        (await runtime.conversations.history(scope)).items.flatMap((message) => message.parts),
+      ).toContainEqual(
+        expect.objectContaining({ type: "compaction", auto: true, status: "completed" }),
+      )
+    },
+    30_000,
+  )
 
   test("leaves the host config file alone for unrelated and unchanged global patches", async () => {
     await withGlobalConfig(
