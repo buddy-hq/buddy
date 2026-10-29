@@ -7,7 +7,7 @@ import {
   WEB_TEST_GROUPS,
   type TestRunnerPlanEntry,
 } from "../../../script/test-runner-plan"
-import { runSandboxedTestProcess } from "../../../script/sandboxed-test-process"
+import { runTestFile } from "../../../script/run-tests"
 import {
   runWithConcurrency,
   selectTestShardItems,
@@ -53,7 +53,9 @@ async function runTestEntry(
   abortSignal: AbortSignal,
 ): Promise<TestRunResult> {
   const startedAt = performance.now()
-  const result = await runSandboxedTestProcess({
+  const result = await runTestFile({
+    owner: "web",
+    files: entry.files,
     abortSignal,
     command: [
       BUN_EXECUTABLE,

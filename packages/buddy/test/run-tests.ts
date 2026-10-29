@@ -9,7 +9,7 @@ import {
   TEST_FILE_PATTERN,
   type TestRunnerPlanEntry,
 } from "../../../script/test-runner-plan"
-import { runSandboxedTestProcess } from "../../../script/sandboxed-test-process"
+import { runTestFile } from "../../../script/run-tests"
 import {
   runWithConcurrency,
   selectTestShardItems,
@@ -55,7 +55,9 @@ async function runTestEntry(
   abortSignal: AbortSignal,
 ): Promise<TestRunResult> {
   const startedAt = performance.now()
-  const result = await runSandboxedTestProcess({
+  const result = await runTestFile({
+    owner: "backend",
+    files: entry.files,
     abortSignal,
     command: [
       BUN_EXECUTABLE,

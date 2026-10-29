@@ -36,19 +36,7 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
-        run: |
-          for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
-            if timeout --kill-after=15s "${INSTALL_TIMEOUT_SECONDS}s" bun install --frozen-lockfile; then
-              exit 0
-            else
-              status=$?
-              echo "::warning::Dependency install attempt $attempt/$INSTALL_MAX_ATTEMPTS failed (exit $status)"
-            fi
-            if ((attempt == INSTALL_MAX_ATTEMPTS)); then
-              exit "$status"
-            fi
-            sleep "$INSTALL_RETRY_DELAY_SECONDS"
-          done
+        uses: ./.github/actions/install-dependencies
 
       - name: Check formatting
         run: bun fmt:check
@@ -94,7 +82,7 @@ jobs:
             install_ripgrep: false
             prepare_generated: true
           - name: remaining
-            owners: browser-contract,citation-contract,transcript-contract,desktop-electron,opencode-adapter,shared-script,root-script
+            owners: browser-contract,citation-contract,transcript-contract,update-contract,desktop-electron,opencode-adapter,shared-script,root-script
             shard_count: 1
             shard_index: 0
             test_concurrency: 2
@@ -115,19 +103,7 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
-        run: |
-          for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
-            if timeout --kill-after=15s "${INSTALL_TIMEOUT_SECONDS}s" bun install --frozen-lockfile; then
-              exit 0
-            else
-              status=$?
-              echo "::warning::Dependency install attempt $attempt/$INSTALL_MAX_ATTEMPTS failed (exit $status)"
-            fi
-            if ((attempt == INSTALL_MAX_ATTEMPTS)); then
-              exit "$status"
-            fi
-            sleep "$INSTALL_RETRY_DELAY_SECONDS"
-          done
+        uses: ./.github/actions/install-dependencies
 
       # Search-backed tests spawn the vendored ripgrep adapter, which downloads a
       # release binary when `rg` is missing from PATH. The test network guard blocks
@@ -177,25 +153,7 @@ jobs:
           node-version: "24"
 
       - name: Install dependencies
-        run: |
-          for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
-            if bun -e '
-              const child = Bun.spawn([process.execPath, "install", "--frozen-lockfile"], { stdout: "inherit", stderr: "inherit" });
-              const timeoutMs = Number(process.env.INSTALL_TIMEOUT_SECONDS) * 1000;
-              const timer = setTimeout(() => child.kill(), timeoutMs);
-              const forceStop = setTimeout(() => child.kill("SIGKILL"), timeoutMs + 15000);
-              try { process.exitCode = await child.exited; } finally { clearTimeout(timer); clearTimeout(forceStop); }
-            '; then
-              exit 0
-            else
-              status=$?
-              echo "::warning::Dependency install attempt $attempt/$INSTALL_MAX_ATTEMPTS failed (exit $status)"
-            fi
-            if ((attempt == INSTALL_MAX_ATTEMPTS)); then
-              exit "$status"
-            fi
-            sleep "$INSTALL_RETRY_DELAY_SECONDS"
-          done
+        uses: ./.github/actions/install-dependencies
 
       - name: Build Node backend
         run: bun run --cwd packages/buddy build:node
@@ -274,6 +232,7 @@ jobs:
     needs:
       - static
       - tests
+      - node-smoke
       - vendor_guard
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -282,13 +241,15 @@ jobs:
         env:
           STATIC_RESULT: ${{ needs.static.result }}
           TESTS_RESULT: ${{ needs.tests.result }}
+          NODE_SMOKE_RESULT: ${{ needs.node-smoke.result }}
           VENDOR_GUARD_RESULT: ${{ needs.vendor_guard.result }}
         run: |
-          if [ "$STATIC_RESULT" = "success" ] && [ "$TESTS_RESULT" = "success" ] && [ "$VENDOR_GUARD_RESULT" = "success" ]; then
+          if [ "$STATIC_RESULT" = "success" ] && [ "$TESTS_RESULT" = "success" ] && [ "$NODE_SMOKE_RESULT" = "success" ] && [ "$VENDOR_GUARD_RESULT" = "success" ]; then
             exit 0
           fi
 
           echo "Static analysis: $STATIC_RESULT"
           echo "Tests: $TESTS_RESULT"
+          echo "Node smoke: $NODE_SMOKE_RESULT"
           echo "Vendor guard: $VENDOR_GUARD_RESULT"
           exit 1

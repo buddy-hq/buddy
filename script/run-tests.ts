@@ -9,17 +9,67 @@ import {
   type TestOwner,
   verifyTestTopology,
 } from "./test-topology"
-import { runSupervisedTestProcess, testProcessFailed, type TestProcessSignal } from "./test-process"
+import {
+  runSupervisedTestProcess,
+  testProcessFailed,
+  type SupervisedTestProcessInput,
+  type SupervisedTestProcessResult,
+  type TestProcessSignal,
+} from "./test-process"
+import { runSandboxedTestProcess } from "./sandboxed-test-process"
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dir, "..")
-const TEST_COMMAND_RUNNER = path.join(REPOSITORY_ROOT, "script", "run-test-command.ts")
 const PER_FILE_FLAG = "--per-file"
 const MILLISECONDS_PER_SECOND = 1_000
+const DEFAULT_FILE_TIMEOUT_SECONDS = 8 * 60
+const MAX_TIMER_MILLISECONDS = 2_147_483_647
+
+export function testFileTimeoutMilliseconds(configuredValue: string | undefined): number {
+  const seconds = Number(configuredValue ?? DEFAULT_FILE_TIMEOUT_SECONDS)
+  if (!Number.isFinite(seconds) || seconds <= 0 || seconds * 1_000 > MAX_TIMER_MILLISECONDS) {
+    throw new Error("BUDDY_TEST_FILE_TIMEOUT_SECONDS must be a positive finite timer duration")
+  }
+  return seconds * MILLISECONDS_PER_SECOND
+}
+
+export async function runTestFile(
+  input: SupervisedTestProcessInput & {
+    readonly owner: string
+    readonly files: readonly string[]
+    readonly timeoutMilliseconds?: number
+  },
+): Promise<SupervisedTestProcessResult> {
+  const timeoutMilliseconds =
+    input.timeoutMilliseconds ??
+    testFileTimeoutMilliseconds(process.env.BUDDY_TEST_FILE_TIMEOUT_SECONDS)
+  const deadline = new AbortController()
+  const timer = setTimeout(() => {
+    for (const file of input.files) {
+      console.error(
+        `[test:${input.owner}:timeout] ${file} after ${timeoutMilliseconds / MILLISECONDS_PER_SECOND}s`,
+      )
+    }
+    deadline.abort()
+  }, timeoutMilliseconds)
+  try {
+    const result = await runSandboxedTestProcess({
+      ...input,
+      abortSignal:
+        input.abortSignal === undefined
+          ? deadline.signal
+          : AbortSignal.any([deadline.signal, input.abortSignal]),
+    })
+    return deadline.signal.aborted ? { exitCode: 1, signal: undefined } : result
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 type TestRun = {
   id: string
   command: readonly string[]
   workingDirectory: string
+  file?: OwnedTestFile
 }
 
 type TestRunResult = {
@@ -36,10 +86,14 @@ function formatDuration(durationMilliseconds: number): string {
 async function runTest(run: TestRun): Promise<TestRunResult> {
   const startedAt = performance.now()
   console.log(`\n[test:start] ${run.id}`)
-  const result = await runSupervisedTestProcess({
+  const input = {
     command: run.command,
     cwd: path.resolve(REPOSITORY_ROOT, run.workingDirectory),
-  })
+  }
+  const result =
+    run.file === undefined
+      ? await runSupervisedTestProcess(input)
+      : await runTestFile({ ...input, owner: run.file.owner.id, files: [run.file.path] })
   const durationMilliseconds = performance.now() - startedAt
   console.log(
     `[test:finish] ${run.id}: ${result.exitCode === 0 ? "passed" : `failed (${result.exitCode})`} in ${formatDuration(durationMilliseconds)}`,
@@ -47,12 +101,15 @@ async function runTest(run: TestRun): Promise<TestRunResult> {
   return { durationMilliseconds, exitCode: result.exitCode, id: run.id, signal: result.signal }
 }
 
-function packageRuns(owners: readonly TestOwner[]): readonly TestRun[] {
-  return owners.map((owner) => ({
-    id: owner.id,
-    command: owner.runCommand,
-    workingDirectory: owner.workingDirectory,
-  }))
+function packageRuns(
+  owners: readonly TestOwner[],
+  testFiles: readonly OwnedTestFile[],
+): readonly TestRun[] {
+  return owners.flatMap((owner) =>
+    owner.id === "backend" || owner.id === "web"
+      ? [{ id: owner.id, command: owner.runCommand, workingDirectory: owner.workingDirectory }]
+      : fileRuns(testFiles.filter((file) => file.owner.id === owner.id)),
+  )
 }
 
 function relativeTestPath(testFile: OwnedTestFile): string {
@@ -82,7 +139,7 @@ function testFileCommand(testFile: OwnedTestFile): readonly string[] {
     command = ["bun", "test", "--preload", "../../script/test-preload.ts", relativePath]
   }
 
-  return [process.execPath, TEST_COMMAND_RUNNER, "--", ...command]
+  return command
 }
 
 function fileRuns(testFiles: readonly OwnedTestFile[]): readonly TestRun[] {
@@ -90,6 +147,7 @@ function fileRuns(testFiles: readonly OwnedTestFile[]): readonly TestRun[] {
     id: `${testFile.owner.id}:${testFile.path}`,
     command: testFileCommand(testFile),
     workingDirectory: testFile.owner.workingDirectory,
+    file: testFile,
   }))
 }
 
@@ -117,7 +175,7 @@ async function runAllTests(): Promise<void> {
   const selectedTestFiles = testFiles.filter((testFile) => selectedOwnerIds.has(testFile.owner.id))
   const runs = hasPerFileFlag(Bun.argv.slice(2))
     ? fileRuns(selectedTestFiles)
-    : packageRuns(selectedOwners)
+    : packageRuns(selectedOwners, selectedTestFiles)
   const results: TestRunResult[] = []
 
   for (const run of runs) {
@@ -136,4 +194,4 @@ async function runAllTests(): Promise<void> {
   }
 }
 
-await runAllTests()
+if (import.meta.main) await runAllTests()

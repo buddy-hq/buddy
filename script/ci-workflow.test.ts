@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
+import { TEST_OWNERS } from "./test-topology"
 
 const ROOT_DIRECTORY = path.resolve(import.meta.dir, "..")
 const WORKFLOW_DIRECTORY = path.join(ROOT_DIRECTORY, ".github", "workflows")
@@ -39,6 +40,13 @@ async function ciWorkflow(): Promise<JsonObject> {
   return objectValue(Bun.YAML.parse(source), "CI workflow")
 }
 
+async function installAction(): Promise<JsonObject> {
+  const source = await Bun.file(
+    path.join(ROOT_DIRECTORY, ".github/actions/install-dependencies/action.yml"),
+  ).text()
+  return objectValue(Bun.YAML.parse(source), "dependency install action")
+}
+
 function workflowJobs(document: JsonObject): JsonObject {
   return objectValue(document.jobs, "CI workflow jobs")
 }
@@ -67,70 +75,68 @@ describe("CI workflow", () => {
       const environment = objectValue(document.env, "CI environment")
       const jobs = workflowJobs(document)
 
-      for (const jobName of ["static", "tests"]) {
+      for (const jobName of ["static", "tests", "node-smoke"]) {
         const installStep = workflowStep(workflowJob(jobs, jobName), "Install dependencies")
-        const installScript = stringValue(installStep.run, "dependency install script")
-        for (const scenario of ["recover", "exhaust"]) {
-          // GNU timeout is a Linux runner boundary. Simulate its timeout result
-          // while executing the real workflow retry loop without live installs.
-          const child = Bun.spawn(
-            [
-              "bash",
-              "-e",
-              "-c",
-              `
-              attempts=0
-              timeout() {
-                [[ "$1" == "--kill-after=15s" && "$2" == "180s" ]] || return 99
-                shift 2
-                attempts=$((attempts + 1))
-                echo "install-attempt:$attempts" >&2
-                if [[ "$TEST_INSTALL_SCENARIO" == "exhaust" || "$attempts" == "1" ]]; then
-                  return 124
-                fi
-                "$@"
-              }
-              bun() {
-                [[ "$1" == "install" && "$2" == "--frozen-lockfile" ]] || return 98
-              }
-              sleep() { :; }
-              ${installScript}
-              `,
-            ],
-            {
-              env: {
-                ...process.env,
-                INSTALL_MAX_ATTEMPTS: stringValue(
-                  environment.INSTALL_MAX_ATTEMPTS,
-                  "install attempts",
-                ),
-                INSTALL_TIMEOUT_SECONDS: stringValue(
-                  environment.INSTALL_TIMEOUT_SECONDS,
-                  "install timeout",
-                ),
-                INSTALL_RETRY_DELAY_SECONDS: "0",
-                TEST_INSTALL_SCENARIO: scenario,
-              },
-              stdout: "pipe",
-              stderr: "pipe",
+        expect(installStep.uses).toBe("./.github/actions/install-dependencies")
+      }
+      const actionRuns = objectValue((await installAction()).runs, "install action runs")
+      const installScript = stringValue(
+        workflowStep(actionRuns, "Install dependencies").run,
+        "dependency install script",
+      )
+      for (const scenario of ["recover", "exhaust"]) {
+        const child = Bun.spawn(
+          [
+            "bash",
+            "-e",
+            "-c",
+            `
+            attempts=0
+            bun() {
+              [[ "$1" == "-e" ]] || return 98
+              attempts=$((attempts + 1))
+              echo "install-attempt:$attempts" >&2
+              if [[ "$TEST_INSTALL_SCENARIO" == "exhaust" || "$attempts" == "1" ]]; then
+                return 143
+              fi
+            }
+            sleep() { :; }
+            ${installScript}
+            `,
+          ],
+          {
+            env: {
+              ...process.env,
+              INSTALL_MAX_ATTEMPTS: stringValue(
+                environment.INSTALL_MAX_ATTEMPTS,
+                "install attempts",
+              ),
+              INSTALL_TIMEOUT_SECONDS: stringValue(
+                environment.INSTALL_TIMEOUT_SECONDS,
+                "install timeout",
+              ),
+              INSTALL_RETRY_DELAY_SECONDS: "0",
+              TEST_INSTALL_SCENARIO: scenario,
             },
-          )
-          const [exitCode, stderr] = await Promise.all([
-            child.exited,
-            new Response(child.stderr).text(),
-          ])
-          expect(exitCode).toBe(scenario === "recover" ? 0 : 124)
-          expect(stderr.trim().split("\n")).toEqual(
-            scenario === "recover"
-              ? ["install-attempt:1", "install-attempt:2"]
-              : ["install-attempt:1", "install-attempt:2", "install-attempt:3"],
-          )
-        }
+            stdout: "ignore",
+            stderr: "pipe",
+          },
+        )
+        const [exitCode, stderr] = await Promise.all([
+          child.exited,
+          new Response(child.stderr).text(),
+        ])
+        expect(exitCode).toBe(scenario === "recover" ? 0 : 143)
+        expect(stderr.trim().split("\n")).toEqual(
+          scenario === "recover"
+            ? ["install-attempt:1", "install-attempt:2"]
+            : ["install-attempt:1", "install-attempt:2", "install-attempt:3"],
+        )
       }
     },
   )
 
-  test("runs static analysis, tests, and the vendor guard in parallel behind one final gate", async () => {
+  test("runs static analysis, tests, Node smoke, and the vendor guard behind one final gate", async () => {
     const document = await ciWorkflow()
     const jobs = workflowJobs(document)
     const staticJob = workflowJob(jobs, "static")
@@ -145,10 +151,40 @@ describe("CI workflow", () => {
     expect(vendorGuardJob.name).toBe("vendor-guard")
     expect(checkJob.name).toBe("Check")
     expect(checkJob.if).toBe("${{ always() }}")
-    expect(arrayValue(checkJob.needs, "check.needs")).toEqual(["static", "tests", "vendor_guard"])
+    expect(arrayValue(checkJob.needs, "check.needs")).toEqual([
+      "static",
+      "tests",
+      "node-smoke",
+      "vendor_guard",
+    ])
   })
 
-  test("keeps the PR workflow read-only and avoids the oversized dependency cache", async () => {
+  test.skipIf(process.platform === "win32")(
+    "requires successful Node smoke results before Check passes",
+    async () => {
+      const checkJob = workflowJob(workflowJobs(await ciWorkflow()), "check")
+      const verification = workflowStep(checkJob, "Verify required jobs")
+      const environment = objectValue(verification.env, "required jobs verification environment")
+      expect(environment.NODE_SMOKE_RESULT).toBe("${{ needs.node-smoke.result }}")
+      const script = stringValue(verification.run, "required jobs verification script")
+      for (const result of ["success", "failure", "cancelled", "skipped"]) {
+        const child = Bun.spawn(["bash", "-e", "-c", script], {
+          env: {
+            ...process.env,
+            STATIC_RESULT: "success",
+            TESTS_RESULT: "success",
+            NODE_SMOKE_RESULT: result,
+            VENDOR_GUARD_RESULT: "success",
+          },
+          stdout: "ignore",
+          stderr: "pipe",
+        })
+        expect(await child.exited).toBe(result === "success" ? 0 : 1)
+      }
+    },
+  )
+
+  test("keeps the PR workflow read-only and caches only Bun dependency downloads", async () => {
     const document = await ciWorkflow()
     const triggers = objectValue(document.on, "CI workflow triggers")
     const push = objectValue(triggers.push, "CI push trigger")
@@ -167,6 +203,16 @@ describe("CI workflow", () => {
     expect(permissions.contents).toBe("read")
     expect(environment.BUDDY_TEST_CONCURRENCY).toBeUndefined()
     expect(actionReferences.some((reference) => reference.startsWith("actions/cache@"))).toBe(false)
+    const actionRuns = objectValue((await installAction()).runs, "install action runs")
+    const cacheStep = workflowSteps(actionRuns).find((step) =>
+      stringValue(step.uses ?? "", "install action reference").startsWith("actions/cache@"),
+    )
+    if (cacheStep === undefined) throw new Error("Expected a Bun download cache step")
+    const cache = objectValue(cacheStep.with, "Bun cache options")
+    expect(cache.path).toBe("~/.bun/install/cache")
+    const cacheKey = stringValue(cache.key, "Bun cache key")
+    expect(cacheKey).toContain("${{ runner.os }}")
+    expect(cacheKey).toContain("${{ hashFiles('bun.lock') }}")
     expect(await Bun.file(path.join(WORKFLOW_DIRECTORY, "vendor-guard.yml")).exists()).toBe(false)
   })
 
@@ -219,7 +265,7 @@ describe("CI workflow", () => {
     expect(shards.filter((shard) => shard.owners === "backend")).toHaveLength(2)
     expect(shards.filter((shard) => shard.owners === "web")).toHaveLength(2)
     expect(shards.find((shard) => shard.name === "remaining")?.owners).toBe(
-      "browser-contract,citation-contract,transcript-contract,desktop-electron,opencode-adapter,shared-script,root-script",
+      "browser-contract,citation-contract,transcript-contract,update-contract,desktop-electron,opencode-adapter,shared-script,root-script",
     )
     expect(shards.filter((shard) => shard.install_ripgrep === true)).toHaveLength(3)
     expect(shards.filter((shard) => shard.prepare_generated === true)).toHaveLength(2)
@@ -227,6 +273,19 @@ describe("CI workflow", () => {
     expect(jobEnvironment.BUDDY_TEST_OWNERS).toBe("${{ matrix.owners }}")
     expect(jobEnvironment.BUDDY_TEST_SHARD_COUNT).toBe("${{ matrix.shard_count }}")
     expect(jobEnvironment.BUDDY_TEST_SHARD_INDEX).toBe("${{ matrix.shard_index }}")
+  })
+
+  test("selects every canonical test owner in a CI matrix entry", async () => {
+    const testsJob = workflowJob(workflowJobs(await ciWorkflow()), "tests")
+    const strategy = objectValue(testsJob.strategy, "tests strategy")
+    const matrix = objectValue(strategy.matrix, "tests matrix")
+    const owners = arrayValue(matrix.include, "tests matrix includes").flatMap((entry, index) =>
+      stringValue(objectValue(entry, `tests matrix entry ${index}`).owners, "test owners")
+        .split(",")
+        .map((owner) => owner.trim()),
+    )
+
+    expect([...new Set(owners)].toSorted()).toEqual(TEST_OWNERS.map((owner) => owner.id).toSorted())
   })
 
   test("prepares generated OpenAPI SDK and web route tree once before isolated test processes", async () => {

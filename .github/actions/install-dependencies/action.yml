@@ -1,0 +1,34 @@
+name: Install dependencies
+description: Restore Bun downloads and install the frozen workspace with bounded retries.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v5
+      with:
+        path: ~/.bun/install/cache
+        key: ci-bun-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+        restore-keys: |
+          ci-bun-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
+          if bun -e '
+            const child = Bun.spawn([process.execPath, "install", "--frozen-lockfile"], { stdout: "inherit", stderr: "inherit" });
+            const timeoutMs = Number(process.env.INSTALL_TIMEOUT_SECONDS) * 1000;
+            const timer = setTimeout(() => child.kill(), timeoutMs);
+            const forceStop = setTimeout(() => child.kill("SIGKILL"), timeoutMs + 15000);
+            try { process.exitCode = await child.exited; } finally { clearTimeout(timer); clearTimeout(forceStop); }
+          '; then
+            exit 0
+          else
+            status=$?
+            echo "::warning::Dependency install attempt $attempt/$INSTALL_MAX_ATTEMPTS failed (exit $status)"
+          fi
+          if ((attempt == INSTALL_MAX_ATTEMPTS)); then
+            exit "$status"
+          fi
+          sleep "$INSTALL_RETRY_DELAY_SECONDS"
+        done

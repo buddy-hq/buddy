@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import http from "node:http"
+import type { RuntimeV1ImportStatusResponse } from "@buddy/sdk"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
   createBrowserHistory,
@@ -27,6 +29,7 @@ import type { BenchSurfaceSnapshot } from "../src/lib/directory-workspace-lifecy
 import { encodeDirectory } from "../src/lib/directory-token"
 import type { DirectoryWorkspaceCommandResult } from "../src/state/directory-workspace-store"
 import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
+import { v1ImportQueryKeys } from "../src/state/v1-import-query"
 import { useHostedBrowserStore } from "../src/state/hosted-browser-store"
 
 const DIRECTORY = "/workspace/navigation-race"
@@ -53,6 +56,9 @@ const OBJECT_TARGET = {
 const OBJECT_PATH = `/${ENCODED_DIRECTORY}/objects/resource/${OBJECT_TARGET.ref.objectID}`
 const FLUSH_DELAY_MS = 0
 const ROUTE_SETTLE_ATTEMPTS = 20
+const browserAPI = Object.getOwnPropertyDescriptor(globalThis, "happyDOM")
+if (!browserAPI) throw new Error("Navigation tests require the happy-dom preload")
+const testBrowser: { setURL(url: string): void } = browserAPI.value
 
 function flushEffects(): Promise<void> {
   return new Promise((resolve) => {
@@ -94,6 +100,14 @@ function createRouteTree(input: {
     defaultOptions: { queries: { refetchOnMount: false, retry: false } },
   })
   queryClient.setQueryData(workspaceObjectsQueryKeys.all(DIRECTORY), { objects: [] })
+  queryClient.setQueryDefaults(v1ImportQueryKeys.all(), { staleTime: Infinity })
+  queryClient.setQueryData(v1ImportQueryKeys.all(), {
+    upgrade: { state: "ready" },
+    import: null,
+    importRan: false,
+    skipped: [],
+    content: [],
+  } satisfies RuntimeV1ImportStatusResponse)
   const rootRoute = createRootRoute({
     component: () => (
       <QueryClientProvider client={queryClient}>
@@ -193,21 +207,37 @@ function surfaceSnapshotForTarget(target: BenchTarget): BenchSurfaceSnapshot {
 describe("DirectoryWorkspaceController navigation arbitration", () => {
   let container: HTMLDivElement | undefined
   let root: Root | undefined
+  const originalRequest = http.request
+  let unexpectedHTTPRequests = 0
+
+  beforeEach(() => {
+    unexpectedHTTPRequests = 0
+    http.request = () => {
+      unexpectedHTTPRequests += 1
+      throw new Error("Navigation arbitration tests must not make HTTP requests")
+    }
+  })
 
   afterEach(async () => {
-    if (root && container) {
-      await act(async () => {
-        root?.unmount()
-        await flushEffects()
-      })
-      container.remove()
+    try {
+      if (root && container) {
+        await act(async () => {
+          root?.unmount()
+          await flushEffects()
+        })
+        container.remove()
+      }
+      root = undefined
+      container = undefined
+      localStorage.clear()
+      useHostedBrowserStore.getState().reset()
+      testBrowser.setURL(TEST_ORIGIN_URL)
+      Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
+      await flushEffects()
+    } finally {
+      http.request = originalRequest
     }
-    root = undefined
-    container = undefined
-    localStorage.clear()
-    useHostedBrowserStore.getState().reset()
-    window.location.href = TEST_ORIGIN_URL
-    Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
+    expect(unexpectedHTTPRequests).toBe(0)
   })
 
   test("a close supersedes a delayed present and leaves the canonical route closed", async () => {
@@ -426,7 +456,7 @@ describe("DirectoryWorkspaceController navigation arbitration", () => {
 
   test("browser Back and Forward use the blocker path for Bench history", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
-    window.location.href = TEST_ORIGIN_URL
+    testBrowser.setURL(TEST_ORIGIN_URL)
     window.history.replaceState(null, "", CHAT_PATH)
     container = document.createElement("div")
     document.body.appendChild(container)
