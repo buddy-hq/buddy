@@ -1,24 +1,23 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { continueSubagentsInBackground } from "../src/lib/use-running-subagents"
-import { createFetchStub } from "./test-utils"
+import { installTestFetch, restoreTestFetch } from "./test-utils"
 
 const DIRECTORY = "/repo-background"
 
+const originalFetch = globalThis.fetch
+
 describe("continueSubagentsInBackground", () => {
-  let originalFetch: typeof globalThis.fetch
-
-  beforeEach(() => {
-    originalFetch = globalThis.fetch
-  })
-
   afterEach(() => {
-    globalThis.fetch = originalFetch
+    restoreTestFetch(originalFetch)
   })
 
   test("backgrounds the owner session's blocking work through the session route", async () => {
     const requests: Array<{ method: string; path: string; directory: string | null }> = []
-    globalThis.fetch = createFetchStub(async (input) => {
-      const request = input instanceof Request ? input : new Request(String(input))
+    installTestFetch(async (input, init) => {
+      const request =
+        input instanceof Request
+          ? input
+          : new Request(new URL(String(input), "http://buddy.test"), init)
       requests.push({
         method: request.method,
         path: new URL(request.url, "http://buddy.test").pathname,
@@ -35,9 +34,7 @@ describe("continueSubagentsInBackground", () => {
   })
 
   test("surfaces a route failure", async () => {
-    globalThis.fetch = createFetchStub(async () =>
-      Response.json({ error: "Session not found" }, { status: 404 }),
-    )
+    installTestFetch(async () => Response.json({ error: "Session not found" }, { status: 404 }))
 
     await expect(continueSubagentsInBackground(DIRECTORY, "ses_missing")).rejects.toThrow(
       "Session not found",
