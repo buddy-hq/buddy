@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { inspect } from "node:util"
+import { redactWidgetFramePasses } from "../learning/features/html-widgets/service/widget-frame-pass"
 import { RuntimeError, runtimeErrorStatus } from "@buddy/agent-runtime/errors"
 import { Schema, SchemaIssue } from "effect"
 import { HTTPException } from "hono/http-exception"
@@ -200,7 +201,7 @@ async function classifyKnownError<TError>(error: TError, context: ErrorContext):
 
 function internalRouteError<TError>(error: TError, logError: (line: string, cause: unknown) => void = console.error): ClassifiedRouteError {
   const errorID = randomUUID()
-  logError(`Unhandled Buddy route error errorID=${errorID}`, inspect(error, { depth: null }))
+  logError(`Unhandled Buddy route error errorID=${errorID}`, redactWidgetFramePasses(inspect(error, { depth: null })))
   return { status: 500, body: { error: "Internal server error", code: "internal", errorID } }
 }
 

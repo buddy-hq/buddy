@@ -3,7 +3,6 @@ import { Hono } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
 import { HTTPException } from "hono/http-exception"
-import { logger } from "hono/logger"
 import { AgentsMdRoutes } from "./routes"
 import { AuthRoutes } from "./routes"
 import { BenchRoutes } from "./routes"
@@ -33,6 +32,7 @@ import { normalizeErrorResponse } from "./http/error-normalization"
 import { routeErrorBody, routeErrorResponse } from "./http/route-errors"
 import { BUDDY_ENV } from "./storage"
 import { WidgetFrameRoutes } from "./routes/object-html-widget"
+import { redactWidgetFramePasses } from "./learning/features/html-widgets/service/widget-frame-pass"
 
 export function describeFatalError<TError>(error: TError): string {
   if (error instanceof Error) {
@@ -113,11 +113,20 @@ api.route("/session", SessionRoutes)
 api.route("/skills", SkillsRoutes)
 api.route("/svg-rendering", SvgRenderingRoutes)
 
-app.use(
-  logger((line) => {
-    console.log(line.replace(/\/+api\/+frame\/+widget\/+[^/?#\s]+/gu, "/api/frame/widget/[pass]"))
-  }),
-)
+app.use(async (c, next) => {
+  const requestPath = new URL(c.req.url).pathname
+  let decodedPath = requestPath
+  try {
+    decodedPath = decodeURIComponent(requestPath)
+  } catch {}
+  const logPath = decodedPath.replace(/\/+/gu, "/").startsWith("/api/frame/widget/")
+    ? "/api/frame/widget/[pass]"
+    : requestPath
+  console.log(redactWidgetFramePasses(`<-- ${c.req.method} ${logPath}`))
+  const started = Date.now()
+  await next()
+  console.log(redactWidgetFramePasses(`--> ${c.req.method} ${logPath} ${c.res.status} ${Date.now() - started}ms`))
+})
 app.use(cors({ origin: "*" }))
 app.use("*", async (c, next) => {
   await next()

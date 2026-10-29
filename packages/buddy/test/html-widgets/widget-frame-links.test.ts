@@ -4,6 +4,7 @@ import path from "node:path"
 import z from "zod"
 import { BUDDY_ENV } from "../../src/storage"
 import { INERT_DOCUMENT_CSP } from "../../src/http/inert-document-headers"
+import { classifyRouteError } from "../../src/http/route-errors"
 import { HTML_WIDGET_RUNTIME_CSP } from "../../src/learning/features/html-widgets/service/types"
 import { presentHtmlWidgetObject } from "../../src/learning/features/html-widgets/service/store"
 import {
@@ -238,7 +239,8 @@ describe("signed widget frame links", () => {
     expect(requestLogs).toHaveLength(6)
     for (const line of requestLogs) {
       expect(line).not.toContain(pass)
-      expect(line).toContain("/api/frame/widget/[pass]/")
+      expect(line).toContain("/api/frame/widget/[pass]")
+      expect(line).not.toContain("index.html")
     }
     expect(requestLogs.filter((line) => line.includes("<-- GET"))).toHaveLength(3)
     expect(requestLogs.filter((line) => line.includes("--> GET"))).toHaveLength(3)
@@ -257,7 +259,8 @@ describe("signed widget frame links", () => {
       expect(requestLogs).toHaveLength(2)
       for (const line of requestLogs) {
         expect(line).not.toContain(pass)
-        expect(line).toContain(`/api/frame/widget/[pass]${suffix}`)
+        expect(line).toContain("/api/frame/widget/[pass]")
+        expect(line).not.toContain("renderKey")
       }
       expect(requestLogs[0]).toContain("<-- GET")
       expect(requestLogs[1]).toContain("--> GET")
@@ -277,10 +280,74 @@ describe("signed widget frame links", () => {
       expect(requestLogs).toHaveLength(2)
       for (const line of requestLogs) {
         expect(line).not.toContain(pass)
-        expect(line).toContain("/api/frame/widget/[pass]/index.html")
+        expect(line).toContain("/api/frame/widget/[pass]")
+        expect(line).not.toContain("index.html")
       }
     },
   )
+
+  test.each([
+    "encoded api", "encoded frame", "encoded widget", "raw query", "encoded query", "asset pass",
+  ])("redacts exchanged passes in both request log directions: %s", async (variant) => {
+    await using project = await tmpdir({ git: true })
+    const widget = await createWidget(project.path, "widget-a")
+    const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
+    const pass = issued.url.split("/")[4]
+    if (!pass) throw new Error("Exchange returned no pass")
+    const encodedPass = Array.from(pass, (character) => `%${character.charCodeAt(0).toString(16)}`).join("")
+    const urls: Record<string, string> = {
+      "encoded api": issued.url.replace("/api/", "/%61pi/"),
+      "encoded frame": issued.url.replace("/frame/", "/fr%61me/"),
+      "encoded widget": issued.url.replace("/widget/", "/widg%65t/"),
+      "raw query": `${issued.url}?again=${pass}`,
+      "encoded query": `${issued.url}?again=${encodedPass}`,
+      "asset pass": issued.url.replace("index.html", `${pass}/missing.js`),
+    }
+    const url = urls[variant]
+    if (!url) throw new Error("Missing request variant")
+    requestLogs.length = 0
+    const response = await app.request(url, { headers: { authorization } })
+    expect(response.status).toBe(variant === "asset pass" ? 404 : 200)
+    await response.body?.cancel()
+    expect(requestLogs).toHaveLength(2)
+    expect(requestLogs[0]).toBe("<-- GET /api/frame/widget/[pass]")
+    expect(requestLogs[1]).toMatch(new RegExp(`^--> GET /api/frame/widget/\\[pass\\] ${response.status} \\d+ms$`, "u"))
+    for (const line of requestLogs) {
+      expect(line).not.toContain(pass)
+      expect(line.toLowerCase()).not.toContain(encodedPass)
+      expect(line).not.toContain("index.html")
+      expect(line).not.toContain("?")
+    }
+  })
+
+  test("keeps other request paths and status fields while dropping queries", async () => {
+    requestLogs.length = 0
+    const response = await app.request("/api/healthz?private=value")
+    expect(response.status).toBe(200)
+    await response.body?.cancel()
+    expect(requestLogs[0]).toBe("<-- GET /api/healthz")
+    expect(requestLogs[1]).toMatch(/^--> GET \/api\/healthz 200 \d+ms$/u)
+  })
+
+  test.each(["raw", "encoded", "mixed", "malformed escape"])("redacts a pass in an unclassified route error: %s", async (variant) => {
+    await using project = await tmpdir({ git: true })
+    const widget = await createWidget(project.path, "widget-a")
+    const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
+    const pass = issued.url.split("/")[4]
+    if (!pass) throw new Error("Exchange returned no pass")
+    const encodedPass = Array.from(pass, (character, index) => variant === "mixed" && index % 2 === 0 ? character : `%${character.charCodeAt(0).toString(16)}`).join("")
+    const credential = variant === "raw" || variant === "malformed escape" ? pass : encodedPass
+    const logs: string[] = []
+    const result = await classifyRouteError(new Error(`Forced failure ${credential}${variant === "malformed escape" ? " %ZZ" : ""}`), (line, cause) => {
+      logs.push(`${line} ${String(cause)}`)
+    })
+    expect(result.status).toBe(500)
+    expect(result.body.error).toBe("Internal server error")
+    expect(logs).toHaveLength(1)
+    expect(logs[0]).toContain("Forced failure [pass]")
+    expect(logs[0]).not.toContain(pass)
+    expect(logs[0]).not.toContain(encodedPass)
+  })
 
   test.each(["dist", "build"])("versions served output in %s", async (outputDirectory) => {
     await using project = await tmpdir({ git: true })

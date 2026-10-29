@@ -11,6 +11,22 @@ type WidgetFrameIdentity = {
   versionToken: string
 }
 
+export function redactWidgetFramePasses(text: string): string {
+  const pattern = /[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]/gu
+  let decoded = text
+  try {
+    decoded = decodeURIComponent(text)
+  } catch {}
+  let redacted = text
+  for (const match of decoded.matchAll(pattern)) {
+    const encodedPattern = Array.from(match[0], (character) =>
+      `(?:${character === "." ? "\\." : character}|%${character.charCodeAt(0).toString(16)})`,
+    ).join("")
+    redacted = redacted.replace(new RegExp(encodedPattern, "giu"), "[pass]")
+  }
+  return redacted.replace(pattern, "[pass]")
+}
+
 export function createWidgetFramePassSigner(key: Uint8Array = randomBytes(32)) {
   const signingKey = Buffer.from(key)
 
