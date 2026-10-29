@@ -19,7 +19,11 @@ import {
   deleteUnusedMcpSecrets,
   projectMcpSettingsConfig,
 } from "../../src/config/secrets/mcp-secrets"
-import { resolveGlobalConfigFile } from "../../src/config/store/config-paths"
+import {
+  resolveGlobalConfigFile,
+  resolveProjectConfigContext,
+  resolveProjectConfigFile,
+} from "../../src/config/store/config-paths"
 import { updateProjectConfig } from "../../src/config/store/write-config"
 import {
   listOpenProjects,
@@ -46,6 +50,7 @@ import { closeAgentRuntime, getAgentRuntime } from "../../src/runtime/agent-runt
 import { BUDDY_ENV } from "../../src/storage/constants"
 import { temporaryDirectory } from "../helpers/temporary-directory"
 import { temporaryEnvironment } from "../helpers/temporary-environment"
+import { FileRenameConflictError } from "../../src/storage/rename-file-without-overwrite"
 
 const storePath = path.join(Global.Path.data, "secrets.json")
 
@@ -117,7 +122,7 @@ describe("config secret store", () => {
       const before = JSON.stringify({ mcp: { removed: server } })
       const nextConfig = { mcp: { shared: server } }
       const content = JSON.stringify(nextConfig)
-      const directory = await fs.mkdtemp(path.join(Global.Path.data, "concurrent-cleanup-"))
+      const directory = await fs.mkdtemp(path.join(Global.Path.data, "Concurrent-cleanup-"))
       const savedFile = path.join(directory, "saved.jsonc")
       await fs.writeFile(savedFile, "{}")
       const notebookB = path.join(directory, "b")
@@ -136,7 +141,8 @@ describe("config secret store", () => {
         path.join(Global.Path.state, "desktop-notebooks.json"),
         JSON.stringify([notebookB, notebookC]),
       )
-      const blockedFile = await fs.realpath(path.join(notebookC, ".buddy", "buddy.jsonc"))
+      const blockedContext = await resolveProjectConfigContext(notebookC)
+      const blockedFile = resolveProjectConfigFile(blockedContext.configDirectory)
       const entered = Promise.withResolvers<void>()
       const release = Promise.withResolvers<void>()
       const readFile = fs.readFile.bind(fs)
@@ -167,7 +173,12 @@ describe("config secret store", () => {
       let addition: Promise<void> | ReturnType<typeof saveProjectTextFile> | undefined
       let ordinary: ReturnType<typeof saveProjectTextFile> | undefined
       try {
-        await entered.promise
+        await Promise.race([
+          entered.promise,
+          cleanup.then(() => {
+            throw new Error(`Secret cleanup finished without pausing at ${blockedFile}`)
+          }),
+        ])
         if (operation === "config writer") {
           addition = updateProjectConfig(notebookB, nextConfig)
         } else {
@@ -500,6 +511,57 @@ describe("config secret store", () => {
       }
     }
   })
+
+  test("persistent backup collisions retain the corrupt store and release its lock", async () => {
+    const broken = '{"unrecoverable":'
+    await fs.writeFile(storePath, broken)
+    const before = (await fs.readdir(Global.Path.data)).toSorted()
+    const exhausted = new Error("Backup collision retries exceeded the test limit")
+    let attempts = 0
+    const link = fs.link.bind(fs)
+    const links = spyOn(fs, "link").mockImplementation(async (from, to) => {
+      if (from !== storePath) return link(from, to)
+      attempts += 1
+      if (attempts > 100) throw exhausted
+      throw Object.assign(new Error("The backup already exists"), { code: "EEXIST" })
+    })
+    try {
+      await expect(storeSecret("new-credential")).rejects.toBeInstanceOf(FileRenameConflictError)
+      expect(await fs.readFile(storePath, "utf8")).toBe(broken)
+      expect((await fs.readdir(Global.Path.data)).toSorted()).toEqual(before)
+    } finally {
+      links.mockRestore()
+    }
+    await fs.writeFile(storePath, JSON.stringify({ version: 1, secrets: {} }))
+    const id = await storeSecret("after-collision")
+    expect(await readSecrets()).toEqual({ [id]: "after-collision" })
+  })
+
+  test.each(["EPERM", "EBUSY", "EEXIST"])(
+    "a failed secret replacement releases its lock and removes its temporary file (%s)",
+    async (code) => {
+      const id = await storeSecret("original-credential")
+      const before = (await fs.readdir(Global.Path.data)).toSorted()
+      const failure = Object.assign(new Error("Cannot replace the secret store"), { code })
+      const rename = fs.rename.bind(fs)
+      const renames = spyOn(fs, "rename").mockImplementation(async (from, to) => {
+        if (to === storePath) throw failure
+        return rename(from, to)
+      })
+      try {
+        await expect(storeSecret("failed-credential")).rejects.toBe(failure)
+        expect(await readSecrets()).toEqual({ [id]: "original-credential" })
+        expect((await fs.readdir(Global.Path.data)).toSorted()).toEqual(before)
+      } finally {
+        renames.mockRestore()
+      }
+      const next = await storeSecret("after-failure")
+      expect(await readSecrets()).toEqual({
+        [id]: "original-credential",
+        [next]: "after-failure",
+      })
+    },
+  )
 
   test("redacts secret references for the web and preserves their raw value on updates", () => {
     const config = { mcp: { s: { oauth: { clientSecret: "{secret:sec_x}" } } } }

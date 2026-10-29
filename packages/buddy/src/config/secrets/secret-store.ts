@@ -13,6 +13,8 @@ import {
 
 export const SECRET_REFERENCE_PATTERN = /\{secret:([A-Za-z0-9_-]+)\}/gu
 
+const MAX_SECRET_BACKUP_ATTEMPTS = 100
+
 const secretStoreSchema = z
   .object({
     version: z.literal(1),
@@ -46,7 +48,7 @@ export async function readSecrets(): Promise<Readonly<Record<string, string>>> {
 
 async function preserveBrokenSecretStore(storePath: string): Promise<void> {
   const backupPath = `${storePath}.broken-${Date.now()}`
-  for (let collision = 0; ; collision += 1) {
+  for (let collision = 0; collision < MAX_SECRET_BACKUP_ATTEMPTS; collision += 1) {
     const destination = collision === 0 ? backupPath : `${backupPath}-${collision}`
     try {
       await renameFileWithoutOverwrite(storePath, destination)
@@ -55,6 +57,7 @@ async function preserveBrokenSecretStore(storePath: string): Promise<void> {
       if (!(error instanceof FileRenameConflictError)) throw error
     }
   }
+  throw new FileRenameConflictError("Cannot preserve corrupt secret store: backup names exhausted")
 }
 
 async function updateSecrets(update: (secrets: Record<string, string>) => void): Promise<void> {
