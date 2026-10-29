@@ -39,7 +39,7 @@ parentPort.on("message", async (request) => {
     else if (request.op === "copy") {
       const wake = setInterval(() => {}, 20)
       try {
-        await sqlite.backup(db, request.target, { rate: -1 })
+        await sqlite.backup(db, request.target, { rate: 2147483647 })
       } finally {
         clearInterval(wake)
       }
