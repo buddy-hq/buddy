@@ -410,7 +410,7 @@ export function ActivityRow({
       <button
         type="button"
         disabled={!canOpen}
-        aria-expanded={isOpen}
+        aria-expanded={canOpen ? isOpen : undefined}
         onClick={() => {
           if (canOpen) setIsOpen(!isOpen)
         }}
