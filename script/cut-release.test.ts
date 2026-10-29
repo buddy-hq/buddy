@@ -265,10 +265,19 @@ describe("Beta release wizard", () => {
       title: undefined,
       skipLocalReleaseGates: true,
       targets: { macosArm64: true, macosX64: true, windowsX64: true },
+      version: undefined,
     })
     expect(parseReleaseWizardArgs(["--channel=beta"]).channel).toBe("beta")
     expect(() => parseReleaseWizardArgs(["--channel", "dev"])).toThrow("must be prod or beta")
     expect(() => parseReleaseWizardArgs(["--channel"])).toThrow("must be prod or beta")
+  })
+
+  test("parses an exact version in both flag forms", () => {
+    expect(parseReleaseWizardArgs(["--version", "0.1.1"]).version).toBe("0.1.1")
+    expect(parseReleaseWizardArgs(["--version=v0.2.0"]).version).toBe("0.2.0")
+    expect(() => parseReleaseWizardArgs(["--version"])).toThrow("requires a value")
+    expect(() => parseReleaseWizardArgs(["--version", "--fs"])).toThrow("requires a value")
+    expect(() => parseReleaseWizardArgs(["--version", "0.1"])).toThrow("Invalid version")
   })
 
   test.each(["--fast", "--fs"])("%s requires authored notes before the wizard runs", (flag) => {

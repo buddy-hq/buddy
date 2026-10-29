@@ -102,6 +102,7 @@ type ReleaseWizardFlags = {
   title: string | undefined
   skipLocalReleaseGates: boolean
   targets: ReleaseTargets | undefined
+  version: string | undefined
 }
 
 type ReleaseTargetChoice = "all" | "macos-arm64" | "macos-x64" | "windows-x64"
@@ -791,6 +792,7 @@ export function parseReleaseWizardArgs(
   let help = false
   let notes: string | undefined
   let title: string | undefined
+  let version: string | undefined
   let skipLocalReleaseGates = false
 
   for (let index = 0; index < args.length; index += 1) {
@@ -806,6 +808,12 @@ export function parseReleaseWizardArgs(
       if (!value?.trim() || value.startsWith("--")) throw new Error(`${name} requires a value`)
       if (name === "--notes") notes = value
       else title = value
+      continue
+    }
+    if (arg === "--version" || arg?.startsWith("--version=")) {
+      const raw = arg === "--version" ? args[++index] : arg.slice("--version=".length)
+      if (!raw?.trim() || raw.startsWith("--")) throw new Error("--version requires a value")
+      version = normalizeVersion(raw)
       continue
     }
     if (arg === "--channel" || arg?.startsWith("--channel=")) {
@@ -859,17 +867,19 @@ export function parseReleaseWizardArgs(
     title,
     skipLocalReleaseGates,
     targets,
+    version,
   }
 }
 
 function printUsage(): void {
   console.log(
     [
-      `Usage: bun ./script/cut-release.ts [--channel prod|beta] [--fast | ${FAST_SKIP_FLAG}] [--targets <target-list>] [--notes <file>] [--title <text>]`,
+      `Usage: bun ./script/cut-release.ts [--channel prod|beta] [--fast | ${FAST_SKIP_FLAG}] [--targets <target-list>] [--notes <file>] [--title <text>] [--version <x.y.z>]`,
       "",
       `${FAST_SKIP_FLAG} runs the fast flow and skips the local Buddy Dev installable and production release smoke builds.`,
       "--fast and --fs require --notes <file>. Write notes following docs/ops/releases/notes.md.",
       "--notes uses that file instead of the editor. --title defaults to the release tag.",
+      "--version cuts that exact version instead of choosing one, for example a higher version when a failed draft is pinned to an older commit.",
       "",
       "Target list examples:",
       "  --targets all",
@@ -1063,7 +1073,7 @@ async function main() {
 
     printStep("Targets", describeReleaseTargets(targets))
 
-    const version = await chooseVersion(rl, flags.fast)
+    const version = flags.version ?? (await chooseVersion(rl, flags.fast))
     const tag = formatReleaseTag(releaseDistribution(), version)
     const existingDraft = await ensureVersionIsAvailable(version)
     const existingPlan = await loadDraftReleasePlan(existingDraft)
