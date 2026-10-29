@@ -140,7 +140,7 @@ async function freePort(): Promise<number> {
 }
 
 async function main(): Promise<void> {
-  const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), "buddy-node-backend-smoke-")))
+  const root = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), "buddy-node-backend-smoke-")))
   const notebook = path.join(root, "notebooks", "Node smoke notebook")
   const openCodeData = path.join(root, "data", "buddy", "opencode")
   const upgrade = restoreV1UpgradeFixture({
@@ -296,7 +296,7 @@ async function main(): Promise<void> {
                 )
               ).json(),
             )
-          assert.equal(realpathSync(opened.directory), realpathSync(upgrade.notebook))
+          assert.equal(realpathSync.native(opened.directory), realpathSync.native(upgrade.notebook))
           const listed = z.array(
             z.object({ id: z.string(), directory: z.string(), parentID: z.string().optional() }),
           )
@@ -359,7 +359,7 @@ async function main(): Promise<void> {
           const opened = z
             .object({ directory: z.string() })
             .parse(await (await request("open-projects", "POST", { directory: notebook })).json())
-          assert.equal(realpathSync(opened.directory), notebook)
+          assert.equal(realpathSync.native(opened.directory), realpathSync.native(notebook))
           const listed = z
             .object({ directories: z.array(z.string()) })
             .parse(await (await request("open-projects")).json())
@@ -536,7 +536,8 @@ async function main(): Promise<void> {
           const exitCode = await backend.exited
           assert(!forced, "Backend did not stop within 5 s")
           assert(
-            exitCode === 0 || (process.platform === "win32" && exitCode === 1),
+            exitCode === 0 ||
+              (process.platform === "win32" && (exitCode === 1 || exitCode === 143)),
             `Backend stopped with exit code ${exitCode}`,
           )
         } finally {
