@@ -55,6 +55,7 @@ process.env[BUDDY_ENV.DISABLE_SKILL_ARTIFACT_FETCH] = "1"
 process.env[OPENCODE_ENV.DISABLE_DEFAULT_PLUGINS] = "1"
 process.env[OPENCODE_ENV.DISABLE_MODELS_FETCH] = "1"
 process.env[OPENCODE_ENV.DISABLE_EXTERNAL_SKILLS] = "1"
+process.env.OPENCODE_DISABLE_FFF = "1"
 process.env[OPENCODE_ENV.CLIENT] = "web"
 
 if (configuredRoot) {

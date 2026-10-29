@@ -13,6 +13,7 @@ import { Path as OpenCodeGlobalPath } from "@opencode/util/global"
 import { importV1GlobalConfig } from "./global-config-import"
 import { repairLegacyOpenCodeMigrations } from "./legacy-migration-repair"
 import { formatOpenCodeLogDetails, redactLogText } from "./log-redaction"
+import { resolveOpenCodeFilesystemOptions } from "./host-filesystem-options"
 import { importV1McpSignIns } from "./mcp-auth-import"
 import {
   ensureV2DatabaseSeeded,
@@ -200,7 +201,7 @@ export async function createOpenCodeHost(options: OpenCodeHostOptions): Promise<
       },
       database: { path: options.databasePath },
       config: { ...options.config, directory: options.paths.config },
-      fs: options.fs,
+      fs: resolveOpenCodeFilesystemOptions(process.env, options.fs),
       models: { fetch: options.fetchModels ?? true },
       plugins: options.plugins,
       instances: options.instances,
