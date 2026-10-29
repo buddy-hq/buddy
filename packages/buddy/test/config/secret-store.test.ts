@@ -19,6 +19,7 @@ import { deleteUnusedMcpSecrets, projectMcpSettingsConfig } from "../../src/conf
 import { resolveGlobalConfigFile } from "../../src/config/store/config-paths"
 import { updateProjectConfig } from "../../src/config/store/write-config"
 import { listOpenProjects, setOpenProjectRegistryEntries } from "../../src/project/open-project-registry"
+import { renameProjectTextFile, saveProjectTextFile } from "../../src/project/project-file-editor-service"
 import { InvalidError } from "../../src/config/contract/errors"
 import { Config } from "../../src/config/config"
 import { patchProjectConfig } from "../../src/config/orchestration/project-config-service"
@@ -73,9 +74,12 @@ describe("config secret store", () => {
     }
   })
 
-  test("a queued save keeps its missing reference, flags the server, and omits it from OpenCode", async () => {
+  test.each(["config writer", "editor save", "editor rename"] as const)("a queued save keeps its missing reference, flags the server, and omits it from OpenCode (%s)", async (operation) => {
     const id = await storeSecret("concurrent-credential")
-    const before = JSON.stringify({ mcp: { removed: { type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: secretReference(id) } } } })
+    const server = { type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: secretReference(id) } } as const
+    const before = JSON.stringify({ mcp: { removed: server } })
+    const nextConfig = { mcp: { shared: server } }
+    const content = JSON.stringify(nextConfig)
     const directory = await fs.mkdtemp(path.join(Global.Path.data, "concurrent-cleanup-"))
     const savedFile = path.join(directory, "saved.jsonc")
     await fs.writeFile(savedFile, "{}")
@@ -83,8 +87,11 @@ describe("config secret store", () => {
     const notebookC = path.join(directory, "c")
     for (const notebook of [notebookB, notebookC]) {
       await fs.mkdir(path.join(notebook, ".buddy"), { recursive: true })
-      await fs.writeFile(path.join(notebook, ".buddy", "buddy.jsonc"), "{}")
+      const filename = operation === "editor rename" && notebook === notebookB ? "buddy.json" : "buddy.jsonc"
+      await fs.writeFile(path.join(notebook, ".buddy", filename), "{}")
     }
+    if (operation === "editor rename") await fs.writeFile(path.join(notebookB, ".buddy", "draft.jsonc"), content)
+    await fs.writeFile(path.join(notebookB, "notes.txt"), "before")
     const previousRegistry = await listOpenProjects()
     await fs.writeFile(path.join(Global.Path.state, "desktop-notebooks.json"), JSON.stringify([notebookB, notebookC]))
     const blockedFile = await fs.realpath(path.join(notebookC, ".buddy", "buddy.jsonc"))
@@ -106,10 +113,27 @@ describe("config secret store", () => {
     }
     const reads = spyOn(fs, "readFile").mockImplementation(pausedReadFile)
     const cleanup = deleteUnusedMcpSecrets({ filepath: savedFile, before })
-    let addition: Promise<void> | undefined
+    let addition: Promise<void> | ReturnType<typeof saveProjectTextFile> | undefined
+    let ordinary: ReturnType<typeof saveProjectTextFile> | undefined
     try {
       await entered.promise
-      addition = updateProjectConfig(notebookB, { mcp: { shared: { type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: secretReference(id) } } } })
+      if (operation === "config writer") {
+        addition = updateProjectConfig(notebookB, nextConfig)
+      } else {
+        addition = operation === "editor save"
+          ? saveProjectTextFile({ directory: notebookB, path: ".buddy/buddy.jsonc", content })
+          : renameProjectTextFile({ directory: notebookB, path: ".buddy/draft.jsonc", nextPath: ".buddy/buddy.jsonc" })
+        ordinary = saveProjectTextFile({ directory: notebookB, path: "notes.txt", content: "after" })
+        const observation = Promise.withResolvers<"pending">()
+        const timer = setTimeout(() => observation.resolve("pending"), 1_000)
+        try {
+          expect(await Promise.race([ordinary.then(() => "completed"), observation.promise])).toBe("completed")
+          expect(await fs.readFile(path.join(notebookB, "notes.txt"), "utf8")).toBe("after")
+          expect(await Promise.race([addition.then(() => "completed"), observation.promise])).toBe("pending")
+        } finally {
+          clearTimeout(timer)
+        }
+      }
       release.resolve()
       await Promise.all([cleanup, addition])
       const savedNotebook = path.join(notebookB, ".buddy", "buddy.jsonc")
@@ -121,7 +145,7 @@ describe("config secret store", () => {
       expect((await buildNotebookRuntimePlan({ config, directory: notebookB })).mcp).toEqual([])
     } finally {
       release.resolve()
-      await Promise.allSettled([cleanup, addition])
+      await Promise.allSettled([cleanup, addition, ordinary])
       reads.mockRestore()
       await setOpenProjectRegistryEntries(previousRegistry.directories)
       await fs.rm(directory, { recursive: true, force: true })

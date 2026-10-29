@@ -1,6 +1,8 @@
 import { isUtf8 } from "node:buffer"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { withMcpSecretConfigLock } from "../config/secrets/mcp-secrets"
+import { resolveProjectConfigContext, resolveProjectConfigFile } from "../config/store/config-paths"
 import { File as NotebookFile } from "./notebook-files"
 import { isPathInsideDirectory } from "../storage/path-containment"
 import { writeTextFileAtomic } from "../storage/atomic-file"
@@ -21,6 +23,7 @@ const PROJECT_TEXT_FILE_CONFLICT_ERROR = "File changed on disk. Reload or overwr
 const FILE_SYSTEM_ERROR_CODE = {
   alreadyExists: "EEXIST",
   notFound: "ENOENT",
+  notDirectory: "ENOTDIR",
 } as const
 
 export type ProjectTextFileState = {
@@ -66,6 +69,41 @@ function isFileSystemError<TValue>(error: TValue, code: FileSystemErrorCode) {
 
 function normalizeRelativePath(filepath: string) {
   return filepath.trim().replaceAll("\\", "/").replace(/^\/+/, "")
+}
+
+async function canonicalizeEditorFilePath(filepath: string): Promise<string> {
+  const resolvedPath = path.resolve(filepath)
+  const canonical = await fs.realpath(resolvedPath).catch(async (error) => {
+    if (
+      !isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.notFound) &&
+      !isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.notDirectory)
+    ) throw error
+    return path.join(
+      await canonicalizeEditorFilePath(path.dirname(resolvedPath)),
+      path.basename(resolvedPath),
+    )
+  })
+  return process.platform === "win32" || process.platform === "darwin"
+    ? canonical.toLowerCase()
+    : canonical
+}
+
+async function withNotebookConfigWriteLock<T>(
+  directory: string,
+  filepaths: readonly string[],
+  write: () => Promise<T>,
+): Promise<T> {
+  const { configDirectory } = await resolveProjectConfigContext(directory)
+  const buddyDirectory = path.dirname(resolveProjectConfigFile(configDirectory))
+  const configPaths = await Promise.all(
+    ["buddy.jsonc", "buddy.json"].map((filename) =>
+      canonicalizeEditorFilePath(path.join(buddyDirectory, filename)),
+    ),
+  )
+  const targets = await Promise.all(filepaths.map(canonicalizeEditorFilePath))
+  return targets.some((target) => configPaths.includes(target))
+    ? withMcpSecretConfigLock(write)
+    : write()
 }
 
 async function readFileContent(filePath: string) {
@@ -254,8 +292,8 @@ export async function saveProjectTextFile(input: {
     }
 
     const nextPath = containedFile?.realPath ?? path.resolve(input.directory, normalizedPath)
-    const save = async () => {
-      await writeTextFileAtomic(nextPath, input.content, async () => {
+    const save = () => withNotebookConfigWriteLock(input.directory, [nextPath], () =>
+      writeTextFileAtomic(nextPath, input.content, async () => {
         const latestContainedFile = await resolveContainedFile(
           input.directory,
           normalizedPath,
@@ -275,8 +313,8 @@ export async function saveProjectTextFile(input: {
         if (input.expectedVersion !== undefined && input.expectedVersion !== currentVersion) {
           throw new ProjectTextFileVersionConflictError(PROJECT_TEXT_FILE_CONFLICT_ERROR)
         }
-      })
-    }
+      }),
+    )
 
     if (nextPath === lexicalTargetPath) {
       await save()
@@ -329,7 +367,9 @@ export async function renameProjectTextFile(input: {
       }
     }
 
-    await renameFileWithoutOverwrite(source.absolutePath, destinationPath)
+    await withNotebookConfigWriteLock(input.directory, [source.realPath, destinationPath], () =>
+      renameFileWithoutOverwrite(source.absolutePath, destinationPath),
+    )
 
     return {
       path: normalizedNextPath,
