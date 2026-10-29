@@ -1,6 +1,6 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { mergeDeep } from "remeda"
+import { isDeepEqual, mergeDeep } from "remeda"
 import {
   loadConfigText,
   loadProjectConfigText,
@@ -10,7 +10,7 @@ import {
 import { preserveConfigSecrets } from "../contract/web-safe"
 import { deleteUnusedMcpSecrets, storeEnteredMcpSecrets, withMcpSecretConfigLock } from "../secrets/mcp-secrets"
 import { JsonError } from "../contract/errors.js"
-import { parseNodeErrorCode } from "../parse-values.js"
+import { parseConfigObject, parseConfigString, parseNodeErrorCode, type TConfigJsonValue } from "../parse-values.js"
 import { resetGlobalConfigCache } from "./global-cache.js"
 import {
   resolveGlobalConfigFile,
@@ -21,7 +21,11 @@ import { Info, ProjectInfo } from "./types.js"
 import type { Mcp, Info as ConfigInfo, ProjectInfo as ProjectConfigInfo } from "./types.js"
 
 type GlobalConfigMutation = (current: ConfigInfo) => ConfigInfo
-type ConfigDocumentLoader<TConfig> = (text: string, filepath: string) => Promise<TConfig>
+type ConfigDocumentLoader<TConfig> = (
+  text: string,
+  filepath: string,
+  options?: { resolveSubstitutions?: boolean },
+) => Promise<TConfig>
 
 const LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH = ["learner_memory", "master_enabled"] as const
 
@@ -38,6 +42,32 @@ async function readConfigTextOrDefault(filepath: string): Promise<string> {
   })
 }
 
+function preserveConfigReferences(
+  next: TConfigJsonValue | undefined,
+  current: TConfigJsonValue | undefined,
+  resolved: TConfigJsonValue | undefined,
+): TConfigJsonValue | undefined {
+  const text = parseConfigString(current)
+  if (text !== undefined && /\{(?:env|file|secret):/u.test(text) && isDeepEqual(next, resolved)) {
+    return text
+  }
+  if (Array.isArray(next)) {
+    return next.map((entry, index) => preserveConfigReferences(
+      entry,
+      Array.isArray(current) ? current[index] : undefined,
+      Array.isArray(resolved) ? resolved[index] : undefined,
+    ) ?? null)
+  }
+  const nextRecord = parseConfigObject(next)
+  if (!nextRecord) return next
+  const currentRecord = parseConfigObject(current)
+  const resolvedRecord = parseConfigObject(resolved)
+  return Object.fromEntries(Object.entries(nextRecord).map(([key, value]) => [
+    key,
+    preserveConfigReferences(value, currentRecord?.[key], resolvedRecord?.[key]),
+  ]))
+}
+
 async function writeConfigDocument<TConfig>(input: {
   filepath: string
   before: string
@@ -46,7 +76,13 @@ async function writeConfigDocument<TConfig>(input: {
   storeMcpSecrets?: boolean
 }): Promise<void> {
   const current = await input.load(input.before, input.filepath)
-  const preserved = preserveConfigSecrets(input.next, current)
+  const resolved = await input.load(input.before, input.filepath, { resolveSubstitutions: true }).catch(() => undefined)
+  const references = resolved === undefined ? input.next : preserveConfigReferences(
+    parseConfigObject(input.next),
+    parseConfigObject(current),
+    parseConfigObject(resolved),
+  )
+  const preserved = preserveConfigSecrets(references, current)
   const next = input.storeMcpSecrets === true ? await storeEnteredMcpSecrets(preserved, current) : preserved
   let updated = updateKnownConfigDocument(input.before, current, next, input.filepath)
 
@@ -58,18 +94,26 @@ async function writeConfigDocument<TConfig>(input: {
   await fsp.writeFile(input.filepath, updated, "utf8")
 }
 
-function loadGlobalConfigDocument(text: string, filepath: string): Promise<ConfigInfo> {
+function loadGlobalConfigDocument(
+  text: string,
+  filepath: string,
+  options: { resolveSubstitutions?: boolean } = { resolveSubstitutions: false },
+): Promise<ConfigInfo> {
   return loadConfigText(text, {
     dir: path.dirname(filepath),
     source: filepath,
-  }, { resolveSubstitutions: false })
+  }, options)
 }
 
-function loadProjectConfigDocument(text: string, filepath: string): Promise<ProjectConfigInfo> {
+function loadProjectConfigDocument(
+  text: string,
+  filepath: string,
+  options: { resolveSubstitutions?: boolean } = { resolveSubstitutions: false },
+): Promise<ProjectConfigInfo> {
   return loadProjectConfigText(text, {
     dir: path.dirname(filepath),
     source: filepath,
-  }, { resolveSubstitutions: false })
+  }, options)
 }
 
 async function withGlobalConfigChangeLock<T>(task: () => Promise<T>): Promise<T> {
@@ -124,6 +168,7 @@ export async function setProjectMcpConfig(
 
     const before = await readConfigTextOrDefault(filepath)
     const current = await loadProjectConfigDocument(before, filepath)
+    const resolved = await loadProjectConfigDocument(before, filepath, { resolveSubstitutions: true }).catch(() => undefined)
     const next = ProjectInfo.parse({
       ...current,
       mcp: {
@@ -131,10 +176,12 @@ export async function setProjectMcpConfig(
         [name]: mcp,
       },
     })
+    const references = resolved === undefined ? next : preserveConfigReferences(next, current, resolved)
+    const preserved = preserveConfigSecrets(references, current)
     let updated = removeConfigDocumentValue(before, filepath, [
       ...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH,
     ])
-    updated = updateKnownConfigDocument(updated, current, await storeEnteredMcpSecrets(preserveConfigSecrets(next, current), current), filepath)
+    updated = updateKnownConfigDocument(updated, current, await storeEnteredMcpSecrets(preserved, current), filepath)
     await loadProjectConfigDocument(updated, filepath)
     await fsp.writeFile(filepath, updated, "utf8")
   })

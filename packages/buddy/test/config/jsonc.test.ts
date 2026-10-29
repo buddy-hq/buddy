@@ -1,11 +1,15 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { Config, InvalidError, JsonError } from "@buddy/backend/config"
 import { loadConfigText, updateKnownConfigDocument } from "../../src/config/contract/document"
 import { projectConfigFile, writeProjectConfig } from "../helpers/project-config"
 import { parseJsonObject } from "../helpers/parse"
 import { createGitRepo } from "../helpers/repo"
+import { Global } from "../../src/storage/global"
+import { resetGlobalConfigCache } from "../../src/config/store/global-cache"
+import { projectMcpSettingsConfig } from "../../src/config/secrets/mcp-secrets"
+import { temporaryEnvironment } from "../helpers/temporary-environment"
 
 describe("config jsonc", () => {
   test("keeps credential values out of parse diagnostics exposed by config routes", async () => {
@@ -384,6 +388,103 @@ describe("config jsonc", () => {
       }
     }
   })
+
+  test("keeps global env and file references unexpanded when another setting changes", async () => {
+    await using repository = await createGitRepo("buddy-global-config-preserve-references")
+    const filepath = path.join(Global.Path.config, "buddy.jsonc")
+    const previous = existsSync(filepath) ? readFileSync(filepath, "utf8") : undefined
+    const referencedFile = path.join(repository.path, "provider-url.txt")
+    using environment = temporaryEnvironment({ BUDDY_GLOBAL_CONFIG_REFERENCE_TEST_SECRET: "expanded-global-secret" })
+    writeFileSync(referencedFile, "https://expanded-global.example.com\n")
+
+    try {
+      writeFileSync(filepath, JSON.stringify({
+        provider: { openai: { options: {
+          apiKey: "{env:BUDDY_GLOBAL_CONFIG_REFERENCE_TEST_SECRET}",
+          baseURL: `{file:${referencedFile}}`,
+        } } },
+      }))
+      resetGlobalConfigCache()
+      const config = await Config.getGlobal()
+      expect(config.provider?.openai.options).toMatchObject({
+        apiKey: "expanded-global-secret",
+        baseURL: "https://expanded-global.example.com",
+      })
+      await Config.updateGlobal(Config.Info.parse({ ...config, model: "anthropic/updated" }))
+
+      const saved = readFileSync(filepath, "utf8")
+      expect(saved).toContain("{env:BUDDY_GLOBAL_CONFIG_REFERENCE_TEST_SECRET}")
+      expect(saved).toContain(`{file:${referencedFile}}`)
+      expect(saved).toContain('"model": "anthropic/updated"')
+      expect(saved).not.toContain("expanded-global-secret")
+      expect(saved).not.toContain("https://expanded-global.example.com")
+    } finally {
+      if (previous === undefined) rmSync(filepath, { force: true })
+      else writeFileSync(filepath, previous)
+      resetGlobalConfigCache()
+    }
+  })
+
+  test("writes a changed apiKey literal while keeping an unchanged file reference", async () => {
+    await using repository = await createGitRepo("buddy-config-change-reference")
+    const filepath = projectConfigFile(repository.path)
+    const referencedFile = path.join(repository.path, "provider-url.txt")
+    using environment = temporaryEnvironment({ BUDDY_CONFIG_CHANGED_REFERENCE_TEST_SECRET: "original-secret" })
+    writeFileSync(referencedFile, "https://unchanged.example.com\n")
+    writeProjectConfig(repository.path, JSON.stringify({
+      provider: { openai: { options: {
+        apiKey: "{env:BUDDY_CONFIG_CHANGED_REFERENCE_TEST_SECRET}",
+        baseURL: `{file:${referencedFile}}`,
+      } } },
+    }))
+
+    const config = await Config.getProjectFile(repository.path)
+    await Config.updateProject(repository.path, Config.ProjectInfo.parse({
+      ...config,
+      provider: { ...config.provider, openai: {
+        ...config.provider?.openai,
+        options: { ...config.provider?.openai.options, apiKey: "new-literal-key" },
+      } },
+    }))
+
+    const saved = readFileSync(filepath, "utf8")
+    expect(JSON.parse(saved)).toMatchObject({ provider: { openai: { options: { apiKey: "new-literal-key" } } } })
+    expect(saved).not.toContain("{env:BUDDY_CONFIG_CHANGED_REFERENCE_TEST_SECRET}")
+    expect(saved).not.toContain("original-secret")
+    expect(saved).toContain(`{file:${referencedFile}}`)
+  })
+
+  test.each(["project update", "MCP setter"] as const)(
+    "keeps references and the missing-secret flag when another setting changes through %s",
+    async (writer) => {
+      await using repository = await createGitRepo("buddy-config-missing-secret-reference")
+      using environment = temporaryEnvironment({ BUDDY_CONFIG_MCP_REFERENCE_TEST_URL: "https://mcp.example.test" })
+      writeProjectConfig(repository.path, JSON.stringify({
+        mcp: { docs: {
+          type: "remote",
+          url: "{env:BUDDY_CONFIG_MCP_REFERENCE_TEST_URL}",
+          headers: { Authorization: "{secret:sec_config_refs_other_machine}" },
+        } },
+      }))
+
+      const config = await Config.getProjectFile(repository.path)
+      if (writer === "project update") {
+        await Config.updateProject(repository.path, Config.ProjectInfo.parse({ ...config, model: "anthropic/updated" }))
+      } else {
+        await Config.setProjectMcp(repository.path, "docs", Config.Mcp.parse({ ...config.mcp?.docs, enabled: false }))
+      }
+
+      const saved = readFileSync(projectConfigFile(repository.path), "utf8")
+      expect(saved).toContain("{env:BUDDY_CONFIG_MCP_REFERENCE_TEST_URL}")
+      expect(saved).toContain("{secret:sec_config_refs_other_machine}")
+      expect(saved).not.toContain("https://mcp.example.test")
+      const reloaded = await Config.getProjectFile(repository.path)
+      expect(reloaded.mcp?.docs).toMatchObject({
+        headers: { Authorization: "{secret:sec_config_refs_other_machine}" },
+      })
+      expect(await projectMcpSettingsConfig(reloaded)).toMatchObject({ mcp: { docs: { missingSecret: true } } })
+    },
+  )
 
   test("removes the deprecated learner-memory master switch on write", async () => {
     await using repository = await createGitRepo("buddy-config-remove-legacy-memory-setting")
