@@ -60,7 +60,7 @@ export const BUDDY_DISTRIBUTIONS = {
     releaseTagPrefix: "beta-v",
     releaseBranch: "beta",
     sourceTagPrefix: "beta-v",
-    updaterPublicKey: null,
+    updaterPublicKey: "RWRRnM+Qz4xDASCpffLNxMGPg9RABITEi2F3OBYJRb93M5dcAIw5lo0Y",
   },
 } as const satisfies Record<BuddyDistributionId, BuddyDistribution>
 
