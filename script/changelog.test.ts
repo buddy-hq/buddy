@@ -1,5 +1,41 @@
 import { describe, expect, test } from "bun:test"
-import { latestReleaseVersionFromReleases, changelogSourceRef } from "./changelog"
+import {
+  latestReleaseVersionFromReleases,
+  changelogSourceRef,
+  limitReleaseBody,
+} from "./changelog"
+import { formatBetaReleaseBody, readBetaReleaseBody } from "@buddy/script/release-stream"
+
+describe("release body size limit", () => {
+  test.each(["prod", "beta"] as const)("bounds the final %s body by whole lines", (channel) => {
+    const format = channel === "beta" ? formatBetaReleaseBody : (notes: string) => notes
+    const kept = "- Keep this <Beta> & change"
+    const oversized = `- ${"<&>".repeat(50_000)}`
+    const body = limitReleaseBody(format(`${kept}\n${oversized}\n- Drop this tail`))
+    const notes = channel === "beta" ? readBetaReleaseBody(body) : body
+    expect(body.length).toBeLessThanOrEqual(120_000)
+    expect(notes?.split("\n")).toEqual([
+      kept,
+      "Release notes truncated to fit GitHub's size limit.",
+    ])
+    if (channel === "beta") expect(body).toBe(formatBetaReleaseBody(notes ?? ""))
+  })
+
+  test("accounts for Beta escaping and preserves a body at the exact limit", () => {
+    const overhead = formatBetaReleaseBody("").length
+    const exact = formatBetaReleaseBody("a".repeat(120_000 - overhead))
+    expect(limitReleaseBody(exact)).toBe(exact)
+    const escaped = formatBetaReleaseBody(`- First\n- ${"&".repeat(30_000)}\n- Last`)
+    expect(readBetaReleaseBody(limitReleaseBody(escaped))).toBe(
+      "- First\nRelease notes truncated to fit GitHub's size limit.",
+    )
+  })
+
+  test("keeps existing short frozen bodies byte-identical", () => {
+    const body = formatBetaReleaseBody("- Original notes  \n").replaceAll("\n", "\r\n") + "\r\n"
+    expect(limitReleaseBody(body)).toBe(body)
+  })
+})
 
 const release = (tag_name: string, prerelease = true, draft = false) => ({
   tag_name,

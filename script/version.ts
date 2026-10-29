@@ -2,15 +2,13 @@
 
 import { $ } from "bun"
 import { z } from "zod"
-import os from "node:os"
-import path from "node:path"
 import {
   assertReleaseTagVersion,
   formatReleaseTag,
-  formatBetaReleaseBody,
+  readBetaReleaseBody,
 } from "@buddy/script/release-stream"
 import { Script } from "@buddy/script"
-import { buildNotes, getLatestRelease } from "./changelog.ts"
+import { requireValidReleaseNotes } from "./release/notes"
 import { releaseRepository, sourceRepository } from "./release-repositories"
 import { appendGithubOutputs } from "./release/github-output"
 import { assertReleaseBranch, releaseDistribution } from "./release/distribution-guard"
@@ -41,11 +39,7 @@ const ExistingReleaseSchema = z.object({
   isDraft: z.boolean(),
   isPrerelease: z.boolean(),
   tagName: z.string(),
-})
-
-const CreatedReleaseSchema = z.object({
-  databaseId: z.number(),
-  tagName: z.string(),
+  body: z.string(),
 })
 
 async function currentBranch() {
@@ -71,28 +65,6 @@ if (process.env.BUDDY_RELEASE_TAG?.trim()) {
   assertReleaseTagVersion(distribution, process.env.BUDDY_RELEASE_TAG.trim(), Script.version)
 }
 
-async function releaseTargetSha() {
-  return (
-    process.env.BUDDY_RELEASE_SOURCE_SHA?.trim() ||
-    process.env.GITHUB_SHA?.trim() ||
-    (await $`git rev-parse HEAD`.text().then((output) => output.trim()))
-  )
-}
-
-async function createRelease(file: string) {
-  if (distribution.id === "beta") {
-    await $`gh release create ${tag} -d --prerelease --latest=false --title ${tag} --notes-file ${file} --repo ${releaseRepo}`
-    return
-  }
-  if (releaseRepo === sourceRepo) {
-    const target = await releaseTargetSha()
-    await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --target ${target} --repo ${releaseRepo}`
-    return
-  }
-
-  await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --repo ${releaseRepo}`
-}
-
 let release: CreatedRelease
 
 if (dryRun) {
@@ -107,9 +79,17 @@ if (dryRun) {
   const existing = await $`gh release view ${tag} --repo ${releaseRepo}`.quiet().nothrow()
   if (existing.exitCode === 0) {
     const releasePayload =
-      await $`gh release view ${tag} --json tagName,databaseId,isDraft,isPrerelease --repo ${releaseRepo}`.json()
-    release = ExistingReleaseSchema.parse(releasePayload)
+      await $`gh release view ${tag} --json tagName,databaseId,isDraft,isPrerelease,body --repo ${releaseRepo}`.json()
+    const existingRelease = ExistingReleaseSchema.parse(releasePayload)
+    release = existingRelease
     assertReleaseTagVersion(distribution, release.tagName, Script.version)
+    if (release.isDraft) {
+      const notes =
+        distribution.id === "beta"
+          ? (readBetaReleaseBody(existingRelease.body) ?? existingRelease.body)
+          : existingRelease.body
+      requireValidReleaseNotes({ notes, body: existingRelease.body })
+    }
 
     if (distribution.id === "beta" && !release.isDraft) {
       const assets = await $`gh release view ${tag} --json assets --repo ${releaseRepo}`.json()
@@ -124,21 +104,9 @@ if (dryRun) {
       throw new Error(`Stable release ${tag} already exists`)
     }
   } else {
-    const previous = await getLatestRelease(distribution.id === "beta" ? Script.version : undefined)
-    const notes = await buildNotes(previous, "HEAD")
-    const body = notes.join("\n") || "No notable changes"
-    const file = path.join(
-      process.env.RUNNER_TEMP || os.tmpdir(),
-      `buddy-release-notes-${Script.version}.md`,
+    throw new Error(
+      `No draft release ${tag}. Cut it with the release wizard and authored notes; see docs/ops/releases/notes.md.`,
     )
-    await Bun.write(file, distribution.id === "beta" ? formatBetaReleaseBody(body) : body)
-
-    await createRelease(file)
-
-    const releasePayload =
-      await $`gh release view ${tag} --json tagName,databaseId --repo ${releaseRepo}`.json()
-    release = CreatedReleaseSchema.parse(releasePayload)
-    assertReleaseTagVersion(distribution, release.tagName, Script.version)
   }
 }
 

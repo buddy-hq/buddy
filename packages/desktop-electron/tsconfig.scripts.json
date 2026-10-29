@@ -24,6 +24,8 @@
     "../buddy/src/http/parse.ts",
     "../buddy/src/local-runtimes/advanced-math/version.ts",
     "../script/src/backend-node-runtime.ts",
+    "../update-contract/src/release-notes.ts",
+    "../update-contract/src/update-state.ts",
     "../../script/backend-node-artifact.ts",
     "../../script/changelog.ts",
     "../../script/cut-release.ts",
@@ -36,6 +38,8 @@
     "../../script/release/constants.ts",
     "../../script/release/distribution-guard.ts",
     "../../script/release/github-output.ts",
+    "../../script/release/notes.ts",
+    "../../script/release/notes-input.ts",
     "../../script/release/plan.ts",
     "../../script/release/preflight.ts",
     "../../script/release/published-manifest.ts"

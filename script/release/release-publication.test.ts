@@ -6,7 +6,7 @@ import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { z } from "zod"
 import { renderReleaseFreeze } from "./freeze"
-import { formatBetaReleaseBody } from "@buddy/script/release-stream"
+import { formatBetaReleaseBody, readBetaReleaseBody } from "@buddy/script/release-stream"
 
 const ROOT = path.resolve(import.meta.dir, "../..")
 const REPOSITORY = "prashantbhudwal/buddy-releases"
@@ -34,6 +34,8 @@ async function publicationFixture(
     partial?: boolean
     refName?: string
     releaseTag?: string
+    notesHistory?: "first" | "later" | "no-stable"
+    notesBody?: string
   } = {},
 ) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "buddy-beta-publication-"))
@@ -51,6 +53,9 @@ async function publicationFixture(
       "script/release/installed-stable-readers.ts",
       "script/version.ts",
       "script/changelog.ts",
+      "script/release/notes.ts",
+      "script/release/notes-input.ts",
+      "packages/update-contract/src/release-notes.ts",
       "script/release-repositories.ts",
       "script/release-source-tag.ts",
       "script/release/assets.ts",
@@ -146,7 +151,7 @@ async function publicationFixture(
         isPrerelease: input.prerelease ?? input.channel !== "prod",
         tagName: input.channel === "prod" ? "v0.1.0" : "beta-v0.1.0",
         databaseId: 123,
-        body: input.channel === "prod" ? "" : formatBetaReleaseBody("Beta test notes"),
+        body: input.notesBody ?? (input.channel === "prod" ? "- Your notebook opens faster." : formatBetaReleaseBody("Beta test notes")),
         url: `https://github.com/${REPOSITORY}/releases/tag/${input.channel === "prod" ? "v" : "beta-v"}0.1.0`,
         assets,
         highest: input.highest,
@@ -187,6 +192,7 @@ if (args[0] === "api") {
 } else if (args[1] === "create") {
   state.exists = true
   state.assets = []
+  state.body = readFileSync(args[args.indexOf("--notes-file") + 1], "utf8")
   writeFileSync(process.env.FIXTURE_STATE, JSON.stringify(state))
 } else if (args[1] === "view") {
   if (!state.exists) process.exit(1)
@@ -201,9 +207,47 @@ if (args[0] === "api") {
       `#!/bin/bash\nif [[ "$1" == "rev-list" ]]; then exit 0; fi\necho ${input.channel === "prod" ? "main" : "beta"}\n`,
     )
     await chmod(git, 0o755)
+    let notesSourceSha: string | undefined
+    if (input.notesHistory) {
+      await rm(git)
+      const runGit = (...args: string[]) => {
+        const result = spawnSync("git", args, { cwd: directory, encoding: "utf8" })
+        if (result.status !== 0) throw new Error(result.stderr)
+        return result.stdout.trim()
+      }
+      runGit("init", "--initial-branch=beta")
+      runGit("config", "user.name", "Release notes fixture")
+      runGit("config", "user.email", "release-notes@example.test")
+      const feature = path.join(directory, "packages/web/feature.ts")
+      const commit = async (message: string) => {
+        await Bun.write(feature, message)
+        await Bun.write(path.join(directory, "message.txt"), message)
+        runGit("add", "packages/web/feature.ts")
+        runGit("commit", "--quiet", "--file", "message.txt")
+      }
+      await commit(`feat: Historic change ${"old history ".repeat(12_000)}`)
+      if (input.notesHistory !== "no-stable") {
+        runGit("tag", "v0.0.78")
+        await commit("feat: Stable changes")
+        runGit("tag", "v0.0.79")
+        runGit("checkout", "--quiet", "-b", "unmerged")
+        await commit("feat: Unmerged Stable changes")
+        runGit("tag", "v99.0.0")
+        runGit("checkout", "--quiet", "beta")
+      }
+      await commit("feat: First Beta changes <&>")
+      if (input.notesHistory === "later") {
+        runGit("tag", "beta-v0.0.9")
+        await commit("feat: Later Beta changes")
+      } else {
+        await commit(`feat: Large Beta change ${"<&>".repeat(30_000)}`)
+        await commit("feat: Tail after oversized line")
+      }
+      notesSourceSha = runGit("rev-parse", "HEAD")
+    }
     const runnerTemp = path.join(directory, "runner")
     await mkdir(runnerTemp)
-    const result = spawnSync(process.execPath, [`script/${input.script ?? "publish"}.ts`], {
+    const invocation = {
       cwd: directory,
       env: {
         ...process.env,
@@ -222,7 +266,7 @@ if (args[0] === "api") {
         BUDDY_RELEASE_TARGET_MACOS_X64: input.partial ? "false" : "true",
         BUDDY_RELEASE_TARGET_WINDOWS_X64: "true",
         BUDDY_RELEASE_SOURCE_REPOSITORY: "buddy-hq/buddy",
-        BUDDY_RELEASE_SOURCE_SHA: SOURCE_SHA,
+        BUDDY_RELEASE_SOURCE_SHA: notesSourceSha ?? SOURCE_SHA,
         BUDDY_RELEASE_PLAN_DIGEST: PLAN_DIGEST,
         BUDDY_RELEASE_DRY_RUN: "",
         GITHUB_REF_NAME: input.refName ?? (input.channel === "prod" ? "main" : "beta"),
@@ -234,7 +278,22 @@ if (args[0] === "api") {
         FIXTURE_FREEZE: freezePath,
       },
       encoding: "utf8",
-    })
+    } as const
+    const wizard = input.notesHistory
+      ? spawnSync(
+          process.execPath,
+          [
+            "--eval",
+            `import { initialReleaseBody } from ${JSON.stringify(path.join(ROOT, "script/cut-release.ts"))}; import { buildReleaseNotes, limitReleaseBody } from ${JSON.stringify(path.join(ROOT, "script/changelog.ts"))}; import { resolveBetaDraftReleaseBody } from ${JSON.stringify(path.join(ROOT, "script/release/beta-publication.ts"))}; const raw = await initialReleaseBody("0.1.0", undefined); const notes = await buildReleaseNotes(${JSON.stringify(input.highest)}, "HEAD"); console.log(JSON.stringify({ raw, body: limitReleaseBody(resolveBetaDraftReleaseBody({ notes, existingRelease: undefined })) }));`,
+          ],
+          invocation,
+        )
+      : undefined
+    const result = spawnSync(
+      process.execPath,
+      [`script/${input.script ?? "publish"}.ts`],
+      invocation,
+    )
     const calls = (await Bun.file(logPath).exists())
       ? z.array(z.array(z.string())).parse(
           (await Bun.file(logPath).text())
@@ -245,6 +304,8 @@ if (args[0] === "api") {
       : []
     return {
       result,
+      wizard,
+      body: z.object({ body: z.string() }).parse(await Bun.file(statePath).json()).body,
       calls,
       outputs: (await Bun.file(path.join(directory, "outputs.txt")).exists())
         ? await Bun.file(path.join(directory, "outputs.txt")).text()
@@ -256,6 +317,71 @@ if (args[0] === "api") {
 }
 
 describe("Beta publication CLI", () => {
+  test.each(["prod", "beta"] as const)("version keeps the authored %s draft body verbatim", async (channel) => {
+    const notes = "- Your chat stays responsive.  \n- Opening Sources works again.\n"
+    const body = channel === "beta" ? formatBetaReleaseBody(notes).replaceAll("\n", "\r\n") : notes
+    const fixture = await publicationFixture({ script: "version", channel, notesBody: body })
+    expect(fixture.result.status).toBe(0)
+    expect(fixture.body).toBe(body)
+    expect(fixture.calls.some((call) => call[1] === "create" || call[1] === "edit")).toBe(false)
+    expect(fixture.calls.some((call) => call.includes("--json") && call.some((arg) => arg.split(",").includes("body")))).toBe(true)
+  })
+
+  test("version refuses an unedited raw-input draft", async () => {
+    const fixture = await publicationFixture({ script: "version", notesBody: formatBetaReleaseBody("# Raw release notes input — replace with user-facing notes\n- deadbee fix: raw") })
+    expect(fixture.result.status).toBe(1)
+    expect(fixture.result.stderr).toContain("Replace the raw input")
+    expect(fixture.calls.some((call) => call[1] === "create" || call[1] === "edit")).toBe(false)
+  })
+  test("first Beta raw input and bounded fallback use the ancestor Stable baseline", async () => {
+    const { result, wizard, calls } = await publicationFixture({
+      script: "version",
+      exists: false,
+      notesHistory: "first",
+    })
+    expect(wizard?.status).toBe(0)
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain("No draft release")
+    expect(calls.some((call) => call[1] === "create")).toBe(false)
+    const { body, raw } = z.object({ body: z.string(), raw: z.string() }).parse(JSON.parse(wizard?.stdout.trim() ?? ""))
+    expect(raw).toContain("Range: `v0.0.79..HEAD`")
+    expect(body.length).toBeLessThanOrEqual(120_000)
+    expect(readBetaReleaseBody(body)).toBe(
+      "## Web\n- feat: First Beta changes <&>\nRelease notes truncated to fit GitHub's size limit.",
+    )
+    expect(body).toBe(formatBetaReleaseBody(readBetaReleaseBody(body) ?? ""))
+  })
+
+  test("later Beta raw input and fallback still diff from the previous Beta", async () => {
+    const { result, wizard } = await publicationFixture({
+      script: "version",
+      exists: false,
+      highest: "0.0.9",
+      notesHistory: "later",
+    })
+    expect(wizard?.status).toBe(0)
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain("No draft release")
+    const { body, raw } = z.object({ body: z.string(), raw: z.string() }).parse(JSON.parse(wizard?.stdout.trim() ?? ""))
+    expect(raw).toContain("Range: `beta-v0.0.9..HEAD`")
+    expect(readBetaReleaseBody(body)).toBe("## Web\n- feat: Later Beta changes")
+  })
+
+  test("first Beta without an ancestor Stable keeps the fixed-note fallback", async () => {
+    const { result, wizard } = await publicationFixture({
+      script: "version",
+      exists: false,
+      notesHistory: "no-stable",
+    })
+    expect(wizard?.status).toBe(0)
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain("No draft release")
+    const { body } = z.object({ body: z.string() }).parse(JSON.parse(wizard?.stdout.trim() ?? ""))
+    expect(readBetaReleaseBody(body)).toMatch(
+      /^This is the first Buddy Beta, built from beta at [a-f0-9]{7,40}\.$/u,
+    )
+  })
+
   test("publishes a frozen draft as prerelease and never latest", async () => {
     const { result, calls } = await publicationFixture()
     expect(result.status).toBe(0)
@@ -328,18 +454,15 @@ describe("Beta publication CLI", () => {
     expect(result.stderr).toContain("must be prerelease and frozen")
   })
 
-  test("creates a first Beta prerelease draft with its namespaced tag", async () => {
+  test("requires a writer to replace generated input when no draft exists", async () => {
     const { result, calls, outputs } = await publicationFixture({
       script: "version",
       exists: false,
     })
-    expect(result.status).toBe(0)
-    const create = calls.find((call) => call[1] === "create")
-    expect(create?.slice(0, 4)).toEqual(["release", "create", "beta-v0.1.0", "-d"])
-    expect(create).toContain(REPOSITORY)
-    expect(create).toContain("--prerelease")
-    expect(create).toContain("--latest=false")
-    expect(outputs).toContain("tag=beta-v0.1.0")
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain("docs/ops/releases/notes.md")
+    expect(calls.some((call) => call[1] === "create" || call[1] === "edit")).toBe(false)
+    expect(outputs).toBe("")
   })
 
   test.each([

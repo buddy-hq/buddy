@@ -13,11 +13,12 @@ git checkout main && git pull origin main && git status --short
 ---
 
 ## 2. Cut a Preview Candidate
-Run the release cut wizard:
+Print the raw input, inspect the diffs, and write a notes file following [notes.md](notes.md). Then run the release cut wizard with that file:
 ```sh
-bun run release:cut
+bun run release:notes:input --channel prod
+bun run release:cut --notes /tmp/buddy-notes.md --title "Buddy <version>"
 ```
-- Inspects latest stable release for changelog baseline.
+- Uses the previous published release in the same channel as the notes baseline.
 - Suggests the next version from highest published tag (including soaking Preview candidates) to prevent collisions.
 
 ---
@@ -104,8 +105,12 @@ CI runs on pushes to both branches. As on `main`, a push that changes `vendor/op
 From clean, green `beta`, run:
 
 ```sh
-bun run release:cut:beta --targets all
+bun run release:notes:input --channel beta
+# Read the diffs and write /tmp/buddy-beta-notes.md following notes.md.
+bun run release:cut:beta --fs --targets all --notes /tmp/buddy-beta-notes.md --title "Buddy Beta <version>"
 ```
+
+Write the notes for people using Buddy, following [notes.md](notes.md). `--notes` skips the editor, and `--title` defaults to the tag. Both `--fast` and `--fs` require `--notes`.
 
 The first Beta release must build macOS ARM64, macOS Intel, and Windows x64. Later cuts may select a subset; omitted feeds must come from a previous published Beta release. Beta never bootstraps a production or legacy manifest. For local gates, explicitly configure the Beta key through `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH` and its password; Beta never falls back to `~/.config/buddy/tauri-updater.key`.
 

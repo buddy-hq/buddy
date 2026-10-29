@@ -9,11 +9,16 @@ import {
 } from "@buddy/script/release-version"
 import {
   assertReleaseTag,
+  formatBetaReleaseBody,
+  formatReleaseTag,
   highestStreamReleaseVersion,
   parseReleaseTag,
+  readBetaReleaseBody,
 } from "@buddy/script/release-stream"
+import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
 import { releaseDistribution, sourceReleaseTag } from "./release/distribution-guard"
 import { releaseRepository } from "./release-repositories"
+import { MAX_RELEASE_BODY_LENGTH } from "./release/notes"
 
 type Commit = {
   hash: string
@@ -125,7 +130,7 @@ async function listCommitHashes(from: string | undefined, to = "HEAD", sourceRef
     .then((output) => output.split("\n").filter(Boolean))
 }
 
-function isIgnoredCommit(message: string) {
+export function isIgnoredCommit(message: string) {
   return /^(ignore:|test:|chore:|ci:|release:)/i.test(message)
 }
 
@@ -227,6 +232,66 @@ export async function buildNotes(from: string | undefined, to = "HEAD", sourceRe
   }
 
   return lines
+}
+
+export async function resolveReleaseNotesRange(
+  previous: string | undefined,
+  to = "HEAD",
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<
+  | { readonly kind: "range"; readonly from: string | undefined; readonly to: string }
+  | { readonly kind: "first-beta"; readonly notes: string; readonly to: string }
+> {
+  let sourceRef =
+    previous === undefined ? undefined : changelogSourceRef(previous, undefined, environment)
+  if (previous === undefined && releaseDistribution(environment).id === "beta") {
+    const tags = await $`git tag --merged ${to} --list ${"v*"}`.text()
+    const stableVersion = latestReleaseVersionFromReleases(
+      tags
+        .split("\n")
+        .filter((tag) => parseReleaseTag(BUDDY_DISTRIBUTIONS.prod, tag) !== undefined)
+        .map((tagName) => ({ tagName, isDraft: false, isPrerelease: false })),
+    )
+    if (stableVersion === undefined) {
+      const shortSha = await $`git rev-parse --short=7 ${to}`.text()
+      return {
+        kind: "first-beta",
+        notes: `This is the first Buddy Beta, built from beta at ${shortSha.trim()}.`,
+        to,
+      }
+    }
+    sourceRef = formatReleaseTag(BUDDY_DISTRIBUTIONS.prod, stableVersion)
+  }
+  return { kind: "range", from: sourceRef, to }
+}
+
+export async function buildReleaseNotes(
+  previous: string | undefined,
+  to = "HEAD",
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  const range = await resolveReleaseNotesRange(previous, to, environment)
+  if (range.kind === "first-beta") return range.notes
+  return (await buildNotes(previous, to, range.from)).join("\n") || "No notable changes"
+}
+
+export function limitReleaseBody(body: string): string {
+  const maximumLength = MAX_RELEASE_BODY_LENGTH
+  if (body.length <= maximumLength) return body
+
+  const betaNotes = readBetaReleaseBody(body)
+  const format = betaNotes === undefined ? (notes: string) => notes : formatBetaReleaseBody
+  const overhead = format("").length
+  const truncated = "Release notes truncated to fit GitHub's size limit."
+  const lines: string[] = []
+  let length = overhead + truncated.length
+  for (const line of (betaNotes ?? body).split("\n")) {
+    const addition = format(line).length - overhead + 1
+    if (length + addition > maximumLength) break
+    lines.push(line)
+    length += addition
+  }
+  return format([...lines, truncated].join("\n"))
 }
 
 if (import.meta.main) {

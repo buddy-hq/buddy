@@ -40,6 +40,10 @@ Buddy is a Bun + TypeScript monorepo managed by Turborepo and shipped as an Elec
 - Use package scripts for focused tests of changed packages; never run raw `bun test`, vendor tests, or the full suite.
 - Run `bun fmt` only when implementation is complete and the user is satisfied.
 
+## Releases
+
+- Cut releases with `docs/ops/releases/cut.md`. Write the release notes yourself for the people who use Buddy, following `docs/ops/releases/notes.md`; never ship a raw commit list.
+
 ## Misc
 
 - Use browser or computer-use verification only when the user explicitly requests or approves it.

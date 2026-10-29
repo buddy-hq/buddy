@@ -157,6 +157,7 @@
     "release:cut:electron": "bun ./script/cut-release.ts",
     "release:local-gate": "bun ./script/release-local-gate.ts",
     "release:notes": "bun ./script/changelog.ts",
+    "release:notes:input": "bun ./script/release/notes-input.ts",
     "release:download-count": "bash ./scripts/release-download-count.sh",
     "release:version": "bun ./script/version.ts",
     "release:publish": "bun ./script/publish.ts",

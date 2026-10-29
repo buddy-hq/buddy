@@ -3,11 +3,24 @@ import {
   MAX_RELEASE_NOTE_ITEMS,
   MAX_RELEASE_NOTE_ITEM_LENGTH,
   parseReleaseNote,
+  parseReleaseNoteItems,
 } from "./release-notes"
 
 const RELEASE_URL = "https://example.com/releases/v1.1.0"
 
 describe("published release bodies become plain text", () => {
+  test("writers see every normalized item before display limits apply", () => {
+    const long = "a".repeat(221)
+    const body = `## New\n\n- **One change**\n- one change\n${long}\n${Array.from({ length: 9 }, (_, index) => `- Change ${index}`).join("\n")}`
+    const items = parseReleaseNoteItems(body)
+    expect(items).toHaveLength(11)
+    expect(items[0]).toBe("One change")
+    expect(items[1]).toBe(long)
+    const note = parseReleaseNote({ version: "1.1.0", url: RELEASE_URL, body })
+    expect(note.totalItems).toBe(items.length)
+    expect(note.items).toHaveLength(8)
+    expect(note.items[1]?.length).toBe(220)
+  })
   test("markup and links are rendered as the text they wrap", () => {
     const note = parseReleaseNote({
       version: "1.1.0",

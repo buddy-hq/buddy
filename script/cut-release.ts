@@ -9,7 +9,11 @@ import { createInterface } from "node:readline/promises"
 import { stdin as input, stdout as output } from "node:process"
 import { cancel, isCancel, multiselect } from "@clack/prompts"
 import { z } from "zod"
-import { buildNotes, getLatestPublishedRelease, getLatestRelease } from "./changelog.ts"
+import {
+  getLatestPublishedRelease,
+  getLatestRelease,
+  limitReleaseBody,
+} from "./changelog.ts"
 import { RELEASE_GATE_COMMAND_PLAN } from "./release-required-gates.ts"
 import { parseReleasePlan, RELEASE_PLAN_FILENAME, type ReleasePlan } from "./release/plan"
 import { assertGreenReleaseSource } from "./release/preflight"
@@ -26,6 +30,8 @@ import {
   readBetaReleaseBody,
 } from "@buddy/script/release-stream"
 import { RELEASE_FREEZE_FILENAME } from "./release/constants"
+import { buildReleaseNotesInput } from "./release/notes-input"
+import { requireValidReleaseNotes } from "./release/notes"
 import {
   assertBetaVersionMovesForward,
   highestPublishedBetaVersion,
@@ -96,6 +102,8 @@ type ReleaseWizardFlags = {
   channel: BuddyDistributionId
   fast: boolean
   help: boolean
+  notes: string | undefined
+  title: string | undefined
   skipLocalReleaseGates: boolean
   targets: ReleaseTargets | undefined
 }
@@ -519,7 +527,11 @@ export function resolveReleaseExecution(input: {
   }
 }
 
-async function initialReleaseBody(version: string, existingDraft: ReleaseSummary | undefined) {
+export async function initialReleaseBody(
+  version: string,
+  existingDraft: ReleaseSummary | undefined,
+  to = "HEAD",
+) {
   if (existingDraft?.isDraft) {
     const body = existingDraft.body.trim()
     if (body) {
@@ -527,18 +539,34 @@ async function initialReleaseBody(version: string, existingDraft: ReleaseSummary
     }
   }
 
-  const previous = await getLatestRelease(version)
-  const notes = await buildNotes(previous, "HEAD")
-  return notes.join("\n")
+  const previous = await getLatestPublishedRelease(version)
+  return buildReleaseNotesInput(previous, to)
 }
 
-async function editReleaseDraft(
+export async function editReleaseDraft(
   rl: ReleaseReadline,
   version: string,
   existingDraft: ReleaseSummary | undefined,
-  fast = false,
+  sourceSha: string,
+  flags: Pick<ReleaseWizardFlags, "fast" | "notes" | "title">,
 ) {
   const tag = formatReleaseTag(releaseDistribution(), version)
+  const title = flags.title ?? tag
+  if (flags.notes) {
+    const body = await Bun.file(flags.notes).text()
+    if (
+      existingDraft &&
+      releaseDistribution().id === "beta" &&
+      existingDraft.assets.some((asset) => asset.name === RELEASE_FREEZE_FILENAME) &&
+      body !== readBetaReleaseBody(existingDraft.body)
+    ) {
+      throw new Error(`Frozen Beta ${tag} notes cannot be changed`)
+    }
+    return { body, notesPath: undefined, tempDir: undefined, title }
+  }
+  if (flags.fast) {
+    throw new Error("--fast and --fs require --notes <file>. See docs/ops/releases/notes.md.")
+  }
   if (
     existingDraft &&
     releaseDistribution().id === "beta" &&
@@ -548,20 +576,10 @@ async function editReleaseDraft(
       body: existingDraft.body,
       notesPath: undefined,
       tempDir: undefined,
-      title: existingDraft.name,
-    }
-  }
-  const title = fast ? tag : await promptLine(rl, "Release title", existingDraft?.name || tag)
-  const initialBody = await initialReleaseBody(version, existingDraft)
-
-  if (fast) {
-    return {
-      body: initialBody,
-      notesPath: undefined,
-      tempDir: undefined,
       title,
     }
   }
+  const initialBody = await initialReleaseBody(version, existingDraft, sourceSha)
 
   const tempDir = mkdtempSync(path.join(os.tmpdir(), "buddy-release-notes-"))
   const notesPath = path.join(tempDir, `${tag}.md`)
@@ -605,10 +623,9 @@ async function editReleaseDraft(
   }
 }
 
-async function upsertDraftRelease(
+export async function upsertDraftRelease(
   version: string,
   title: string,
-  notesPath: string | undefined,
   body: string,
   targetSha: string,
   existingDraft: ReleaseSummary | undefined,
@@ -628,50 +645,41 @@ async function upsertDraftRelease(
   printStep("Draft Release", `Creating or updating draft release ${tag}.`)
   const releaseRepo = releaseRepository()
   const sourceRepo = sourceRepository()
-
-  if (releaseDistribution().id === "beta") {
-    const betaBody = resolveBetaDraftReleaseBody({ notes: body, existingRelease: existingDraft })
-    if (existingDraft?.isDraft) {
-      await $`gh release edit ${tag} --prerelease --latest=false --title ${title} --notes ${betaBody} --repo ${releaseRepo}`.cwd(
-        ROOT_DIR,
-      )
-    } else {
-      await $`gh release create ${tag} -d --prerelease --latest=false --title ${title} --notes ${betaBody} --repo ${releaseRepo}`.cwd(
-        ROOT_DIR,
-      )
-    }
-  } else if (existingDraft?.isDraft) {
-    if (notesPath) {
+  const finalBody =
+    releaseDistribution().id === "beta"
+      ? resolveBetaDraftReleaseBody({ notes: body, existingRelease: existingDraft })
+      : body
+  const notes = releaseDistribution().id === "beta" ? (readBetaReleaseBody(finalBody) ?? body) : body
+  requireValidReleaseNotes({ notes, body: finalBody })
+  const directory = mkdtempSync(path.join(os.tmpdir(), "buddy-release-body-"))
+  const notesPath = path.join(directory, "notes.md")
+  try {
+    await Bun.write(notesPath, limitReleaseBody(finalBody))
+    if (releaseDistribution().id === "beta") {
+      if (existingDraft?.isDraft) {
+        await $`gh release edit ${tag} --prerelease --latest=false --title ${title} --notes-file ${notesPath} --repo ${releaseRepo}`.cwd(
+          ROOT_DIR,
+        )
+      } else {
+        await $`gh release create ${tag} -d --prerelease --latest=false --title ${title} --notes-file ${notesPath} --repo ${releaseRepo}`.cwd(
+          ROOT_DIR,
+        )
+      }
+    } else if (existingDraft?.isDraft) {
       await $`gh release edit ${tag} --title ${title} --notes-file ${notesPath} --repo ${releaseRepo}`.cwd(
         ROOT_DIR,
       )
+    } else if (releaseRepo === sourceRepo) {
+      await $`gh release create ${tag} -d --title ${title} --notes-file ${notesPath} --target ${targetSha} --repo ${releaseRepo}`.cwd(
+        ROOT_DIR,
+      )
     } else {
-      await $`gh release edit ${tag} --title ${title} --notes ${body} --repo ${releaseRepo}`.cwd(
+      await $`gh release create ${tag} -d --title ${title} --notes-file ${notesPath} --repo ${releaseRepo}`.cwd(
         ROOT_DIR,
       )
     }
-  } else {
-    if (notesPath) {
-      if (releaseRepo === sourceRepo) {
-        await $`gh release create ${tag} -d --title ${title} --notes-file ${notesPath} --target ${targetSha} --repo ${releaseRepo}`.cwd(
-          ROOT_DIR,
-        )
-      } else {
-        await $`gh release create ${tag} -d --title ${title} --notes-file ${notesPath} --repo ${releaseRepo}`.cwd(
-          ROOT_DIR,
-        )
-      }
-    } else {
-      if (releaseRepo === sourceRepo) {
-        await $`gh release create ${tag} -d --title ${title} --notes ${body} --target ${targetSha} --repo ${releaseRepo}`.cwd(
-          ROOT_DIR,
-        )
-      } else {
-        await $`gh release create ${tag} -d --title ${title} --notes ${body} --repo ${releaseRepo}`.cwd(
-          ROOT_DIR,
-        )
-      }
-    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
   }
 
   const release = await loadRelease(tag)
@@ -784,10 +792,23 @@ export function parseReleaseWizardArgs(
   let targets: ReleaseTargets | undefined
   let fast = false
   let help = false
+  let notes: string | undefined
+  let title: string | undefined
   let skipLocalReleaseGates = false
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
+    if (
+      arg === "--notes" || arg?.startsWith("--notes=") ||
+      arg === "--title" || arg?.startsWith("--title=")
+    ) {
+      const name = arg.startsWith("--notes") ? "--notes" : "--title"
+      const value = arg === name ? args[++index] : arg.slice(name.length + 1)
+      if (!value?.trim() || value.startsWith("--")) throw new Error(`${name} requires a value`)
+      if (name === "--notes") notes = value
+      else title = value
+      continue
+    }
     if (arg === "--channel" || arg?.startsWith("--channel=")) {
       const raw = arg === "--channel" ? args[++index] : arg.slice("--channel=".length)
       if (raw !== "prod" && raw !== "beta") throw new Error("--channel must be prod or beta")
@@ -828,10 +849,15 @@ export function parseReleaseWizardArgs(
     throw new Error(`Unknown release wizard argument: ${arg}`)
   }
 
+  if (fast && !notes && !help) {
+    throw new Error("--fast and --fs require --notes <file>. See docs/ops/releases/notes.md.")
+  }
   return {
     channel,
     fast,
     help,
+    notes,
+    title,
     skipLocalReleaseGates,
     targets,
   }
@@ -840,9 +866,11 @@ export function parseReleaseWizardArgs(
 function printUsage(): void {
   console.log(
     [
-      `Usage: bun ./script/cut-release.ts [--channel prod|beta] [--fast | ${FAST_SKIP_FLAG}] [--targets <target-list>]`,
+      `Usage: bun ./script/cut-release.ts [--channel prod|beta] [--fast | ${FAST_SKIP_FLAG}] [--targets <target-list>] [--notes <file>] [--title <text>]`,
       "",
       `${FAST_SKIP_FLAG} runs the fast flow and skips the local Buddy Dev installable and production release smoke builds.`,
+      "--fast and --fs require --notes <file>. Write notes following docs/ops/releases/notes.md.",
+      "--notes uses that file instead of the editor. --title defaults to the release tag.",
       "",
       "Target list examples:",
       "  --targets all",
@@ -1061,7 +1089,13 @@ async function main() {
         sourceSha: releaseTargetSha,
       })
     }
-    const editedDraft = await editReleaseDraft(rl, version, existingDraft, flags.fast)
+    const editedDraft = await editReleaseDraft(
+      rl,
+      version,
+      existingDraft,
+      releaseTargetSha,
+      flags,
+    )
     try {
       const shouldDispatch =
         flags.fast ||
@@ -1075,7 +1109,6 @@ async function main() {
         const release = await upsertDraftRelease(
           version,
           editedDraft.title,
-          editedDraft.notesPath,
           editedDraft.body,
           releaseTargetSha,
           existingDraft,
@@ -1104,7 +1137,6 @@ async function main() {
       const release = await upsertDraftRelease(
         version,
         editedDraft.title,
-        editedDraft.notesPath,
         editedDraft.body,
         releaseTargetSha,
         existingDraft,

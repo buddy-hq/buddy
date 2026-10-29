@@ -41,7 +41,17 @@ export function parseReleaseNote(input: {
   readonly body: string
   readonly url: string
 }): UpdateReleaseNote {
-  const lines = stripMarkup(input.body)
+  const items = parseReleaseNoteItems(input.body)
+  return {
+    version: input.version,
+    url: input.url,
+    items: items.slice(0, MAX_RELEASE_NOTE_ITEMS).map(truncate),
+    totalItems: items.length,
+  }
+}
+
+export function parseReleaseNoteItems(body: string): readonly string[] {
+  const lines = stripMarkup(body)
     .split("\n")
     .map((line) => normalizeLine(line))
     .filter((line) => line.length > 0)
@@ -52,15 +62,10 @@ export function parseReleaseNote(input: {
     const key = line.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
-    unique.push(truncate(line))
+    unique.push(line)
   }
 
-  return {
-    version: input.version,
-    url: input.url,
-    items: unique.slice(0, MAX_RELEASE_NOTE_ITEMS),
-    totalItems: unique.length,
-  }
+  return unique
 }
 
 function decodeEntity(entity: string): string {
