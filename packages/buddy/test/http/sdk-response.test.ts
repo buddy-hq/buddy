@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test"
-import { extractSdkErrorMessage, sdkErrorResponse } from "../../src/http/sdk-response"
+import { describe, expect, spyOn, test } from "bun:test"
+import { Hono } from "hono"
+import { extractSdkErrorMessage, runSdkRoute, sdkErrorResponse } from "../../src/http/sdk-response"
 import { classifyRouteError } from "../../src/http/route-errors"
 import { normalizeErrorResponse } from "../../src/http/error-normalization"
 
@@ -52,4 +53,57 @@ test("SDK and HTTP normalization preserve error codes, correlation IDs, and conf
   )
   expect(response.status).toBe(400)
   expect(await response.json()).toEqual(body)
+})
+
+describe("runSdkRoute", () => {
+  function failingRoute(error: Error) {
+    return new Hono().get("/scan", (c) =>
+      runSdkRoute(c, async () => {
+        throw error
+      }),
+    )
+  }
+
+  function abortedRequest() {
+    const controller = new AbortController()
+    controller.abort()
+    return new Request("http://buddy.test/scan", { signal: controller.signal })
+  }
+
+  test("a request the client cancelled ends as client-closed without an error log", async () => {
+    const errorLog = spyOn(console, "error").mockImplementation(() => {})
+    try {
+      const response = await failingRoute(
+        new DOMException("Notebook file search cancelled", "AbortError"),
+      ).request(abortedRequest())
+      expect(response.status).toBe(499)
+      expect(errorLog).not.toHaveBeenCalled()
+    } finally {
+      errorLog.mockRestore()
+    }
+  })
+
+  test("an abort the client did not cause is still an internal error", async () => {
+    const errorLog = spyOn(console, "error").mockImplementation(() => {})
+    try {
+      const response = await failingRoute(
+        new DOMException("Notebook file search cancelled", "AbortError"),
+      ).request("http://buddy.test/scan")
+      expect(response.status).toBe(500)
+      expect(errorLog).toHaveBeenCalled()
+    } finally {
+      errorLog.mockRestore()
+    }
+  })
+
+  test("another failure on a cancelled request is still an internal error", async () => {
+    const errorLog = spyOn(console, "error").mockImplementation(() => {})
+    try {
+      const response = await failingRoute(new Error("Scan crashed")).request(abortedRequest())
+      expect(response.status).toBe(500)
+      expect(errorLog).toHaveBeenCalled()
+    } finally {
+      errorLog.mockRestore()
+    }
+  })
 })

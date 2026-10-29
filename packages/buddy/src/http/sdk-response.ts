@@ -114,10 +114,17 @@ export async function respondWithStreamSdkResult<TData>(
   })
 }
 
-export async function runSdkRoute(_c: Context, task: () => Promise<Response>): Promise<Response> {
+const CLIENT_CLOSED_REQUEST_STATUS = 499
+
+function isClientCancellation(c: Context, error: unknown): boolean {
+  return c.req.raw.signal.aborted && error instanceof Error && error.name === "AbortError"
+}
+
+export async function runSdkRoute(c: Context, task: () => Promise<Response>): Promise<Response> {
   try {
     return await normalizeErrorResponse(await task())
   } catch (error) {
+    if (isClientCancellation(c, error)) return new Response(null, { status: CLIENT_CLOSED_REQUEST_STATUS })
     return routeErrorResponse(error)
   }
 }
