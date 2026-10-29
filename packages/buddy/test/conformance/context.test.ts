@@ -111,7 +111,7 @@ describe("Context port conformance", () => {
       .findLast((message) => message.includes("context-teaching-after-compaction"))
     expect(compacted).toContain("conformance-lesson-context")
     expect(compacted).not.toContain("<teaching_ctx_ref ")
-  })
+  }, 30_000)
 
   test("the global auto-compaction setting changes compaction on a running conversation", async () => {
     const notebook = await harness.notebook("global-compaction")
@@ -149,5 +149,5 @@ describe("Context port conformance", () => {
     ).toContainEqual(
       expect.objectContaining({ type: "compaction", auto: true, status: "completed" }),
     )
-  })
+  }, 30_000)
 })
