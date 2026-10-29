@@ -375,14 +375,14 @@ describe("signed widget frame links", () => {
 
   test.each([
     "encoded api", "encoded frame", "encoded widget", "raw query", "encoded query", "asset pass",
-  ])("redacts exchanged passes in both request log directions: %s", async (variant) => {
+  ] as const)("redacts exchanged passes in both request log directions: %s", async (variant) => {
     await using project = await tmpdir({ git: true })
     const widget = await createWidget(project.path, "widget-a")
     const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
     const pass = issued.url.split("/")[4]
     if (!pass) throw new Error("Exchange returned no pass")
     const encodedPass = Array.from(pass, (character) => `%${character.charCodeAt(0).toString(16)}`).join("")
-    const urls: Record<string, string> = {
+    const urls = {
       "encoded api": issued.url.replace("/api/", "/%61pi/"),
       "encoded frame": issued.url.replace("/frame/", "/fr%61me/"),
       "encoded widget": issued.url.replace("/widget/", "/widg%65t/"),
@@ -574,6 +574,48 @@ describe("signed widget frame links", () => {
     })
     expect(authenticated.status).toBe(200)
     expect(await authenticated.text()).toBe("Excluded widget data")
+  })
+
+  test.each([
+    ["node_modules", "NODE_MODULES", "dependency/app.js"],
+    ["nested/.git", "nested/.GIT", "config"],
+    ["nested/error.log", "nested/error.LOG", ""],
+  ])("refuses %s after a case-only rename to %s without changing the version", async (original, renamed, child) => {
+    await using project = await tmpdir({ git: true })
+    const widget = await createWidget(project.path, "widget-a")
+    const sourceRoot = path.join(project.path, widget.sourceRoot)
+    const originalPath = path.join(sourceRoot, original, child)
+    await fs.mkdir(path.dirname(originalPath), { recursive: true })
+    await fs.writeFile(originalPath, "Excluded private widget data")
+    const beforeRename = await presentHtmlWidgetObject({
+      action: "present_object",
+      directory: project.path,
+      objectID: widget.manifest.objectID,
+    })
+    expect(beforeRename.inlineData.sourceVersion).toBe(widget.inlineData.sourceVersion)
+    const temporaryPath = path.join(sourceRoot, `${original}.rename-tmp`)
+    await fs.rename(path.join(sourceRoot, original), temporaryPath)
+    await fs.rename(temporaryPath, path.join(sourceRoot, renamed))
+    const exchanged = await exchange(widget.inlineData.runtimeUrl)
+    expect(exchanged.status).toBe(200)
+    const issued = linkSchema.parse(await exchanged.json())
+    const assetPath = child ? `${renamed}/${child}` : renamed
+    const response = await app.request(issued.url.replace("index.html", assetPath))
+    expect(response.status).toBe(404)
+    expect(await response.text()).toBe("")
+    const afterRename = await presentHtmlWidgetObject({
+      action: "present_object",
+      directory: project.path,
+      objectID: widget.manifest.objectID,
+    })
+    expect(afterRename.inlineData.sourceVersion).toBe(beforeRename.inlineData.sourceVersion)
+    await fs.writeFile(path.join(sourceRoot, renamed, child), "Changed excluded private widget data with a different size")
+    const afterEdit = await presentHtmlWidgetObject({
+      action: "present_object",
+      directory: project.path,
+      objectID: widget.manifest.objectID,
+    })
+    expect(afterEdit.inlineData.sourceVersion).toBe(beforeRename.inlineData.sourceVersion)
   })
 
   test.skipIf(!canCreateSymlinks)("refuses a symlink to an excluded file through the signed route", async () => {

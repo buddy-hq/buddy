@@ -43,14 +43,14 @@ const HTML_REFERENCE_WARNING_LIMIT = 8
 const HTML_WIDGET_SOURCE_VERSION_FILE_LIMIT = 10_000
 const HTML_WIDGET_SOURCE_VERSION_DEPTH_LIMIT = 32
 const HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES = new Set([
-  ".DS_Store",
+  ".ds_store",
   ".git",
   ".hg",
   ".svn",
   ".bzr",
   ".pijul",
   "_darcs",
-  "CVS",
+  "cvs",
   "node_modules",
   ".turbo",
 ])
@@ -401,7 +401,7 @@ export async function resolveHtmlWidgetObjectRuntimeFile(input: {
     ))
   ) return undefined
   if (input.requireVersioned && input.assetPath.replaceAll("\\", "/").split("/").some(
-    (name) => HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES.has(name) || HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS.has(path.extname(name)),
+    (name) => HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES.has(name.toLowerCase()) || HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS.has(path.extname(name).toLowerCase()),
   )) return undefined
   await readHtmlWidgetObjectManifest(input.directory, input.objectID)
   validateSafeRelativePath(input.assetPath, "HTML widget runtime asset path")
@@ -710,8 +710,8 @@ async function readHtmlWidgetSourceVersion(sourceRoot: string): Promise<{
     }
     const entries = await fs.readdir(currentPath, { withFileTypes: true })
     for (const entry of entries.toSorted((left, right) => left.name.localeCompare(right.name))) {
-      if (HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES.has(entry.name)) continue
-      if (HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS.has(path.extname(entry.name))) continue
+      if (HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES.has(entry.name.toLowerCase())) continue
+      if (HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue
       const entryPath = path.join(currentPath, entry.name)
       const relativePath = path.relative(sourceRoot, entryPath).split(path.sep).join("/")
       if (entry.isDirectory()) {
