@@ -28,6 +28,20 @@ test.each([
   ["chmod +x a.sh", []],
   [String.raw`Remove-Item C:\outside\*.txt`, ["C:\\outside"]],
   [String.raw`New-Item -Path C:\notebook\x.txt`, []],
+  [String.raw`Remove-Item -Path C:\notebook\a,C:\outside\b`, ["C:\\outside"]],
+  [String.raw`Remove-Item -LiteralPath C:\notebook\a, D:\outside\b`, ["D:\\outside"]],
+  [
+    String.raw`Copy-Item -Path C:\notebook\a,C:\outside\b -Destination C:\notebook`,
+    ["C:\\outside"],
+  ],
+  [String.raw`rm C:\notebook\a,C:\outside\b`, ["C:\\outside"]],
+  [String.raw`rm -LiteralPath @('C:\notebook\a','C:\outside\b')`, ["C:\\outside"]],
+  [String.raw`Remove-Item @('C:\notebook\a'; 'C:\outside\b')`, ["C:\\outside"]],
+  [
+    String.raw`Remove-Item 'C:\notebook\a', 'C:\outside\b', 'D:\other\c'`,
+    ["C:\\outside", "D:\\other"],
+  ],
+  [String.raw`Remove-Item 'C:\notebook\a,b'`, []],
   [String.raw`cd C:\outside`, []],
   [String.raw`Set-Location -Path C:\outside`, []],
   [String.raw`rm C:\outside\a 'unterminated`, ["C:\\outside"]],
@@ -63,11 +77,87 @@ test.each([
   ["echo x > /tmp/x/a", []],
   ["python /tmp/write.py", []],
   ["/tmp/write.sh", []],
-  ["Set-Content -Path /tmp/x/a hi", ["/tmp/x"]],
+  ["Set-Content -Path /tmp/x/a hi", []],
+  ["cat <<EOF\nrm /tmp/out/a\nEOF", []],
+  ["cat -Value /tmp/out/a", ["/tmp/out"]],
   ["rm /tmp/x/a /tmp/x/b", ["/tmp/x"]],
 ])("POSIX file arguments: %s", async (command, expected) => {
   expect(await scanShellExternalDirectories({ command, location }, posix)).toEqual(expected)
 })
+
+test.each([
+  "-Value",
+  "-ItemType",
+  "-Encoding",
+  "-Filter",
+  "-Include",
+  "-Exclude",
+  "-Stream",
+  "-Delimiter",
+  "-NewName",
+  "-Credential",
+])(
+  "PowerShell %s values are data while path parameters still need approval",
+  async (parameter) => {
+    for (const command of ["Set-Content", "set-content", "New-Item", "rm"]) {
+      expect(
+        await scanShellExternalDirectories(
+          {
+            command: `${command} -Path local.txt ${parameter} 'C:\\outside\\data'`,
+            location: winLocation,
+          },
+          windows,
+        ),
+      ).toEqual([])
+      expect(
+        await scanShellExternalDirectories(
+          {
+            command: `${command} ${parameter}:'C:\\payload\\data' -Path C:\\outside\\a`,
+            location: winLocation,
+          },
+          windows,
+        ),
+      ).toEqual(["C:\\outside"])
+    }
+  },
+)
+
+test("unknown PowerShell parameters still treat their value as a possible path", async () => {
+  expect(
+    await scanShellExternalDirectories(
+      {
+        command: String.raw`Remove-Item -Unrecognized C:\outside\a`,
+        location: winLocation,
+      },
+      windows,
+    ),
+  ).toEqual(["C:\\outside"])
+})
+
+test.each([
+  String.raw`Set-Content -Path local.txt -Value C:\notebook\a,C:\outside\b`,
+  String.raw`set-content -Path local.txt -Value @('C:\notebook\a','C:\outside\b')`,
+  String.raw`rm -Path local.txt -Exclude C:\notebook\a, C:\outside\b`,
+  String.raw`rm -Path local.txt -Exclude: C:\outside\b`,
+  String.raw`rm -Path local.txt -Exclude:C:\notebook\a, C:\outside\b`,
+])("PowerShell array-valued non-path parameters stay data: %s", async (command) => {
+  expect(await scanShellExternalDirectories({ command, location: winLocation }, windows)).toEqual([])
+})
+
+test.each(["/usr/local/bin/pwsh", "/opt/powershell", "/usr/local/bin/PWSH"])(
+  "PowerShell grammar is enabled by SHELL=%s on POSIX",
+  async (shell) => {
+    expect(
+      await scanShellExternalDirectories(
+        {
+          command: "Remove-Item -Path /workspace/notebook/a,/tmp/outside/b",
+          location,
+        },
+        { ...posix, env: { SHELL: shell } },
+      ),
+    ).toEqual(["/tmp/outside"])
+  },
+)
 
 test("relative workdir and project containment use the v2 boundary", async () => {
   expect(

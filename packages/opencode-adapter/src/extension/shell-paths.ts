@@ -38,18 +38,20 @@ const CMD_FILES = new Set([
   "rmdir",
   "type",
 ])
-const FLAGS = new Set(["-destination", "-literalpath", "-path"])
-const SWITCHES = new Set([
-  "-confirm",
-  "-debug",
-  "-force",
-  "-nonewline",
-  "-recurse",
-  "-verbose",
-  "-whatif",
+const NON_PATH_PARAMETERS = new Set([
+  "-value",
+  "-itemtype",
+  "-encoding",
+  "-filter",
+  "-include",
+  "-exclude",
+  "-stream",
+  "-delimiter",
+  "-newname",
+  "-credential",
 ])
 
-type Part = { type: string; text: string }
+type Part = { type: string; text: string; values?: string[] }
 type Mode = "posix" | "powershell" | "cmd"
 type Location = { directory: string; project: { directory: string } }
 type ScanInput = { command: string; workdir?: string; location: Location }
@@ -83,15 +85,74 @@ function loadParsers() {
   return parsers
 }
 
+function powerShellTokens(text: string) {
+  const out: string[] = []
+  let quote: string | undefined
+  let start = 0
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]
+    if (char === "`" && quote !== "'") {
+      index++
+      continue
+    }
+    if (quote) {
+      if (char === quote) quote = undefined
+      continue
+    }
+    if (char === "'" || char === '"') quote = char
+    else if (char === ",") {
+      out.push(text.slice(start, index).trim())
+      start = index + 1
+    }
+  }
+  out.push(text.slice(start).trim())
+  return out.filter(Boolean)
+}
+
+function powerShellValues(node: Node): string[] {
+  if (node.type === "generic_token") return powerShellTokens(node.text)
+  if (node.type === "string_literal") return [node.text]
+  if (node.type === "array_literal_expression" || node.type === "statement_list")
+    return node.namedChildren.flatMap((child) => (child ? powerShellValues(child) : []))
+  if (node.type === "array_expression") {
+    const statements = node.childForFieldName("statements")
+    return statements ? powerShellValues(statements) : []
+  }
+  if (node.type === "empty_statement") return []
+  const child = node.namedChildCount === 1 ? node.namedChild(0) : undefined
+  if (child && child.text === node.text) return powerShellValues(child)
+  return [node.text]
+}
+
 function parts(node: Node) {
   const out: Part[] = []
   let end = -1
   for (const child of node.children) {
     if (!child) continue
     if (child.type === "command_elements") {
+      let start = -1
+      let end = -1
       for (const item of child.children) {
         if (!item || item.type === "command_argument_sep" || item.type === "redirection") continue
-        out.push({ type: item.type, text: item.text })
+        const previous = out.at(-1)
+        if (
+          previous &&
+          start >= 0 &&
+          previous.type !== "command_parameter" &&
+          item.type !== "command_parameter" &&
+          (previous.text.trimEnd().endsWith(",") ||
+            item.text.startsWith(",") ||
+            !/\s/.test(
+              child.text.slice(end - child.startIndex, item.startIndex - child.startIndex),
+            ))
+        ) {
+          previous.text = child.text.slice(start - child.startIndex, item.endIndex - child.startIndex)
+          previous.values = powerShellTokens(previous.text)
+        } else {
+          start = item.startIndex
+          out.push({ type: item.type, text: item.text, values: powerShellValues(item) })
+        }
+        end = item.endIndex
       }
       continue
     }
@@ -116,33 +177,28 @@ function parts(node: Node) {
   return out
 }
 
-function pathArgs(list: Part[], mode: Mode) {
-  if (mode !== "powershell") {
-    return list
-      .slice(1)
-      .filter(
-        (item) =>
-          !item.text.startsWith("-") &&
-          !(mode === "cmd" && item.text.startsWith("/")) &&
-          !(list[0]?.text === "chmod" && item.text.startsWith("+")),
-      )
-      .map((item) => item.text)
-  }
+function pathArgs(list: Part[], mode: Mode, powershell: boolean) {
   const out: string[] = []
-  let want = false
+  let skip = false
+  let skipped = false
   for (const item of list.slice(1)) {
-    if (want) {
-      out.push(item.text)
-      want = false
+    if (item.type === "command_parameter" || item.text.startsWith("-")) {
+      const [flag = ""] = item.text.toLowerCase().split(":", 1)
+      const nonPath = powershell && NON_PATH_PARAMETERS.has(flag)
+      const inline = item.text.includes(":") ? item.text.slice(item.text.indexOf(":") + 1) : ""
+      skip = nonPath && (!inline || inline.endsWith(","))
+      skipped = nonPath && Boolean(inline)
       continue
     }
-    if (item.type === "command_parameter") {
-      const flag = item.text.toLowerCase()
-      if (SWITCHES.has(flag)) continue
-      want = FLAGS.has(flag)
+    if (skip || (skipped && item.text.startsWith(","))) {
+      skip = item.text.endsWith(",")
+      skipped = true
       continue
     }
-    out.push(item.text)
+    skipped = false
+    if (mode === "cmd" && item.text.startsWith("/")) continue
+    if (list[0]?.text.toLowerCase() === "chmod" && item.text.startsWith("+")) continue
+    out.push(...(item.values ?? [item.text]))
   }
   return out
 }
@@ -239,9 +295,12 @@ export async function scanShellExternalDirectories(
     : input.location.directory
   const project = options.path.resolve(input.location.project.directory)
   const directories = new Set<string>()
+  const powershell =
+    options.platform === "win32" ||
+    /^(pwsh|powershell)$/i.test(options.path.basename(options.env.SHELL ?? ""))
   const modes: Mode[] = [
     "posix",
-    "powershell",
+    ...(powershell ? ["powershell" as const] : []),
     ...(options.platform === "win32" ? ["cmd" as const] : []),
   ]
   for (const mode of modes) {
@@ -254,7 +313,7 @@ export async function scanShellExternalDirectories(
         const command = parts(node)
         const name = mode === "posix" ? command[0]?.text : command[0]?.text.toLowerCase()
         if (!name || !(FILES.has(name) || (mode === "cmd" && CMD_FILES.has(name)))) continue
-        for (const arg of pathArgs(command, mode)) {
+        for (const arg of pathArgs(command, mode, powershell)) {
           const resolved = argPath(arg, cwd, mode, options)
           if (
             !resolved ||
