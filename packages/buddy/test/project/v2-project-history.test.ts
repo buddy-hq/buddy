@@ -55,5 +55,5 @@ describe("project and session boundaries", () => {
     await expect(readSessionMessages(other.directory, session.id)).rejects.toThrow(
       "does not belong",
     )
-  }, 15_000)
+  })
 })
