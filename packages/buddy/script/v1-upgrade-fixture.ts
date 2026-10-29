@@ -79,13 +79,14 @@ export function remapV1UpgradeDatabase(
         for (const [from, to] of replacements)
           db.query(`UPDATE ${table} SET data = replace(data, ?, ?)`).run(from, to)
       }
+      const notebook = realpathSync.native(locations.notebook)
       db.query("UPDATE session SET directory = ?, path = ? WHERE directory = ?").run(
-        slashed(locations.notebook),
-        relativeToRoot(locations.notebook),
+        slashed(notebook),
+        relativeToRoot(notebook),
         ORIGINAL_NOTEBOOK,
       )
       db.query("UPDATE project SET worktree = ? WHERE id = 'global'").run(
-        slashed(path.parse(locations.notebook).root),
+        slashed(path.parse(notebook).root),
       )
     })()
   } finally {
@@ -105,15 +106,18 @@ export function restoreV1UpgradeFixture(input: {
   mkdirSync(requestedHome, { recursive: true })
   mkdirSync(path.dirname(requestedExternal), { recursive: true })
   const buddyHome = realpathSync(requestedHome)
-  const notebook = path.join(buddyHome, NOTEBOOK_FOLDER)
+  const notebookDestination = path.join(buddyHome, NOTEBOOK_FOLDER)
   const notesDirectory = path.join(buddyHome, "Notes")
   const external = path.join(
     realpathSync(path.dirname(requestedExternal)),
     path.basename(requestedExternal),
   )
-  cpSync(path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "buddy-home", NOTEBOOK_FOLDER), notebook, {
-    recursive: true,
-  })
+  cpSync(
+    path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "buddy-home", NOTEBOOK_FOLDER),
+    notebookDestination,
+    { recursive: true },
+  )
+  const notebook = realpathSync.native(notebookDestination)
   cpSync(path.join(V1_UPGRADE_FIXTURE_DIRECTORY, "buddy-home", "Notes"), notesDirectory, {
     recursive: true,
   })

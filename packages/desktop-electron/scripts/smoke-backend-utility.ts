@@ -62,6 +62,7 @@ import {
   resolvePackagedResourcesDirectory,
 } from "./packaged-resources"
 import { createBuddyClient } from "@buddy/sdk"
+import { Database } from "bun:sqlite"
 import z from "zod"
 import {
   restoreV1UpgradeFixture,
@@ -368,6 +369,19 @@ async function directoryJson(
   return data
 }
 
+function storedSessionDirectories(database: string): string {
+  try {
+    const db = new Database(database, { readonly: true })
+    try {
+      return JSON.stringify(db.query("SELECT id, directory FROM session_v2 ORDER BY id").all())
+    } finally {
+      db.close(false)
+    }
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
+  }
+}
+
 async function assertV1Upgrade(input: {
   baseUrl: string
   upgrade: RestoredV1UpgradeFixture
@@ -409,7 +423,16 @@ async function assertV1Upgrade(input: {
   if (
     JSON.stringify(sessions.map((session) => session.id).toSorted()) !== JSON.stringify(expected)
   ) {
-    throw new Error(`The upgraded notebook lists ${JSON.stringify(sessions)}`)
+    const listed = sessions.map((session) => session.id).toSorted()
+    const stored = storedSessionDirectories(input.v2Database)
+    throw new Error(
+      [
+        `The upgraded notebook lists ${JSON.stringify(listed)}`,
+        `asked: ${JSON.stringify(input.upgrade.notebook)}`,
+        `expected: ${JSON.stringify(expected)}`,
+        `stored: ${stored}`,
+      ].join("\n"),
+    )
   }
   const children = z
     .array(z.object({ id: z.string(), parentID: z.string().optional() }))
