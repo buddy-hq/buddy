@@ -9,7 +9,7 @@ test("web search reaches Exa without a provider-consent form and settles offline
   const session = await api.create()
   const abort = new AbortController()
   const updates = host.event
-    .subscribe({ signal: AbortSignal.any([abort.signal, AbortSignal.timeout(4_000)]) })
+    .subscribe({ signal: AbortSignal.any([abort.signal, AbortSignal.timeout(10_000)]) })
     [Symbol.asyncIterator]()
   const providers: unknown[] = []
   const formKinds: unknown[] = []

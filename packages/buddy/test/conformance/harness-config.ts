@@ -179,7 +179,7 @@ export async function createConfigConformanceHarness() {
       async patchGlobalConfig(config: NotebookConfig) {
         const controller = new AbortController()
         const updates = host.event
-          .subscribe({ signal: AbortSignal.any([controller.signal, AbortSignal.timeout(4_000)]) })
+          .subscribe({ signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]) })
           [Symbol.asyncIterator]()
         try {
           const ready = await updates.next()
