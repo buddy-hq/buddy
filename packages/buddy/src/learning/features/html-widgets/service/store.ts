@@ -433,22 +433,37 @@ export async function resolveHtmlWidgetObjectRuntimeFile(input: {
   )
   const filePath = path.join(sourceRoot, input.assetPath)
   const source = await readHtmlWidgetSourceVersion(sourceRoot).catch(() => undefined)
-  if (input.requireVersioned && !source?.files.has(filePath)) return undefined
-  const stats = await assertPathInsideRoot(sourceRoot, filePath)
-    .then(() => fs.stat(filePath))
+  if (input.requireVersioned && !source) return undefined
+  const asset = await fs
+    .realpath(filePath)
+    .then(async (resolvedPath) => {
+      let versioned = source?.files.has(resolvedPath) ?? false
+      if (versioned) {
+        let currentPath = sourceRoot
+        for (const segment of path.relative(sourceRoot, filePath).split(path.sep)) {
+          currentPath = path.join(currentPath, segment)
+          if ((await fs.lstat(currentPath)).isSymbolicLink()) {
+            versioned = false
+            break
+          }
+        }
+      }
+      if (input.requireVersioned && !versioned) return undefined
+      await assertPathInsideRoot(sourceRoot, resolvedPath)
+      return { filePath: resolvedPath, stats: await fs.stat(resolvedPath), versioned }
+    })
     .catch((error) => {
       if (HTML_WIDGET_UNSERVABLE_ASSET_ERROR_CODES.has(parseNodeErrorCode(error) ?? ""))
         return undefined
       throw error
     })
-  if (!stats) return undefined
-  if (!stats.isFile()) return undefined
+  if (!asset?.stats.isFile()) return undefined
   return {
-    filePath,
+    filePath: asset.filePath,
     contentType: mimeTypeForPath(filePath, HTML_WIDGET_DEFAULT_CONTENT_TYPE),
     isDocument: HTML_FILE_EXTENSIONS.has(path.extname(filePath).toLowerCase()),
     immutable: !!input.version && !!source && input.version === source.version,
-    versioned: source?.files.has(filePath) ?? false,
+    versioned: asset.versioned,
   }
 }
 
@@ -604,12 +619,19 @@ async function resolveWorkspaceHtmlWidgetAdoptionSource(input: {
   if (!entryStats?.isFile()) {
     throw new HtmlWidgetValidationError(`HTML widget entry file not found: ${input.entryPath}`)
   }
-  await validateHtmlWidgetSourceFile(entryAbsolutePath)
+  const resolvedEntryPath = await assertPathInsideRoot(
+    sourcePath.sourceAbsolutePath,
+    entryAbsolutePath,
+  )
+  await validateHtmlWidgetSourceFile(resolvedEntryPath)
   return {
     kind: "directory",
     workspacePath: sourcePath.workspacePath,
     absolutePath: sourcePath.sourceAbsolutePath,
-    entryPath: input.entryPath,
+    entryPath: path
+      .relative(sourcePath.sourceAbsolutePath, resolvedEntryPath)
+      .split(path.sep)
+      .join("/"),
   }
 }
 
@@ -722,6 +744,7 @@ async function readHtmlWidgetSourceVersion(sourceRoot: string): Promise<{
   version: string
   files: ReadonlySet<string>
 }> {
+  const rootPath = await fs.realpath(sourceRoot)
   const hash = crypto.createHash("sha256")
   const files = new Set<string>()
   let fileCount = 0
@@ -736,7 +759,7 @@ async function readHtmlWidgetSourceVersion(sourceRoot: string): Promise<{
       if (HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
         continue
       const entryPath = path.join(currentPath, entry.name)
-      const relativePath = path.relative(sourceRoot, entryPath).split(path.sep).join("/")
+      const relativePath = path.relative(rootPath, entryPath).split(path.sep).join("/")
       if (entry.isDirectory()) {
         await visit(entryPath, depth + 1)
         continue
@@ -754,7 +777,7 @@ async function readHtmlWidgetSourceVersion(sourceRoot: string): Promise<{
     }
   }
 
-  await visit(sourceRoot, 0)
+  await visit(rootPath, 0)
   return { version: hash.digest("hex").slice(0, 26).toUpperCase(), files }
 }
 
@@ -920,12 +943,13 @@ function isPathInsideRoot(rootPath: string, targetPath: string): boolean {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
 }
 
-async function assertPathInsideRoot(rootPath: string, targetPath: string): Promise<void> {
+async function assertPathInsideRoot(rootPath: string, targetPath: string): Promise<string> {
   const [root, target] = await Promise.all([fs.realpath(rootPath), fs.realpath(targetPath)])
   const relative = path.relative(root, target)
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
     throw new HtmlWidgetValidationError("HTML widget source path must stay inside sourceRoot.")
   }
+  return target
 }
 
 registerBuddyObjectKind({

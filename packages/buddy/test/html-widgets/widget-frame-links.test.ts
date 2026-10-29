@@ -167,6 +167,104 @@ describe("signed widget frame links", () => {
     expect(await saved.text()).toBe(document)
   })
 
+  test("preserves entry spelling and serves case-mismatched paths on a case-insensitive filesystem", async () => {
+    await using project = await tmpdir({ git: true })
+    const root = path.join(project.path, "widget-case")
+    await fs.mkdir(path.join(root, "Pages"), { recursive: true })
+    await fs.mkdir(path.join(root, "Assets"), { recursive: true })
+    await fs.writeFile(path.join(root, "Pages", "Index.html"), document)
+    await fs.writeFile(path.join(root, "Assets", "App.js"), script)
+    const caseInsensitive = await fs.stat(path.join(root, "pages", "index.html")).then(
+      () => true,
+      () => false,
+    )
+    const diskNames = new Map([
+      ["pages", "Pages"],
+      ["index.html", "Index.html"],
+      ["assets", "Assets"],
+      ["app.js", "App.js"],
+    ])
+    function caseInsensitivePath<T>(file: T): T | string {
+      const parsed = z.string().safeParse(file)
+      if (!parsed.success || !parsed.data.startsWith(`${project.path}${path.sep}`)) return file
+      return path.join(
+        project.path,
+        ...path
+          .relative(project.path, parsed.data)
+          .split(path.sep)
+          .map((name) => diskNames.get(name.toLowerCase()) ?? name),
+      )
+    }
+    const filesystemOperations = {
+      stat: new Proxy(fs.stat.bind(fs), {
+        apply(target, _receiver, [file, options]: Parameters<typeof fs.stat>) {
+          return target(caseInsensitivePath(file), options)
+        },
+      }),
+      lstat: new Proxy(fs.lstat.bind(fs), {
+        apply(target, _receiver, [file, options]: Parameters<typeof fs.lstat>) {
+          return target(caseInsensitivePath(file), options)
+        },
+      }),
+      realpath: new Proxy(fs.realpath.bind(fs), {
+        apply(target, _receiver, [file, options]: Parameters<typeof fs.realpath>) {
+          return target(caseInsensitivePath(file), options)
+        },
+      }),
+      readFile: new Proxy(fs.readFile.bind(fs), {
+        apply(target, _receiver, [file, options]: Parameters<typeof fs.readFile>) {
+          return target(caseInsensitivePath(file), options)
+        },
+      }),
+    }
+    const filesystemMocks = caseInsensitive
+      ? []
+      : [
+          spyOn(fs, "stat").mockImplementation(filesystemOperations.stat),
+          spyOn(fs, "lstat").mockImplementation(filesystemOperations.lstat),
+          spyOn(fs, "realpath").mockImplementation(filesystemOperations.realpath),
+          spyOn(fs, "readFile").mockImplementation(filesystemOperations.readFile),
+        ]
+    try {
+      const widget = await presentHtmlWidgetObject({
+        action: "present_path",
+        directory: project.path,
+        path: "widget-case",
+        entryPath: "pages/index.html",
+        title: "Case-mismatched widget",
+        viewportPreset: "standard_16_10",
+        origin: {
+          kind: "tool",
+          sessionID: "ses_frame",
+          messageID: "msg_frame",
+          callID: "call_frame",
+        },
+      })
+      const exchanged = await exchange(widget.inlineData.runtimeUrl)
+      expect(exchanged.status).toBe(200)
+      const issued = linkSchema.parse(await exchanged.json())
+      const frame = await app.request(issued.url)
+      expect(frame.status).toBe(200)
+      expect(await frame.text()).toBe(document)
+      expect(widget.entryPath).toBe("Pages/Index.html")
+      expect(widget.manifest.summary.entryPath).toBe("Pages/Index.html")
+      expect(widget.inlineData.entryPath).toBe("Pages/Index.html")
+      expect(widget.inlineData.runtimeUrl).toEndWith("/Pages/Index.html")
+      for (const [assetPath, contents] of [
+        ["pages/index.html", document],
+        ["assets/app.js", script],
+      ] as const) {
+        const response = await app.request(
+          issued.url.replace(/\/Pages\/Index\.html$/u, `/${assetPath}`),
+        )
+        expect(response.status).toBe(200)
+        expect(await response.text()).toBe(contents)
+      }
+    } finally {
+      for (const filesystemMock of filesystemMocks) filesystemMock.mockRestore()
+    }
+  })
+
   test.each(["runtime", "frame"])("returns a 404 for a missing %s asset", async (route) => {
     await using project = await tmpdir({ git: true })
     const widget = await createWidget(project.path, "widget-a")
@@ -694,20 +792,28 @@ describe("signed widget frame links", () => {
     },
   )
 
-  test.skipIf(!canCreateSymlinks)(
-    "refuses a symlink to an excluded file through the signed route",
-    async () => {
-      await using project = await tmpdir({ git: true })
-      const widget = await createWidget(project.path, "widget-a")
-      const sourceRoot = path.join(project.path, widget.sourceRoot)
-      await fs.writeFile(path.join(sourceRoot, "private.log"), "Excluded log")
-      await fs.symlink(path.join(sourceRoot, "private.log"), path.join(sourceRoot, "alias.txt"))
-      const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
-      const response = await app.request(issued.url.replace("index.html", "alias.txt"))
-      expect(response.status).toBe(404)
-      expect(await response.text()).toBe("")
-    },
-  )
+  for (const [target, alias, assetPath, type] of [
+    ["private.log", "alias.txt", "alias.txt", "file"],
+    ["app.js", "alias.js", "alias.js", "file"],
+    [".", "alias-dir", "alias-dir/app.js", "dir"],
+    ["../private.txt", "outside.txt", "outside.txt", "file"],
+  ] as const) {
+    test.skipIf(!canCreateSymlinks)(
+      `refuses the symlink ${assetPath} through the signed route`,
+      async () => {
+        await using project = await tmpdir({ git: true })
+        const widget = await createWidget(project.path, "widget-a")
+        const sourceRoot = path.join(project.path, widget.sourceRoot)
+        await fs.writeFile(path.join(sourceRoot, "private.log"), "Excluded log")
+        await fs.writeFile(path.join(sourceRoot, "..", "private.txt"), "Outside source root")
+        await fs.symlink(path.join(sourceRoot, target), path.join(sourceRoot, alias), type)
+        const issued = linkSchema.parse(await (await exchange(widget.inlineData.runtimeUrl)).json())
+        const response = await app.request(issued.url.replace("index.html", assetPath))
+        expect(response.status).toBe(404)
+        expect(await response.text()).toBe("")
+      },
+    )
+  }
 
   test("rejects an old pass after edits and exchanges the saved URL for current content", async () => {
     await using project = await tmpdir({ git: true })
