@@ -66,6 +66,7 @@ type RuntimeFileInput = {
   objectID: string
   versionToken: string
   assetPath: string
+  requireVersioned?: boolean
 }
 
 function runtimeDirectoryContext(request: Request, directory: string) {
@@ -82,6 +83,7 @@ async function resolveRuntimeFile(request: Request, input: RuntimeFileInput) {
     objectID: input.objectID,
     assetPath: input.assetPath,
     version: htmlWidgetRuntimeVersionFromToken(input.versionToken),
+    requireVersioned: input.requireVersioned,
   })
   if (!runtime) return { ok: false, response: new Response(null, { status: 404 }) } as const
   return { ok: true, value: runtime } as const
@@ -154,6 +156,7 @@ export const WidgetFrameRoutes = new Hono()
         const runtime = await resolveRuntimeFile(c.req.raw, {
           ...identity,
           assetPath: c.req.param("assetPath"),
+          requireVersioned: true,
         })
         if (!runtime.ok) return runtime.response
         if (!runtime.value.immutable || !runtime.value.versioned) return c.body(null, 404)

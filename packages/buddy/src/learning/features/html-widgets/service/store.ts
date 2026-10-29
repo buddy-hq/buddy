@@ -23,7 +23,7 @@ import {
 } from "../../../../objects"
 import { mimeTypeForPath } from "../../../../http/mime"
 import { writeJsonFileAtomic } from "../../../../storage/atomic-file"
-import { nodeErrorHasCode } from "../../../../storage/parse-node-error"
+import { parseNodeErrorCode } from "../../../../storage/parse-node-error"
 import {
   MAX_HTML_WIDGET_SOURCE_BYTES,
   type HtmlWidgetViewportPreset,
@@ -55,6 +55,10 @@ const HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES = new Set([
   ".turbo",
 ])
 const HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS = new Set([".log"])
+const HTML_WIDGET_UNSERVABLE_ASSET_ERROR_CODES = new Set([
+  "ENOENT", "ENOTDIR", "ENAMETOOLONG", "ELOOP", "EACCES", "EPERM", "EISDIR", "EINVAL",
+  "ERR_INVALID_ARG_VALUE",
+])
 const HTML_WIDGET_DEFAULT_CONTENT_TYPE = "application/octet-stream" as const
 const HTML_WIDGET_RUNTIME_LIVE_VERSION = "live" as const
 
@@ -382,6 +386,7 @@ export async function resolveHtmlWidgetObjectRuntimeFile(input: {
   objectID: string
   assetPath: string
   version?: string | null
+  requireVersioned?: boolean
 }): Promise<{
   filePath: string
   contentType: string
@@ -389,6 +394,15 @@ export async function resolveHtmlWidgetObjectRuntimeFile(input: {
   immutable: boolean
   versioned: boolean
 } | undefined> {
+  if (
+    input.assetPath.includes("\0") ||
+    (process.platform === "win32" && Array.from(input.assetPath).some(
+      (character) => character.charCodeAt(0) < 32 || '<>:"|?*'.includes(character),
+    ))
+  ) return undefined
+  if (input.requireVersioned && input.assetPath.replaceAll("\\", "/").split("/").some(
+    (name) => HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES.has(name) || HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS.has(path.extname(name)),
+  )) return undefined
   await readHtmlWidgetObjectManifest(input.directory, input.objectID)
   validateSafeRelativePath(input.assetPath, "HTML widget runtime asset path")
   const sourceRoot = BuddyObjectPath.sourceRoot(
@@ -397,17 +411,16 @@ export async function resolveHtmlWidgetObjectRuntimeFile(input: {
     input.objectID,
   )
   const filePath = path.join(sourceRoot, input.assetPath)
+  const source = await readHtmlWidgetSourceVersion(sourceRoot).catch(() => undefined)
+  if (input.requireVersioned && !source?.files.has(filePath)) return undefined
   const stats = await assertPathInsideRoot(sourceRoot, filePath)
     .then(() => fs.stat(filePath))
     .catch((error) => {
-      if (nodeErrorHasCode(error, "ENOENT") || nodeErrorHasCode(error, "ENOTDIR") || nodeErrorHasCode(error, "ENAMETOOLONG")) return undefined
+      if (HTML_WIDGET_UNSERVABLE_ASSET_ERROR_CODES.has(parseNodeErrorCode(error) ?? "")) return undefined
       throw error
     })
   if (!stats) return undefined
-  if (!stats.isFile()) {
-    throw new HtmlWidgetValidationError("HTML widget runtime path must point to a file.")
-  }
-  const source = await readHtmlWidgetSourceVersion(sourceRoot).catch(() => undefined)
+  if (!stats.isFile()) return undefined
   return {
     filePath,
     contentType: mimeTypeForPath(filePath, HTML_WIDGET_DEFAULT_CONTENT_TYPE),
