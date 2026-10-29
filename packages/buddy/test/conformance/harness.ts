@@ -1,3 +1,4 @@
+import "./test-timeout"
 import { runtimeHost } from "../helpers/opencode"
 import type { RuntimeExtension } from "@buddy/agent-runtime/extension"
 import { startOpenCodeRuntime } from "@buddy/opencode-adapter/runtime"

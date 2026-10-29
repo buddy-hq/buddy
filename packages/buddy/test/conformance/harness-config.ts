@@ -1,3 +1,4 @@
+import "./test-timeout"
 import { runtimeHost } from "../helpers/opencode"
 import fs from "node:fs/promises"
 import path from "node:path"
