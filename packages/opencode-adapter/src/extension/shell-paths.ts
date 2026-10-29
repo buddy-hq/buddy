@@ -1,4 +1,4 @@
-import "./shell-parser-wasm-types"
+/// <reference path="./shell-parser-wasm.d.ts" />
 import type { PlatformPath } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Language, Parser, type Node } from "web-tree-sitter"
