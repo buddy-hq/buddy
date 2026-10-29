@@ -4,14 +4,13 @@ import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { ToolRowDenied } from "../../tools/tool-row"
 import { isPermissionDenied } from "../../tools/tool-permission"
 import { language } from "@/context/language"
-import { readString } from "../../tools/types"
 import { stripAnsi } from "../../utils/path"
 import type { ToolPartProps } from "../registry"
 
 export function renderBashTool({ state, defaultOpen, icon }: ToolPartProps) {
   const denied = isPermissionDenied(state)
-  const shellCommand = readString(state.input.command) ?? readString(state.metadata.command) ?? ""
-  const shellOutput = stripAnsi(state.output || (readString(state.metadata.output) ?? ""))
+  const shellCommand = state.shell?.command ?? ""
+  const shellOutput = stripAnsi(state.shell?.output ?? "")
   const shellText = shellCommand
     ? `$ ${shellCommand}${shellOutput ? `\n\n${shellOutput}` : ""}`
     : shellOutput

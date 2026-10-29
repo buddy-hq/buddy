@@ -1,5 +1,5 @@
 import { createElement } from "react"
-import type { ToolPresentationSnapshot } from "@buddy/opencode-adapter/tool-presentation"
+import type { ToolPresentationSnapshot } from "@buddy/transcript-contract/tool-presentation"
 
 import { Panda } from "@/icons/app-icons"
 import type { MessagePart } from "@/state/chat-types"
@@ -109,7 +109,7 @@ export function createActivityEntry(part: MessagePart): ActivityEntry | undefine
     part,
     state,
     presentation,
-    info: getToolInfo(part.tool, state, presentation),
+    info: getToolInfo(state, presentation),
     icon: resolveToolIcon(presentation.icon),
   }
 }
@@ -167,38 +167,56 @@ function totalReasoningDurationLabel(entries: ActivityEntry[]): string {
   return hasTiming ? formatThoughtForLabel(totalMs) : ACTIVITY_THOUGHT_LABEL
 }
 
-type SettledGroup = {
-  category: string
+type SettledSummary = {
+  key: string
+  label: string
+}
+
+type SettledGroup = SettledSummary & {
+  identity: string
   count: number
   firstIndex: number
-  label: string
   icon: ToolIconRenderer
 }
 
-function settledToolGroups(entries: ActivityEntry[]): SettledGroup[] {
+function successfulToolSummary(entry: ToolActivityEntry): SettledSummary | undefined {
+  const { presentation } = entry
+  if (
+    presentation.archetype !== "activity" ||
+    presentation.phase !== "completed" ||
+    presentation.outcome.type !== "success"
+  ) {
+    return undefined
+  }
+  return { key: presentation.summary.category, label: presentation.summary.label }
+}
+
+function neutralToolSummary(entry: ToolActivityEntry): SettledSummary | undefined {
+  const { action, outcome } = entry.presentation
+  return outcome.type === "neutral" ? { key: outcome.reason, label: action } : undefined
+}
+
+function settledToolGroups(
+  entries: ActivityEntry[],
+  summarize: (entry: ToolActivityEntry) => SettledSummary | undefined,
+): SettledGroup[] {
   const groups = new Map<string, SettledGroup>()
 
   entries.forEach((entry, index) => {
-    if (
-      entry.kind !== "tool" ||
-      entry.presentation.archetype !== "activity" ||
-      entry.presentation.phase !== "completed" ||
-      entry.presentation.outcome.type !== "success"
-    ) {
-      return
-    }
+    if (entry.kind !== "tool") return
+    const summary = summarize(entry)
+    if (!summary) return
 
-    const { category, label } = entry.presentation.summary
-    const existing = groups.get(category)
+    const existing = groups.get(summary.key)
     if (existing) {
       existing.count += 1
       return
     }
-    groups.set(category, {
-      category,
+    groups.set(summary.key, {
+      ...summary,
+      identity: entryHeaderIdentity(entry),
       count: 1,
       firstIndex: index,
-      label,
       icon: entry.icon,
     })
   })
@@ -208,19 +226,25 @@ function settledToolGroups(entries: ActivityEntry[]): SettledGroup[] {
   )
 }
 
-function settledHeader(entries: ActivityEntry[]): ActivityHeader {
-  const groups = settledToolGroups(entries)
-  if (groups.length > 0) {
-    return {
-      identity: `activity:${groups[0]?.category ?? "tools"}`,
-      label: groups
-        .slice(0, SETTLED_SUMMARY_LIMIT)
-        .map((group) => group.label)
-        .join(" · "),
-      icon: groups[0]?.icon ?? ACTIVITY_REASONING_ICON,
-      shimmer: false,
-    }
+function settledGroupsHeader(groups: SettledGroup[]): ActivityHeader | undefined {
+  const [first] = groups
+  if (!first) return undefined
+  return {
+    identity: first.identity,
+    label: groups
+      .slice(0, SETTLED_SUMMARY_LIMIT)
+      .map((group) => group.label)
+      .join(" · "),
+    icon: first.icon,
+    shimmer: false,
   }
+}
+
+function settledHeader(entries: ActivityEntry[]): ActivityHeader {
+  const toolHeader =
+    settledGroupsHeader(settledToolGroups(entries, successfulToolSummary)) ??
+    settledGroupsHeader(settledToolGroups(entries, neutralToolSummary))
+  if (toolHeader) return toolHeader
 
   if (entries.some((entry) => entry.kind === "reasoning")) {
     return {

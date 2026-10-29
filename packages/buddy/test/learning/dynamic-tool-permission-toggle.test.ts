@@ -1,176 +1,56 @@
-import { afterEach, describe, expect, test } from "bun:test"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { SessionID } from "@buddy/opencode-adapter/id"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { Config } from "@buddy/backend/config"
+import { describe, expect, test } from "bun:test"
+import { constrainPermissionGrants, evaluatePermission, resetDynamicToolPermissionGrants, withDynamicToolPermissionGrants, type PermissionRuleset } from "@buddy/transcript-contract/permission-rules"
+import { buildRuntimeSessionPermissionRules } from "../../src/learning/agent-execution/permissions/session-policy"
+import { getAgentRuntime, closeAgentRuntime } from "../../src/runtime/agent-runtime"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
-import { loadOpenCodeApp } from "../../src/opencode-runtime"
-import { writeTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
-import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
-import { resolveSessionRuntime } from "../../src/learning/access/resolve-session-runtime"
-import { REGISTERED_BUDDY_PERSONAS } from "../../src/learning/personas/registry"
-import { getBuddyPersona } from "../../src/learning/personas/wiring/persona-profiles"
-import {
-  grantDynamicLearningToolsForSession,
-  releaseDynamicLearningToolsForSession,
-} from "../../src/learning/runtime/dynamic-tool-grants"
-import { dynamicLearningToolDefaultDenyRules } from "../../src/learning/runtime/dynamic-tool-permissions"
-import { dynamicReflectionTool } from "../../src/learning/features/teaching-guidance/tools/reflection"
 import { tmpdir } from "../helpers/tmpdir"
 
-const DYNAMIC_REFLECTION_TOOL_ID = dynamicReflectionTool.id
+const reflection = "dynamic_reflection"
+const dynamicToolIDs = [reflection, "dynamic_other"]
+const catalog = { toolIDs: ["buddy_read"], subagentIDs: [], skillNames: [], dynamicToolIDs }
 
-afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
-})
-
-async function seedTeachingSession(projectPath: string, sessionID: string) {
-  const config = await Config.getProject(projectPath)
-  const persona = getBuddyPersona("buddy", config.personas)
-  const definition = REGISTERED_BUDDY_PERSONAS.find((entry) => entry.id === "buddy")
-  if (!definition) {
-    throw new Error('Missing "buddy" persona definition')
+async function fixture(configured: PermissionRuleset = []) {
+  const project = await tmpdir({ config: { permission: Object.fromEntries(configured.map((rule) => [rule.permission, { [rule.pattern]: rule.action }])) } })
+  try {
+    await syncOpenCodeProjectConfig(project.path)
+    const runtime = await getAgentRuntime()
+    const session = await runtime.conversations.create(project.path)
+    await runtime.approvals.updateSessionRules(session.id, () => buildRuntimeSessionPermissionRules({ catalog, sessionRuntime: { access: { tools: { buddy_read: "allow" }, subagents: {}, skills: {} } } }))
+    return { runtime, session, async rules() { return [...await runtime.catalog.agentRules(project.path, "buddy"), ...(await runtime.approvals.sessionRules(session.id))?.rules ?? []] }, async [Symbol.asyncDispose]() { try { await closeAgentRuntime() } finally { await project[Symbol.asyncDispose]() } } }
+  } catch (error) {
+    try { await closeAgentRuntime() } finally { await project[Symbol.asyncDispose]() }
+    throw error
   }
-
-  const sessionRuntime = resolveSessionRuntime({
-    persona: {
-      id: persona.id,
-      features: definition.features,
-      defaultSurface: persona.defaultSurface,
-    },
-    teachingWorkspaceState: "inactive",
-    config,
-  })
-
-  writeTeachingSessionState(projectPath, {
-    sessionId: sessionID,
-    persona: persona.id,
-    currentSurface: persona.defaultSurface,
-    teachingWorkspaceState: "inactive",
-    sessionRuntime,
-    focusGoalIds: [],
-  })
 }
 
 describe("dynamic tool permission toggling", () => {
-  test("granting a dynamic tool adds an allow rule to session permissions", async () => {
-    await using project = await tmpdir({ git: true })
-    await loadOpenCodeApp()
-    await syncOpenCodeProjectConfig(project.path)
-
-    const session = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => OpenCodeSession.create({ title: "Dynamic tool grant test" }),
-    })
-
-    await seedTeachingSession(project.path, session.id)
-
-    const granted = await grantDynamicLearningToolsForSession({
-      directory: project.path,
-      sessionID: session.id,
-      tools: [dynamicReflectionTool],
-    })
-
-    expect(granted).toEqual([DYNAMIC_REFLECTION_TOOL_ID])
-
-    const updatedSession = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => OpenCodeSession.get(SessionID.make(session.id)),
-    })
-
-    expect(updatedSession.permission).toContainEqual({
-      permission: DYNAMIC_REFLECTION_TOOL_ID,
-      pattern: "*",
-      action: "allow",
-    })
-  }, 30_000)
-
-  test("dynamic tool is denied before granting and after releasing", async () => {
-    await using project = await tmpdir({ git: true })
-    await loadOpenCodeApp()
-    await syncOpenCodeProjectConfig(project.path)
-
-    const session = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => OpenCodeSession.create({ title: "Dynamic tool deny test" }),
-    })
-
-    await seedTeachingSession(project.path, session.id)
-
-    const readPermission = async () =>
-      OpenCodeInstance.provide({
-        directory: project.path,
-        fn: async () => (await OpenCodeSession.get(SessionID.make(session.id))).permission ?? [],
-      })
-
-    let permission = await readPermission()
-    expect(
-      permission.some(
-        (rule) =>
-          rule.permission === DYNAMIC_REFLECTION_TOOL_ID &&
-          rule.pattern === "*" &&
-          rule.action === "allow",
-      ),
-    ).toBe(false)
-
-    await grantDynamicLearningToolsForSession({
-      directory: project.path,
-      sessionID: session.id,
-      tools: [dynamicReflectionTool],
-    })
-
-    permission = await readPermission()
-    expect(permission).toContainEqual({
-      permission: DYNAMIC_REFLECTION_TOOL_ID,
-      pattern: "*",
-      action: "allow",
-    })
-
-    await releaseDynamicLearningToolsForSession({
-      directory: project.path,
-      sessionID: session.id,
-      resetPermission: true,
-    })
-
-    permission = await readPermission()
-    expect(permission).not.toContainEqual({
-      permission: DYNAMIC_REFLECTION_TOOL_ID,
-      pattern: "*",
-      action: "allow",
-    })
-    expect(permission).toEqual(expect.arrayContaining(dynamicLearningToolDefaultDenyRules()))
+  test("grants apply through v2 session updates and keep unrelated tools denied", async () => {
+    await using context = await fixture()
+    const { runtime, session } = context
+    expect(evaluatePermission(reflection, "*", await context.rules()).action).toBe("deny")
+    await runtime.approvals.updateSessionRules(session.id, (existing) => withDynamicToolPermissionGrants({ existing, toolIDs: [reflection], managedToolIDs: dynamicToolIDs }))
+    expect(evaluatePermission(reflection, "*", await context.rules()).action).toBe("allow")
+    expect(evaluatePermission("dynamic_other", "*", await context.rules()).action).toBe("deny")
+    const permissions = await runtime.approvals.sessionRules(session.id)
+    expect(permissions?.rules).toContainEqual({ permission: reflection, pattern: "*", action: "allow" })
+    expect(permissions?.rules).toContainEqual({ permission: "buddy_read", pattern: "*", action: "allow" })
   })
 
-  test("dynamic tools are denied in session runtime before load and not duplicated in allow rules", async () => {
-    await using project = await tmpdir({ git: true })
-    const config = await Config.getProject(project.path)
-    const persona = getBuddyPersona("buddy", config.personas)
-    const definition = REGISTERED_BUDDY_PERSONAS.find((entry) => entry.id === "buddy")
-    if (!definition) {
-      throw new Error('Missing "buddy" persona definition')
-    }
+  test("releasing a grant restores deny while preserving rules Buddy does not manage", async () => {
+    await using context = await fixture()
+    const { runtime, session } = context
+    await runtime.approvals.updateSessionRules(session.id, (existing) => withDynamicToolPermissionGrants({ existing: [...existing, { permission: "external_directory", pattern: "/trusted/*", action: "ask" }], toolIDs: [reflection], managedToolIDs: dynamicToolIDs }))
+    await runtime.approvals.updateSessionRules(session.id, (existing) => resetDynamicToolPermissionGrants(existing, dynamicToolIDs))
+    expect(evaluatePermission(reflection, "*", await context.rules()).action).toBe("deny")
+    expect((await runtime.approvals.sessionRules(session.id))?.rules).toContainEqual({ permission: "external_directory", pattern: "/trusted/*", action: "ask" })
+  })
 
-    const sessionRuntime = resolveSessionRuntime({
-      persona: {
-        id: persona.id,
-        features: definition.features,
-        defaultSurface: persona.defaultSurface,
-      },
-      teachingWorkspaceState: "inactive",
-      config,
-    })
-
-    expect(sessionRuntime.access.tools[DYNAMIC_REFLECTION_TOOL_ID]).toBe("deny")
-
-    const permission = buildBuddyRuntimeSessionPermissions({ sessionRuntime })
-    expect(
-      permission.some(
-        (rule) =>
-          rule.permission === DYNAMIC_REFLECTION_TOOL_ID &&
-          rule.pattern === "*" &&
-          rule.action === "allow",
-      ),
-    ).toBe(false)
-    expect(permission).toEqual(expect.arrayContaining(dynamicLearningToolDefaultDenyRules()))
+  test("authored denies remain enforced when Buddy tries to grant a dynamic tool", async () => {
+    const configured: PermissionRuleset = [{ permission: reflection, pattern: "private/*", action: "deny" }]
+    await using context = await fixture(configured)
+    const { runtime, session } = context
+    await runtime.approvals.updateSessionRules(session.id, (existing) => constrainPermissionGrants(withDynamicToolPermissionGrants({ existing, toolIDs: [reflection], managedToolIDs: dynamicToolIDs }), configured, dynamicToolIDs))
+    expect(evaluatePermission(reflection, "private/note", await context.rules()).action).toBe("deny")
+    expect((await runtime.approvals.sessionRules(session.id))?.rules).not.toContainEqual({ permission: reflection, pattern: "*", action: "allow" })
   })
 })

@@ -11,8 +11,6 @@ export const QUESTION_SET_AUTHOR_AGENT = defineBuddySubagent({
   subagents: [],
   permission: {
     question: "allow",
-    task: "deny",
-    todoread: "deny",
-    todowrite: "deny",
+    subagent: "deny",
   },
 })

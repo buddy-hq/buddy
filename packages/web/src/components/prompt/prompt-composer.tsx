@@ -649,7 +649,7 @@ export function PromptComposer(props: PromptComposerProps) {
     return registerPromptComposerLiveDraftReader(promptKey, () => readLiveDraftRef.current())
   }, [promptKey])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (arePromptDraftContentsEqual(draftRef.current, storeDraft)) return
     // Our own debounced write echoing back after further keystrokes landed. The editor and
     // draftRef are ahead of it by design, so adopting it would rewind the live draft — and with
@@ -1102,7 +1102,7 @@ export function PromptComposer(props: PromptComposerProps) {
     }
   }, [isQuestionActive, isGameVisible, setPaused, setMinimized, setGameVisible])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     return () => {
       if (draftRenderTimerRef.current !== undefined) {
         window.clearTimeout(draftRenderTimerRef.current)
@@ -1949,6 +1949,7 @@ export function PromptComposer(props: PromptComposerProps) {
                       contentEditable
                       suppressContentEditableWarning
                       role="textbox"
+                      aria-label={language.t("prompt.placeholder.simple")}
                       aria-multiline="true"
                       className={cn(
                         "composer-scroll w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 text-text-base focus:outline-none",

@@ -546,7 +546,7 @@ describe("Chat tab Bench turn context", () => {
     expect(text).toContain(
       'Bench shows a chat tab, another chat or subagent chat opened beside this one: {"tabNumber":2,"title":"Verify claims","tabKey":"session:ses_child","sessionID":"ses_child"}. There are 2 open tabs.',
     )
-    expect(text).toContain("bench_read_context returns the session database")
+    expect(text).toContain("read it with bench_read_chat")
     expect(text).toContain(
       '- {"tabNumber":1,"title":"Photosynthesis","tabKey":"file:notebook:markdown:notes%2Fphotosynthesis.md"}',
     )

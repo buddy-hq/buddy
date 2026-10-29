@@ -1,8 +1,4 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { getBuddyPersona } from "../../personas/wiring/persona-profiles"
 import { REGISTERED_BUDDY_PERSONAS } from "../../personas/registry"
 import {
@@ -13,11 +9,14 @@ import {
   resolveFocusGoalIds,
 } from "../../shared/targeting"
 import { resolveSessionRuntime } from "../../access/resolve-session-runtime"
-import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
+import {
+  readTeachingSessionState,
+  teachingSessionCompactionCount,
+  writeTeachingSessionState,
+} from "../state/session-state"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
 import type { SessionTransform, SessionTransformContext } from "./types"
-import { resolveSubagentToolForwarding } from "./subagent-tool-forwarding"
 import {
   persistConciseResponseChatState,
   readConciseResponseChatState,
@@ -44,11 +43,7 @@ export function createSessionCommandTransform(input: {
       acceptedConciseResponseChatState = undefined
       assertNoLegacyRuntimeOverrides(body)
 
-      await OpenCodeInstance.provide({
-        directory: input.context.directory,
-        fn: () => ToolRegistry.prime(),
-      })
-
+      const compactionCount = teachingSessionCompactionCount(input.context.sessionID)
       const projectConfig = await readProjectConfig(input.context.directory)
       const previousState = readTeachingSessionState(
         input.context.directory,
@@ -101,6 +96,7 @@ export function createSessionCommandTransform(input: {
             directory: input.context.directory,
             sessionID: input.context.sessionID,
             previousState,
+            compactionCount,
           })
         writeTeachingSessionState(input.context.directory, {
           sessionId: input.context.sessionID,
@@ -135,43 +131,6 @@ export function createSessionCommandTransform(input: {
       }
       if (!hasExplicitCommandModel(body.model) && projectConfig.model) {
         transformed.model = projectConfig.model
-      }
-      const subagentForwarding = await resolveSubagentToolForwarding({
-        currentTools: transformed.tools,
-        directory: input.context.directory,
-        previousState,
-        projectConfig,
-        sessionID: input.context.sessionID,
-        targetAgent: target.agent,
-      })
-      if (subagentForwarding.stateSeed && !previousState) {
-        const responseStyle = await resolveConciseResponseChatState()
-        rollbackTeachingState = () =>
-          restoreTeachingSessionState({
-            directory: input.context.directory,
-            sessionID: input.context.sessionID,
-            previousState,
-          })
-        writeTeachingSessionState(input.context.directory, {
-          ...subagentForwarding.stateSeed,
-          baseConciseResponses: responseStyle.base,
-          conciseResponses: responseStyle.applied,
-        })
-        acceptedConciseResponseChatState = responseStyle
-      }
-      if (subagentForwarding.toolOverrides) {
-        transformed.tools = subagentForwarding.toolOverrides
-      }
-      const sessionPermission = subagentForwarding.sessionPermission
-      if (sessionPermission) {
-        await OpenCodeInstance.provide({
-          directory: input.context.directory,
-          fn: () =>
-            OpenCodeSession.setPermission({
-              sessionID: SessionID.make(input.context.sessionID),
-              permission: sessionPermission,
-            }),
-        })
       }
       delete transformed.persona
       delete transformed.focusGoalIds

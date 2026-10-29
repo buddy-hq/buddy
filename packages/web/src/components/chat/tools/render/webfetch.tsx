@@ -1,4 +1,3 @@
-import { readString } from "../../tools/types"
 import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject } from "../tool-row"
 import type { ToolPartProps } from "../registry"
 
@@ -11,7 +10,7 @@ function hostnameFrom(url: string): string {
 }
 
 export function renderWebfetchTool({ state, icon }: ToolPartProps) {
-  const link = readString(state.input.url)
+  const link = state.summary?.subject
   const host = link ? hostnameFrom(link) : undefined
 
   return (

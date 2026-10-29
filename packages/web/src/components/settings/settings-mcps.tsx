@@ -5,6 +5,7 @@ import { language } from "@/context/language"
 import {
   formatMcpError,
   getMcpStatusLabel,
+  mcpIsPending,
   mcpNeedsAuth,
   mcpNeedsClientRegistration,
   parseMcpConfigMap,
@@ -28,7 +29,7 @@ import {
 import { mcpStatusQueryOptions } from "@/state/mcp-directory-query"
 import { notebookDefinesMcp } from "@/state/mcp-settings"
 import { notebookRawProjectConfigQueryOptions } from "@/state/notebook-settings-query"
-import { EMPTY_BUDDY_CONFIG } from "@/state/parse-external"
+import { EMPTY_BUDDY_CONFIG, parseBuddyConfigObject } from "@/state/parse-external"
 import { useChatStore } from "@/state/chat-store"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
 
@@ -309,6 +310,7 @@ export function McpsSettings() {
             ) : (
               entries.map((name) => {
                 const config = configByName[name]
+                const missingSecret = parseBuddyConfigObject(parseBuddyConfigObject(globalConfigQuery.data?.mcp)?.[name])?.missingSecret === true
                 const removing = pendingRemove.has(name)
                 const notebookDefinitionShadowsGlobal = notebookDefinesMcp(
                   activeProjectConfig,
@@ -317,12 +319,14 @@ export function McpsSettings() {
                 const connectionTargetReady =
                   activeProjectConfigQuery.isSuccess && !notebookDefinitionShadowsGlobal
                 const status = connectionTargetReady ? activeMcpStatusByName[name] : undefined
+                const startingUp = mcpIsPending(status)
                 const connecting = pendingConnect.has(name)
                 const updatingEnabled = pendingEnabled.has(name)
                 const rowBusy = removing || connecting || updatingEnabled
                 const showConnectAction =
                   Boolean(connectionDirectory) &&
                   connectionTargetReady &&
+                  !missingSecret &&
                   config.enabled !== false &&
                   status?.status !== "connected" &&
                   status?.status !== "disabled"
@@ -344,7 +348,11 @@ export function McpsSettings() {
                         ) : null}
                       </span>
                     }
-                    description={detail}
+                    description={
+                      missingSecret
+                        ? "This server's secret was saved on another computer or in another Buddy edition. Enter it again."
+                        : detail
+                    }
                     control={
                       <>
                         <Switch
@@ -364,9 +372,9 @@ export function McpsSettings() {
                             onClick={() => {
                               void connectConfig(name)
                             }}
-                            disabled={rowBusy}
+                            disabled={rowBusy || startingUp}
                           >
-                            {getConnectButtonLabel({ pending: connecting, status })}
+                            {getConnectButtonLabel({ pending: connecting || startingUp, status })}
                           </Button>
                         ) : null}
                         <Button
@@ -376,7 +384,7 @@ export function McpsSettings() {
                           onClick={() => openEditEditor(name)}
                           disabled={rowBusy}
                         >
-                          {language.t("mcp.listPanel.editDetails")}
+                          {missingSecret ? "Enter secret" : language.t("mcp.listPanel.editDetails")}
                         </Button>
                         <Button
                           type="button"

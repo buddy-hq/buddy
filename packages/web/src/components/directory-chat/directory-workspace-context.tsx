@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react"
 import { useBlocker, useLocation, useNavigate, useRouter } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useStore } from "zustand"
 import {
   DirectoryWorkspaceBlocker,
@@ -34,6 +34,7 @@ import { workspaceChatKeyForSession, type WorkspaceChatKey } from "@/lib/workspa
 import { useChatStore } from "@/state/chat-store"
 import { useHostedBrowserStore } from "@/state/hosted-browser-store"
 import { useUiPreferences } from "@/state/ui-preferences"
+import { v1ImportMayBeIncomplete, v1ImportQueryOptions } from "@/state/v1-import-query"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import {
   inAppBrowserTabContextRuntime,
@@ -149,6 +150,7 @@ export function DirectoryWorkspaceProvider(props: {
   const currentLocation = useLocation()
   const navigate = useNavigate()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const currentLocationInNotebook = isPathnameInDirectory({
     directory: props.directory,
     pathname: currentLocation.pathname,
@@ -433,6 +435,7 @@ export function DirectoryWorkspaceProvider(props: {
             props.persistenceStorage ? { storage: props.persistenceStorage } : undefined,
           ),
         )
+        const importReport = await queryClient.fetchQuery(v1ImportQueryOptions()).catch(() => undefined)
         logBenchToggleStep("directory-workspace-provider-read-persisted-result", {
           directory: props.directory,
           disposed,
@@ -448,7 +451,7 @@ export function DirectoryWorkspaceProvider(props: {
           {}
         const currentRoute = routeRef.current
         const directoryState = useChatStore.getState().directories[props.directory]
-        const unresolvedSessionIDs = directoryState
+        const unresolvedSessionIDs = directoryState && !v1ImportMayBeIncomplete(importReport)
           ? unresolvedSessionBenchTargetIDs({
               slots: persistedSlots,
               route: currentRoute,
@@ -539,7 +542,7 @@ export function DirectoryWorkspaceProvider(props: {
         directory: props.directory,
       })
     }
-  }, [controller, props.directory, props.persistenceStorage, store])
+  }, [controller, props.directory, props.persistenceStorage, queryClient, store])
 
   useEffect(() => {
     const unsubscribe = store.subscribe((state, previousState) => {

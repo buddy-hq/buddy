@@ -1,33 +1,37 @@
-import { afterEach, describe, expect, mock, test } from "bun:test"
-import { createOpenAICodexAccountService } from "../../src/opencode-runtime/plugins/openai-codex-account"
-import type { OpenAICodexStoredAuth } from "../../src/opencode-runtime/plugins/openai-codex-credentials"
+import { describe, expect, test } from "bun:test"
+import { createChatGPTAccountService } from "../../src/chatgpt/account"
+import type { ChatGPTAuth, ChatGPTCredentials } from "@buddy/agent-runtime/chatgpt"
 
 const DIRECTORY = "/tmp/buddy-openai-account-test"
 const NOW = Date.parse("2026-06-10T12:00:00.000Z")
-const originalFetch = globalThis.fetch
+const SIGNAL = new AbortController().signal
 
-afterEach(() => {
-  globalThis.fetch = originalFetch
-})
+function createService(input: NonNullable<Parameters<typeof createChatGPTAccountService>[2]> & { getAuth: ChatGPTCredentials["resolve"] }) {
+  const { getAuth, ...options } = input
+  return createChatGPTAccountService({ directory: DIRECTORY }, { resolve: getAuth, reject: async () => {} }, options)
+}
 
-function createAuth(): OpenAICodexStoredAuth {
+function createAuth(): ChatGPTAuth {
   return {
-    type: "oauth",
     access: "access-token",
     refresh: "refresh-token",
-    expires: Date.now() + 60_000,
+    expires: NOW + 60_000,
     accountId: "account-123",
   }
 }
 
 function createDeferredResponse() {
   let resolveResponse: ((response: Response) => void) | undefined
+  let started: (() => void) | undefined
+  const requested = new Promise<void>((resolve) => { started = resolve })
   const promise = new Promise<Response>((resolve) => {
     resolveResponse = resolve
   })
 
   return {
     promise,
+    requested,
+    request() { started?.(); return promise },
     resolve(response: Response) {
       if (!resolveResponse) throw new Error("Deferred response is not initialized")
       resolveResponse(response)
@@ -37,19 +41,17 @@ function createDeferredResponse() {
 
 describe("OpenAI Codex account service", () => {
   test("reads the email for an existing ChatGPT login without requiring another sign-in", async () => {
-    const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-      expect(String(input)).toBe("https://auth.openai.com/api/accounts/oauth/userinfo")
-      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer access-token")
-      return Response.json({ email: "learner@example.com", email_verified: true })
-    })
-    const service = createOpenAICodexAccountService({
-      fetch: fetchMock,
+    const service = createService({
+      fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+        expect(String(input)).toBe("https://auth.openai.com/api/accounts/oauth/userinfo")
+        expect(new Headers(init?.headers).get("authorization")).toBe("Bearer access-token")
+        return Response.json({ email: "learner@example.com", email_verified: true })
+      },
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
-    expect(await service.readIdentity(DIRECTORY)).toEqual({
+    expect(await service.identity()).toEqual({
       status: "ready",
       email: "learner@example.com",
     })
@@ -58,184 +60,114 @@ describe("OpenAI Codex account service", () => {
   test("never exposes an email from an account that changed during the request", async () => {
     const response = createDeferredResponse()
     let auth = createAuth()
-    const service = createOpenAICodexAccountService({
-      fetch: async () => response.promise,
+    const service = createService({
+      fetch: async () => response.request(),
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
-    const identity = service.readIdentity(DIRECTORY)
-    await Bun.sleep(0)
-    auth = { ...auth, refresh: "another-account-refresh" }
+    const identity = service.identity()
+    await response.requested
+    auth = { ...auth, refresh: "another-account-refresh", access: "another-account-access" }
     response.resolve(Response.json({ email: "old-account@example.com" }))
 
     expect(await identity).toEqual({ status: "unavailable" })
   })
 
   test("treats a missing account email as unavailable", async () => {
-    const service = createOpenAICodexAccountService({
+    const service = createService({
       fetch: async () => Response.json({ sub: "user_123" }),
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
-    expect(await service.readIdentity(DIRECTORY)).toEqual({ status: "unavailable" })
+    expect(await service.identity()).toEqual({ status: "unavailable" })
   })
 
   test("returns vendor fallback while loading, then exposes only listed account models", async () => {
-    const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = input instanceof URL ? input : new URL(input.toString())
-      expect(url.pathname).toBe("/backend-api/codex/models")
-      expect(url.searchParams.has("client_version")).toBe(true)
-      const headers = new Headers(init?.headers)
-      expect(headers.get("authorization")).toBe("Bearer access-token")
-      expect(headers.get("ChatGPT-Account-Id")).toBe("account-123")
-      return Response.json(
-        {
-          models: [
-            { slug: "gpt-5.5", visibility: "list" },
-            { slug: "codex-auto-review", visibility: "hide" },
-          ],
-        },
-        { headers: { etag: '"models-v1"' } },
-      )
-    })
-    const service = createOpenAICodexAccountService({
-      fetch: fetchMock,
+    const service = createService({
+      fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof URL ? input : new URL(input.toString())
+        expect(url.pathname).toBe("/backend-api/codex/models")
+        expect(url.searchParams.has("client_version")).toBe(true)
+        const headers = new Headers(init?.headers)
+        expect(headers.get("authorization")).toBe("Bearer access-token")
+        expect(headers.get("ChatGPT-Account-Id")).toBe("account-123")
+        return Response.json(
+          {
+            models: [
+              { slug: "gpt-5.5", visibility: "list" },
+              { slug: "codex-auto-review", visibility: "hide" },
+            ],
+          },
+          { headers: { etag: '"models-v1"' } },
+        )
+      },
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
-    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+    expect(await service.models({ refresh: false })).toEqual({
       status: "loading",
     })
-    await Bun.sleep(0)
-    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+    await service.accountModels(SIGNAL)
+    expect(await service.models({ refresh: false })).toEqual({
       status: "ready",
       modelIDs: ["gpt-5.5"],
       fetchedAt: "2026-06-10T12:00:00.000Z",
       refreshing: false,
     })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   test("retains account-specific context metadata for runtime model resolution", async () => {
-    const fetchMock = mock(async () =>
-      Response.json({
-        models: [
-          {
-            slug: "gpt-5.6-terra",
-            visibility: "list",
-            context_window: 272_000,
-            max_context_window: 272_000,
-            effective_context_window_percent: 95,
-            input_modalities: ["text", "image"],
-            supports_reasoning_summary_parameter: true,
-            supported_reasoning_levels: [
-              { effort: "low", description: "Fast responses" },
-              { effort: "max", description: "Maximum reasoning" },
-            ],
-          },
-          {
-            slug: "codex-auto-review",
-            visibility: "hide",
-            context_window: 272_000,
-            effective_context_window_percent: 95,
-          },
-        ],
-      }),
-    )
     const auth = createAuth()
-    const service = createOpenAICodexAccountService({
-      fetch: fetchMock,
+    const service = createService({
+      fetch: async () =>
+        Response.json({
+          models: [
+            {
+              slug: "gpt-5.6-terra",
+              visibility: "list",
+              context_window: 272_000,
+              max_context_window: 272_000,
+              effective_context_window_percent: 95,
+              input_modalities: ["text", "image"],
+              supports_reasoning_summary_parameter: true,
+              supported_reasoning_levels: [
+                { effort: "low", description: "Fast responses" },
+                { effort: "max", description: "Maximum reasoning" },
+              ],
+            },
+            {
+              slug: "codex-auto-review",
+              visibility: "hide",
+              context_window: 272_000,
+              effective_context_window_percent: 95,
+            },
+          ],
+        }),
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
-    expect(await service.resolveModelCatalog(DIRECTORY)).toEqual([
+    expect(await service.accountModels(SIGNAL)).toEqual([
       {
-        slug: "gpt-5.6-terra",
-        visibility: "list",
-        context_window: 272_000,
-        max_context_window: 272_000,
-        effective_context_window_percent: 95,
-        input_modalities: ["text", "image"],
-        supports_reasoning_summary_parameter: true,
-        supported_reasoning_levels: [
-          { effort: "low", description: "Fast responses" },
-          { effort: "max", description: "Maximum reasoning" },
-        ],
+        id: "gpt-5.6-terra",
+        contextWindow: 258_400,
+        inputModalities: ["text", "image"],
+        reasoningSummary: true,
+        reasoningEfforts: ["low", "max"],
       },
     ])
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
-
-  test("does not overwrite or resolve against an account changed during token refresh", async () => {
-    const tokenResponse = createDeferredResponse()
-    const refreshFetchMock = mock(
-      async (_input: RequestInfo | URL, _init?: RequestInit) => tokenResponse.promise,
-    )
-    globalThis.fetch = Object.assign(
-      async (input: RequestInfo | URL, init?: Parameters<typeof fetch>[1]) =>
-        refreshFetchMock(input, init),
-      {
-        preconnect: originalFetch.preconnect,
-      },
-    )
-
-    let auth: OpenAICodexStoredAuth = {
-      type: "oauth",
-      access: "expired-account-a",
-      refresh: "refresh-account-a",
-      expires: 0,
-      accountId: "account-a",
-    }
-    const modelFetchMock = mock(async () =>
-      Response.json({
-        models: [{ slug: "model-a", visibility: "list", context_window: 100_000 }],
-      }),
-    )
-    const setAuth = mock(async (_directory: string, nextAuth: OpenAICodexStoredAuth) => {
-      auth = nextAuth
-    })
-    const service = createOpenAICodexAccountService({
-      fetch: modelFetchMock,
-      now: () => NOW,
-      getAuth: async () => auth,
-      setAuth,
-    })
-
-    const catalog = service.resolveModelCatalog(DIRECTORY)
-    await Bun.sleep(0)
-    expect(refreshFetchMock).toHaveBeenCalledTimes(1)
-
-    auth = {
-      type: "oauth",
-      access: "account-b",
-      refresh: "refresh-account-b",
-      expires: Date.now() + 60_000,
-      accountId: "account-b",
-    }
-    tokenResponse.resolve(
-      Response.json({
-        access_token: "refreshed-account-a",
-        refresh_token: "rotated-account-a",
-      }),
-    )
-
-    expect(await catalog).toBeUndefined()
-    expect(setAuth).not.toHaveBeenCalled()
-    expect(modelFetchMock).not.toHaveBeenCalled()
-    expect(auth.accountId).toBe("account-b")
   })
 
   test("does not back off account model loading after a catalog request is aborted", async () => {
-    const fetchMock = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      if (fetchMock.mock.calls.length === 1) {
+    let firstRequest = true
+    const started = createDeferredResponse()
+    const request = async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (firstRequest) {
+        firstRequest = false
+        started.request()
         return await new Promise<Response>((_resolve, reject) => {
           const rejectAborted = () =>
             reject(new DOMException("Catalog request aborted", "AbortError"))
@@ -249,35 +181,35 @@ describe("OpenAI Codex account service", () => {
       return Response.json({
         models: [{ slug: "gpt-5.5", visibility: "list" }],
       })
-    })
-    const service = createOpenAICodexAccountService({
-      fetch: fetchMock,
+    }
+    const service = createService({
+      fetch: request,
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
     const abortController = new AbortController()
 
-    const catalog = service.resolveModelCatalog(DIRECTORY, abortController.signal)
-    await Bun.sleep(0)
+    const catalog = service.accountModels(abortController.signal)
+    await started.requested
     abortController.abort()
 
     expect(await catalog).toBeUndefined()
-    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+    expect(await service.models({ refresh: false })).toEqual({
       status: "loading",
     })
-    await Bun.sleep(0)
-    expect(await service.readModelAvailability(DIRECTORY)).toMatchObject({
+    await service.accountModels(SIGNAL)
+    expect(await service.models({ refresh: false })).toMatchObject({
       status: "ready",
       modelIDs: ["gpt-5.5"],
     })
-    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   test("uses the cached ETag on an explicit model refresh", async () => {
-    const fetchMock = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    let firstRequest = true
+    const request = async (_input: RequestInfo | URL, init?: RequestInit) => {
       const headers = new Headers(init?.headers)
-      if (fetchMock.mock.calls.length === 1) {
+      if (firstRequest) {
+        firstRequest = false
         expect(headers.get("if-none-match")).toBeNull()
         return Response.json(
           { models: [{ slug: "gpt-5.5", visibility: "list" }] },
@@ -286,27 +218,25 @@ describe("OpenAI Codex account service", () => {
       }
       expect(headers.get("if-none-match")).toBe('"models-v1"')
       return new Response(null, { status: 304 })
-    })
-    const service = createOpenAICodexAccountService({
-      fetch: fetchMock,
+    }
+    const service = createService({
+      fetch: request,
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
-    await service.refreshModelAvailability(DIRECTORY)
-    expect(await service.refreshModelAvailability(DIRECTORY)).toMatchObject({
+    await service.models({ refresh: true })
+    expect(await service.models({ refresh: true })).toMatchObject({
       status: "ready",
       modelIDs: ["gpt-5.5"],
     })
-    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   test("serves cached models while updating newly available models in the background", async () => {
     let now = NOW
     const updatedResponse = createDeferredResponse()
     let requests = 0
-    const service = createOpenAICodexAccountService({
+    const service = createService({
       fetch: async () => {
         requests += 1
         if (requests === 1) {
@@ -316,14 +246,13 @@ describe("OpenAI Codex account service", () => {
       },
       now: () => now,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
-    expect((await service.resolveModelCatalog(DIRECTORY))?.map((model) => model.slug)).toEqual([
+    expect((await service.accountModels(SIGNAL))?.map((model) => model.id)).toEqual([
       "gpt-5.6-sol",
     ])
     now += 5 * 60 * 1_000 + 1
-    expect((await service.resolveModelCatalog(DIRECTORY))?.map((model) => model.slug)).toEqual([
+    expect((await service.accountModels(SIGNAL))?.map((model) => model.id)).toEqual([
       "gpt-5.6-sol",
     ])
     expect(requests).toBe(2)
@@ -336,97 +265,77 @@ describe("OpenAI Codex account service", () => {
         ],
       }),
     )
-    expect((await service.refreshModelAvailability(DIRECTORY)).status).toBe("ready")
-    expect((await service.resolveModelCatalog(DIRECTORY))?.map((model) => model.slug)).toEqual([
+    expect((await service.models({ refresh: true })).status).toBe("ready")
+    expect((await service.accountModels(SIGNAL))?.map((model) => model.id)).toEqual([
       "gpt-5.6-sol",
       "gpt-6-sol",
     ])
   })
 
   test("treats an empty account model response as unavailable", async () => {
-    const service = createOpenAICodexAccountService({
+    const service = createService({
       fetch: async () => Response.json({ models: [] }),
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
-    expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({
+    expect(await service.models({ refresh: true })).toEqual({
       status: "error",
     })
   })
 
   test("marks an unauthorized model refresh as requiring reconnection", async () => {
-    const service = createOpenAICodexAccountService({
-      fetch: async () => Response.json({}, { status: 401 }),
+    let rejected = false
+    const service = createService({
+      fetch: async () => rejected ? Response.json({ plan_type: "plus", models: [{ slug: "gpt-5.5", visibility: "list" }] }) : Response.json({}, { status: 401 }),
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
-    expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({
+    expect(await service.models({ refresh: true })).toEqual({
       status: "reconnect_required",
     })
-    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+    rejected = true
+    expect(await service.models({ refresh: false })).toEqual({
       status: "reconnect_required",
     })
-  })
-
-  test("uses a rejected ChatGPT model credential immediately without probing account endpoints", async () => {
-    const auth = createAuth()
-    const fetchMock = mock(async () => Response.json({}))
-    const service = createOpenAICodexAccountService({
-      fetch: fetchMock,
-      now: () => NOW,
-      getAuth: async () => auth,
-      setAuth: async () => undefined,
-    })
-
-    service.markAuthenticationRejected(auth)
-
-    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
-      status: "reconnect_required",
-    })
-    expect(await service.readUsage(DIRECTORY)).toEqual({
-      status: "reconnect_required",
-    })
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(await service.usage({ refresh: false })).toEqual({ status: "reconnect_required" })
   })
 
   test("keeps transient model refresh failures distinct from invalid authentication", async () => {
-    const service = createOpenAICodexAccountService({
+    const service = createService({
       fetch: async () => Response.json({}, { status: 503 }),
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
-    expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({ status: "error" })
+    expect(await service.models({ refresh: true })).toEqual({ status: "error" })
   })
 
   test("clears reconnect-required state when the account receives new credentials", async () => {
     let auth = createAuth()
-    const fetchMock = mock(async () => {
-      if (fetchMock.mock.calls.length === 1) {
+    let firstRequest = true
+    const request = async () => {
+      if (firstRequest) {
+        firstRequest = false
         return Response.json({}, { status: 401 })
       }
       return Response.json({ models: [{ slug: "gpt-5.5", visibility: "list" }] })
-    })
-    const service = createOpenAICodexAccountService({
-      fetch: fetchMock,
+    }
+    const service = createService({
+      fetch: request,
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
-    expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({
+    expect(await service.models({ refresh: true })).toEqual({
       status: "reconnect_required",
     })
 
     auth = { ...auth, access: "new-access-token", refresh: "new-refresh-token" }
-    expect(await service.readModelAvailability(DIRECTORY)).toEqual({ status: "loading" })
-    await Bun.sleep(0)
-    expect(await service.readModelAvailability(DIRECTORY)).toMatchObject({
+    expect(await service.models({ refresh: false })).toEqual({ status: "loading" })
+    await service.accountModels(SIGNAL)
+    expect(await service.models({ refresh: false })).toMatchObject({
       status: "ready",
       modelIDs: ["gpt-5.5"],
     })
@@ -434,9 +343,10 @@ describe("OpenAI Codex account service", () => {
 
   test("normalizes plan usage and reuses it for sixty seconds", async () => {
     let now = NOW
-    const fetchMock = mock(async () =>
+    let plan = "plus"
+    const request = async () =>
       Response.json({
-        plan_type: "plus",
+        plan_type: plan,
         rate_limit: {
           primary_window: {
             used_percent: 12.4,
@@ -454,16 +364,14 @@ describe("OpenAI Codex account service", () => {
           unlimited: false,
           balance: "4.5",
         },
-      }),
-    )
-    const service = createOpenAICodexAccountService({
-      fetch: fetchMock,
+      })
+    const service = createService({
+      fetch: request,
       now: () => now,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
-    const first = await service.readUsage(DIRECTORY)
+    const first = await service.usage({ refresh: false })
     expect(first).toMatchObject({
       status: "ready",
       plan: "plus",
@@ -474,34 +382,34 @@ describe("OpenAI Codex account service", () => {
       credits: { hasCredits: true, unlimited: false, balance: 4.5 },
     })
 
+    plan = "pro"
     now += 59_000
-    expect(await service.readUsage(DIRECTORY)).toEqual(first)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(await service.usage({ refresh: false })).toEqual(first)
 
     now += 2_000
-    await service.readUsage(DIRECTORY)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(await service.usage({ refresh: false })).toMatchObject({ status: "ready", plan: "pro" })
   })
 
   test("does not mask invalid authentication with cached usage", async () => {
-    const fetchMock = mock(async () => {
-      if (fetchMock.mock.calls.length === 1) {
+    let firstRequest = true
+    const request = async () => {
+      if (firstRequest) {
+        firstRequest = false
         return Response.json({ plan_type: "plus" })
       }
       return Response.json({}, { status: 401 })
-    })
-    const service = createOpenAICodexAccountService({
-      fetch: fetchMock,
+    }
+    const service = createService({
+      fetch: request,
       now: () => NOW,
       getAuth: async () => createAuth(),
-      setAuth: async () => undefined,
     })
 
-    expect(await service.readUsage(DIRECTORY)).toMatchObject({ status: "ready" })
-    expect(await service.readUsage(DIRECTORY, true)).toEqual({
+    expect(await service.usage({ refresh: false })).toMatchObject({ status: "ready" })
+    expect(await service.usage({ refresh: true })).toEqual({
       status: "reconnect_required",
     })
-    expect(await service.readUsage(DIRECTORY)).toEqual({
+    expect(await service.usage({ refresh: false })).toEqual({
       status: "reconnect_required",
     })
   })
@@ -510,16 +418,15 @@ describe("OpenAI Codex account service", () => {
     const accountAResponse = createDeferredResponse()
     const accountBResponse = createDeferredResponse()
     let auth = createAuth()
-    const service = createOpenAICodexAccountService({
+    const service = createService({
       fetch: async (_input, init) => {
         const accountId = new Headers(init?.headers).get("ChatGPT-Account-Id")
-        if (accountId === "account-a") return accountAResponse.promise
-        if (accountId === "account-b") return accountBResponse.promise
+        if (accountId === "account-a") return accountAResponse.request()
+        if (accountId === "account-b") return accountBResponse.request()
         throw new Error(`Unexpected account: ${accountId ?? "missing"}`)
       },
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
     auth = {
@@ -528,7 +435,8 @@ describe("OpenAI Codex account service", () => {
       refresh: "refresh-a",
       accountId: "account-a",
     }
-    const accountARefresh = service.refreshModelAvailability(DIRECTORY)
+    const accountARefresh = service.models({ refresh: true })
+    await accountAResponse.requested
 
     auth = {
       ...createAuth(),
@@ -536,21 +444,22 @@ describe("OpenAI Codex account service", () => {
       refresh: "refresh-b",
       accountId: "account-b",
     }
-    const accountBRefresh = service.refreshModelAvailability(DIRECTORY)
+    const accountBRefresh = service.models({ refresh: true })
+    await accountBResponse.requested
 
     accountAResponse.resolve(Response.json({ models: [{ slug: "model-a", visibility: "list" }] }))
     expect(await accountARefresh).toMatchObject({
       status: "ready",
       modelIDs: ["model-a"],
     })
-    expect(await service.readModelAvailability(DIRECTORY)).toEqual({ status: "loading" })
+    expect(await service.models({ refresh: false })).toEqual({ status: "loading" })
 
     accountBResponse.resolve(Response.json({ models: [{ slug: "model-b", visibility: "list" }] }))
     expect(await accountBRefresh).toMatchObject({
       status: "ready",
       modelIDs: ["model-b"],
     })
-    expect(await service.readModelAvailability(DIRECTORY)).toMatchObject({
+    expect(await service.models({ refresh: false })).toMatchObject({
       status: "ready",
       modelIDs: ["model-b"],
     })
@@ -560,16 +469,15 @@ describe("OpenAI Codex account service", () => {
     const accountAResponse = createDeferredResponse()
     const accountBResponse = createDeferredResponse()
     let auth = createAuth()
-    const service = createOpenAICodexAccountService({
+    const service = createService({
       fetch: async (_input, init) => {
         const accountId = new Headers(init?.headers).get("ChatGPT-Account-Id")
-        if (accountId === "account-a") return accountAResponse.promise
-        if (accountId === "account-b") return accountBResponse.promise
+        if (accountId === "account-a") return accountAResponse.request()
+        if (accountId === "account-b") return accountBResponse.request()
         throw new Error(`Unexpected account: ${accountId ?? "missing"}`)
       },
       now: () => NOW,
       getAuth: async () => auth,
-      setAuth: async () => undefined,
     })
 
     auth = {
@@ -578,7 +486,8 @@ describe("OpenAI Codex account service", () => {
       refresh: "refresh-a",
       accountId: "account-a",
     }
-    const accountAUsage = service.readUsage(DIRECTORY)
+    const accountAUsage = service.usage({ refresh: false })
+    await accountAResponse.requested
 
     auth = {
       ...createAuth(),
@@ -586,32 +495,30 @@ describe("OpenAI Codex account service", () => {
       refresh: "refresh-b",
       accountId: "account-b",
     }
-    const accountBUsage = service.readUsage(DIRECTORY)
+    const accountBUsage = service.usage({ refresh: false })
+    await accountBResponse.requested
 
     accountAResponse.resolve(Response.json({ plan_type: "plus" }))
     expect(await accountAUsage).toMatchObject({ status: "ready", plan: "plus" })
 
     accountBResponse.resolve(Response.json({ plan_type: "pro" }))
     expect(await accountBUsage).toMatchObject({ status: "ready", plan: "pro" })
-    expect(await service.readUsage(DIRECTORY)).toMatchObject({
+    expect(await service.usage({ refresh: false })).toMatchObject({
       status: "ready",
       plan: "pro",
     })
   })
 
   test("does not call account endpoints for a non-OAuth OpenAI connection", async () => {
-    const fetchMock = mock(async () => Response.json({}))
-    const service = createOpenAICodexAccountService({
-      fetch: fetchMock,
+    const service = createService({
+      fetch: async () => { throw new Error("Unexpected account request") },
       now: () => NOW,
-      getAuth: async () => ({ type: "api", key: "api-key" }),
-      setAuth: async () => undefined,
+      getAuth: async () => undefined,
     })
 
-    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+    expect(await service.models({ refresh: false })).toEqual({
       status: "not_connected",
     })
-    expect(await service.readUsage(DIRECTORY)).toEqual({ status: "not_connected" })
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(await service.usage({ refresh: false })).toEqual({ status: "not_connected" })
   })
 })

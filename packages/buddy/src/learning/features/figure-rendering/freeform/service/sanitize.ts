@@ -72,8 +72,9 @@ function stripExecutableElements(source: string): string {
   let sanitized = source
 
   for (const name of EXECUTABLE_ELEMENT_NAMES) {
-    const paired = new RegExp(`<${name}\\b[^>]*>[\\s\\S]*?<\\/${name}\\s*>`, "giu")
-    const selfClosing = new RegExp(`<${name}\\b[^>]*/>`, "giu")
+    const tagName = `(?:[\\w.-]+:)?${name}`
+    const paired = new RegExp(`<${tagName}\\b[^>]*>[\\s\\S]*?<\\/${tagName}\\s*>`, "giu")
+    const selfClosing = new RegExp(`<${tagName}\\b[^>]*/>`, "giu")
     sanitized = sanitized.replace(paired, "")
     sanitized = sanitized.replace(selfClosing, "")
   }
@@ -93,4 +94,4 @@ function applyTextHalo(source: string): string {
   return source.replace(/<svg\b[^>]*>/iu, (match) => `${match}${TEXT_HALO_STYLE}`)
 }
 
-export { applyTextHalo, sanitizeSvg }
+export { applyTextHalo, EXECUTABLE_ELEMENT_NAMES, sanitizeSvg }

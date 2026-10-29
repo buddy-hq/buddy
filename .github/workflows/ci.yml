@@ -94,7 +94,7 @@ jobs:
             install_ripgrep: false
             prepare_generated: true
           - name: remaining
-            owners: browser-contract,citation-contract,desktop-electron,opencode-adapter,shared-script,root-script
+            owners: browser-contract,citation-contract,transcript-contract,desktop-electron,opencode-adapter,shared-script,root-script
             shard_count: 1
             shard_index: 0
             test_concurrency: 2
@@ -151,6 +151,57 @@ jobs:
 
       - name: Run selected test shard
         run: bun ./script/run-tests.ts
+
+  node-smoke:
+    name: Node backend smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: |
+          for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
+            if bun -e '
+              const child = Bun.spawn([process.execPath, "install", "--frozen-lockfile"], { stdout: "inherit", stderr: "inherit" });
+              const timeoutMs = Number(process.env.INSTALL_TIMEOUT_SECONDS) * 1000;
+              const timer = setTimeout(() => child.kill(), timeoutMs);
+              const forceStop = setTimeout(() => child.kill("SIGKILL"), timeoutMs + 15000);
+              try { process.exitCode = await child.exited; } finally { clearTimeout(timer); clearTimeout(forceStop); }
+            '; then
+              exit 0
+            else
+              status=$?
+              echo "::warning::Dependency install attempt $attempt/$INSTALL_MAX_ATTEMPTS failed (exit $status)"
+            fi
+            if ((attempt == INSTALL_MAX_ATTEMPTS)); then
+              exit "$status"
+            fi
+            sleep "$INSTALL_RETRY_DELAY_SECONDS"
+          done
+
+      - name: Build Node backend
+        run: bun run --cwd packages/buddy build:node
+
+      - name: Smoke Node backend
+        run: bun run smoke:node-backend
 
   vendor_guard:
     name: vendor-guard

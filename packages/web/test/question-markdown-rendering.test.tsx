@@ -44,6 +44,9 @@ function createQuestionToolProps(): ToolPartProps {
       metadata: {
         answers: [["`inline-code`", "$$x+y$$"]],
       },
+      questions: [
+        { text: "What is **bold** and $x^2$?", options: [], answers: ["`inline-code`", "$$x+y$$"] },
+      ],
       attachments: [],
     },
     info: {
@@ -152,6 +155,11 @@ function questionToolProps(input: {
       status: input.status ?? "completed",
       input: { questions: input.questions },
       metadata: { answers: input.answers },
+      questions: input.questions.map((entry, index) => ({
+        text: entry.question,
+        options: [],
+        answers: input.answers[index],
+      })),
       attachments: [],
     },
     info: { title: "question" },

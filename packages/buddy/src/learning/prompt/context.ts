@@ -1,13 +1,13 @@
 import path from "node:path"
-import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
+import { parseConfiguredModel } from "@buddy/backend/config/opencode/models"
+import type { readProjectConfig } from "@buddy/backend/config/runtime/project-config"
 import {
   READER_ANCHOR_KIND_CFI_POSITION,
   readReaderLocation,
   type ReaderLocation,
   type ReaderTrailEntry,
 } from "@buddy/reader-contract"
-import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
-import { Provider } from "@buddy/opencode-adapter/provider"
+import { getAgentRuntime } from "../../runtime/agent-runtime"
 import type { TeachingPromptContext } from "../features/lesson-workspace/model/types"
 import { TeachingPromptContextSchema } from "../features/lesson-workspace/model/types"
 import { resolveSessionRuntime } from "../access/resolve-session-runtime"
@@ -322,6 +322,7 @@ function resolvePromptPersonalization(
 }
 
 async function resolvePromptModel(input: {
+  directory: string
   body: TMessagePromptBody
   projectConfig: MessagePromptProjectConfig
 }) {
@@ -331,13 +332,10 @@ async function resolvePromptModel(input: {
   const modelRef = explicitModel ?? configuredModel
   if (!modelRef) return runtimeSnapshot
 
-  const resolvedModel = await Provider.getModel(
-    ProviderID.make(modelRef.providerID),
-    ModelID.make(modelRef.modelID),
-  ).catch(() => undefined)
+  const resolvedModel = await (await getAgentRuntime()).providers.catalog(input.directory).then((catalog) => catalog.connected.includes(modelRef.providerID) ? catalog.all.find((provider) => provider.id === modelRef.providerID)?.models[modelRef.modelID] : undefined).catch(() => undefined)
   if (!resolvedModel) return runtimeSnapshot
 
-  const image = resolvedModel.capabilities?.input?.image ?? false
+  const image = resolvedModel.capabilities.input.image
 
   return Object.assign(
     {
@@ -610,6 +608,7 @@ async function buildPromptContext(
 
   const [model, promptResources, notebookHome, notesDirectory, notesNotebook] = await Promise.all([
     resolvePromptModel({
+      directory: input.directory,
       body: input.body,
       projectConfig: input.projectConfig,
     }),

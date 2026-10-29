@@ -47,7 +47,6 @@ export type AssistantErrorCardSpec = {
 }
 
 const COPIED_FEEDBACK_MS = 1600
-const REGION_ERROR_TYPE = "RegionError"
 const MILLISECONDS_PER_SECOND = 1_000
 const RESET_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
   year: "numeric",
@@ -248,12 +247,12 @@ function schemaName(model: AssistantErrorModel): string {
 }
 
 function usageLimitPlan(model: AssistantErrorModel) {
-  return formatChatGptPlan(model.details.providerError?.planType)
+  return formatChatGptPlan(model.details.limit?.plan)
 }
 
 function usageLimitDetail(model: AssistantErrorModel) {
-  const providerError = model.details.providerError
-  const resetsAt = providerError?.resetsAt
+  const limit = model.details.limit
+  const resetsAt = limit?.resetsAt
 
   if (resetsAt !== undefined) {
     const resetDate = new Date(resetsAt * MILLISECONDS_PER_SECOND)
@@ -266,8 +265,8 @@ function usageLimitDetail(model: AssistantErrorModel) {
     }
   }
 
-  if (providerError?.resetsInSeconds !== undefined) {
-    const resetDate = new Date(Date.now() + providerError.resetsInSeconds * MILLISECONDS_PER_SECOND)
+  if (limit?.resetsInSeconds !== undefined) {
+    const resetDate = new Date(Date.now() + limit.resetsInSeconds * MILLISECONDS_PER_SECOND)
     if (Number.isFinite(resetDate.getTime())) {
       return `Limit resets ${formatRelativeTime(resetDate.toISOString())}. Choose a model from another provider or wait for the reset.`
     }
@@ -376,18 +375,17 @@ export function createAssistantErrorCardSpec(
         primary: { id: "try-again", label: "Try again", icon: RefreshCwIcon },
         ...diagnostic,
       }
-    case "access-restricted": {
-      const regionRestricted = model.details.providerError?.type === REGION_ERROR_TYPE
+    case "access-restricted":
       return {
         id: "unknown",
-        headline: regionRestricted
-          ? "This model isn't available in your region"
-          : "This model isn't available for your account",
+        headline:
+          model.code === "region_blocked"
+            ? "This model isn't available in your region"
+            : "This model isn't available for your account",
         detail: "Choose another model to keep going.",
         primary: { id: "stop", label: "Stop" },
         ...diagnostic,
       }
-    }
     case "output-length":
       return {
         id: "truncated",

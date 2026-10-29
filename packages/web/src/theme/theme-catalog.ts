@@ -2,7 +2,7 @@ import {
   resolveThemeDocumentColors,
   resolveThemeVariant,
   unreadableDocumentColorKeys,
-} from "@buddy/opencode-adapter/theme"
+} from "@buddy/ui/theme"
 import { defaultThemes } from "./default-themes"
 import { DEFAULT_LIGHT_THEME_ID } from "./storage"
 import type { ResolvedTheme, ThemeMode } from "./types"

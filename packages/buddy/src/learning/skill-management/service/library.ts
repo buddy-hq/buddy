@@ -2,7 +2,7 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { z } from "zod"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { refreshActiveNotebookSkillCatalogs } from "../../../config/runtime/opencode-sync"
 import {
   normalizeSkillArtifactSha256,
   skillArtifactIntegritySchema,
@@ -361,7 +361,7 @@ export async function readCatalogRevision(): Promise<string> {
 }
 
 async function refreshSkillRuntime(): Promise<void> {
-  await OpenCodeInstance.disposeAll()
+  await refreshActiveNotebookSkillCatalogs()
 }
 
 async function nextWithdrawnSkillPath(catalogId: string): Promise<string> {

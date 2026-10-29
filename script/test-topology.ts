@@ -7,6 +7,7 @@ import { TEST_FILE_PATTERN } from "./test-runner-plan"
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dir, "..")
 const VENDOR_PATH_PREFIX = "vendor/"
+const DESKTOP_E2E_PATH_PREFIX = "packages/desktop-electron/e2e/"
 export const TEST_OWNERS_ENVIRONMENT_KEY = "BUDDY_TEST_OWNERS"
 const GIT_LIST_FILES_COMMAND = [
   "git",
@@ -36,6 +37,12 @@ export const TEST_OWNERS: readonly TestOwner[] = [
     root: "packages/citation-contract",
     runCommand: ["bun", "run", "test"],
     workingDirectory: "packages/citation-contract",
+  },
+  {
+    id: "transcript-contract",
+    root: "packages/transcript-contract",
+    runCommand: ["bun", "run", "test"],
+    workingDirectory: "packages/transcript-contract",
   },
   {
     id: "update-contract",
@@ -171,6 +178,7 @@ export async function listTrackedTestFiles(): Promise<readonly string[]> {
     .filter((filePath) => filePath.length > 0)
     .map(normalizeRepositoryPath)
     .filter((filePath) => !filePath.startsWith(VENDOR_PATH_PREFIX))
+    .filter((filePath) => !filePath.startsWith(DESKTOP_E2E_PATH_PREFIX))
     .filter((filePath) => TEST_FILE_PATTERN.test(filePath))
     .filter(isExistingRegularFile)
     .toSorted()

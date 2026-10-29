@@ -16,6 +16,8 @@
       "types": "./src/lib/*.ts",
       "default": "./src/lib/*.ts"
     },
+    "./theme": "./src/theme/theme.ts",
+    "./provider-icons": "./src/provider-icons/provider-icon.ts",
     "./styles": "./src/index.css"
   },
   "scripts": {

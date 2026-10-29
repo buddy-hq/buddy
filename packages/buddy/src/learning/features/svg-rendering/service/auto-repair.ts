@@ -313,7 +313,25 @@ async function findSvgAutoRepairRequest(input: {
   format: SvgSourceFormat
   sourceHash: string
 }): Promise<SvgAutoRepairRequest | undefined> {
-  const existing = await readSvgAutoRepairRequestIfPresent(input.directory, repairRequestID(input))
+  let existing = await readSvgAutoRepairRequestIfPresent(input.directory, repairRequestID(input))
+  if (!existing) {
+    const candidates = await listSvgAutoRepairRecordCandidates(input.directory).catch((error) => {
+      if (isNodeErrorCode(error, "ENOENT")) return []
+      throw error
+    })
+    for (const candidate of candidates.toReversed()) {
+      const request = await readSvgAutoRepairRequestIfPresent(input.directory, candidate.requestID)
+      if (
+        request?.sessionID === input.sessionID &&
+        request.assistantMessageID === input.assistantMessageID &&
+        request.format === input.format &&
+        request.sourceHash === input.sourceHash
+      ) {
+        existing = request
+        break
+      }
+    }
+  }
   if (existing?.status === "running" && existing.runtimeID !== SVG_AUTO_REPAIR_RUNTIME_ID) {
     return exhaustSvgAutoRepairRequest({
       directory: input.directory,

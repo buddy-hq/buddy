@@ -5,9 +5,10 @@ import {
   resolveAutoModelSelection,
   resolveUsableModelSelection,
 } from "../src/lib/provider-catalog"
-import { OPENCODE_PROVIDER_ID } from "../src/lib/provider-ids"
 import { normalizeProviderCatalog } from "../src/state/chat-actions"
 import type { ProviderInfo, ProviderModelInfo } from "../src/state/chat-types"
+
+const BUNDLED_PROVIDER_ID = "hosted"
 
 function createModel(providerID: string, modelID: string): ProviderModelInfo {
   return {
@@ -15,6 +16,7 @@ function createModel(providerID: string, modelID: string): ProviderModelInfo {
     providerID,
     name: modelID,
     family: "",
+    free: false,
     status: "active",
     limit: {
       context: 200_000,
@@ -46,12 +48,14 @@ function createModel(providerID: string, modelID: string): ProviderModelInfo {
 
 function createProvider(input: {
   id: string
+  bundled?: boolean
   connected?: boolean
   modelIDs: string[]
 }): ProviderInfo {
   return {
     id: input.id,
     name: input.id,
+    bundled: input.bundled ?? false,
     source: "custom",
     env: [],
     connected: input.connected ?? true,
@@ -64,7 +68,7 @@ function createRawProviderModel(input: {
   providerID: string
   id: string
   name?: string
-  costInput?: number
+  free?: boolean
   status?: "active" | "alpha" | "beta" | "deprecated"
 }) {
   return {
@@ -77,6 +81,7 @@ function createRawProviderModel(input: {
     },
     name: input.name ?? input.id,
     family: "test-family",
+    free: input.free ?? false,
     capabilities: {
       temperature: true,
       reasoning: true,
@@ -99,7 +104,7 @@ function createRawProviderModel(input: {
       interleaved: false,
     },
     cost: {
-      input: input.costInput ?? 0,
+      input: 0,
       output: 0,
       cache: {
         read: 0,
@@ -115,6 +120,7 @@ function createRawProviderModel(input: {
     headers: {},
     release_date: "2026-01-01",
     variants: {},
+    enabled: true,
   }
 }
 
@@ -122,42 +128,42 @@ function createRawProviderCatalog(): ProviderListResponse {
   return {
     all: [
       {
-        id: OPENCODE_PROVIDER_ID,
-        name: "OpenCode",
+        id: BUNDLED_PROVIDER_ID,
+        name: "Hosted",
+        bundled: true,
         source: "custom",
         env: [],
         options: {},
         models: {
           paid: createRawProviderModel({
-            providerID: OPENCODE_PROVIDER_ID,
+            providerID: BUNDLED_PROVIDER_ID,
             id: "paid",
             name: "Paid Model",
-            costInput: 1,
           }),
           freeZed: createRawProviderModel({
-            providerID: OPENCODE_PROVIDER_ID,
+            providerID: BUNDLED_PROVIDER_ID,
             id: "free-zed",
             name: "Zed Free",
-            costInput: 0,
+            free: true,
           }),
           freeAlpha: createRawProviderModel({
-            providerID: OPENCODE_PROVIDER_ID,
+            providerID: BUNDLED_PROVIDER_ID,
             id: "free-alpha",
             name: "Alpha Free",
-            costInput: 0,
+            free: true,
           }),
           deprecatedFree: createRawProviderModel({
-            providerID: OPENCODE_PROVIDER_ID,
+            providerID: BUNDLED_PROVIDER_ID,
             id: "deprecated-free",
             name: "Deprecated Free",
-            costInput: 0,
+            free: true,
             status: "deprecated",
           }),
         },
       },
     ],
     default: {
-      [OPENCODE_PROVIDER_ID]: "paid",
+      [BUNDLED_PROVIDER_ID]: "paid",
     },
     connected: [],
   }
@@ -165,7 +171,7 @@ function createRawProviderCatalog(): ProviderListResponse {
 
 function createProviderAuthMethods(): ProviderAuthResponse {
   return {
-    [OPENCODE_PROVIDER_ID]: [{ type: "oauth", label: "Sign in" }],
+    [BUNDLED_PROVIDER_ID]: [{ id: "hosted-oauth", type: "oauth", label: "Sign in" }],
   }
 }
 
@@ -242,34 +248,36 @@ describe("resolveAutoModelSelection", () => {
     ).toEqual({ providerID: "openai", modelID: "gpt-5" })
   })
 
-  test("uses public Zen as an automatic fallback without marking it connected", () => {
+  test("uses the anonymous bundled provider as an automatic fallback without marking it connected", () => {
     expect(
       resolveAutoModelSelection({
         providers: [
           createProvider({
-            id: OPENCODE_PROVIDER_ID,
+            id: BUNDLED_PROVIDER_ID,
+            bundled: true,
             connected: false,
             modelIDs: ["free-model"],
           }),
         ],
-        providerDefault: { [OPENCODE_PROVIDER_ID]: "free-model" },
+        providerDefault: { [BUNDLED_PROVIDER_ID]: "free-model" },
       }),
-    ).toEqual({ providerID: OPENCODE_PROVIDER_ID, modelID: "free-model" })
+    ).toEqual({ providerID: BUNDLED_PROVIDER_ID, modelID: "free-model" })
   })
 
-  test("prefers a connected provider before falling back to public Zen", () => {
+  test("prefers a connected provider before falling back to the anonymous bundled provider", () => {
     expect(
       resolveAutoModelSelection({
         providers: [
           createProvider({
-            id: OPENCODE_PROVIDER_ID,
+            id: BUNDLED_PROVIDER_ID,
+            bundled: true,
             connected: false,
             modelIDs: ["free-model"],
           }),
           createProvider({ id: "xai", modelIDs: ["grok"] }),
         ],
         providerDefault: {
-          [OPENCODE_PROVIDER_ID]: "free-model",
+          [BUNDLED_PROVIDER_ID]: "free-model",
           xai: "grok",
         },
       }),
@@ -278,13 +286,13 @@ describe("resolveAutoModelSelection", () => {
 })
 
 describe("normalizeProviderCatalog", () => {
-  test("keeps only public unauthenticated opencode models and rewrites the default", () => {
+  test("keeps only free models of the anonymous bundled provider and rewrites the default", () => {
     const catalog = normalizeProviderCatalog(
       createRawProviderCatalog(),
       createProviderAuthMethods(),
     )
 
-    expect(catalog.default[OPENCODE_PROVIDER_ID]).toBe("free-alpha")
+    expect(catalog.default[BUNDLED_PROVIDER_ID]).toBe("free-alpha")
     expect(catalog.providers).toHaveLength(1)
     expect(catalog.providers[0]?.connected).toBe(false)
     expect(catalog.providers[0]?.models.map((model) => model.id)).toEqual([
@@ -292,17 +300,17 @@ describe("normalizeProviderCatalog", () => {
       "free-zed",
     ])
     expect(getUsableProviders(catalog.providers).map((provider) => provider.id)).toEqual([
-      OPENCODE_PROVIDER_ID,
+      BUNDLED_PROVIDER_ID,
     ])
   })
 
-  test("does not treat the anonymous Zen runtime as credential-connected", () => {
+  test("does not treat the anonymous bundled runtime as credential-connected", () => {
     const providers = createRawProviderCatalog()
     const provider = providers.all[0]
-    if (!provider) throw new Error("Expected an OpenCode provider fixture")
+    if (!provider) throw new Error("Expected a bundled provider fixture")
 
     delete provider.models.paid
-    providers.connected = [OPENCODE_PROVIDER_ID]
+    providers.connected = [BUNDLED_PROVIDER_ID]
 
     const catalog = normalizeProviderCatalog(providers, createProviderAuthMethods())
 
@@ -315,14 +323,14 @@ describe("normalizeProviderCatalog", () => {
     expect(getUsableProviders(catalog.providers)).toHaveLength(1)
   })
 
-  test("treats Zen as connected when its credential-backed catalog includes paid models", () => {
+  test("treats the bundled provider as connected when its credential-backed catalog includes paid models", () => {
     const providers = createRawProviderCatalog()
-    providers.connected = [OPENCODE_PROVIDER_ID]
+    providers.connected = [BUNDLED_PROVIDER_ID]
 
     const catalog = normalizeProviderCatalog(providers, createProviderAuthMethods())
 
     expect(catalog.providers[0]?.connected).toBe(true)
-    expect(catalog.default[OPENCODE_PROVIDER_ID]).toBe("paid")
+    expect(catalog.default[BUNDLED_PROVIDER_ID]).toBe("paid")
     expect(catalog.providers[0]?.models.map((model) => model.id)).toEqual([
       "free-alpha",
       "paid",
@@ -401,19 +409,20 @@ describe("resolveUsableModelSelection", () => {
     ).toBeUndefined()
   })
 
-  test("returns a public Zen model without treating the provider as connected", () => {
+  test("returns an anonymous bundled model without treating the provider as connected", () => {
     expect(
       resolveUsableModelSelection({
         providers: [
           createProvider({
-            id: OPENCODE_PROVIDER_ID,
+            id: BUNDLED_PROVIDER_ID,
+            bundled: true,
             modelIDs: ["free-model"],
             connected: false,
           }),
         ],
-        selection: { providerID: OPENCODE_PROVIDER_ID, modelID: "free-model" },
+        selection: { providerID: BUNDLED_PROVIDER_ID, modelID: "free-model" },
       }),
-    ).toEqual({ providerID: OPENCODE_PROVIDER_ID, modelID: "free-model" })
+    ).toEqual({ providerID: BUNDLED_PROVIDER_ID, modelID: "free-model" })
   })
 
   test("returns undefined when model is missing from usable provider", () => {

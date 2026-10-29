@@ -69,18 +69,18 @@ describe("resolveVisibleModelKeys", () => {
 })
 
 describe("resolveProviderModelGroup", () => {
-  test("labels anonymous Zen models as free models", () => {
+  test("labels anonymous bundled-provider models as free models", () => {
     expect(
       resolveProviderModelGroup(
-        createProviderInfo({ id: "opencode", name: "OpenCode Zen", connected: false }),
+        createProviderInfo({ id: "opencode", name: "OpenCode Zen", bundled: true, connected: false }),
       ),
     ).toBe("Free models")
   })
 
-  test("keeps the Zen provider name after credentials connect it", () => {
+  test("keeps the bundled provider name after credentials connect it", () => {
     expect(
       resolveProviderModelGroup(
-        createProviderInfo({ id: "opencode", name: "OpenCode Zen", connected: true }),
+        createProviderInfo({ id: "opencode", name: "OpenCode Zen", bundled: true, connected: true }),
       ),
     ).toBe("OpenCode Zen")
   })

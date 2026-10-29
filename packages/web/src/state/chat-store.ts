@@ -1,17 +1,21 @@
 import { create, type Mutate, type StoreApi, type UseBoundStore } from "zustand"
 import { persist } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
+import { createMcpInputRequestsSlice, type McpInputRequestsSlice } from "./mcp-input-requests"
 import type { ReaderTrailEntry } from "@buddy/reader-contract"
 import { createPlatformJsonStorage } from "../context/platform"
 import type {
+  DirectoryActionError,
   DirectoryChatState,
   McpStatusMap,
-  PermissionRequest,
   QuestionRequest,
   ProviderCatalogState,
   SessionStatusInfo,
   SessionInfo,
+  SessionStoppedTurn,
 } from "./chat-types"
+import type { PermissionRequest } from "./permission-types"
+import { sessionFamilyIDs } from "@/lib/session-family"
 import { isRecord, parseString } from "./chat-types"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
 import { canonicalProjectDirectory } from "@/lib/project-directory"
@@ -40,7 +44,7 @@ export type OpenProjectsRecoveryState = {
   needed: boolean
 }
 
-export type ChatStore = {
+export type ChatStore = McpInputRequestsSlice & {
   openProjects: string[]
   openProjectsRecovery?: OpenProjectsRecoveryState
   activeDirectory?: string
@@ -52,15 +56,21 @@ export type ChatStore = {
   lastOpenedReadingResourceByDirectory: Record<string, LastOpenedReadingResource>
   directories: Record<string, DirectoryChatState>
   streamStatus: StreamStatus
+  streamConnectionRevision: number
   ensureOpenProject: (directory: string) => void
   setOpenProjects: (directories: string[]) => void
   setOpenProjectsRecovery: (recovery?: OpenProjectsRecoveryState) => void
   closeProject: (directory: string) => void
   setActiveDirectory: (directory: string) => void
   setDirectoryReady: (directory: string, ready: boolean) => void
-  setDirectoryError: (directory: string, error?: string) => void
+  setDirectoryError: (directory: string, error?: DirectoryActionError) => void
   clearDirectoryError: (directory: string) => void
-  setSessions: (directory: string, sessions: SessionInfo[]) => void
+  setSessions: (
+    directory: string,
+    sessions: SessionInfo[],
+    options?: { readonly keepLastSession?: boolean },
+  ) => void
+  setLastSessionID: (directory: string, sessionID: string) => void
   applySessionsDeleted: (directory: string, sessionIDs: readonly string[]) => void
   setActiveSession: (directory: string, sessionID?: string) => void
   startSessionDraft: (directory: string) => void
@@ -68,6 +78,11 @@ export type ChatStore = {
   clearLoadingSession: (directory: string, sessionID: string) => void
   applySessionUpdated: (directory: string, info: SessionInfo) => void
   applySessionStatus: (directory: string, sessionID: string, status: SessionStatusInfo) => void
+  setSessionStoppedTurn: (
+    directory: string,
+    sessionID: string,
+    stoppedTurn: SessionStoppedTurn,
+  ) => void
   setPendingPermissions: (directory: string, requests: PermissionRequest[]) => void
   setPendingQuestions: (directory: string, requests: QuestionRequest[]) => void
   setProviders: (directory: string, input: ProviderCatalogState) => void
@@ -109,6 +124,7 @@ type ChatStoreStateFields = Pick<
   | "lastOpenedReadingResourceByDirectory"
   | "directories"
   | "streamStatus"
+  | "streamConnectionRevision"
 >
 
 const DEFAULT_TITLE = "New chat"
@@ -236,6 +252,7 @@ function createChatStoreStateFields(): ChatStoreStateFields {
     lastOpenedReadingResourceByDirectory: {},
     directories: {},
     streamStatus: STREAM_STATUS_IDLE,
+    streamConnectionRevision: 0,
   }
 }
 
@@ -315,8 +332,9 @@ type ChatStoreHook = UseBoundStore<
 
 export const useChatStore: ChatStoreHook = create<ChatStore>()(
   persist<ChatStore, [], [["zustand/immer", never]], PersistedChatStoreState>(
-    immer((set, get) => ({
+    immer((set, get, api) => ({
       ...createChatStoreStateFields(),
+      ...createMcpInputRequestsSlice(set, get, api),
       ensureOpenProject(directory) {
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
@@ -431,7 +449,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
       clearDirectoryError(directory) {
         get().setDirectoryError(directory, undefined)
       },
-      setSessions(directory, sessions) {
+      setSessions(directory, sessions, options) {
         set((state) => {
           const current = state.directories[directory] ?? emptyDirectoryState()
           const sortedSessions = sortSessions(sessions)
@@ -485,18 +503,25 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionStatusByID: nextSessionStatusByID,
             pendingPermissions: switchedSession
               ? current.pendingPermissions.filter(
-                  (request: PermissionRequest) => request.sessionID === activeSessionID,
+                  (request: PermissionRequest) => activeSessionID !== undefined && sessionFamilyIDs(nextSessions, activeSessionID).includes(request.sessionID),
                 )
               : current.pendingPermissions,
             pendingQuestions: current.pendingQuestions,
             isBusy: nextBusy,
           }
 
-          if (activeSessionID) {
-            state.lastSessionByDirectory[directory] = activeSessionID
-          } else if (nextSessions.length === 0) {
-            delete state.lastSessionByDirectory[directory]
+          if (!options?.keepLastSession) {
+            if (activeSessionID) {
+              state.lastSessionByDirectory[directory] = activeSessionID
+            } else if (nextSessions.length === 0) {
+              delete state.lastSessionByDirectory[directory]
+            }
           }
+        })
+      },
+      setLastSessionID(directory, sessionID) {
+        set((state) => {
+          state.lastSessionByDirectory[directory] = sessionID
         })
       },
       applySessionsDeleted(directory, sessionIDs) {
@@ -586,7 +611,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionTitle: activeInfo?.title ?? current.sessionTitle,
             pendingPermissions: switchedSession
               ? current.pendingPermissions.filter(
-                  (request: PermissionRequest) => request.sessionID === sessionID,
+                  (request: PermissionRequest) => sessionID !== undefined && sessionFamilyIDs(current.sessions, sessionID).includes(request.sessionID),
                 )
               : current.pendingPermissions,
             pendingQuestions: current.pendingQuestions,
@@ -666,7 +691,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionTitle: nextActiveInfo?.title ?? DEFAULT_TITLE,
             pendingPermissions: switchedActiveSession
               ? current.pendingPermissions.filter(
-                  (request: PermissionRequest) => request.sessionID === nextSessionID,
+                  (request: PermissionRequest) => nextSessionID !== undefined && sessionFamilyIDs(current.sessions, nextSessionID).includes(request.sessionID),
                 )
               : current.pendingPermissions,
             pendingQuestions: current.pendingQuestions,
@@ -677,6 +702,16 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           if (nextSessionID) {
             state.lastSessionByDirectory[directory] = nextSessionID
           }
+        })
+      },
+      setSessionStoppedTurn(directory, sessionID, stoppedTurn) {
+        set((state) => {
+          const current = state.directories[directory] ?? emptyDirectoryState()
+          const previous = current.stoppedTurnBySessionID?.[sessionID]
+          if (previous?.assistantMessageID === stoppedTurn.assistantMessageID && previous.reason === stoppedTurn.reason) return
+          current.stoppedTurnBySessionID ??= {}
+          current.stoppedTurnBySessionID[sessionID] = stoppedTurn
+          state.directories[directory] = current
         })
       },
       applySessionStatus(directory, sessionID, status) {
@@ -887,11 +922,13 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
       setStreamStatus(status) {
         set((state) => {
           if (state.streamStatus !== status) {
+            if (status === "connected") state.streamConnectionRevision += 1
             state.streamStatus = status
           }
         })
       },
       resetRuntimeState() {
+        get().clearMcpInputRequests()
         set((state) => {
           const defaults = createChatStoreStateFields()
           state.openProjects = defaults.openProjects

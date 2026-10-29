@@ -1,7 +1,7 @@
 import type { Context } from "hono"
 import { readTeachingSessionState } from "../../../agent-execution/state/session-state"
 import { withConfigSync } from "../../../../http/route-helpers"
-import { readCapturedSessionSystemPrompt } from "../../../../opencode-runtime"
+import { readCapturedSessionSystemPrompt } from "../../../../runtime/system-prompt-capture"
 
 export async function getTeachingState(c: Context): Promise<Response> {
   const syncResult = await withConfigSync(c, {

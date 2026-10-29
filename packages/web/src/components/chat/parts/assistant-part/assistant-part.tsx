@@ -1,11 +1,14 @@
 import { memo } from "react"
+import { MessageDivider } from "./message-divider"
 import type { ResourceReadingTarget } from "@/state/resources-query"
 import { parseToolState } from "../../tools/parse-tool-state"
 import { AssistantTextPart } from "./text-part"
 import { ReasoningPart } from "./reasoning-part"
 import { ToolPartCard } from "./tool-part"
-import type { MessagePart } from "@/state/chat-types"
+import { parseString, type MessagePart } from "@/state/chat-types"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "../../utils/part-guards"
+import { readSubagentCompletion } from "@buddy/transcript-contract/subagent"
+import { SubagentCompletionRow } from "../../tools/render/task/subagent-completion-row"
 
 // Serialize tool state for comparison
 function getToolStateHash(part: MessagePart): string {
@@ -70,6 +73,7 @@ function assistantPartRendererEqual(
     return getToolStateHash(prevProps.part) === getToolStateHash(nextProps.part)
   }
 
+  if (prevProps.part.type === "notice" || prevProps.part.type === "compaction") return prevProps.part === nextProps.part
   return prevProps.part.type === nextProps.part.type
 }
 
@@ -136,7 +140,15 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
     )
   }
 
-  if (part.type === "compaction") return null
+  if (part.type === "notice") {
+    const completion = readSubagentCompletion(part.completion)
+    if (completion) return <SubagentCompletionRow completion={completion} onOpenSession={onOpenSession} />
+    return <div className="w-full border-l-2 border-border-weak-base py-1 pl-3 text-xs text-text-weak" role="status">{parseString(part.text) ?? "Activity completed"}</div>
+  }
+  if (part.type === "compaction") {
+    const label = part.status === "running" ? "Compacting chat…" : part.status === "failed" ? "Compaction failed" : "Chat compacted"
+    return <MessageDivider label={label} />
+  }
 
   return (
     <div className="w-full rounded-md border border-border-base bg-background-base p-2">

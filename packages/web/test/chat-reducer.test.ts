@@ -65,7 +65,7 @@ describe("chat reducer", () => {
       id: "prt_0196_reference_optimistic",
       sessionID: SESSION_ID,
       messageID: MESSAGE_ID,
-      type: "opencode-reference",
+      type: "reference",
       name: "docs",
       path: "/reference-cache/docs",
       optimistic: true,

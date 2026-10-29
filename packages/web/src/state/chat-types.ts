@@ -1,17 +1,15 @@
 import { z } from "zod"
 import type {
+  EventStreamResponse,
   McpStatus as SdkMcpStatus,
-  Message as SdkMessage,
-  OutputFormat as SdkOutputFormat,
-  Part as SdkPart,
-  PermissionRequest as SdkPermissionRequest,
   Provider as SdkProvider,
   ProviderAuthMethod as SdkProviderAuthMethod,
   ProviderOpenaiModelAvailabilityGetResponses,
-  Session as SdkSession,
-  SessionStatus as SdkSessionStatus,
-  TextPart as SdkTextPart,
 } from "@buddy/sdk"
+import type { Message as SdkMessage, OutputFormat as SdkOutputFormat, Part as SdkPart, TextPart as SdkTextPart } from "@buddy/transcript-contract/message"
+import type { PermissionRequest as SdkPermissionRequest } from "@buddy/transcript-contract/permission"
+import type { Session as SdkSession, SessionStatus as SdkSessionStatus } from "@buddy/transcript-contract/session"
+import type { SessionStoppedEvent } from "@buddy/transcript-contract/event"
 import {
   parseBooleanValue,
   parseFiniteNumber as parseFiniteNumberValue,
@@ -36,6 +34,8 @@ type MessageModel = {
 
 type SdkAssistantError = NonNullable<Extract<SdkMessage, { role: "assistant" }>["error"]>
 
+export type MessageErrorCode = NonNullable<SdkAssistantError["code"]>
+
 export type TRecord = NonNullable<SdkTextPart["metadata"]>
 
 export type TMessageErrorData = {
@@ -49,6 +49,9 @@ export type TMessageErrorData = {
 export type MessageError = {
   name: SdkAssistantError["name"] | string
   message?: string
+  code?: string
+  anonymousCode?: string
+  limit?: SdkAssistantError["limit"]
   data?: SdkAssistantError["data"] | TMessageErrorData
 }
 
@@ -83,10 +86,7 @@ export type MessageWithParts = {
   parts: MessagePart[]
 }
 
-export type GlobalBusPayload = {
-  type: string
-  properties: TRecord
-}
+export type GlobalBusPayload = EventStreamResponse["payload"] & { properties: TRecord }
 
 export type GlobalSyncPayload = {
   type: "sync"
@@ -133,6 +133,7 @@ export type ProviderModelInfo = Pick<
   SdkProviderModel,
   "id" | "providerID" | "name" | "family" | "status" | "limit"
 > & {
+  free: boolean
   releaseDate?: SdkProviderModel["release_date"]
   variants: string[]
   capabilities: Pick<
@@ -144,6 +145,7 @@ export type ProviderModelInfo = Pick<
 export type ProviderMethodInfo = Pick<SdkProviderAuthMethod, "type" | "label">
 
 export type ProviderInfo = Pick<SdkProvider, "id" | "name" | "source" | "env"> & {
+  bundled: boolean
   connected: boolean
   methods: ProviderMethodInfo[]
   models: ProviderModelInfo[]
@@ -162,6 +164,11 @@ export type McpStatusInfo = {
 
 export type McpStatusMap = Record<string, McpStatusInfo>
 
+export type SessionStoppedTurn = {
+  readonly assistantMessageID: string
+  readonly reason: SessionStoppedEvent["properties"]["reason"]
+}
+
 export type DirectoryChatState = {
   sessionID?: string
   loadingSessionID?: string
@@ -169,6 +176,7 @@ export type DirectoryChatState = {
   sessionTitle: string
   sessions: SessionInfo[]
   sessionStatusByID: Record<string, SessionStatusInfo>
+  stoppedTurnBySessionID?: Record<string, SessionStoppedTurn>
   pendingPermissions: PermissionRequest[]
   pendingQuestions: QuestionRequest[]
   providers: ProviderInfo[]
@@ -176,7 +184,13 @@ export type DirectoryChatState = {
   mcpStatus: McpStatusMap
   isBusy: boolean
   isReady: boolean
-  error?: string
+  error?: DirectoryActionError
+}
+
+export type DirectoryActionError = {
+  message: string
+  code?: string
+  errorID?: string
 }
 
 export type TFailure = Error | string | TRecord

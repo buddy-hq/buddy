@@ -1,11 +1,15 @@
+import { parsePermissionRequest, parsePermissionReplied } from "@buddy/transcript-contract/permission"
+import type { PermissionRequest } from "@/state/permission-types"
+import { sessionFamilyIDs } from "@/lib/session-family"
 import { z } from "zod"
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   readWorkspaceFileWatcherUpdatePayload,
   type WorkspaceFileWatcherEventKind,
-} from "@buddy/opencode-adapter/file-watcher"
+} from "@buddy/transcript-contract/file-watcher"
 import { isChatTextPart } from "@/components/chat/utils/part-guards"
+import { interruptedAssistantMessageID } from "@/components/chat/utils/interrupted-assistant-message"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { startChatSync } from "@/state/chat-sync"
@@ -15,13 +19,20 @@ import {
   type BenchClientActionV2,
 } from "@/lib/directory-workspace-client-actions"
 import type { BenchClientLease } from "@/lib/directory-workspace-lifecycle"
-import { resyncDirectory, resyncDirectoryAfterReconnect } from "@/state/chat-actions"
+import {
+  loadPermissions,
+  recordQuestionAsked,
+  recordQuestionSettled,
+  resyncDirectory,
+  resyncDirectoryAfterReconnect,
+} from "@/state/chat-actions"
 import { isAbortLikeError } from "@/state/chat-error"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
 import {
   addTranscriptPendingInput,
   getTranscriptMessages,
+  loadTranscriptMessages,
   markTranscriptSessionOptimistic,
   markTranscriptSessionRunning,
   removeTranscriptPendingInput,
@@ -37,6 +48,7 @@ import {
 } from "@/lib/browser-svg-render-requests"
 import { normalizeSessionStatusValue } from "@/state/session-status"
 import { invalidateReferenceList } from "@/state/reference-query"
+import { mcpDirectoryQueryKeys } from "@/state/mcp-directory-query"
 import { invalidateNotesQueries } from "@/features/notes/queries"
 import { refetchActiveWorkspaceObjectQueries } from "@/state/workspace-objects-query"
 import { notifyNotebookFilesChanged } from "@/state/notebook-files-changed"
@@ -55,22 +67,28 @@ import type {
   GlobalEvent,
   MessageInfo,
   MessagePart,
-  PermissionRequest,
   QuestionRequest,
   SessionStatusInfo,
   SessionInfo,
 } from "@/state/chat-types"
-import type { EventStreamData } from "@buddy/sdk/types"
+import type { EventStreamData, McpInputRequestedEvent, McpInputSettledEvent } from "@buddy/sdk/types"
 import { encodeDirectory } from "../directory-token"
 import { getTranscriptPerformanceProbe } from "./transcript-performance-probe"
 import {
   MessageInfoEventSchema,
   FileChangingToolCompletionSchema,
   MessagePartEventSchema,
-  PermissionRequestEventSchema,
   QuestionRequestEventSchema,
   SessionInfoEventSchema,
 } from "./chat-event-schemas"
+
+const McpInputRequestedPropertiesSchema = z.object({
+  requestID: z.string(),
+  server: z.string(),
+  message: z.string().optional(),
+  toolPrefix: z.string(),
+}) satisfies z.ZodType<McpInputRequestedEvent["properties"]>
+const McpInputSettledPropertiesSchema = z.object({ requestID: z.string() }) satisfies z.ZodType<McpInputSettledEvent["properties"]>
 
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
 const PERMISSION_NOTIFICATION_COOLDOWN_MS = 15_000
@@ -195,7 +213,6 @@ type UseChatSyncProps = {
   applyQuestionAsked: (directory: string, request: QuestionRequest) => void
   applyQuestionResolved: (directory: string, requestID: string) => void
   clearDirectoryError: (directory: string) => void
-  setDirectoryError: (directory: string, error: string) => void
   setStreamStatus: (status: "idle" | "connecting" | "connected" | "error") => void
   refreshSlashCommands: () => void
   refreshMcpStatus: () => void
@@ -242,6 +259,25 @@ export function useChatSync(props: UseChatSyncProps) {
     if (!decodedDirectory || !hasRegisteredProject) return
     const workingSessions = new Set<string>()
     const attentionNotificationAt = new Map<string, number>()
+    let previousInactivityStop: { directory: string; sessionID: string } | undefined
+
+    const notifyPermissionAsked = (directory: string, permissionRequest: PermissionRequest) => {
+      const notificationPreferences = useNotificationPreferences.getState().preferences
+      if (notificationPreferences.permissions) {
+        const sessionID = permissionRequest.sessionID
+        const key = `permission:${directory}:${sessionID}`
+        const now = Date.now()
+        const lastAlertAt = attentionNotificationAt.get(key) ?? 0
+        if (now - lastAlertAt > PERMISSION_NOTIFICATION_COOLDOWN_MS) {
+          attentionNotificationAt.set(key, now)
+          void platform.notify(
+            language.t("notification.permission.title"),
+            sessionDescription(directory, sessionID),
+            sessionHref(directory, sessionID),
+          )
+        }
+      }
+    }
 
     const syncDirectoryQueriesFromStore = (directory: string) => {
       const directoryState = useChatStore.getState().directories[directory]
@@ -278,6 +314,7 @@ export function useChatSync(props: UseChatSyncProps) {
       directory: decodedDirectory,
       eventQuery: getBenchEventStreamLeaseQuery,
       onStatus(status) {
+        previousInactivityStop = undefined
         setStreamStatus(status)
         if (status === "connected") {
           void synchronizeBrowserSvgRenderRequests(decodedDirectory).catch((error) => {
@@ -337,6 +374,19 @@ export function useChatSync(props: UseChatSyncProps) {
         })
       },
       onEvent(event: GlobalEvent) {
+        const precedingInactivityStop = previousInactivityStop
+        previousInactivityStop = undefined
+        const appPayload = event.payload
+        if (appPayload.type === "mcp.input.requested" && "properties" in appPayload) {
+          const request = McpInputRequestedPropertiesSchema.safeParse(appPayload.properties)
+          if (request.success) useChatStore.getState().applyMcpInputRequested(request.data)
+          return
+        }
+        if (appPayload.type === "mcp.input.settled" && "properties" in appPayload) {
+          const settled = McpInputSettledPropertiesSchema.safeParse(appPayload.properties)
+          if (settled.success) useChatStore.getState().applyMcpInputSettled(settled.data.requestID)
+          return
+        }
         const directory = event.directory
         if (!directory || directory === "global") {
           return
@@ -368,16 +418,25 @@ export function useChatSync(props: UseChatSyncProps) {
           })
           return
         }
+        if (payload.type === "server.connected") {
+          void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
+          return
+        }
         if (!("properties" in payload)) {
           return
         }
 
-        if (payload.type === "server.connected" || payload.type === "server.heartbeat") {
+        if (payload.type === "server.heartbeat") {
           return
         }
 
         if (payload.type === "reference.updated") {
           void invalidateReferenceList(queryClient, directory)
+          return
+        }
+
+        if (payload.type === "mcp.status.changed") {
+          void queryClient.invalidateQueries({ queryKey: mcpDirectoryQueryKeys.status(directory) })
           return
         }
 
@@ -387,6 +446,34 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         const properties = payload.properties
+
+        if (payload.type === "session.stopped") {
+          const sessionID = parseTNonEmptyString(properties.sessionID)
+          if (sessionID && properties.reason === "inactivity") {
+            previousInactivityStop = { directory, sessionID }
+            const assistantMessageID = interruptedAssistantMessageID(getTranscriptMessages(directory, sessionID))
+            if (assistantMessageID) {
+              useChatStore.getState().setSessionStoppedTurn(directory, sessionID, {
+                assistantMessageID,
+                reason: "inactivity",
+              })
+            }
+          }
+          return
+        }
+
+        if (payload.type === "session.resync") {
+          const sessionID = parseTNonEmptyString(properties.sessionID)
+          const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
+          if (sessionID && (sessionID === activeSessionID || getTranscriptMessages(directory, sessionID).length > 0)) {
+            void loadTranscriptMessages(directory, sessionID, { force: true }).catch(() => undefined)
+          }
+          return
+        }
+        if (payload.type === "session.deleted") {
+          void resyncQueryBackedDirectory(directory)
+          return
+        }
 
         if (payload.type === "session.created" || payload.type === "session.updated") {
           const sessionResult = SessionInfoEventSchema.safeParse(properties.info)
@@ -414,9 +501,10 @@ export function useChatSync(props: UseChatSyncProps) {
               const notificationPreferences = useNotificationPreferences.getState().preferences
               if (notificationPreferences.agent) {
                 const title = sessionDescription(directory, statusSessionID)
-                const description =
-                  readLatestAssistantResponsePreview(directory, statusSessionID) ??
-                  language.t("notification.session.responseReady.fallbackDescription")
+                const description = precedingInactivityStop?.directory === directory && precedingInactivityStop.sessionID === statusSessionID
+                  ? "Stopped after an hour with no activity."
+                  : readLatestAssistantResponsePreview(directory, statusSessionID) ??
+                    language.t("notification.session.responseReady.fallbackDescription")
                 void platform.notify(title, description, sessionHref(directory, statusSessionID))
               }
             }
@@ -473,7 +561,7 @@ export function useChatSync(props: UseChatSyncProps) {
             markTranscriptSessionOptimistic(directory, info.sessionID, false)
           }
           applyMessageUpdated(directory, info)
-          if (info.role === "user" && info.sessionID) {
+          if (info.role === "user" && info.sessionID && info.agent && info.model.providerID && info.model.modelID) {
             useModelSelectionStore
               .getState()
               .restoreSessionSelection(getModelSelectionScopeKey(directory, info.sessionID), {
@@ -515,7 +603,7 @@ export function useChatSync(props: UseChatSyncProps) {
           if (fileChange.success) {
             // Only shell commands can add, move, or delete PDF and EPUB sources.
             void notifyNotebookFilesChanged(queryClient, directory, {
-              resources: fileChange.data.tool === "bash",
+              resources: fileChange.data.state.summary?.kind === "run-command",
             })
           }
           return
@@ -542,38 +630,34 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "permission.asked") {
-          const permissionResult = PermissionRequestEventSchema.safeParse(properties)
-          if (!permissionResult.success) return
-          const permissionRequest = permissionResult.data
+          const permissionRequest = parsePermissionRequest(properties)
+          if (permissionRequest === undefined) return
+          const current = useChatStore.getState().directories[directory]
+          const family = current?.sessionID ? sessionFamilyIDs(current.sessions, current.sessionID) : []
+          if (!family.includes(permissionRequest.sessionID)) {
+            void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
+            notifyPermissionAsked(directory, permissionRequest)
+            return
+          }
           addTranscriptPendingInput(directory, {
             requestID: permissionRequest.id,
             sessionID: permissionRequest.sessionID,
           })
           applyPermissionAsked(directory, permissionRequest)
           upsertDirectoryPermissionQueryData(queryClient, directory, permissionRequest)
-          const notificationPreferences = useNotificationPreferences.getState().preferences
-          if (notificationPreferences.permissions) {
-            const sessionID = permissionRequest.sessionID
-            const key = `permission:${directory}:${sessionID}`
-            const now = Date.now()
-            const lastAlertAt = attentionNotificationAt.get(key) ?? 0
-            if (now - lastAlertAt > PERMISSION_NOTIFICATION_COOLDOWN_MS) {
-              attentionNotificationAt.set(key, now)
-              void platform.notify(
-                language.t("notification.permission.title"),
-                sessionDescription(directory, sessionID),
-                sessionHref(directory, sessionID),
-              )
-            }
-          }
+          void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
+          notifyPermissionAsked(directory, permissionRequest)
           return
         }
 
         if (payload.type === "permission.replied") {
-          const requestID = String(properties.requestID ?? "")
+          const replyResult = parsePermissionReplied(properties)
+          if (replyResult === undefined) return
+          const requestID = replyResult.requestID
           removeTranscriptPendingInput(directory, requestID)
           applyPermissionReplied(directory, requestID)
           removeDirectoryPermissionQueryData(queryClient, directory, requestID)
+          void loadPermissions(directory).then((requests) => setDirectoryPermissionsQueryData(queryClient, directory, requests)).catch(() => undefined)
           return
         }
 
@@ -585,6 +669,7 @@ export function useChatSync(props: UseChatSyncProps) {
             requestID: questionRequest.id,
             sessionID: questionRequest.sessionID,
           })
+          recordQuestionAsked(directory, questionRequest)
           applyQuestionAsked(directory, questionRequest)
           upsertDirectoryQuestionQueryData(queryClient, directory, questionRequest)
           const notificationPreferences = useNotificationPreferences.getState().preferences
@@ -608,6 +693,7 @@ export function useChatSync(props: UseChatSyncProps) {
         if (payload.type === "question.replied" || payload.type === "question.rejected") {
           const requestID = String(properties.requestID ?? "")
           removeTranscriptPendingInput(directory, requestID)
+          recordQuestionSettled(directory, requestID)
           applyQuestionResolved(directory, requestID)
           removeDirectoryQuestionQueryData(queryClient, directory, requestID)
         }

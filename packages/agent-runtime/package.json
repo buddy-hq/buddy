@@ -1,0 +1,37 @@
+{
+  "name": "@buddy/agent-runtime",
+  "version": "0.0.63",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./runtime": "./src/runtime.ts",
+    "./errors": "./src/errors.ts",
+    "./common": "./src/common.ts",
+    "./conversations": "./src/conversations.ts",
+    "./execution": "./src/execution.ts",
+    "./events": "./src/events.ts",
+    "./approvals": "./src/approvals.ts",
+    "./forms": "./src/forms.ts",
+    "./catalog": "./src/catalog.ts",
+    "./workspace": "./src/workspace.ts",
+    "./providers": "./src/providers.ts",
+    "./mcp": "./src/mcp.ts",
+    "./references": "./src/references.ts",
+    "./extension": "./src/extension.ts",
+    "./notebook-plan": "./src/notebook-plan.ts",
+    "./chatgpt": "./src/chatgpt.ts"
+  },
+  "scripts": {
+    "lint": "bun ../../node_modules/oxlint/bin/oxlint",
+    "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
+    "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit",
+    "test": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts test"
+  },
+  "dependencies": {
+    "@buddy/transcript-contract": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

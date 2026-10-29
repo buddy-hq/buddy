@@ -10,7 +10,7 @@ import {
   BENCH_CAPTURE_MAX_DIMENSION_PIXELS,
   BENCH_CAPTURE_MAX_PNG_BYTES,
 } from "../../src/learning/features/bench/capture-limits"
-import { BUDDY_TMP_DIR } from "../../src/opencode-runtime/env"
+import { BUDDY_TMP_DIR } from "../../src/runtime/runtime-paths"
 
 const SESSION_ID = "capture-session"
 const MESSAGE_ID = "capture-turn"

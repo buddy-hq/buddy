@@ -20,6 +20,7 @@
     "../buddy/script/node-artifact-runtime.ts",
     "../buddy/script/advanced-math-version.ts",
     "../buddy/script/parse-values.ts",
+    "../buddy/script/v1-upgrade-fixture.ts",
     "../buddy/src/http/parse.ts",
     "../buddy/src/local-runtimes/advanced-math/version.ts",
     "../script/src/backend-node-runtime.ts",

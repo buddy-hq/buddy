@@ -112,12 +112,8 @@ function ActivityHeaderStatus(props: { icon: ToolIconRenderer; title: string; sh
 
 function toolShellText(entry: ToolActivityEntry): string | undefined {
   const { state } = entry
-  const command = readString(state.input.command) ?? readString(state.metadata.command) ?? ""
-  const output =
-    state.output ??
-    readString(state.metadata.output) ??
-    (state.status === "error" ? state.error : undefined) ??
-    ""
+  const command = state.shell?.command ?? ""
+  const output = state.shell?.output ?? (state.status === "error" ? state.error : undefined) ?? ""
   const shellOutput = stripAnsi(output)
   const shellText = command ? `$ ${command}${shellOutput ? `\n\n${shellOutput}` : ""}` : shellOutput
   const trimmed = shellText.trim()
@@ -284,7 +280,7 @@ function ActivityItemRow(props: ActivityItemProps) {
   ) : null
 
   return (
-    <div data-activity-entry={entry.kind}>
+    <div data-activity-entry={entry.kind} data-part-id={entry.part.id}>
       {entry.kind === "tool" && openFile && fileName ? (
         // The toggle covers the row so the file name can be its own control on top of it.
         <div className={cn(rowClassName, "relative")}>
@@ -414,6 +410,7 @@ export function ActivityRow({
       <button
         type="button"
         disabled={!canOpen}
+        aria-expanded={isOpen}
         onClick={() => {
           if (canOpen) setIsOpen(!isOpen)
         }}

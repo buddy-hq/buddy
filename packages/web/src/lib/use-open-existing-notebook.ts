@@ -84,7 +84,6 @@ export function useOpenExistingNotebook(
       queryClient.setQueryData(obsidianVaultQueryKeys.profile(directory), profile)
     } catch (error) {
       setConnectionError(stringifyError(error))
-      options.onDeferredError(error instanceof Error ? error : new Error(`${error}`))
       setConnecting(false)
       return
     }

@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { resolveGetStartedFlow, type GetStartedFlowSnapshot } from "@/lib/get-started-flow"
+import type { ProviderInfo } from "./chat-types"
 import { globalConfigQueryOptions } from "./global-config-query"
 import { useGetStartedFlowDevtools } from "./get-started-flow-devtools"
 import { useGetStartedFlowStore, useGetStartedFlowStoreHydrated } from "./get-started-flow-store"
@@ -13,6 +14,7 @@ export type GetStartedFlow = GetStartedFlowSnapshot & {
 export function useGetStartedFlow(
   currentDirectory: string,
   selectedModel?: string,
+  providers?: readonly ProviderInfo[],
 ): GetStartedFlow {
   const primaryUseQuery = useQuery({
     ...globalConfigQueryOptions(),
@@ -33,6 +35,7 @@ export function useGetStartedFlow(
         primaryUse: primaryUseQuery.data,
         currentDirectory,
         selectedModel,
+        providers,
         devtoolsMode,
       }),
       dismiss,
@@ -45,6 +48,7 @@ export function useGetStartedFlow(
       primaryUseQuery.data,
       primaryUseQuery.isPending,
       selectedModel,
+      providers,
       devtoolsMode,
     ],
   )

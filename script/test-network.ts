@@ -24,7 +24,41 @@ export function installTestNetworkGuard(): void {
         )
       }
 
-      return unguardedFetch(input, init)
+      if (init?.redirect === "manual" || init?.redirect === "error") {
+        return unguardedFetch(input, init)
+      }
+
+      let request = new Request(input, { ...init, redirect: "manual" })
+      for (let redirects = 0; ; redirects += 1) {
+        const response = await unguardedFetch(request.clone(), {
+          ...init,
+          method: request.method,
+          body: undefined,
+          redirect: "manual",
+        })
+        const location = response.headers.get("Location")
+        if (![301, 302, 303, 307, 308].includes(response.status) || location === null) {
+          return response
+        }
+
+        const nextUrl = new URL(location, request.url).href
+        if (!isTestNetworkUrlAllowed(nextUrl)) {
+          throw new Error(
+            `Live network fetch blocked during tests: ${nextUrl}. Stub fetch or use a loopback test server.`,
+          )
+        }
+        if (redirects === 20) throw new TypeError("Too many redirects")
+
+        const useGet = response.status === 301 || response.status === 302 || response.status === 303
+        request = new Request(nextUrl, {
+          ...init,
+          method: useGet ? "GET" : request.method,
+          body: useGet ? null : request.body,
+          headers: request.headers,
+          signal: request.signal,
+          redirect: "manual",
+        })
+      }
     },
     { preconnect: unguardedFetch.preconnect },
   )

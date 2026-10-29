@@ -205,6 +205,7 @@ function formatMeasuredLayoutForModel(layout: WhiteboardLayoutDigest | undefined
 
 const createWhiteboardViewTool = createBuddyTool({
   id: "whiteboard_create_view",
+  streamInput: true,
   produces: {
     buddyObjectResult: true,
   },

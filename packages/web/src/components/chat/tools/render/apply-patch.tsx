@@ -1,4 +1,3 @@
-import { isRecord, parseTString } from "../../tools/types"
 import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject } from "../tool-row"
 import type { ToolPartProps } from "../registry"
 
@@ -9,11 +8,10 @@ function basename(filePath: string): string {
 
 /** Renders a native patch tool with its resolved lifecycle action and file targets. */
 export function renderApplyPatchTool({ state, icon, info }: ToolPartProps) {
-  const files = state.metadata.files
-  const patchFiles = Array.isArray(files) ? files.filter(isRecord) : []
-  const fileCount = patchFiles.length
+  const files = state.fileChanges ?? []
+  const fileCount = files.length
 
-  const firstRelativePath = fileCount === 1 ? parseTString(patchFiles[0]?.relativePath) : undefined
+  const firstRelativePath = fileCount === 1 ? files[0]?.relativePath : undefined
 
   const subject = firstRelativePath
     ? basename(firstRelativePath)

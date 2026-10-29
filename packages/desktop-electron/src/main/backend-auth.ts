@@ -1,5 +1,7 @@
 import { Buffer } from "node:buffer"
-import { session } from "electron"
+import { BrowserWindow, session } from "electron"
+import { shouldInjectBackendAuth } from "./backend-auth-policy"
+import { createBackendAuthWindowRegistry } from "./backend-auth-window-registry"
 
 type BackendAuthConfig = {
   origin: string
@@ -8,13 +10,10 @@ type BackendAuthConfig = {
 
 let registered = false
 let currentConfig: BackendAuthConfig | null = null
+const interfaceWindows = createBackendAuthWindowRegistry()
 
-function matchesOrigin(url: string, origin: string) {
-  try {
-    return new URL(url).origin === origin
-  } catch {
-    return false
-  }
+export function registerBackendAuthWindow(window: BrowserWindow) {
+  interfaceWindows.register(window)
 }
 
 export function registerBackendRequestAuth() {
@@ -23,11 +22,27 @@ export function registerBackendRequestAuth() {
 
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     const config = currentConfig
+    const webContents = details.webContents
+    const frame = details.frame
     if (
       !config ||
-      !matchesOrigin(details.url, config.origin) ||
-      "Authorization" in details.requestHeaders ||
-      "authorization" in details.requestHeaders
+      !shouldInjectBackendAuth({
+        requestUrl: details.url,
+        isAppWindow:
+          !!webContents &&
+          !webContents.isDestroyed() &&
+          webContents.getType() === "window" &&
+          interfaceWindows.has(BrowserWindow.fromWebContents(webContents)),
+        isMainFrame:
+          !!webContents &&
+          !webContents.isDestroyed() &&
+          !!frame &&
+          !frame.isDestroyed() &&
+          frame === webContents.mainFrame,
+        resourceType: details.resourceType,
+        origin: config.origin,
+        requestHeaders: details.requestHeaders,
+      })
     ) {
       callback({ requestHeaders: details.requestHeaders })
       return

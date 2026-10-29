@@ -24,8 +24,8 @@ import { applyDesktopDevTerminalTitle, resolveDesktopDevBranchName } from "./dev
 const DEV_COMMAND = "electron-vite"
 const DEV_ARGUMENTS = ["dev"] as const
 const LOGIN_SHELL_PATH_COMMAND = "printf '%s' \"$PATH\""
-const FORCE_KILL_TIMEOUT_MS = 2_000
-const PARENT_EXIT_TIMEOUT_MS = 4_000
+const FORCE_KILL_TIMEOUT_MS = 7_000
+const PARENT_EXIT_TIMEOUT_MS = 9_000
 const BACKEND_REBUILD_DEBOUNCE_MS = 100
 const SHUTDOWN_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const
 const TERMINATION_SIGNAL: NodeJS.Signals = "SIGTERM"
@@ -182,6 +182,7 @@ function killProcessTree(target: ReturnType<typeof spawn> | undefined, signal: N
   if (SHOULD_DETACH_CHILD) {
     try {
       process.kill(-target.pid, signal)
+      return
     } catch {
       // noop
     }

@@ -1,14 +1,15 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
+import type { ReferenceInfo } from "@buddy/agent-runtime/references"
 import {
+  createConfigSyncMiddleware,
   directoryQuerySchema,
   ensureAllowedDirectory,
-  respondWithSdkResult,
   routeErrors,
   runSdkRoute,
 } from "../http"
-import { getOpenCodeClient } from "../opencode-runtime/client"
+import { getAgentRuntime } from "../runtime/agent-runtime"
 
 const referenceSourceSchema = z.discriminatedUnion("type", [
   z.object({
@@ -32,7 +33,7 @@ const referenceInfoSchema = z.object({
   description: z.string().optional(),
   hidden: z.boolean().optional(),
   source: referenceSourceSchema,
-})
+}) satisfies z.ZodType<ReferenceInfo>
 
 const referenceListResponseSchema = z.object({
   location: z.object({
@@ -41,16 +42,17 @@ const referenceListResponseSchema = z.object({
     project: z.object({
       id: z.string(),
       directory: z.string(),
+      canonical: z.string(),
     }),
   }),
   data: z.array(referenceInfoSchema),
 })
 
-export const ReferenceRoutes = new Hono().get(
+export const ReferenceRoutes = new Hono().use("*", createConfigSyncMiddleware("reference request")).get(
   "/",
   describeRoute({
     operationId: "reference.list",
-    summary: "List OpenCode v2 references",
+    summary: "List configured references",
     responses: {
       200: {
         description: "References available at the requested location",
@@ -69,8 +71,9 @@ export const ReferenceRoutes = new Hono().get(
       const directoryResult = ensureAllowedDirectory(c)
       if (!directoryResult.ok) return directoryResult.response
 
-      const client = await getOpenCodeClient(directoryResult.directory)
-      const result = await client.v2.reference.list()
-      return respondWithSdkResult(c, result)
+      const runtime = await getAgentRuntime()
+      const directory = directoryResult.directory
+      const [data, location] = await Promise.all([runtime.references.list(directory), runtime.workspace.location(directory)])
+      return c.json({ location, data })
     }),
 )

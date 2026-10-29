@@ -9,7 +9,7 @@ export const CURRICULUM_ORCHESTRATOR = defineBuddySubagent({
     "*": "deny",
     learner_memory_search: "allow",
     learner_memory_update: "allow",
-    task: {
+    subagent: {
       "*": "deny",
       "goal-writer": "allow",
       "practice-agent": "allow",

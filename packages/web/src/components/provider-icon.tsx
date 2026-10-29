@@ -1,6 +1,6 @@
 import type { SVGProps } from "react"
 
-import { iconNames, providerSpriteUrl } from "@buddy/opencode-adapter/provider-icon"
+import { iconNames, providerSpriteUrl } from "@buddy/ui/provider-icons"
 
 const FALLBACK_PROVIDER_ICON_ID = "synthetic"
 

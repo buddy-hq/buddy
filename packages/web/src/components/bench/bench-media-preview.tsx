@@ -1,7 +1,10 @@
 import { cn } from "@buddy/ui"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
+import { loadToolAttachmentBlob } from "@/components/chat/tools/tool-attachment-pdf-preview"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
+import { ReaderStatusPill } from "@/components/readers/ui/reader-status-pill"
+import { LoaderCircleIcon } from "@/icons/app-icons"
 import { fileNameFromPath } from "@/lib/workspace-file-paths"
 
 export type BenchMediaRenderMode = "image" | "audio" | "video" | "pdf" | "file"
@@ -77,14 +80,7 @@ export function BenchMediaPreview(props: BenchMediaPreviewProps) {
   }
 
   if (props.renderMode === "pdf" && props.src) {
-    return (
-      <iframe
-        title={props.title}
-        src={props.src}
-        sandbox="allow-scripts"
-        className="block h-full w-full border-0 bg-background-base"
-      />
-    )
+    return <BenchPdfPreview key={props.src} title={props.title} src={props.src} />
   }
 
   return (
@@ -96,6 +92,68 @@ export function BenchMediaPreview(props: BenchMediaPreviewProps) {
       <span className="font-medium text-text-base">{fileNameFromPath(props.title)}</span>
       {props.displayPath ? <span>{props.displayPath}</span> : null}
     </div>
+  )
+}
+
+type BenchPdfPreviewState =
+  | { status: "loading" }
+  | { status: "ready"; url: string }
+  | { status: "error"; message: string }
+
+function BenchPdfPreview(props: { title: string; src: string }) {
+  const [state, setState] = useState<BenchPdfPreviewState>({ status: "loading" })
+
+  useEffect(() => {
+    let cancelled = false
+    let blobUrl: string | undefined
+    void loadToolAttachmentBlob(props.src).then(
+      (blob) => {
+        if (cancelled) return
+        blobUrl = URL.createObjectURL(blob)
+        setState({ status: "ready", url: blobUrl })
+      },
+      (cause) => {
+        if (cancelled) return
+        setState({
+          status: "error",
+          message: cause instanceof Error ? cause.message : String(cause),
+        })
+      },
+    )
+    return () => {
+      cancelled = true
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
+    }
+  }, [props.src])
+
+  if (state.status === "error") {
+    return (
+      <div className="flex flex-col items-start gap-3 p-6 text-sm text-text-weak">
+        <p>{`Buddy couldn't preview this PDF. ${state.message}`}</p>
+      </div>
+    )
+  }
+
+  if (state.status === "loading") {
+    return (
+      <div className="relative flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-30">
+          <ReaderStatusPill>
+            <LoaderCircleIcon className="size-3 animate-spin motion-reduce:animate-none" />
+            Opening…
+          </ReaderStatusPill>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <iframe
+      title={props.title}
+      src={state.url}
+      sandbox="allow-scripts"
+      className="block h-full w-full border-0 bg-background-base"
+    />
   )
 }
 

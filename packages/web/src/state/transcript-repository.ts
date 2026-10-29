@@ -7,7 +7,7 @@ import {
 } from "./session-messages"
 import type { MessageInfo, MessagePart, MessageWithParts, TFailure } from "./chat-types"
 import { isRecord, parseFiniteNumber, parseString } from "./chat-types"
-import { upsertMessagePart } from "./chat-reducer"
+import { compareMessageParts, compareStrings, upsertMessagePart } from "./chat-reducer"
 import { STREAMING_PART_RAW_FIELD } from "./chat-stream-event-buffer"
 import { reconcileTerminalAssistantParts } from "./chat-tool-parts"
 
@@ -85,6 +85,7 @@ type TranscriptSessionIdentity = {
 const records = new Map<string, TranscriptSessionRecord>()
 const recordKeyByMessageID = new Map<string, string>()
 const recordKeyByPartID = new Map<string, string>()
+const transcriptListeners = new Set<Listener>()
 const sessionListeners = new Map<string, Set<Listener>>()
 const messageListeners = new Map<string, Set<Listener>>()
 const partListeners = new Map<string, Set<Listener>>()
@@ -152,6 +153,7 @@ function emitKey(map: Map<string, Set<Listener>>, key: string) {
 
 function emitSession(key: string) {
   emitKey(sessionListeners, key)
+  for (const listener of Array.from(transcriptListeners)) listener()
 }
 
 function emitMessage(messageID: string) {
@@ -162,6 +164,7 @@ function emitMessage(messageID: string) {
 function emitPart(partID: string) {
   partsSnapshotCache.clear()
   emitKey(partListeners, partID)
+  for (const listener of Array.from(transcriptListeners)) listener()
 }
 
 function emptyRecord(input: TranscriptSessionIdentity): TranscriptSessionRecord {
@@ -265,21 +268,18 @@ function sortedMessageIDs(messages: Iterable<MessageInfo>) {
 
 function sortedPartIDs(parts: Iterable<MessagePart>) {
   return Array.from(parts)
-    .toSorted((left, right) => compareIDs(left.id, right.id))
+    .toSorted(compareMessageParts)
     .map((part) => part.id)
 }
 
-function compareIDs(left: string, right: string) {
-  if (left < right) return -1
-  if (left > right) return 1
-  return 0
-}
-
-function compareMessages(left: MessageInfo, right: MessageInfo) {
+export function compareMessages(left: MessageInfo, right: MessageInfo) {
   const leftCreated = left.time.created
   const rightCreated = right.time.created
   if (leftCreated !== rightCreated) return leftCreated - rightCreated
-  return compareIDs(left.id, right.id)
+  if (left.order !== undefined && right.order !== undefined) {
+    return compareStrings(left.order, right.order)
+  }
+  return compareStrings(left.id, right.id)
 }
 
 function existingMessages(record: TranscriptSessionRecord) {
@@ -376,7 +376,7 @@ function mergeOrphans(record: TranscriptSessionRecord, messageID: string, parts:
     merged.set(part.id, part)
   }
   record.orphanPartsByMessageID.delete(messageID)
-  return Array.from(merged.values()).toSorted((left, right) => compareIDs(left.id, right.id))
+  return Array.from(merged.values()).toSorted(compareMessageParts)
 }
 
 function recordParts(record: TranscriptSessionRecord, messageID: string) {
@@ -702,7 +702,7 @@ function applyTranscriptPage(
       parts: mergeOrphans(
         record,
         message.id,
-        Array.from(nextPartsByID.values()).toSorted((left, right) => compareIDs(left.id, right.id)),
+        Array.from(nextPartsByID.values()).toSorted(compareMessageParts),
       ),
     }
   })
@@ -740,6 +740,11 @@ function readTranscriptMeta(record: TranscriptSessionRecord): TranscriptSessionM
   }
   record.metaSnapshot = snapshot
   return snapshot
+}
+
+export function subscribeTranscriptChanges(listener: () => void): () => void {
+  transcriptListeners.add(listener)
+  return () => { transcriptListeners.delete(listener) }
 }
 
 export function getTranscriptMessages(
@@ -1288,6 +1293,7 @@ export function resetTranscriptRepositoryForTests() {
   records.clear()
   recordKeyByMessageID.clear()
   recordKeyByPartID.clear()
+  transcriptListeners.clear()
   sessionListeners.clear()
   messageListeners.clear()
   partListeners.clear()

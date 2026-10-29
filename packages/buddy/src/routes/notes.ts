@@ -1,3 +1,5 @@
+import { routeErrorBody } from "../http/route-errors"
+import { mapRouteError } from "../http/route-errors"
 import path from "node:path"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
@@ -5,7 +7,6 @@ import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import { readBoundedRequestBody, replayRequestBody } from "../http/bounded-request-body"
 import { annotateChatMessage, captureComposerNote } from "../notes/chat-capture"
-import { mapNotesError } from "../notes/errors"
 import { resolveNoteImage } from "../notes/images"
 import {
   createStandaloneNote,
@@ -114,7 +115,7 @@ const BuddySessionCaptureResultSchema = z
 const BuddySessionNoteSchema = z.object({ note: BuddyNoteSummarySchema.optional() }).strict()
 
 function notesTask(task: () => Promise<Response>) {
-  return runRouteTask({ task, mapError: mapNotesError })
+  return runRouteTask({ task, mapError: mapRouteError })
 }
 
 export const NotesRoutes = new Hono()
@@ -328,7 +329,7 @@ export const NotesRoutes = new Hono()
     async (c, next) => {
       const result = await readBoundedRequestBody(c.req.raw, MAX_CAPTURE_REQUEST_BODY_BYTES)
       if (result.status === "too_large") {
-        return c.json({ error: CAPTURE_REQUEST_TOO_LARGE_ERROR }, 413)
+        return c.json(routeErrorBody(413, CAPTURE_REQUEST_TOO_LARGE_ERROR), 413)
       }
       c.req.raw = replayRequestBody(c.req.raw, result.body)
       await next()
@@ -366,7 +367,7 @@ export const NotesRoutes = new Hono()
     async (c, next) => {
       const result = await readBoundedRequestBody(c.req.raw, MAX_CAPTURE_REQUEST_BODY_BYTES)
       if (result.status === "too_large") {
-        return c.json({ error: CAPTURE_REQUEST_TOO_LARGE_ERROR }, 413)
+        return c.json(routeErrorBody(413, CAPTURE_REQUEST_TOO_LARGE_ERROR), 413)
       }
       c.req.raw = replayRequestBody(c.req.raw, result.body)
       await next()

@@ -1,4 +1,9 @@
+import { currentProviderID } from "@buddy/transcript-contract/provider-ids"
 import { parseConfigString, type TConfiguredModel } from "../parse-values.js"
+
+export function configuredProviderID(providerID: string): string {
+  return currentProviderID(providerID)
+}
 
 function parseConfiguredModel<TValue>(value: TValue): TConfiguredModel | undefined {
   const parsed = parseConfigString(value)
@@ -10,7 +15,7 @@ function parseConfiguredModel<TValue>(value: TValue): TConfiguredModel | undefin
   if (providerID === undefined) return undefined
 
   return {
-    providerID,
+    providerID: configuredProviderID(providerID),
     modelID: rest.join("/"),
   }
 }

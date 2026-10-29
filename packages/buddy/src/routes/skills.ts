@@ -1,8 +1,9 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { patchGlobalConfig } from "@buddy/backend/config/orchestration"
-import { HTTP_STATUS, SKILL_ROUTE_CONFIG } from "./skills.constants"
+import { SKILL_ROUTE_CONFIG } from "./skills.constants"
 import {
   createSkillBodySchema,
   skillsSettingsBodySchema,
@@ -27,12 +28,8 @@ import {
   setInstalledSkillAction,
 } from "../learning/skill-management"
 import {
-  createSkillErrorStatus,
-  installLibrarySkillErrorStatus,
-  notFoundSkillErrorStatus,
   resolveSkillAction,
   shouldRefreshSkillCatalog,
-  skillErrorMessage,
 } from "./skills.route-helpers"
 
 const installedSkillSchema = z.object({
@@ -141,7 +138,7 @@ export const SkillsRoutes = new Hono()
             return c.json(catalog)
           },
           mapError: (error) =>
-            c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
+            mapRouteError(error, { scope: "skills.read" }),
         }),
       ),
   )
@@ -166,7 +163,7 @@ export const SkillsRoutes = new Hono()
         runRouteTask({
           task: async () => c.json(await listSkillPresentations(context.directory)),
           mapError: (error) =>
-            c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
+            mapRouteError(error, { scope: "skills.read" }),
         }),
       ),
   )
@@ -202,7 +199,7 @@ export const SkillsRoutes = new Hono()
           })
         },
         mapError: (error) =>
-          c.json({ error: skillErrorMessage(error) }, installLibrarySkillErrorStatus(error)),
+          mapRouteError(error, { scope: "skills.library" }),
       }),
   )
   .post(
@@ -230,7 +227,7 @@ export const SkillsRoutes = new Hono()
             return c.json({ ok: true, name })
           },
           mapError: (error) =>
-            c.json({ error: skillErrorMessage(error) }, createSkillErrorStatus(error)),
+            mapRouteError(error, { scope: "skills.create" }),
         }),
       ),
   )
@@ -262,7 +259,7 @@ export const SkillsRoutes = new Hono()
             return c.json({ ok: true, name })
           },
           mapError: (error) =>
-            c.json({ error: skillErrorMessage(error) }, installLibrarySkillErrorStatus(error)),
+            mapRouteError(error, { scope: "skills.library" }),
         }),
       ),
   )
@@ -295,7 +292,7 @@ export const SkillsRoutes = new Hono()
           })
         },
         mapError: (error) =>
-          c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
+          mapRouteError(error, { scope: "skills.read" }),
       }),
   )
   .delete(
@@ -326,7 +323,7 @@ export const SkillsRoutes = new Hono()
             return c.json({ ok: true, name: removedSkillName })
           },
           mapError: (error) =>
-            c.json({ error: skillErrorMessage(error) }, installLibrarySkillErrorStatus(error)),
+            mapRouteError(error, { scope: "skills.library" }),
         }),
       ),
   )
@@ -362,7 +359,7 @@ export const SkillsRoutes = new Hono()
             return c.json({ ok: true, skill, action })
           },
           mapError: (error) =>
-            c.json({ error: skillErrorMessage(error) }, notFoundSkillErrorStatus(error)),
+            mapRouteError(error, { scope: "skills.byName" }),
         }),
       ),
   )
@@ -394,7 +391,7 @@ export const SkillsRoutes = new Hono()
             return c.json({ ok: true, name: removedSkillName })
           },
           mapError: (error) =>
-            c.json({ error: skillErrorMessage(error) }, notFoundSkillErrorStatus(error)),
+            mapRouteError(error, { scope: "skills.byName" }),
         }),
       ),
   )

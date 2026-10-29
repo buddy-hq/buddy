@@ -448,35 +448,47 @@ describe("ActivityRow header resolution", () => {
     ).toBe("Edited files · Read files · Searched code")
   })
 
-  test("does not include failed or neutral entries in settled summaries", () => {
-    const resolvedEntries = entries([
-      toolPart({
-        id: "failure",
-        phase: "error",
-        action: "Failed to edit",
-        category: "edit",
-        summary: "Failed to edit files",
-        outcome: "failure",
-      }),
-      toolPart({
-        id: "denied",
-        phase: "error",
-        action: "Permission denied",
-        category: "read",
-        summary: "Permission denied",
-        outcome: "neutral",
-      }),
-    ])
-
-    expect(activityEntryLabel(resolvedEntries[1]!)).toBe("Permission denied")
-    expect(
+  test("names a neutral outcome only when no tool in the settled group succeeded", () => {
+    const thought = reasoningPart({
+      id: "reasoning-before-denial",
+      text: "Considering the change",
+      time: { start: 1, end: 1_001 },
+    })
+    const failed = toolPart({
+      id: "failure",
+      phase: "error",
+      action: "Failed to edit",
+      category: "edit",
+      summary: "Failed to edit files",
+      outcome: "failure",
+    })
+    const denied = toolPart({
+      id: "denied",
+      phase: "error",
+      action: "Permission denied",
+      category: "read",
+      summary: "Failed to read files",
+      outcome: "neutral",
+    })
+    const read = toolPart({
+      id: "read",
+      phase: "completed",
+      action: "Read",
+      category: "read",
+      summary: "Read files",
+      icon: "read",
+    })
+    const settledLabel = (parts: MessagePart[]) =>
       resolveActivityHeader({
-        entries: resolvedEntries,
+        entries: entries(parts),
         busy: false,
         current: false,
         zeroEntryLabel: "Thinking",
-      }).label,
-    ).toBe("Steps")
+      }).label
+
+    expect(settledLabel([thought, failed, denied])).toBe("Permission denied")
+    expect(settledLabel([thought, denied, read])).toBe("Read files")
+    expect(settledLabel([failed])).toBe("Steps")
   })
 
   test("uses reasoning duration only when no successful tool ran", () => {

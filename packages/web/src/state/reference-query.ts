@@ -2,9 +2,9 @@ import type { ReferenceListResponses } from "@buddy/sdk"
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 
-const REFERENCE_QUERY_SCOPE = "opencode-references" as const
+const REFERENCE_QUERY_SCOPE = "references" as const
 
-export type OpenCodeReference = ReferenceListResponses[200]["data"][number]
+export type ReferenceInfo = ReferenceListResponses[200]["data"][number]
 
 export const referenceQueryKeys = {
   list: (directory: string) => [REFERENCE_QUERY_SCOPE, directory] as const,
@@ -13,9 +13,9 @@ export const referenceQueryKeys = {
 export function referenceListQueryOptions(directory: string) {
   return queryOptions({
     queryKey: referenceQueryKeys.list(directory),
-    queryFn: async () => {
+    queryFn: async (): Promise<ReferenceInfo[]> => {
       const result = await getBuddyClient(directory).reference.list()
-      return requireBuddyData<ReferenceListResponses[200]>(result)
+      return requireBuddyData<ReferenceListResponses[200]>(result).data
     },
     staleTime: Number.POSITIVE_INFINITY,
   })

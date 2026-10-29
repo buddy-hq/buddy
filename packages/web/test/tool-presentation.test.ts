@@ -134,9 +134,7 @@ describe("resolved tool presentation", () => {
       metadata: presentationMetadata(presentation),
     })
 
-    expect(getToolInfo("learner_memory_update", parseToolState(part), presentation).title).toBe(
-      "Updated memory",
-    )
+    expect(getToolInfo(parseToolState(part), presentation).title).toBe("Updated memory")
   })
 
   test("visible prose seals activity segments", () => {

@@ -15,11 +15,15 @@ import {
   activateChatDirectory,
   selectActiveChatSession,
 } from "@/lib/active-chat-transition-coordinator"
-import { decodeDirectory } from "@/lib/directory-token"
+import { decodeDirectory, encodeDirectory } from "@/lib/directory-token"
+import { closeOpenProject, isNotebookFolderMissingError } from "@/state/chat-actions"
+import { setOpenProjectsQueryData } from "@/state/bootstrap-query"
+import { showNotebookFolderMissing } from "@/components/directory-chat/show-notebook-folder-missing"
 import { resolveBenchRouteViewTransitionTypes } from "@/lib/bench-navigation"
 import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import { ThemeProvider } from "@/theme"
 import { HostedBrowserHost } from "@/components/bench/surfaces/browser/hosted-browser-host"
+import { UpgradePendingScreen } from "@/components/layout/upgrade-pending-screen"
 import type { ThemeAppliedDetails } from "@/theme"
 import { browserWindow, parseBuddyConfigObject, parseStringValue } from "@/state/parse-external"
 import { routeTree } from "./routeTree.gen"
@@ -49,6 +53,7 @@ const router = createRouter({
   },
   defaultPreload: "intent",
   defaultPreloadStaleTime: 0,
+  defaultPendingComponent: UpgradePendingScreen,
   defaultViewTransition: {
     types: resolveBenchRouteViewTransitionTypes,
   },
@@ -94,15 +99,36 @@ function readNotificationClickHref(event: Event) {
   return parseNotificationClickDetail(event.detail)?.href
 }
 
+function chatRouteDirectory(pathname: string) {
+  const match = /^\/([^/]+)\/chat$/.exec(pathname)
+  return match ? decodeDirectory(match[1]) : undefined
+}
+
+async function closeMissingNotebook(directory: string) {
+  if (chatRouteDirectory(router.state.location.pathname) === directory) {
+    const nextDirectory = useChatStore
+      .getState()
+      .openProjects.find((candidate) => candidate !== directory)
+    await (nextDirectory
+      ? router.navigate({
+          to: "/$directory/chat",
+          params: { directory: encodeDirectory(nextDirectory) },
+          replace: true,
+        })
+      : router.navigate({ to: "/chat", replace: true }))
+  }
+  await closeOpenProject(directory)
+  setOpenProjectsQueryData(appQueryClient, useChatStore.getState().openProjects)
+}
+
 async function activateNotificationHref(href: string) {
   const url = new URL(href, window.location.origin)
-  const match = /^\/([^/]+)\/chat$/.exec(url.pathname)
-  if (!match) {
+  const directory = chatRouteDirectory(url.pathname)
+  if (!directory) {
     router.history.push(href)
     return
   }
 
-  const directory = decodeDirectory(match[1])
   const sessionID = url.searchParams.get("session")
   const navigate = (
     targetDirectory: string,
@@ -114,11 +140,14 @@ async function activateNotificationHref(href: string) {
         route,
       }),
     )
-  if (sessionID) {
-    await selectActiveChatSession({ directory, sessionID, navigate })
-    return
-  }
-  await activateChatDirectory({ directory, navigate })
+  const result = sessionID
+    ? await selectActiveChatSession({ directory, sessionID, navigate })
+    : await activateChatDirectory({ directory, navigate })
+  if (result.outcome !== "failed" || !isNotebookFolderMissingError(result.error)) return
+  showNotebookFolderMissing({
+    directory,
+    onCloseNotebook: () => void closeMissingNotebook(directory),
+  })
 }
 
 export function AppInterface() {

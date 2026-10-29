@@ -3,6 +3,11 @@ import {
   readReaderTextAnchor,
   type ReaderTextAnchor,
 } from "@buddy/reader-contract"
+import {
+  LEGACY_REFERENCE_PART_TYPE,
+  REFERENCE_PART_TYPE,
+  type ReferencePart,
+} from "@buddy/transcript-contract/prompt"
 import { isNativeResourceFormat } from "@buddy/workspace-file-policy"
 import type { NativeResourceDelivery, NativeResourceFormat } from "@buddy/workspace-file-policy"
 import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
@@ -94,8 +99,6 @@ export const PROMPT_PART_TYPE_FILE = "file" as const
 export const PROMPT_PART_TYPE_AGENT = "agent" as const
 export const PROMPT_PART_TYPE_SKILL = "skill" as const
 // Sync with packages/buddy/src/learning/prompt/workspace-file-references.ts.
-export const OPENCODE_REFERENCE_PART_TYPE = "opencode-reference" as const
-// Sync with packages/buddy/src/learning/prompt/workspace-file-references.ts.
 export const WORKSPACE_FILE_REFERENCE_PART_TYPE = "workspace-file-reference" as const
 export const RESOURCE_REFERENCE_PART_TYPE = "resource-reference" as const
 // Sync with packages/buddy/src/learning/prompt/workspace-file-references.ts.
@@ -156,10 +159,10 @@ export type PromptSkillPart = {
   name: string
 }
 
-export type PromptOpenCodeReferencePart = {
-  type: typeof OPENCODE_REFERENCE_PART_TYPE
-  name: string
-  path: string
+export function isReferencePartType(
+  type: string | undefined,
+): type is typeof REFERENCE_PART_TYPE | typeof LEGACY_REFERENCE_PART_TYPE {
+  return type === REFERENCE_PART_TYPE || type === LEGACY_REFERENCE_PART_TYPE
 }
 
 export type PromptWorkspaceFileReferencePart = {
@@ -543,7 +546,7 @@ export type PromptComposerPart =
   | PromptTextPart
   | PromptAgentPart
   | PromptSkillPart
-  | PromptOpenCodeReferencePart
+  | ReferencePart
   | PromptWorkspaceFileReferencePart
   | PromptResourceReferencePart
   | PromptNotebookReferencePart
@@ -553,7 +556,7 @@ export type PromptComposerPart =
 export type PromptSubmissionPart =
   | PromptTextPart
   | PromptAgentPart
-  | PromptOpenCodeReferencePart
+  | ReferencePart
   | PromptWorkspaceFileReferencePart
   | PromptResourceReferencePart
   | PromptNotebookReferencePart

@@ -1,4 +1,4 @@
-import type { ToolLayoutRole } from "@buddy/opencode-adapter/tool-presentation"
+import type { ToolLayoutRole } from "@buddy/transcript-contract/tool-presentation"
 
 /** Gap applied to the first row of a turn, which has no preceding layout role. */
 export const TRANSCRIPT_LEADING_GAP_PX = 20

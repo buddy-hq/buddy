@@ -249,6 +249,35 @@ describe("chat timeline rows", () => {
     expect(populatedRows.at(-1)?.type).toBe("activity")
   })
 
+  test("ends a turn with STOPPED only while its latest reply is the stopped one", () => {
+    const stopped = createMessageWithParts(
+      createAssistantMessageInfo({ id: "msg_cut", sessionID: "ses_rows", finish: "aborted" }),
+      [textPart("cut")],
+    )
+    const restartNotice = createMessageWithParts(
+      createAssistantMessageInfo({ id: "msg_notice", sessionID: "ses_rows", finish: "stop" }),
+      [
+        {
+          id: "notice",
+          sessionID: "ses_rows",
+          messageID: "msg_notice",
+          type: "notice",
+          text: "Continuing after restart",
+        },
+      ],
+    )
+    const continued = createMessageWithParts(
+      createAssistantMessageInfo({ id: "msg_continued", sessionID: "ses_rows", finish: "stop" }),
+      [textPart("continued")],
+    )
+    const endsStopped = (messages: MessageWithParts[]) =>
+      rowsFor(messages).some((row) => row.type === "turn-divider" && row.label === "interrupted")
+
+    expect(endsStopped([userMessage(), stopped])).toBe(true)
+    expect(endsStopped([userMessage(), stopped, restartNotice])).toBe(true)
+    expect(endsStopped([userMessage(), stopped, restartNotice, continued])).toBe(false)
+  })
+
   test("does not create an empty user row for a compaction-only boundary", () => {
     const messageID = "msg_compaction"
     const compactionMessage = createMessageWithParts(
@@ -646,6 +675,7 @@ describe("chat timeline rows", () => {
         sessionID: "ses_rows",
         error: {
           name: "MessageOutputLengthError",
+          code: "output_limit",
           data: {},
         },
       }),

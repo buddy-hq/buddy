@@ -16,5 +16,5 @@
     "resolveJsonModule": true,
     "types": ["bun", "node", "electron"]
   },
-  "include": ["test/**/*.ts", "src/renderer/env.d.ts"]
+  "include": ["test/**/*.ts", "e2e/**/*.ts", "src/renderer/env.d.ts"]
 }

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test"
-import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
 import { BUDDY_OBJECT_KINDS, BuddyObjectResultSchema } from "../../src/objects"
 import { MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX } from "../../src/learning/features/diagrams/service/types"
 import {
@@ -15,8 +14,8 @@ import { createBuddyToolContext } from "../helpers/tools"
 
 const PLACEHOLDER_OBJECT_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 const TEST_MESSAGE_MODEL = {
-  providerID: ProviderID.openai,
-  modelID: ModelID.make("gpt-5.4-mini"),
+  providerID: "openai",
+  modelID: "gpt-5.4-mini",
 }
 
 type ToolMessage = BuddyToolContext["messages"][number]
@@ -31,8 +30,8 @@ function seedRepairTurnMessages(input: {
   return [
     {
       info: {
-        id: MessageID.make(input.repairRequestID),
-        sessionID: SessionID.make(input.sessionID),
+        id: input.repairRequestID,
+        sessionID: input.sessionID,
         role: "user",
         time: { created: createdAt },
         agent: "buddy",
@@ -43,10 +42,10 @@ function seedRepairTurnMessages(input: {
     },
     {
       info: {
-        id: MessageID.make(input.assistantMessageID),
-        sessionID: SessionID.make(input.sessionID),
+        id: input.assistantMessageID,
+        sessionID: input.sessionID,
         role: "assistant",
-        parentID: MessageID.make(input.repairRequestID),
+        parentID: input.repairRequestID,
         time: { created: createdAt, completed: createdAt },
         mode: "buddy",
         agent: "buddy",
@@ -104,18 +103,20 @@ describe("render_mermaid tool", () => {
     const sessionID = "ses_mermaid_repair_strict"
     const assistantMessageID = "msg_mermaid_assistant"
     const repairRequestID = `${MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX}test`
-    const context = createBuddyToolContext({
-      directory: project.path,
-      sessionID,
-      messageID: repairRequestID,
-      agent: "buddy",
-    })
-    context.messages = seedRepairTurnMessages({
-      assistantMessageID,
-      directory: project.path,
-      repairRequestID,
-      sessionID,
-    })
+    const context: BuddyToolContext = {
+      ...createBuddyToolContext({
+        directory: project.path,
+        sessionID,
+        messageID: repairRequestID,
+        agent: "buddy",
+      }),
+      messages: seedRepairTurnMessages({
+        assistantMessageID,
+        directory: project.path,
+        repairRequestID,
+        sessionID,
+      }),
+    }
 
     await expect(
       renderMermaidTool.run(
@@ -165,18 +166,20 @@ describe("render_mermaid tool", () => {
       failedRenderKey: failedRender.renderKey,
     })
     const assistantMessageID = "msg_repair_assistant"
-    const context = createBuddyToolContext({
-      directory: project.path,
-      sessionID,
-      messageID: assistantMessageID,
-      agent: "buddy",
-    })
-    context.messages = seedRepairTurnMessages({
-      assistantMessageID,
-      directory: project.path,
-      repairRequestID: repairRequest.repairRequestID,
-      sessionID,
-    })
+    const context: BuddyToolContext = {
+      ...createBuddyToolContext({
+        directory: project.path,
+        sessionID,
+        messageID: assistantMessageID,
+        agent: "buddy",
+      }),
+      messages: seedRepairTurnMessages({
+        assistantMessageID,
+        directory: project.path,
+        repairRequestID: repairRequest.repairRequestID,
+        sessionID,
+      }),
+    }
 
     const repaired = await renderMermaidTool.run(
       {

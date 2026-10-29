@@ -1,5 +1,5 @@
+import type { ProviderInfo } from "@/state/chat-types"
 import type { PrimaryUse } from "@/state/project-config-readers"
-import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 
 export const GET_STARTED_CHAT_IDS = [
   "buddy-help-tour",
@@ -109,12 +109,14 @@ export type GetStartedLearnerModelTier =
 
 export function resolveGetStartedLearnerModelTier(
   selectedModel: string | undefined,
+  providers: readonly Pick<ProviderInfo, "id" | "bundled">[] = [],
 ): GetStartedLearnerModelTier {
-  if (!selectedModel || selectedModel.startsWith(`${OPENCODE_PROVIDER_ID}/`)) {
-    return GET_STARTED_LEARNER_MODEL_TIER.free
-  }
+  if (!selectedModel) return GET_STARTED_LEARNER_MODEL_TIER.free
 
-  return GET_STARTED_LEARNER_MODEL_TIER.connected
+  const provider = providers.find((entry) => selectedModel.startsWith(`${entry.id}/`))
+  return provider?.bundled
+    ? GET_STARTED_LEARNER_MODEL_TIER.free
+    : GET_STARTED_LEARNER_MODEL_TIER.connected
 }
 
 const BUDDY_HELP_TOUR_CHAT = {

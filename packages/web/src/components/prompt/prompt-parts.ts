@@ -1,3 +1,4 @@
+import { REFERENCE_PART_TYPE, type ReferencePart } from "@buddy/transcript-contract/prompt"
 import { parseTString } from "@/components/chat/tools/types"
 import { parseStringArray } from "@/state/chat-types"
 import { basename } from "../chat/utils/path"
@@ -30,9 +31,9 @@ import {
   PROMPT_PART_TYPE_TEXT,
   PROMPT_STRUCTURED_MASK_CHAR,
   NOTEBOOK_REFERENCE_PART_TYPE,
-  OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
+  isReferencePartType,
   readPromptReaderTextAnchor,
   promptPartFromCitation,
   SELECTION_CONTEXT_PART_TYPE,
@@ -40,7 +41,6 @@ import {
   type PromptAgentPart,
   type PromptComposerPart,
   type PromptNotebookReferencePart,
-  type PromptOpenCodeReferencePart,
   type PromptMarkdownSelectionContextPart,
   type PromptMessageSelectionContextPart,
   type PromptReadingSelectionPart,
@@ -82,9 +82,9 @@ export function createSkillPart(name: string): PromptSkillPart {
   }
 }
 
-function createOpenCodeReferencePart(name: string, path: string): PromptOpenCodeReferencePart {
+function createReferencePart(name: string, path: string): ReferencePart {
   return {
-    type: OPENCODE_REFERENCE_PART_TYPE,
+    type: REFERENCE_PART_TYPE,
     name,
     path,
   }
@@ -218,8 +218,8 @@ export function clonePromptParts(parts: PromptComposerPart[]): PromptComposerPar
       return createSkillPart(part.name)
     }
 
-    if (part.type === OPENCODE_REFERENCE_PART_TYPE) {
-      return createOpenCodeReferencePart(part.name, part.path)
+    if (part.type === REFERENCE_PART_TYPE) {
+      return createReferencePart(part.name, part.path)
     }
 
     if (part.type === RESOURCE_REFERENCE_PART_TYPE) {
@@ -264,9 +264,9 @@ export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptCom
         return false
       continue
     }
-    if (leftPart.type === OPENCODE_REFERENCE_PART_TYPE) {
+    if (leftPart.type === REFERENCE_PART_TYPE) {
       if (
-        rightPart.type !== OPENCODE_REFERENCE_PART_TYPE ||
+        rightPart.type !== REFERENCE_PART_TYPE ||
         leftPart.name !== rightPart.name ||
         leftPart.path !== rightPart.path
       ) {
@@ -396,7 +396,7 @@ export function serializePromptParts(parts: PromptComposerPart[]): string {
       if (part.type === PROMPT_PART_TYPE_TEXT) return part.text
       if (part.type === PROMPT_PART_TYPE_AGENT) return `@${part.name}`
       if (part.type === PROMPT_PART_TYPE_SKILL) return `/${part.name}`
-      if (part.type === OPENCODE_REFERENCE_PART_TYPE) return `@${part.name}`
+      if (part.type === REFERENCE_PART_TYPE) return `@${part.name}`
       if (part.type === RESOURCE_REFERENCE_PART_TYPE) return `resource:${part.key}`
       if (part.type === NOTEBOOK_REFERENCE_PART_TYPE) return part.text
       if (part.type === READING_SELECTION_PART_TYPE) return `"${part.text}"`
@@ -478,7 +478,7 @@ function isStructuredPromptElement(element: HTMLElement) {
   return (
     element.dataset.type === PROMPT_PART_TYPE_AGENT ||
     element.dataset.type === PROMPT_PART_TYPE_SKILL ||
-    element.dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
+    isReferencePartType(element.dataset.type) ||
     element.dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
     element.dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
     element.dataset.type === NOTEBOOK_REFERENCE_PART_TYPE ||
@@ -525,12 +525,12 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       return
     }
 
-    if (element.dataset.type === OPENCODE_REFERENCE_PART_TYPE) {
+    if (isReferencePartType(element.dataset.type)) {
       flush()
       const name = element.dataset.name
       const path = element.dataset.path
       if (name && path) {
-        parts.push(createOpenCodeReferencePart(name, path))
+        parts.push(createReferencePart(name, path))
       }
       return
     }
@@ -737,7 +737,7 @@ function appendSelectionCard(
 type StructuredPillPart =
   | PromptAgentPart
   | PromptSkillPart
-  | PromptOpenCodeReferencePart
+  | ReferencePart
   | PromptWorkspaceFileReferencePart
   | PromptResourceReferencePart
   | PromptNotebookReferencePart
@@ -839,7 +839,7 @@ export function createPromptPill(
     return pill
   }
 
-  if (part.type === OPENCODE_REFERENCE_PART_TYPE) {
+  if (part.type === REFERENCE_PART_TYPE) {
     pill.dataset.name = part.name
     pill.dataset.path = part.path
     appendPillLabel(pill, `@${part.name}`)
@@ -905,7 +905,7 @@ export function promptPartFromMentionOption(option: MentionOption): StructuredPi
     })
   }
   if (option.type === "agent") return createAgentPart(option.name)
-  if (option.type === "reference") return createOpenCodeReferencePart(option.name, option.path)
+  if (option.type === "reference") return createReferencePart(option.name, option.path)
   return createWorkspaceFileReferencePart(option.path)
 }
 

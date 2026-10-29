@@ -776,6 +776,7 @@ async function findMarkdownMermaidObject(input: {
     directory: input.directory,
     kind: BUDDY_OBJECT_KINDS.mermaid,
   })
+  let fallbackObjectID: string | undefined
   for (const item of listed.objects) {
     const manifest = await readMermaidObjectManifest(input.directory, item.objectID).catch(
       () => undefined,
@@ -786,7 +787,6 @@ async function findMarkdownMermaidObject(input: {
       origin?.kind !== "markdown" ||
       origin.sessionID !== input.sessionID ||
       origin.messageID !== input.messageID ||
-      origin.partID !== input.partID ||
       origin.segmentIndex !== input.segmentIndex
     ) {
       continue
@@ -799,12 +799,17 @@ async function findMarkdownMermaidObject(input: {
     if (preflight?.sourceHash !== input.sourceHash) {
       continue
     }
-    return readMermaidObject({
-      directory: input.directory,
-      objectID: manifest.objectID,
-    })
+    if (origin.partID === input.partID) {
+      return readMermaidObject({
+        directory: input.directory,
+        objectID: manifest.objectID,
+      })
+    }
+    fallbackObjectID ??= manifest.objectID
   }
-  return undefined
+  return fallbackObjectID
+    ? readMermaidObject({ directory: input.directory, objectID: fallbackObjectID })
+    : undefined
 }
 
 async function readMermaidObjectManifest(

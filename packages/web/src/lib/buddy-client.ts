@@ -42,14 +42,14 @@ function errorMessage<TError>(value: TError): string | undefined {
 }
 
 export function requireBuddyData<TData>(result: TBuddyResult<TData>): TData {
-  if (!result.response) {
-    throw new Error(errorMessage(result.error) ?? "Request failed (no response)")
-  }
-  if (!result.response.ok || result.error !== undefined) {
-    throw new Error(errorMessage(result.error) ?? `Request failed (${result.response.status})`)
+  if (!result.response || !result.response.ok || result.error !== undefined) {
+    throw buddyResultError(result)
   }
   if (result.data === undefined) {
-    throw new Error(`Request failed (${result.response.status})`)
+    throw new BuddyRequestError({
+      message: `Request failed (${result.response.status})`,
+      status: result.response.status,
+    })
   }
   return result.data
 }
@@ -58,4 +58,28 @@ export function buddyResultMessage(result: { error: unknown; response: Response 
   return (
     errorMessage(result.error) ?? `Request failed (${result.response?.status ?? "no response"})`
   )
+}
+
+export class BuddyRequestError extends Error {
+  readonly status: number | undefined
+  readonly code: string | undefined
+  readonly errorID: string | undefined
+
+  constructor(input: { message: string; status?: number; code?: string; errorID?: string }) {
+    super(input.message)
+    this.name = "BuddyRequestError"
+    this.status = input.status
+    this.code = input.code
+    this.errorID = input.errorID
+  }
+}
+
+export function buddyResultError(result: { error: unknown; response: Response | undefined }) {
+  const body = parseTJsonObject(result.error)
+  return new BuddyRequestError({
+    message: buddyResultMessage(result),
+    status: result.response?.status,
+    code: parseTString(body?.code),
+    errorID: parseTString(body?.errorID),
+  })
 }

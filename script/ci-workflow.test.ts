@@ -138,7 +138,7 @@ describe("CI workflow", () => {
     const vendorGuardJob = workflowJob(jobs, "vendor_guard")
     const checkJob = workflowJob(jobs, "check")
 
-    expect(Object.keys(jobs)).toEqual(["static", "tests", "vendor_guard", "check"])
+    expect(Object.keys(jobs)).toEqual(["static", "tests", "node-smoke", "vendor_guard", "check"])
     expect(staticJob.needs).toBeUndefined()
     expect(testsJob.needs).toBeUndefined()
     expect(vendorGuardJob.needs).toBeUndefined()
@@ -219,7 +219,7 @@ describe("CI workflow", () => {
     expect(shards.filter((shard) => shard.owners === "backend")).toHaveLength(2)
     expect(shards.filter((shard) => shard.owners === "web")).toHaveLength(2)
     expect(shards.find((shard) => shard.name === "remaining")?.owners).toBe(
-      "browser-contract,citation-contract,desktop-electron,opencode-adapter,shared-script,root-script",
+      "browser-contract,citation-contract,transcript-contract,desktop-electron,opencode-adapter,shared-script,root-script",
     )
     expect(shards.filter((shard) => shard.install_ripgrep === true)).toHaveLength(3)
     expect(shards.filter((shard) => shard.prepare_generated === true)).toHaveLength(2)

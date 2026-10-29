@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import { setTimeout as sleep } from "node:timers/promises"
-import { MessageID, SessionID } from "@buddy/opencode-adapter/id"
 import {
   applyWhiteboardDrawingProgram as applyWhiteboardDrawingProgramForObject,
   parseDrawingProgram,
@@ -27,6 +26,7 @@ import {
 import type { WhiteboardRenderReport } from "../../src/learning/features/whiteboard/service/types"
 import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
 import { tmpdir } from "../helpers/tmpdir"
+import { createBuddyToolContext } from "../helpers/tools"
 import {
   parseJsonArray,
   parseJsonObject,
@@ -40,16 +40,7 @@ type OverflowFixture = {
 }
 
 function createContext(input: { directory: string; sessionID: string }): BuddyToolContext {
-  return {
-    directory: input.directory,
-    sessionID: SessionID.make(input.sessionID),
-    messageID: MessageID.make("msg_whiteboard"),
-    agent: "buddy",
-    abort: new AbortController().signal,
-    messages: [],
-    metadata: async () => {},
-    ask: async () => {},
-  }
+  return createBuddyToolContext({ ...input, messageID: "msg_whiteboard", agent: "buddy" })
 }
 
 function layoutIssueRecords(output: TJsonObject): TJsonObject[] | undefined {

@@ -29,9 +29,10 @@ describe("permission dock", () => {
           request={{
             id: "per_scope",
             sessionID: "ses_scope",
-            permission: "external_directory",
-            patterns: ["/Users/example/Downloads/*"],
-            always: ["/Users/example/Downloads/*"],
+            action: "outside_notebook",
+            resources: ["/Users/example/Downloads/*"],
+            save: ["/Users/example/Downloads/*"],
+            file: "/Users/example/Downloads/file.pdf",
             metadata: {
               filepath: "/Users/example/Downloads/file.pdf",
               parentDir: "/Users/example/Downloads",
@@ -45,7 +46,7 @@ describe("permission dock", () => {
     })
 
     expect(container.textContent).toContain("Permission needed: Access external folder")
-    expect(container.textContent).not.toContain("external_directory")
+    expect(container.textContent).not.toContain("outside_notebook")
     expect(container.textContent).toContain("File")
     expect(container.textContent).toContain("…")
     expect(container.textContent).toContain("Downloads/file.pdf")
@@ -59,13 +60,14 @@ describe("permission dock", () => {
 
     const buttons = Array.from(container.querySelectorAll("button"))
     expect(buttons.map((button) => button.textContent)).toEqual([
-      "Reject",
-      "Allow always",
+      "Deny with feedback",
+      "Deny",
+      "Always allow",
       "Allow once",
     ])
 
     await act(async () => {
-      buttons[1]?.click()
+      buttons.find((button) => button.textContent === "Always allow")?.click()
     })
 
     expect(replies).toEqual(["always"])
@@ -78,9 +80,9 @@ describe("permission dock", () => {
           request={{
             id: "per_location",
             sessionID: "ses_location",
-            permission: "external_directory",
-            patterns: ["/Users/example/Desktop/*"],
-            always: ["/Users/example/Desktop/*"],
+            action: "outside_notebook",
+            resources: ["/Users/example/Desktop/*"],
+            save: ["/Users/example/Desktop/*"],
             metadata: { parentDir: "/Users/example/Desktop" },
           }}
           onReply={async () => {}}
@@ -103,9 +105,10 @@ describe("permission dock", () => {
           request={{
             id: "per_shell",
             sessionID: "ses_shell",
-            permission: "external_directory",
-            patterns: ["/Users/example/Desktop/*"],
-            always: ["/Users/example/Desktop/*"],
+            action: "outside_notebook",
+            resources: ["/Users/example/Desktop/*"],
+            save: ["/Users/example/Desktop/*"],
+            command: "cat /Users/example/Desktop/*.md",
             metadata: {
               command: "cat /Users/example/Desktop/*.md",
               directories: ["/Users/example/Desktop"],
@@ -130,9 +133,10 @@ describe("permission dock", () => {
           request={{
             id: "per_bash",
             sessionID: "ses_bash",
-            permission: "bash",
-            patterns: ["cat /Users/example/Desktop/buddy-permission-test.md"],
-            always: [],
+            action: "shell",
+            resources: ["cat /Users/example/Desktop/buddy-permission-test.md"],
+            save: [],
+            command: "cat /Users/example/Desktop/buddy-permission-test.md",
             metadata: { command: "cat /Users/example/Desktop/buddy-permission-test.md" },
           }}
           onReply={async () => {}}
@@ -152,9 +156,9 @@ describe("permission dock", () => {
           request={{
             id: "per_read_external",
             sessionID: "ses_read_external",
-            permission: "read",
-            patterns: ["../resources/notes.md"],
-            always: ["*"],
+            action: "read",
+            resources: ["../resources/notes.md"],
+            save: ["*"],
             metadata: {},
           }}
           onReply={async () => {}}
@@ -175,9 +179,9 @@ describe("permission dock", () => {
           request={{
             id: "per_once",
             sessionID: "ses_once",
-            permission: "read",
-            patterns: ["README.md"],
-            always: [],
+            action: "read",
+            resources: ["README.md"],
+            save: [],
             metadata: {},
           }}
           onReply={async () => {}}
@@ -187,11 +191,31 @@ describe("permission dock", () => {
 
     const buttons = Array.from(container.querySelectorAll("button"))
     expect(buttons.map((button) => button.textContent)).toEqual([
-      "Reject",
-      "Allow always",
+      "Deny with feedback",
+      "Deny",
+      "Always allow",
       "Allow once",
     ])
     expect(buttons.every((button) => !button.disabled)).toBe(true)
     expect(container.textContent).toContain("Permission needed: Read README.md")
   })
+  test("rejects with the user's feedback and does not reuse it for the next request", async () => {
+    const replies: PermissionReply[] = []
+    const render = (id: string) => root.render(<PermissionDock request={{ id, sessionID: "ses_1", action: "shell", resources: ["rm file"], save: ["rm *"] }} onReply={async (reply) => { replies.push(reply) }} />)
+    await act(async () => render("per_1"))
+    await act(async () => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Deny with feedback")?.click())
+    const textarea = container.querySelector("textarea")
+    expect(textarea).not.toBeNull()
+    if (!textarea) throw new Error("Missing feedback input")
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set
+      setter?.call(textarea, "Keep the file and read it instead")
+      textarea.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Deny and send feedback")?.click())
+    expect(replies).toEqual([{ reply: "reject", message: "Keep the file and read it instead" }])
+    await act(async () => render("per_2"))
+    expect(container.querySelector("textarea")).toBeNull()
+  })
+
 })

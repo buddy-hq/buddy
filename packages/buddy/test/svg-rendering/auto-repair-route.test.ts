@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { publishGlobalEvent } from "@buddy/opencode-adapter/global-event"
 import { app } from "../../src/index"
 import {
   readSvgAutoRepairRequest,
@@ -10,7 +9,6 @@ import {
   containsStandaloneReportedSvgFence,
   reportedSvgFenceMatches,
   setSessionInteractionRuntimeOverrides,
-  subscribeSvgAutoRepairTurnSettlement,
 } from "../../src/session/orchestration/interaction-actions"
 import { tmpdir } from "../helpers/tmpdir"
 import {
@@ -106,66 +104,6 @@ function repairRequest(
 }
 
 describe("SVG auto-repair route", () => {
-  test("observes completion only for the matching hidden assistant turn", async () => {
-    const messages: string[] = []
-    const repairRequestID = "msg_buddy_svg_auto_repair_test"
-    const unsubscribe = subscribeSvgAutoRepairTurnSettlement({
-      directory: "/workspace",
-      sessionID: SESSION_ID,
-      repairRequestID,
-      settle: async (message) => {
-        messages.push(message)
-      },
-    })
-
-    try {
-      publishGlobalEvent({
-        directory: "/workspace",
-        payload: {
-          type: "message.updated",
-          properties: {
-            sessionID: SESSION_ID,
-            info: {
-              role: "assistant",
-              parentID: "msg_unrelated",
-              time: { completed: Date.now() },
-            },
-          },
-        },
-      })
-      expect(messages).toEqual([])
-
-      publishGlobalEvent({
-        directory: "/workspace",
-        payload: {
-          type: "message.updated",
-          properties: {
-            sessionID: SESSION_ID,
-            info: {
-              role: "assistant",
-              parentID: repairRequestID,
-              time: { completed: Date.now() },
-            },
-          },
-        },
-      })
-      expect(messages).toEqual([
-        "Automatic SVG repair completed without producing a validated SVG.",
-      ])
-
-      publishGlobalEvent({
-        directory: "/workspace",
-        payload: {
-          type: "session.error",
-          properties: { sessionID: SESSION_ID },
-        },
-      })
-      expect(messages).toHaveLength(1)
-    } finally {
-      unsubscribe()
-    }
-  })
-
   test("accepts only standalone transcript fences with the first valid closing delimiter", () => {
     expect(containsStandaloneReportedSvgFence(`Before\r\n${RAW_FENCE}\r\nAfter`, RAW_FENCE)).toBe(
       true,

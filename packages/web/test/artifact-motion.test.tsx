@@ -87,6 +87,7 @@ describe("transcript artifact motion", () => {
               },
               metadata: {},
               output: "history-artifact",
+              shell: { command: "printf history-artifact", output: "history-artifact" },
               title: "bash",
               time: { start: 1, end: 2 },
             },

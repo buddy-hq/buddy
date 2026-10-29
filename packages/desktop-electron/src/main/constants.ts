@@ -1,3 +1,4 @@
+import { join } from "node:path"
 import { app } from "electron"
 import { BUDDY_BRANDING } from "@buddy/script/branding"
 import { resolveBuddyDistribution } from "@buddy/script/distribution"
@@ -9,6 +10,7 @@ import {
 import {
   BUDDY_DEV_APP_NAME,
   BUDDY_DEV_INSTANCE_NAME_ENV,
+  BUDDY_DEV_USER_DATA_DIR_ENV,
   formatBuddyDevAppName,
 } from "../shared/dev-app-name"
 
@@ -69,4 +71,9 @@ export function resolveAppName(packaged: boolean) {
 export function resolveAppId(packaged: boolean) {
   if (!packaged) return "ai.buddy.desktop.dev"
   return distribution?.appId ?? "ai.buddy.desktop.dev"
+}
+
+export function resolveUserDataPath(packaged: boolean, appDataPath: string) {
+  const devUserDataPath = packaged ? undefined : process.env[BUDDY_DEV_USER_DATA_DIR_ENV]?.trim()
+  return devUserDataPath || join(appDataPath, resolveAppId(packaged))
 }

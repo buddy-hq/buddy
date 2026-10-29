@@ -86,11 +86,12 @@ const browserRenderRequestParamSchema = z
 const svgRenderingErrorSchema = z
   .object({
     error: z.string().min(1),
+    code: z.string(),
   })
   .strict()
 
 function invalidRequest(message: string) {
-  return { error: message }
+  return { error: message, code: "request.invalid" }
 }
 
 export const SvgRenderingRoutes = new Hono()

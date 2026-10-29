@@ -23,6 +23,7 @@ export type NodeServerListener = ReturnType<typeof listenNodeServer>
 
 let activeListener: NodeServerListener | undefined
 let signalHandlersInstalled = false
+let stopping = false
 
 function readPortFromEnv() {
   const value = process.env[SERVER_PORT_ENV]
@@ -111,6 +112,8 @@ export function isMainModule(entrypoint = process.argv[1]) {
 }
 
 async function stopActiveListener(exitCode: number) {
+  if (stopping) return
+  stopping = true
   try {
     await activeListener?.stop(true)
     process.exit(exitCode)
@@ -123,10 +126,10 @@ async function stopActiveListener(exitCode: number) {
 function installSignalHandlers() {
   if (signalHandlersInstalled) return
   signalHandlersInstalled = true
-  process.once("SIGINT", () => {
+  process.on("SIGINT", () => {
     void stopActiveListener(0)
   })
-  process.once("SIGTERM", () => {
+  process.on("SIGTERM", () => {
     void stopActiveListener(0)
   })
 }

@@ -15,6 +15,7 @@ import { language } from "@/context/language"
 import { GetStartedChats } from "@/components/layout/chat-left-sidebar/get-started-chats"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import type { GetStartedChat } from "@/lib/get-started-chats"
+import type { ProviderInfo } from "@/state/chat-types"
 import { useGetStartedFlow } from "@/state/use-get-started-flow"
 import buddyMascotWaveUrl from "../../../../../assets/mascot/buddy-mascot-wave.png"
 import buddyMascotIdeaUrl from "../../../../../assets/mascot/buddy-mascot-idea.png"
@@ -104,6 +105,7 @@ type ChatEmptyStateBoardProps = {
   directory: string
   directories: string[]
   selectedModel: string
+  providers: readonly ProviderInfo[]
   persona: string
   onSelectNotebook: (directory: string) => void
   onStartGetStartedChat?: (chat: GetStartedChat) => Promise<void> | void
@@ -133,7 +135,7 @@ function formatBoardDate(now: Date) {
 
 export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
   const isInbox = isInboxDirectory(props.directory)
-  const getStartedFlow = useGetStartedFlow(props.directory, props.selectedModel)
+  const getStartedFlow = useGetStartedFlow(props.directory, props.selectedModel, props.providers)
   const showGetStarted = isInbox && getStartedFlow.isActive && Boolean(props.onStartGetStartedChat)
   const headline = isInbox
     ? language.t("chat.emptyState.inboxTitle")

@@ -1,5 +1,7 @@
 import type { Context } from "hono"
-import { parseTString, type TJsonValue } from "./parse"
+import { parseTJsonObject, parseTString, type TJsonValue } from "./parse"
+import { routeErrorBody, routeErrorResponse } from "./route-errors"
+import { normalizeErrorResponse } from "./error-normalization"
 
 export type SdkResult<T> = {
   data?: T
@@ -56,23 +58,33 @@ export function openCodeDirectoryParams(directory?: string) {
   return directory ? { directory } : {}
 }
 
-export function sdkErrorResponse<TData>(
+export async function sdkErrorResponse<TData>(
   result: SdkResult<TData>,
   options?: { forceBusyAs409?: boolean },
-): Response {
-  const status = result.response?.status ?? 400
+): Promise<Response> {
+  const originalStatus = result.response?.status ?? 400
   const message = extractSdkErrorMessage(result.error) ?? "Request failed"
-  if (options?.forceBusyAs409 && /busy/i.test(message)) {
-    return Response.json({ error: "Session is already running" }, { status: 409 })
+  const busy = options?.forceBusyAs409 && /busy/i.test(message)
+  const status = busy ? 409 : originalStatus
+  const payload = parseTJsonObject(result.error)
+  const code = parseTString(payload?.code)
+  if (status === 500 && code === undefined) {
+    const response = await routeErrorResponse(new Error("SDK request failed", { cause: result.error }))
+    return new Response(response.body, { status, headers: response.headers })
   }
-  return Response.json({ error: message }, { status })
+  const body = routeErrorBody(status, busy ? "Session is already running" : message, code)
+  const errorID = parseTString(payload?.errorID)
+  const details = parseTJsonObject(payload?.details)
+  if (errorID !== undefined) body.errorID = errorID
+  if (details !== undefined) body.details = details
+  return Response.json(body, { status })
 }
 
-export function respondWithSdkResult<T>(
+export async function respondWithSdkResult<T>(
   c: Context,
   result: SdkResult<T>,
   options?: { forceBusyAs409?: boolean },
-): Response {
+): Promise<Response> {
   if (result.error !== undefined) {
     return sdkErrorResponse(result, options)
   }
@@ -80,17 +92,17 @@ export function respondWithSdkResult<T>(
   return c.json(result.data ?? null)
 }
 
-export function respondWithStreamSdkResult<TData>(
+export async function respondWithStreamSdkResult<TData>(
   c: Context,
   result: SdkResult<TData>,
   options?: { forceBusyAs409?: boolean },
-): Response {
+): Promise<Response> {
   if (result.error !== undefined) {
     return sdkErrorResponse(result, options)
   }
 
   if (!result.response) {
-    return c.json({ error: "Request failed" }, 500)
+    return routeErrorResponse(new Error("SDK stream response is missing"))
   }
 
   return new Response(result.response.body, {
@@ -100,11 +112,10 @@ export function respondWithStreamSdkResult<TData>(
   })
 }
 
-export async function runSdkRoute(c: Context, task: () => Promise<Response>): Promise<Response> {
+export async function runSdkRoute(_c: Context, task: () => Promise<Response>): Promise<Response> {
   try {
-    return await task()
+    return await normalizeErrorResponse(await task())
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return c.json({ error: message }, 500)
+    return routeErrorResponse(error)
   }
 }

@@ -236,7 +236,7 @@ Buddy sees when a New tab is showing, sees New tabs in the tab list, and can swi
 
 ### Buddy and chat tabs
 
-A chat or subagent chat opened as a Bench tab shows in Buddy's tab list with its chat ID, and Buddy is told when one is the tab on screen. Buddy cannot switch to a chat tab or read it through Bench; **Read Bench** gives the chat ID and the session database the transcript is stored in, which Buddy can inspect with its own tools. An `@`-mentioned chat tab reaches Buddy as `Title (open Bench tab session:…; chat: <chat ID>)`.
+A chat or subagent chat opened as a Bench tab shows in Buddy's tab list with its chat ID, and Buddy is told when one is the tab on screen. Buddy cannot switch to a chat tab or read it through Bench; **Read Bench** gives the chat ID, and Buddy reads the transcript with its chat-reading tool. An `@`-mentioned chat tab reaches Buddy as `Title (open Bench tab session:…; chat: <chat ID>)`.
 
 ### What Buddy sees of Bench
 

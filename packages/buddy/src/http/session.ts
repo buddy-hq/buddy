@@ -1,4 +1,5 @@
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { isNotFound } from "@buddy/agent-runtime/errors"
+import { getAgentRuntime } from "../runtime/agent-runtime"
 import { resolveDirectory } from "../project"
 import { parseTJsonObject, parseTString } from "./parse"
 
@@ -24,7 +25,7 @@ export async function isSessionInRequestedProject<TSession>(
   session: TSession,
 ): Promise<boolean> {
   const payload = parseTSessionProjectScope(session)
-  if (payload === undefined) return true
+  if (payload === undefined) return false
 
   const sessionDirectory =
     payload.directory !== undefined ? resolveDirectory(payload.directory) : undefined
@@ -33,21 +34,15 @@ export async function isSessionInRequestedProject<TSession>(
     return true
   }
 
-  const requestedProjectID = await OpenCodeInstance.provide({
-    directory,
-    fn: () => OpenCodeInstance.project.id,
-  })
-
-  const sessionProjectID =
-    payload.projectID !== undefined
-      ? payload.projectID
-      : payload.directory !== undefined
-        ? await OpenCodeInstance.provide({
-            directory: payload.directory,
-            fn: () => OpenCodeInstance.project.id,
-          })
-        : undefined
-
-  if (!sessionProjectID) return true
-  return sessionProjectID === requestedProjectID
+  const runtime = await getAgentRuntime()
+  if (!sessionDirectory) return false
+  const [requestedLocation, owningLocation] = await Promise.all([
+    runtime.workspace.location(requestedDirectory),
+    runtime.workspace.location(sessionDirectory).catch((cause: unknown) => {
+      if (isNotFound(cause, "location")) return undefined
+      throw cause
+    }),
+  ])
+  if (!owningLocation) return false
+  return resolveDirectory(requestedLocation.project.canonical) === resolveDirectory(owningLocation.project.canonical)
 }

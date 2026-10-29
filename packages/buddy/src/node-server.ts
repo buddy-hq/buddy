@@ -2,6 +2,9 @@ import { serve } from "@hono/node-server"
 import { app } from "./app"
 import { startLegacyQuoteTitleRepair } from "./notes/quote-title-repair"
 import { startSessionNoteTitleSync } from "./notes/session-title-sync"
+import { shutdownAgentRuntime } from "./runtime/agent-runtime"
+
+const AGENT_RUNTIME_CLOSE_TIMEOUT_MS = 4_000
 
 type NodeServerConfig = {
   hostname: string
@@ -27,20 +30,45 @@ export function listenNodeServer(config: NodeServerConfig): NodeServerListener {
 
   const stopTitleSync = startSessionNoteTitleSync()
   startLegacyQuoteTitleRepair()
+  let stopping: Promise<void> | undefined
   return {
-    stop: (close = false) =>
-      new Promise<void>((resolve, reject) => {
+    stop: (close = false) => {
+      stopping ??= (async () => {
         stopTitleSync()
-        if (close) closeAllConnections(server)
-        server.close((error) => {
-          if (error) {
-            reject(error)
-            return
-          }
-          resolve()
+        const httpClosed = new Promise<void>((resolve, reject) => {
+          server.close((error) => {
+            if (error) {
+              reject(error)
+              return
+            }
+            resolve()
+          })
+          if (close) closeAllConnections(server)
         })
-        if (close) closeAllConnections(server)
+        const results = await Promise.allSettled([httpClosed, closeRuntimeBeforeShutdown()])
+        for (const result of results) {
+          if (result.status === "rejected") throw result.reason
+        }
+      })()
+      return stopping
+    },
+  }
+}
+
+async function closeRuntimeBeforeShutdown(): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  try {
+    await Promise.race([
+      shutdownAgentRuntime(),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(() => {
+          console.warn("Timed out closing the Buddy agent runtime before shutdown")
+          resolve()
+        }, AGENT_RUNTIME_CLOSE_TIMEOUT_MS)
       }),
+    ])
+  } finally {
+    clearTimeout(timeout)
   }
 }
 

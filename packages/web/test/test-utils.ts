@@ -199,6 +199,7 @@ export function createProviderModelInfo(
     providerID,
     name,
     family,
+    free,
     releaseDate,
     variants,
     status,
@@ -212,6 +213,7 @@ export function createProviderModelInfo(
     providerID,
     name: name ?? id,
     family,
+    free: free ?? false,
     releaseDate,
     variants: variants ?? [],
     status: status ?? "active",
@@ -249,11 +251,12 @@ export function createProviderInfo(
       models?: ProviderModelInfo[]
     },
 ): ProviderInfo {
-  const { id, name, source, env, connected, methods, models, ...rest } = input
+  const { id, name, bundled, source, env, connected, methods, models, ...rest } = input
   return {
     ...rest,
     id,
     name: name ?? id,
+    bundled: bundled ?? false,
     source: source ?? "config",
     env: env ?? [],
     connected: connected ?? false,

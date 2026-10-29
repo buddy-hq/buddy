@@ -1,13 +1,16 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { act, createRef, type RefObject } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { detectPlatform } from "@tanstack/react-hotkeys"
 import type { Citation } from "@buddy/citation-contract"
+import { REFERENCE_PART_TYPE } from "@buddy/transcript-contract/prompt"
+import { toast } from "@buddy/ui"
 import {
   resolveComposerAccessoryLayout,
   resolveComposerReplacementHeight,
 } from "../src/components/prompt/composer-accessory-layout"
 import { CitationCommentPopover } from "../src/components/prompt/citation-comment-popover"
+import { useDirectoryErrorNotice } from "../src/components/directory-chat/use-directory-error-notice"
 import {
   PromptComposer,
   type PromptComposerAttachmentsApi,
@@ -15,11 +18,22 @@ import {
 import { getCursorPosition } from "../src/components/prompt/editor-dom"
 import { requestPromptComposerFocus } from "../src/components/prompt/prompt-composer-focus"
 import { readPromptComposerLiveDraft } from "../src/components/prompt/prompt-composer-live-draft"
+import {
+  collectPromptParts,
+  renderPromptParts,
+  serializePromptParts,
+} from "../src/components/prompt/prompt-parts"
 import { appendCitationToDraft } from "../src/components/readers/utils/reading-selection-draft"
 import { requestCitationComment } from "../src/lib/citations/comment-request"
-import { SELECTION_CONTEXT_PART_TYPE } from "../src/components/prompt/prompt-types"
+import {
+  SELECTION_CONTEXT_PART_TYPE,
+  type PromptComposerPart,
+} from "../src/components/prompt/prompt-types"
 import { createBrowserPlatform, setRuntimePlatform } from "../src/context/platform"
+import { buildPromptSubmissionParts } from "../src/lib/directory-chat/chat-prompt-helpers"
 import { quoteMessageIntoPromptDraft } from "../src/features/notes/quote-message-into-prompt-draft"
+import { sendPrompt } from "../src/state/chat-actions"
+import { useChatStore } from "../src/state/chat-store"
 import { useGameStore } from "../src/state/game-store"
 import {
   createTextPromptDraft,
@@ -27,17 +41,23 @@ import {
   getPromptDraft,
   getPromptScopeKey,
   PROMPT_STORE_STORAGE_KEY,
+  PROMPT_STORE_VERSION,
   usePromptStore,
 } from "../src/state/prompt-store"
+import { resetTranscriptRepositoryForTests } from "../src/state/transcript-repository"
 import {
   createTestQueryClient,
   seedSkillPresentations,
   TestQueryClientProvider,
 } from "./query-test-utils"
+import { installTestFetch, restoreTestFetch, seedDirectoryChatState } from "./test-utils"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_PROMPT = "yeah nice"
 const PROMPT_STORE_SYNC_SETTLE_MS = 300
+const REJECTED_SESSION_ID = "ses_rejected"
+const CONFIG_INVALID_MESSAGE =
+  "Invalid config: /repo/.buddy/buddy.jsonc (models.gpt.settings.compaction)"
 let queryClient: ReturnType<typeof createTestQueryClient>
 
 function citation(id: string, comment?: string): Citation {
@@ -133,6 +153,31 @@ function renderPromptComposer(input: {
   )
 }
 
+function RejectablePromptComposer() {
+  const isBusy = useChatStore(
+    (state) =>
+      state.directories[TEST_DIRECTORY]?.sessionStatusByID[REJECTED_SESSION_ID]?.type === "busy",
+  )
+  useDirectoryErrorNotice({
+    directory: TEST_DIRECTORY,
+    onCloseNotebook: () => undefined,
+    onOpenSettings: () => undefined,
+  })
+  return renderPromptComposer({
+    sessionID: REJECTED_SESSION_ID,
+    isBusy,
+    onSubmit: async (draft) => {
+      const promptKey = getPromptScopeKey(TEST_DIRECTORY, REJECTED_SESSION_ID)
+      usePromptStore.getState().clearDraft(promptKey)
+      try {
+        await sendPrompt(TEST_DIRECTORY, draft.value)
+      } catch {
+        usePromptStore.getState().replaceDraft(promptKey, draft)
+      }
+    },
+  })
+}
+
 describe("prompt composer submit", () => {
   let container: HTMLDivElement
   let root: Root
@@ -192,6 +237,152 @@ describe("prompt composer submit", () => {
     expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe(
       "",
     )
+  })
+
+  test("restores and sends a reference from a draft saved with the legacy part type", async () => {
+    const promptKey = getPromptScopeKey(TEST_DIRECTORY)
+    const reference = { name: "docs", path: "/reference-cache/docs" }
+    localStorage.setItem(
+      PROMPT_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: PROMPT_STORE_VERSION,
+        state: {
+          draftsByKey: {
+            [promptKey]: {
+              value: "Read @docs",
+              parts: [
+                { type: "text", text: "Read " },
+                { type: "opencode-reference", ...reference },
+              ],
+              attachments: [],
+              cursor: 10,
+              updatedAt: 1,
+            },
+          },
+          historyByDirectory: {},
+        },
+      }),
+    )
+    await usePromptStore.persist.rehydrate()
+    let submitted: Parameters<Parameters<typeof PromptComposer>[0]["onSubmit"]>[0] | undefined
+
+    await act(async () => {
+      root.render(
+        renderPromptComposer({
+          onSubmit: (draft) => {
+            submitted = draft
+          },
+        }),
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-component="prompt-editor"]')?.textContent).toContain(
+      "Read @docs",
+    )
+
+    await act(async () => {
+      container
+        .querySelector("#prompt-composer-form")
+        ?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+      await flushEffects()
+    })
+
+    expect(submitted?.value).toBe("Read @docs")
+    expect(
+      submitted ? buildPromptSubmissionParts(submitted.parts, submitted.attachments) : undefined,
+    ).toEqual([
+      { type: "text", text: "Read " },
+      { type: REFERENCE_PART_TYPE, ...reference },
+    ])
+  })
+
+  test("keeps draft chips across a chat switch and persisted store reload", async () => {
+    const sourceSessionID = "ses_reference_draft"
+    const otherSessionID = "ses_other_draft"
+    const promptKey = getPromptScopeKey(TEST_DIRECTORY, sourceSessionID)
+    const parts: PromptComposerPart[] = [
+      { type: "text", text: "Please use " },
+      { type: REFERENCE_PART_TYPE, name: "docs", path: "/reference-cache/docs" },
+      { type: "text", text: " " },
+      { type: "agent", name: "code" },
+      { type: "text", text: " " },
+      { type: "skill", name: "review" },
+      { type: "text", text: " " },
+      { type: "workspace-file-reference", path: "notes/draft.md" },
+      { type: "text", text: " " },
+      { type: "resource-reference", key: "resource-1" },
+      { type: "text", text: " " },
+      {
+        type: "notebook-reference",
+        text: "Plan (note: plan.md)",
+        title: "Plan",
+        kind: "note",
+      },
+      { type: "text", text: " " },
+    ]
+    usePromptStore.getState().replaceDraft(
+      promptKey,
+      createTextPromptDraft(serializePromptParts(parts)),
+    )
+    let submitted: Parameters<Parameters<typeof PromptComposer>[0]["onSubmit"]>[0] | undefined
+    const renderSession = (sessionID: string) =>
+      renderPromptComposer({
+        sessionID,
+        onSubmit: (draft) => {
+          submitted = draft
+        },
+      })
+    const editor = () => {
+      const element = container.querySelector<HTMLElement>('[data-component="prompt-editor"]')
+      if (!element) throw new Error("Expected the prompt editor")
+      return element
+    }
+
+    await act(async () => {
+      root.render(renderSession(sourceSessionID))
+    })
+    act(() => {
+      renderPromptParts(editor(), parts)
+      editor().dispatchEvent(new Event("input", { bubbles: true }))
+      expect(collectPromptParts(editor())).toEqual(parts)
+      root.render(renderSession(otherSessionID))
+    })
+    await act(async () => {
+      editor().textContent = "Reply in the other chat"
+      editor().dispatchEvent(new Event("input", { bubbles: true }))
+      container
+        .querySelector("#prompt-composer-form")
+        ?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+    })
+    expect(submitted?.value).toBe("Reply in the other chat")
+    await act(async () => {
+      root.render(renderSession(sourceSessionID))
+    })
+    expect(collectPromptParts(editor())).toEqual(parts)
+
+    await act(async () => {
+      root.render(null)
+    })
+    flushPromptStorePersistence()
+    const saved = localStorage.getItem(PROMPT_STORE_STORAGE_KEY)
+    if (!saved) throw new Error("Expected a persisted draft")
+    usePromptStore.setState({ draftsByKey: {}, historyByDirectory: {}, historyNavigationByKey: {} })
+    flushPromptStorePersistence()
+    localStorage.setItem(PROMPT_STORE_STORAGE_KEY, saved)
+    await usePromptStore.persist.rehydrate()
+    expect(getPromptDraft(usePromptStore.getState(), promptKey).parts).toEqual(parts)
+
+    await act(async () => {
+      root.render(renderSession(sourceSessionID))
+    })
+    expect(collectPromptParts(editor())).toEqual(parts)
+    await act(async () => {
+      container
+        .querySelector("#prompt-composer-form")
+        ?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+    })
+    expect(submitted?.parts).toEqual(parts)
   })
 
   test("sends a live draft with earlier citations and the newly edited comment", async () => {
@@ -742,48 +933,166 @@ describe("prompt composer submit", () => {
     )
   })
 
-  test("restores the editor and focuses the end of its draft", async () => {
+  test("shows an undone prompt at once when the undo also settles the turn", async () => {
     const promptKey = getPromptScopeKey(TEST_DIRECTORY)
-    const store = usePromptStore.getState()
-    store.replaceDraft(promptKey, createTextPromptDraft(TEST_PROMPT))
+    usePromptStore.getState().replaceDraft(promptKey, createTextPromptDraft("/undo"))
+    const pendingFrames = new Map<number, FrameRequestCallback>()
+    let lastFrameID = 0
+    const requestAnimationFrame = window.requestAnimationFrame
+    const cancelAnimationFrame = window.cancelAnimationFrame
+    window.requestAnimationFrame = (callback) => {
+      lastFrameID += 1
+      pendingFrames.set(lastFrameID, callback)
+      return lastFrameID
+    }
+    window.cancelAnimationFrame = (frameID) => {
+      pendingFrames.delete(frameID)
+    }
+    const runPendingFrames = () => {
+      const callbacks = [...pendingFrames.values()]
+      pendingFrames.clear()
+      for (const callback of callbacks) callback(performance.now())
+    }
+    const renderComposer = (isBusy: boolean) =>
+      root.render(renderPromptComposer({ isBusy, onSubmit: () => undefined }))
 
-    let restoreDraft: (() => void) | undefined
+    try {
+      await act(async () => {
+        renderComposer(false)
+        await flushEffects()
+      })
+      await act(async () => {
+        container
+          .querySelector("#prompt-composer-form")
+          ?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+        renderComposer(true)
+        await flushEffects()
+      })
+      await act(async () => {
+        renderComposer(false)
+        await flushEffects()
+      })
 
-    await act(async () => {
-      root.render(
-        renderPromptComposer({
-          onSubmit: () => {
-            usePromptStore.getState().clearDraft(promptKey)
-            restoreDraft = () => {
-              usePromptStore.getState().replaceDraft(promptKey, createTextPromptDraft(TEST_PROMPT))
-            }
-          },
-        }),
-      )
-      await flushEffects()
-    })
-
-    const form = container.querySelector("#prompt-composer-form")
-
-    await act(async () => {
-      form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
-      await flushEffects()
-    })
-
-    expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe(
-      "",
-    )
-
-    await act(async () => {
-      restoreDraft?.()
+      Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", false)
+      usePromptStore.getState().replaceDraft(promptKey, createTextPromptDraft(TEST_PROMPT))
       requestPromptComposerFocus(TEST_DIRECTORY)
+      await Promise.resolve()
+      runPendingFrames()
       await flushEffects()
-    })
+      runPendingFrames()
+    } finally {
+      Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+      window.requestAnimationFrame = requestAnimationFrame
+      window.cancelAnimationFrame = cancelAnimationFrame
+    }
 
     const editor = container.querySelector<HTMLElement>('[data-component="prompt-editor"]')
-    expect(editor?.textContent).toContain(TEST_PROMPT)
+    expect(editor?.textContent).toBe(TEST_PROMPT)
     expect(document.activeElement).toBe(editor)
     expect(editor ? getCursorPosition(editor) : undefined).toBe(TEST_PROMPT.length)
+  })
+
+  test("keeps a prompt the server rejects in the composer and says why", async () => {
+    const promptKey = getPromptScopeKey(TEST_DIRECTORY, REJECTED_SESSION_ID)
+    const draft = {
+      value: "Read @docs",
+      parts: [
+        { type: "text" as const, text: "Read " },
+        { type: REFERENCE_PART_TYPE, name: "docs", path: "/reference-cache/docs" },
+      ],
+      attachments: [
+        {
+          id: "attachment-image",
+          filename: "diagram.png",
+          mime: "image/png",
+          dataUrl: "data:image/png;base64,iVBORw==",
+          kind: "image" as const,
+        },
+      ],
+      cursor: 10,
+    }
+    usePromptStore.getState().replaceDraft(promptKey, draft)
+    const session = {
+      id: REJECTED_SESSION_ID,
+      title: "Rejected",
+      directory: TEST_DIRECTORY,
+      time: { created: 1, updated: 1 },
+    }
+    seedDirectoryChatState(TEST_DIRECTORY, { sessionID: REJECTED_SESSION_ID, sessions: [session] })
+    const rejections = [
+      Response.json(
+        {
+          error: CONFIG_INVALID_MESSAGE,
+          code: "config.invalid",
+          details: { path: "models.gpt.settings.compaction", file: "/repo/.buddy/buddy.jsonc" },
+        },
+        { status: 400 },
+      ),
+      Response.json(
+        { error: "Internal server error", code: "internal", errorID: "err_7f3a" },
+        { status: 500 },
+      ),
+    ]
+    const originalFetch = globalThis.fetch
+    installTestFetch(async (input) => {
+      const url = new URL(input instanceof Request ? input.url : String(input), "http://buddy.test")
+      if (url.pathname.endsWith("/prompt_async")) {
+        return rejections.shift() ?? new Response(null, { status: 204 })
+      }
+      if (url.pathname === `/api/session/${REJECTED_SESSION_ID}`) return Response.json(session)
+      if (url.pathname === "/api/session") return Response.json([session])
+      return Response.json([])
+    })
+    const errorToast = spyOn(toast, "error").mockImplementation(() => "test-toast")
+    const submit = async () => {
+      await act(async () => {
+        container
+          .querySelector("#prompt-composer-form")
+          ?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+        await flushEffects()
+      })
+    }
+    const expectDraftInComposer = () => {
+      const editor = container.querySelector('[data-component="prompt-editor"]')
+      expect(editor?.textContent).toContain("Read @docs")
+      expect(editor?.querySelector(`[data-type="${REFERENCE_PART_TYPE}"]`)).not.toBeNull()
+      expect(
+        container.querySelector('[data-component="prompt-attachment-item"]')?.getAttribute(
+          "data-filename",
+        ),
+      ).toBe("diagram.png")
+    }
+
+    try {
+      await act(async () => {
+        root.render(<RejectablePromptComposer />)
+        await flushEffects()
+      })
+
+      await submit()
+      expectDraftInComposer()
+      expect(errorToast).toHaveBeenLastCalledWith(
+        CONFIG_INVALID_MESSAGE,
+        expect.objectContaining({
+          action: expect.objectContaining({ label: "Open settings" }),
+        }),
+      )
+
+      await submit()
+      expectDraftInComposer()
+      expect(errorToast).toHaveBeenLastCalledWith(
+        "Something went wrong",
+        expect.objectContaining({
+          description: "Reference: err_7f3a",
+          action: expect.objectContaining({ label: "Copy reference" }),
+        }),
+      )
+    } finally {
+      errorToast.mockRestore()
+      restoreTestFetch(originalFetch)
+      useChatStore.setState({ directories: {} })
+      resetTranscriptRepositoryForTests()
+    }
   })
 
   test("saves Note mode text without sending it to the model", async () => {

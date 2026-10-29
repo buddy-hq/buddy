@@ -1,11 +1,9 @@
-import {
-  configErrorMessage,
-  isConfigValidationError,
-  syncOpenCodeProjectConfig,
-} from "@buddy/backend/config/runtime"
+import { syncOpenCodeProjectConfig } from "@buddy/backend/config/runtime"
 import type { Context } from "hono"
 import type { DirectoryRequestContext, DirectoryRequestSource } from "./directory"
 import { resolveDirectoryRequestContext } from "./directory"
+import { mapRouteError } from "./route-errors"
+import { normalizeErrorResponse } from "./error-normalization"
 
 type TRouteSuccess<T> = {
   ok: true
@@ -48,14 +46,15 @@ export async function withConfigSync(
   try {
     await syncOpenCodeProjectConfig(contextResult.value.directory)
   } catch (error) {
-    if (isConfigValidationError(error)) {
+    const response = await mapRouteError(error)
+    if (response) {
       return {
         ok: false,
-        response: Response.json({ error: configErrorMessage(error) }, { status: 400 }),
+        response,
       }
     }
     throw new Error(
-      `Failed to sync config before ${input.operation}: ${String(error instanceof Error ? error.message : error)}`,
+      `Failed to sync config before ${input.operation}`,
       { cause: error },
     )
   }
@@ -98,18 +97,18 @@ export function createConfigSyncMiddleware(operation: string) {
 
 function parseTRouteTaskError<TValue>(value: TValue): Error {
   if (value instanceof Error) return value
-  return new Error(String(value))
+  return new Error("Route task failed", { cause: value })
 }
 
 export async function runRouteTask(input: {
   task: () => Promise<Response>
-  mapError?(error: Error): Response | undefined
+  mapError?(error: Error): Response | undefined | Promise<Response | undefined>
 }): Promise<Response> {
   try {
     return await input.task()
   } catch (error) {
-    const response = input.mapError?.(parseTRouteTaskError(error))
-    if (response) return response
+    const response = await input.mapError?.(parseTRouteTaskError(error)) ?? await mapRouteError(error)
+    if (response) return normalizeErrorResponse(response)
     throw error
   }
 }

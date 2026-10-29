@@ -1,7 +1,7 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { mapChemistryRouteError } from "../chemistry/errors"
 import { ChemfigRenderRecordSchema, renderChemfig } from "../chemistry/chemfig-renderer"
 import {
   CHEMFIG_MAX_REQUEST_BODY_BYTES,
@@ -109,7 +109,7 @@ export const ChemistryRoutes = new Hono().post(
           })
           return c.json(ChemfigRenderRecordSchema.parse(record))
         },
-        mapError: mapChemistryRouteError,
+        mapError: mapRouteError,
       }),
     ),
 )

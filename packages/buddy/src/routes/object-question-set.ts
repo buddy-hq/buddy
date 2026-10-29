@@ -1,3 +1,4 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
@@ -5,12 +6,11 @@ import {
   directoryQuerySchema,
   IDEMPOTENCY_KEY_HEADER,
   idempotencyHeaderSchema,
-  mapIdempotencyRouteError,
   routeErrors,
   runRouteTask,
   withDirectoryRoute,
 } from "../http"
-import { BuddyObjectIDSchema, mapBuddyObjectRouteError } from "../objects"
+import { BuddyObjectIDSchema } from "../objects"
 import {
   PublicQuestionSetObjectReadSchema,
   readPublicQuestionSetObject,
@@ -34,10 +34,6 @@ const SubmitQuestionSetObjectAttemptOutputSchema = z
     result: QuestionSetEvaluationResultSchema,
   })
   .strict()
-
-function mapQuestionSetObjectRouteError<TError>(error: TError): Response | undefined {
-  return mapIdempotencyRouteError(error) ?? mapBuddyObjectRouteError(error)
-}
 
 export const ObjectQuestionSetRoutes = new Hono()
   .get(
@@ -70,7 +66,7 @@ export const ObjectQuestionSetRoutes = new Hono()
             })
             return c.json(questionSet)
           },
-          mapError: mapQuestionSetObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -110,7 +106,7 @@ export const ObjectQuestionSetRoutes = new Hono()
             })
             return c.json(SubmitQuestionSetObjectAttemptOutputSchema.parse(result))
           },
-          mapError: mapQuestionSetObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )

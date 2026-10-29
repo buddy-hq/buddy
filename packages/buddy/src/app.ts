@@ -1,4 +1,4 @@
-import "./opencode-runtime/env.js"
+import "./runtime/runtime-paths.js"
 import { Hono } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
@@ -24,12 +24,15 @@ import { ProjectRoutes } from "./routes"
 import { ProviderRoutes } from "./routes"
 import { QuestionRoutes } from "./routes"
 import { ReferenceRoutes } from "./routes"
+import { RuntimeRoutes } from "./routes"
 import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
 import { SvgRenderingRoutes } from "./routes"
 import { TeachingRoutes } from "./routes"
-import { isJsonContentType, normalizeValidationFailureResponse } from "./http"
+import { normalizeErrorResponse } from "./http/error-normalization"
+import { routeErrorBody, routeErrorResponse } from "./http/route-errors"
 import { BUDDY_ENV } from "./storage"
+import { WidgetFrameRoutes } from "./routes/object-html-widget"
 
 export function describeFatalError<TError>(error: TError): string {
   if (error instanceof Error) {
@@ -46,21 +49,6 @@ process.on("unhandledRejection", (error) => {
 process.on("uncaughtException", (error) => {
   console.error("Uncaught backend exception", describeFatalError(error))
 })
-
-async function normalizeHttpException(error: HTTPException) {
-  const response = error.getResponse()
-  if (isJsonContentType(response.headers.get("content-type"))) {
-    return response
-  }
-
-  const rawMessage = (await response.clone().text()).trim()
-  const message =
-    error.status === 400 && rawMessage === "Malformed JSON in request body"
-      ? "Invalid JSON body"
-      : rawMessage || error.message || response.statusText || "Request failed"
-
-  return Response.json({ error: message }, { status: error.status })
-}
 
 function matchesBasicAuth(value: string | undefined, username: string, password: string): boolean {
   if (!value?.startsWith("Basic ")) return false
@@ -81,6 +69,7 @@ export const app = new Hono()
 const api = new Hono()
 
 api.use("*", async (c, next) => {
+  if (c.req.path.startsWith("/api/frame/widget/")) return next()
   const username = process.env[BUDDY_ENV.SERVER_USERNAME]
   const password = process.env[BUDDY_ENV.SERVER_PASSWORD]
 
@@ -94,7 +83,7 @@ api.use("*", async (c, next) => {
   }
 
   c.header("www-authenticate", 'Basic realm="Buddy"')
-  return c.json({ error: "Unauthorized" }, 401)
+  return c.json(routeErrorBody(401, "Unauthorized"), 401)
 })
 
 api.route("/learner", LearnerRoutes)
@@ -108,6 +97,7 @@ api.route("/local-runtimes", LocalRuntimeRoutes)
 api.route("/provider", ProviderRoutes)
 api.route("/question", QuestionRoutes)
 api.route("/reference", ReferenceRoutes)
+api.route("/runtime", RuntimeRoutes)
 api.route("/auth", AuthRoutes)
 api.route("/bench", BenchRoutes)
 api.route("/chemistry", ChemistryRoutes)
@@ -115,6 +105,7 @@ api.route("/mcp", McpRoutes)
 api.route("/notebook/uploads", NotebookUploadRoutes)
 api.route("/notes", NotesRoutes)
 api.route("/objects", ObjectsRoutes)
+api.route("/frame", WidgetFrameRoutes)
 api.route("/obsidian", ObsidianRoutes)
 api.route("/config", ConfigRoutes)
 api.route("/permission", PermissionRoutes)
@@ -122,20 +113,28 @@ api.route("/session", SessionRoutes)
 api.route("/skills", SkillsRoutes)
 api.route("/svg-rendering", SvgRenderingRoutes)
 
-app.use(logger())
+app.use(
+  logger((line) => {
+    console.log(line.replace(/\/+api\/+frame\/+widget\/+[^/?#\s]+/gu, "/api/frame/widget/[pass]"))
+  }),
+)
 app.use(cors({ origin: "*" }))
 app.use("*", async (c, next) => {
   await next()
-  c.res = await normalizeValidationFailureResponse(c.res)
+  if (c.req.path.startsWith("/api/frame/widget/") && c.res.status === 404 && c.res.body === null) {
+    return
+  }
+  c.res = await normalizeErrorResponse(c.res)
 })
 app.onError(async (error) => {
   if (error instanceof HTTPException) {
-    return normalizeHttpException(error)
+    if (error.status === 500) return routeErrorResponse(error)
+    return normalizeErrorResponse(error.getResponse())
   }
 
-  console.error("Unhandled Buddy route error", describeFatalError(error))
-  return Response.json({ error: "Internal server error" }, { status: 500 })
+  return routeErrorResponse(error)
 })
+app.notFound(() => Response.json(routeErrorBody(404, "404 Not Found"), { status: 404 }))
 app.get("/api/healthz", (c) => c.json({ healthy: true }))
 app.route("/api", api)
 

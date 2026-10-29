@@ -1,9 +1,10 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import z from "zod"
-import type { MessageV2 } from "@buddy/opencode-adapter/message"
+import type { MessageWithParts, Part } from "@buddy/transcript-contract/message"
 import { mimeTypeForPath } from "../../../../http/mime"
 import { resolveTrustedGeneratedImagePath } from "./generated-image-authorization"
+
 
 const IMAGE_DATA_URL_PREFIX = "data:image/"
 const BASE64_DATA_URL_ENCODING = ";base64"
@@ -27,7 +28,7 @@ type ResolvedRecentImageSource =
   | { type: "data-url"; value: string; size: number }
   | { type: "path"; input: ReferencedImageInput; size: number }
 
-function imageSourcesFromPart(part: MessageV2.Part): RecentImageSource[] {
+function imageSourcesFromPart(part: Part): RecentImageSource[] {
   if (part.type === "file") {
     return part.mime.startsWith("image/") && isImageDataUrl(part.url)
       ? [{ type: "data-url", value: part.url }]
@@ -45,14 +46,14 @@ function imageSourcesFromPart(part: MessageV2.Part): RecentImageSource[] {
   )
   if (attachments.length > 0) return attachments
 
-  const savedPathParsed = z.string().safeParse(part.state.metadata.savedPath)
+  const savedPathParsed = z.string().safeParse(part.state.metadata?.savedPath)
   return part.tool === "imagegen" && savedPathParsed.success
     ? [{ type: "path", value: savedPathParsed.data }]
     : []
 }
 
 export async function recentConversationImageDataUrls(
-  messages: readonly MessageV2.WithParts[],
+  messages: readonly MessageWithParts[],
   count: number,
   sessionID: string,
 ): Promise<string[]> {
@@ -125,7 +126,7 @@ async function readReferencedImage(input: ReferencedImageInput): Promise<string>
 
 async function resolveRecentImageSources(
   sources: readonly RecentImageSource[],
-  messages: readonly MessageV2.WithParts[],
+  messages: readonly MessageWithParts[],
   sessionID: string,
 ): Promise<string[]> {
   const inputs: ResolvedRecentImageSource[] = await Promise.all(

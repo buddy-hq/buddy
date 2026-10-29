@@ -17,7 +17,7 @@ describe("Bench routes", () => {
 
     expect(response.status).toBe(413)
     expect(await response.json()).toEqual({
-      error: "Bench client action completion exceeds the request size limit.",
+      code: "request.too_large", error: "Bench client action completion exceeds the request size limit.",
     })
   })
 })

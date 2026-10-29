@@ -1,4 +1,3 @@
-import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import type { ProviderInfo } from "@/state/chat-types"
 
@@ -6,7 +5,7 @@ export function providerNeedsConfigDisable<TConfig>(
   provider: ProviderInfo,
   globalConfig?: TConfig,
 ) {
-  if (provider.id === OPENCODE_PROVIDER_ID) {
+  if (provider.bundled) {
     return false
   }
 

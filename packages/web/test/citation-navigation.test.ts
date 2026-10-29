@@ -3,6 +3,7 @@ import type { Citation } from "@buddy/citation-contract"
 import {
   registerCitationNavigationHandler,
   requestCitationNavigation,
+  resolveChatCitationTarget,
 } from "../src/lib/citations/navigation"
 
 const cleanups: Array<() => void> = []
@@ -28,6 +29,63 @@ afterEach(async () => {
 })
 
 describe("citation navigation", () => {
+  test("finds quoted text in the message's rendered parts when the saved part ID is missing", () => {
+    const container = document.createElement("div")
+    const otherMessage = document.createElement("div")
+    otherMessage.dataset.citationMessage = "another-message"
+    otherMessage.dataset.citationPart = "part"
+    otherMessage.textContent = "quoted text"
+    const first = document.createElement("div")
+    first.dataset.citationMessage = "message"
+    first.dataset.citationPart = "projected-first"
+    first.textContent = "Before the quote."
+    const second = document.createElement("div")
+    second.dataset.citationMessage = "message"
+    second.dataset.citationPart = "projected-second"
+    second.textContent = "The quoted text is here."
+    container.append(otherMessage, first, second)
+    const input = {
+      messageID: "message",
+      partID: "part",
+      excerpt: "quoted text",
+      selector: { version: 1 as const, start: 0, end: 11, prefix: "", suffix: "" },
+    }
+
+    const matched = resolveChatCitationTarget(container, input)
+    expect(matched?.source).toBe(second)
+    expect(matched?.range?.toString()).toBe("quoted text")
+
+    const changed = resolveChatCitationTarget(container, { ...input, excerpt: "removed text" })
+    expect(changed?.source).toBe(first)
+    expect(changed?.range).toBeUndefined()
+
+    first.remove()
+    second.remove()
+    expect(resolveChatCitationTarget(container, input)).toBeUndefined()
+  })
+
+  test("prefers the saved part ID over an earlier part with the same quoted text", () => {
+    const container = document.createElement("div")
+    const first = document.createElement("div")
+    first.dataset.citationMessage = "message"
+    first.dataset.citationPart = "projected-first"
+    first.textContent = "quoted text"
+    const exact = document.createElement("div")
+    exact.dataset.citationMessage = "message"
+    exact.dataset.citationPart = "part"
+    exact.textContent = "quoted text"
+    container.append(first, exact)
+
+    const matched = resolveChatCitationTarget(container, {
+      messageID: "message",
+      partID: "part",
+      excerpt: "quoted text",
+      selector: { version: 1, start: 0, end: 11, prefix: "", suffix: "" },
+    })
+    expect(matched?.source).toBe(exact)
+    expect(matched?.range?.toString()).toBe("quoted text")
+  })
+
   test("does not let an older completion clear a newer pending citation", async () => {
     let finishOlder: (() => void) | undefined
     cleanups.push(

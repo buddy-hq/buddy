@@ -556,7 +556,11 @@ export function registerIpcHandlers(deps: Deps) {
   })
   ipcMain.handle("set-window-focus", (event: IpcMainInvokeEvent) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    win?.focus()
+    if (!win || win.isDestroyed()) return
+    if (win.isMinimized()) win.restore()
+    win.show()
+    if (process.platform === "darwin") app.focus({ steal: true })
+    win.focus()
   })
   ipcMain.handle("show-window", (event: IpcMainInvokeEvent) => {
     const win = BrowserWindow.fromWebContents(event.sender)

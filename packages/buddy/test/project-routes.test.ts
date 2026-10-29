@@ -1,8 +1,11 @@
 import { spawnSync } from "node:child_process"
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs"
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import path from "node:path"
-import { app } from "../src/index.ts"
+import { Hono } from "hono"
+import { ProjectRoutes } from "../src/routes/project"
+import { OpenProjectsRoutes } from "../src/routes/open-projects"
+import { closeAgentRuntime } from "../src/runtime/agent-runtime"
 import { createGitRepo } from "./helpers/repo"
 import {
   requireJsonObject,
@@ -11,6 +14,9 @@ import {
   parseJsonObject,
 } from "./helpers/parse"
 import { temporaryDirectory } from "./helpers/temporary-directory"
+
+const app = new Hono().route("/api/project", ProjectRoutes).route("/api/open-projects", OpenProjectsRoutes)
+afterEach(closeAgentRuntime)
 
 async function createFixedDateGitRepo(prefix: string) {
   const directory = await temporaryDirectory({ prefix: `${prefix}-` })
@@ -127,39 +133,27 @@ describe("project routes", () => {
     })
   })
 
-  test("keeps unrelated local repos distinct when git root commits collide", async () => {
-    await using firstRepo = await createFixedDateGitRepo("buddy-route-project-collision-first")
-    await using secondRepo = await createFixedDateGitRepo("buddy-route-project-collision-second")
-    await using targetRepo = await createFixedDateGitRepo("buddy-route-project-collision-target")
-    const firstRepoPath = realpathSync(firstRepo.path)
-    const secondRepoPath = realpathSync(secondRepo.path)
-    const targetRepoPath = realpathSync(targetRepo.path)
-    const nested = path.join(targetRepoPath, "nested")
-    mkdirSync(nested, { recursive: true })
-
-    await openProject(firstRepoPath)
-    await openProject(secondRepoPath)
-
-    const currentResponse = await app.request("/api/project/current", {
-      headers: {
-        "x-buddy-directory": nested,
-      },
+  test("returns 404 for a valid update body with a missing native project", async () => {
+    const response = await app.request("/api/project/project-does-not-exist", {
+      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Renamed" }),
     })
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ code: "request.not_found", error: "Project not found: project-does-not-exist" })
+  })
 
-    expect(currentResponse.status).toBe(200)
-    const current = requireJsonObject(await currentResponse.json())
-
-    expect(current.worktree).toBe(targetRepoPath)
-
-    const listResponse = await app.request("/api/project")
-    expect(listResponse.status).toBe(200)
-    const list = requireJsonArray(await listResponse.json())
-
-    expect(
-      list.some((project) => {
-        const record = parseJsonObject(project)
-        return record?.id === current.id && record.worktree === targetRepoPath
-      }),
-    ).toBe(true)
+  test("preserves upstream project associations for local clones", async () => {
+    await using firstRepo = await createFixedDateGitRepo("buddy-route-project-clone-first")
+    await using secondRepo = await createFixedDateGitRepo("buddy-route-project-clone-second")
+    await openProject(firstRepo.path)
+    await openProject(secondRepo.path)
+    const first = await app.request("/api/project/current", { headers: { "x-buddy-directory": firstRepo.path } })
+    const second = await app.request("/api/project/current", { headers: { "x-buddy-directory": secondRepo.path } })
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    const firstProject = requireJsonObject(await first.json())
+    const secondProject = requireJsonObject(await second.json())
+    expect(secondProject.id).toBe(firstProject.id)
+    expect(await Bun.file(path.join(firstRepo.path, ".git", "opencode")).exists()).toBe(false)
+    expect(await Bun.file(path.join(secondRepo.path, ".git", "opencode")).exists()).toBe(false)
   })
 })

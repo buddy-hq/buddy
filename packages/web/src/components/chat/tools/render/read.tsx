@@ -3,10 +3,9 @@ import { resolveAssetUrl } from "../../../../lib/resource-url"
 import { getReadPreviewImageAttachments, isReadImagePreview } from "../read-image-preview"
 import { getSkillReferenceRowAction, resolveSkillReferenceInfo } from "../skill-reference"
 import type { ToolPartProps } from "../registry"
-import { readString } from "../types"
 
 export function renderReadTool({ state, info, icon }: ToolPartProps) {
-  const filePath = readString(state.input.filePath) ?? info.subtitle
+  const filePath = state.summary?.subject ?? info.subtitle
   const skillReference = resolveSkillReferenceInfo({
     filePath,
     title: info.title,

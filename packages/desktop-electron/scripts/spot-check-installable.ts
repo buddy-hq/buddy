@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { spawn, spawnSync, type ChildProcess } from "node:child_process"
+import type { EventEmitter } from "node:events"
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
@@ -421,8 +422,9 @@ async function waitForApproval(runningApp: RunningApp): Promise<void> {
     }
   } finally {
     promptAbort.abort()
+    const processEvents: EventEmitter = process
     for (const { handler, signal } of signalHandlers) {
-      process.off(signal, handler)
+      processEvents.off(signal, handler)
     }
     runningApp.child.removeAllListeners("error")
     runningApp.child.removeAllListeners("exit")

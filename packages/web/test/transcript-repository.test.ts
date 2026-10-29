@@ -246,6 +246,37 @@ describe("transcript repository", () => {
     expect(requests[1]?.searchParams.get("before")).toBe("m3")
   })
 
+  test("orders parts by runtime position and same-time messages by runtime order", async () => {
+    const answer = createMessageWithParts(
+      createAssistantMessageInfo({ id: "m_a", order: "2", sessionID, time: { created: 5 } }),
+      [
+        { ...textPart({ id: "p_a", messageID: "m_a", text: "second" }), position: 1 },
+        { ...textPart({ id: "p_b", messageID: "m_a", text: "first" }), position: 0 },
+      ],
+    )
+    const question = createMessageWithParts(
+      createUserMessageInfo({ id: "m_b", order: "1", sessionID, time: { created: 5 } }),
+      [textPart({ id: "m_b_part", messageID: "m_b", text: "question" })],
+    )
+    installPageFetch([{ messages: [answer, question] }])
+
+    await loadTranscriptMessages(directory, sessionID, { force: true })
+    applyTranscriptPartUpdated(directory, {
+      ...textPart({ id: "p_0", messageID: "m_a", text: "third" }),
+      position: 2,
+    })
+
+    expect(
+      getTranscriptMessages(directory, sessionID).map((message) => [
+        message.info.id,
+        message.parts.map((part) => part.id),
+      ]),
+    ).toEqual([
+      ["m_b", ["m_b_part"]],
+      ["m_a", ["p_b", "p_a", "p_0"]],
+    ])
+  })
+
   test("preserves streamed message suffixes while a refresh page is in flight", async () => {
     applyTranscriptMessageUpdated(directory, userMessage("m1", 1).info)
     applyTranscriptPartUpdated(directory, textPart({ id: "m1_part", messageID: "m1", text: "old" }))

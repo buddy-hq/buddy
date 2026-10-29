@@ -1,10 +1,10 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import {
   addResource,
   listResources,
-  mapResourceRouteError,
   rebuildResource,
   removeResource,
   renameResource,
@@ -98,7 +98,7 @@ export const ObjectResourceRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => c.json({ resources: await listResources(context.directory) }),
-          mapError: mapResourceRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -132,7 +132,7 @@ export const ObjectResourceRoutes = new Hono()
               }),
             )
           },
-          mapError: mapResourceRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -168,7 +168,7 @@ export const ObjectResourceRoutes = new Hono()
               }),
             )
           },
-          mapError: mapResourceRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -208,7 +208,7 @@ export const ObjectResourceRoutes = new Hono()
               }),
             )
           },
-          mapError: mapResourceRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -241,7 +241,7 @@ export const ObjectResourceRoutes = new Hono()
               }),
             )
           },
-          mapError: mapResourceRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -278,7 +278,7 @@ export const ObjectResourceRoutes = new Hono()
               }),
             )
           },
-          mapError: mapResourceRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -307,7 +307,7 @@ export const ObjectResourceRoutes = new Hono()
             await removeResource({ directory: context.directory, objectID: params.objectID })
             return c.json({ ok: true as const })
           },
-          mapError: mapResourceRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -340,7 +340,7 @@ export const ObjectResourceRoutes = new Hono()
             await removeResource({ directory: context.directory, objectID })
             return c.json({ ok: true as const })
           },
-          mapError: mapResourceRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )

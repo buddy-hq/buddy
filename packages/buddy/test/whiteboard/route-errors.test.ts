@@ -3,16 +3,16 @@ import { BuddyObjectNotFoundError, BuddyObjectUnavailableError } from "../../src
 import { mapWhiteboardObjectRouteError } from "../../src/routes/object-whiteboard"
 
 describe("whiteboard object route errors", () => {
-  test("maps a missing object to HTTP 404", () => {
-    const response = mapWhiteboardObjectRouteError(
+  test("maps a missing object to HTTP 404", async () => {
+    const response = await mapWhiteboardObjectRouteError(
       new BuddyObjectNotFoundError("01J00000000000000000000001"),
     )
 
     expect(response?.status).toBe(404)
   })
 
-  test("maps an unavailable object to HTTP 410", () => {
-    const response = mapWhiteboardObjectRouteError(
+  test("maps an unavailable object to HTTP 410", async () => {
+    const response = await mapWhiteboardObjectRouteError(
       new BuddyObjectUnavailableError("01J00000000000000000000001"),
     )
 

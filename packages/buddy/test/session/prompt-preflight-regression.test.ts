@@ -41,6 +41,7 @@ describe("session prompt preflight regression", () => {
     expect(promptResponse.status).toBe(400)
     await expect(promptResponse.json()).resolves.toEqual({
       error: 'Provide either "persona" or "agent", not both',
+      code: "request.invalid",
     })
   })
 })

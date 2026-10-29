@@ -1,6 +1,8 @@
 import {
   deleteTeachingSessionState,
   readTeachingSessionState,
+  teachingSessionCompactionCount,
+  withoutTeachingContextDelivery,
   writeTeachingSessionState,
 } from "../state/session-state"
 import type { TeachingSessionState } from "../../shared/teaching-session-state"
@@ -45,9 +47,16 @@ export function restoreTeachingSessionState(input: {
   directory: string
   sessionID: string
   previousState?: TeachingSessionState
+  compactionCount?: number
 }) {
   if (input.previousState) {
-    writeTeachingSessionState(input.directory, input.previousState)
+    const compacted =
+      input.compactionCount !== undefined &&
+      teachingSessionCompactionCount(input.sessionID) !== input.compactionCount
+    writeTeachingSessionState(
+      input.directory,
+      compacted ? withoutTeachingContextDelivery(input.previousState) : input.previousState,
+    )
     return
   }
 

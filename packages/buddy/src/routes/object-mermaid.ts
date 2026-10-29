@@ -1,9 +1,9 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import { assertSessionExistsInDirectory } from "../session"
-import { mapMermaidObjectRouteError as mapMermaidFeatureRouteError } from "../learning/features/diagrams/errors"
 import {
   createMarkdownMermaidObject,
   MermaidObjectRenderRecordSchema,
@@ -20,7 +20,6 @@ import {
 import {
   BuddyObjectIDSchema,
   BuddyObjectOriginSchema,
-  mapBuddyObjectRouteError,
   nonEmptyString,
 } from "../objects"
 
@@ -99,10 +98,6 @@ const mermaidObjectReadResponseSchema = z
   })
   .strict()
 
-function mapMermaidObjectRouteError<TError>(error: TError): Response | undefined {
-  return mapBuddyObjectRouteError(error) ?? mapMermaidFeatureRouteError(error)
-}
-
 export const ObjectMermaidRoutes = new Hono()
   .post(
     "/inline",
@@ -149,7 +144,7 @@ export const ObjectMermaidRoutes = new Hono()
             )
             return c.json(mermaidObjectReadResponseSchema.parse(object))
           },
-          mapError: mapMermaidObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -186,7 +181,7 @@ export const ObjectMermaidRoutes = new Hono()
             })
             return c.json(mermaidObjectReadResponseSchema.parse(object))
           },
-          mapError: mapMermaidObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -227,7 +222,7 @@ export const ObjectMermaidRoutes = new Hono()
             )
             return c.json(resolved)
           },
-          mapError: mapMermaidObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -268,7 +263,7 @@ export const ObjectMermaidRoutes = new Hono()
             )
             return c.json(record)
           },
-          mapError: mapMermaidObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )

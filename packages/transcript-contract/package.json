@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json.schemastore.org/package",
+  "name": "@buddy/transcript-contract",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./core-tool-presentations": "./src/core-tool-presentations.ts",
+    "./file-watcher": "./src/file-watcher.ts",
+    "./message-visibility": "./src/message-visibility.ts",
+    "./message": "./src/message.ts",
+    "./subagent": "./src/subagent.ts",
+    "./prompt": "./src/prompt.ts",
+    "./provider-ids": "./src/provider-ids.ts",
+    "./session": "./src/session.ts",
+    "./event": "./src/event.ts",
+    "./permission": "./src/permission.ts",
+    "./permission-rules": "./src/permission-rules.ts",
+    "./parse-external": "./src/parse-external.ts",
+    "./session-title": "./src/session-title.ts",
+    "./session-tool-presentation": "./src/session-tool-presentation.ts",
+    "./tool-presentation": "./src/tool-presentation.ts",
+    "./tool-presentation-strip": "./src/tool-presentation-strip.ts"
+  },
+  "scripts": {
+    "lint": "bun ../../node_modules/oxlint/bin/oxlint",
+    "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
+    "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit",
+    "test": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts test"
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

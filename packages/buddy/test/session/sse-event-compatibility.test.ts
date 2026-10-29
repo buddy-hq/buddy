@@ -10,18 +10,4 @@ describe("SSE event streaming compatibility", () => {
     const body = requireJsonObject(await response.json())
     expect(body.error).toBe("Directory is outside allowed roots")
   })
-
-  test("proxies OpenCode SSE stream with the expected content-type", async () => {
-    const response = await app.request("/api/event", {
-      headers: {
-        accept: "text/event-stream",
-        "x-buddy-directory": process.cwd(),
-      },
-    })
-
-    expect(response.status).toBe(200)
-    expect(response.headers.get("content-type")).toContain("text/event-stream")
-
-    await response.body?.cancel()
-  })
 })

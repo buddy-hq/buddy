@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test"
 
 import {
   findLatestTodoSnapshot,
-  readTodoItems,
   todoProgress,
 } from "../src/components/chat/tools/todo-state"
 import {
@@ -12,18 +11,6 @@ import {
 } from "./test-utils"
 
 describe("todo state", () => {
-  test("normalizes supported status aliases without remounting items on status changes", () => {
-    const pending = readTodoItems([{ content: "Ship the dock", status: "todo" }])
-    const completed = readTodoItems([{ content: "Ship the dock", status: "done" }])
-
-    expect(pending).toEqual([
-      { key: "0:Ship the dock", content: "Ship the dock", status: "pending" },
-    ])
-    expect(completed).toEqual([
-      { key: "0:Ship the dock", content: "Ship the dock", status: "completed" },
-    ])
-  })
-
   test("summarizes pending, active, and settled todo states", () => {
     expect(todoProgress([])).toEqual({ completedCount: 0, totalCount: 0, state: "pending" })
     expect(
@@ -54,8 +41,10 @@ describe("todo state", () => {
           callID: "call_a",
           state: {
             status: "completed",
-            input: { todos: [{ content: "First task", status: "pending" }] },
-            metadata: { todos: [{ content: "First task", status: "completed" }] },
+            input: {},
+            metadata: {},
+            summary: { kind: "update-plan" },
+            todos: [{ text: "First task", status: "completed" }],
             attachments: [],
             output: "[]",
             title: "0 todos",
@@ -76,8 +65,10 @@ describe("todo state", () => {
           callID: "call_b",
           state: {
             status: "completed",
-            input: { todos: [{ content: "Future task", status: "pending" }] },
-            metadata: { todos: [{ content: "Future task", status: "pending" }] },
+            input: {},
+            metadata: {},
+            summary: { kind: "update-plan" },
+            todos: [{ text: "Future task", status: "pending" }],
             attachments: [],
             output: "[]",
             title: "1 todos",
@@ -91,6 +82,7 @@ describe("todo state", () => {
       findLatestTodoSnapshot({
         messages: [firstMessage, revertedMessage],
         revertMessageID: "msg_b",
+        transcriptComplete: true,
       }),
     ).toEqual({
       revision: "prt_a",
@@ -113,8 +105,10 @@ describe("todo state", () => {
           callID: "call_clear",
           state: {
             status: "completed",
-            input: { todos: [] },
-            metadata: { todos: [] },
+            input: {},
+            metadata: {},
+            summary: { kind: "update-plan" },
+            todos: [],
             attachments: [],
             output: "[]",
             title: "0 todos",
@@ -124,7 +118,7 @@ describe("todo state", () => {
       ],
     )
 
-    expect(findLatestTodoSnapshot({ messages: [message] })).toEqual({
+    expect(findLatestTodoSnapshot({ messages: [message], transcriptComplete: true })).toEqual({
       revision: "prt_clear",
       todos: [],
       isCurrentTurn: true,
@@ -145,7 +139,9 @@ describe("todo state", () => {
           callID: "call_older_todo",
           state: {
             status: "running",
-            input: { todos: [{ content: "Older task", status: "pending" }] },
+            input: {},
+            summary: { kind: "update-plan" },
+            todos: [{ text: "Older task", status: "pending" }],
             time: { start: 1 },
           },
         },
@@ -165,7 +161,8 @@ describe("todo state", () => {
     )
 
     expect(
-      findLatestTodoSnapshot({ messages: [todoMessage, nextUserMessage] })?.isCurrentTurn,
+      findLatestTodoSnapshot({ messages: [todoMessage, nextUserMessage], transcriptComplete: true })
+        ?.isCurrentTurn,
     ).toBe(false)
   })
 })

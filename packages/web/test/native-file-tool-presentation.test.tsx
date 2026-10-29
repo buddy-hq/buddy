@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { renderToStaticMarkup } from "react-dom/server"
-import { getCoreToolPresentationDescriptor } from "@buddy/opencode-adapter/core-tool-presentations"
+import { getCoreToolPresentationDescriptor } from "@buddy/transcript-contract/core-tool-presentations"
 import {
   resolveToolPresentationSnapshot,
   type ToolPresentationPhase,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 
 import {
   activityEntryLabel,
@@ -18,7 +18,8 @@ import { presentationMetadata } from "./tool-presentation-fixtures"
 type NativeFileTool = "edit" | "write" | "apply_patch"
 
 function nativeFilePart(tool: NativeFileTool, phase: ToolPresentationPhase): MessagePart {
-  const descriptor = getCoreToolPresentationDescriptor(tool)
+  const kind = tool === "edit" ? "edit-file" : tool === "write" ? "write-file" : "change-files"
+  const descriptor = getCoreToolPresentationDescriptor(kind)
   if (!descriptor) throw new Error(`Missing ${tool} presentation descriptor`)
 
   const input =
@@ -39,9 +40,14 @@ function nativeFilePart(tool: NativeFileTool, phase: ToolPresentationPhase): Mes
   const presentation = resolveToolPresentationSnapshot(descriptor, {
     toolID: tool,
     phase,
+    detail: tool !== "apply_patch" || phase === "running" || phase === "completed" ? "existing.md" : undefined,
     input,
     metadata: phase === "pending" || phase === "error" ? {} : metadata,
   })
+  const normalized = {
+    summary: tool === "apply_patch" ? { kind } : { kind, subject: "/workspace/existing.md" },
+    fileChanges: [{ path: "/workspace/existing.md", relativePath: "existing.md", kind: "update" as const }],
+  }
   const base = {
     id: `part_${tool}_${phase}`,
     sessionID: "ses_native_file_labels",
@@ -56,7 +62,7 @@ function nativeFilePart(tool: NativeFileTool, phase: ToolPresentationPhase): Mes
     case "pending":
       return { ...base, state: { status: phase, input, raw: "{}" } }
     case "running":
-      return { ...base, state: { status: phase, input, metadata, time: { start: 1 } } }
+      return { ...base, state: { status: phase, input, metadata, ...normalized, time: { start: 1 } } }
     case "completed":
       return {
         ...base,
@@ -64,6 +70,7 @@ function nativeFilePart(tool: NativeFileTool, phase: ToolPresentationPhase): Mes
           status: phase,
           input,
           metadata,
+          ...normalized,
           output: "ok",
           title: "existing.md",
           time: { start: 1, end: 2 },

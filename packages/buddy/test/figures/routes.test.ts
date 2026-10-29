@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { ulid } from "ulid"
+import { INERT_DOCUMENT_CSP } from "../../src/http/inert-document-headers"
 import { renderGeometryFigure } from "../../src/learning/features/figure-rendering/geometry/render-figure"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
@@ -34,6 +35,7 @@ describe("figure routes", () => {
     const response = await app.request(rendered.rawUrl)
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toContain("image/svg+xml")
+    expect(response.headers.get("content-security-policy")).toBe(INERT_DOCUMENT_CSP)
     await expect(response.text()).resolves.toContain("<svg")
   })
 

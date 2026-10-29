@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import fs from "node:fs"
 import { writeFileSync } from "node:fs"
-import { app } from "../../src/index.ts"
+import { Hono } from "hono"
+import { SkillsRoutes } from "../../src/routes/skills"
 import { Config } from "@buddy/backend/config"
 import { Global } from "../../src/storage"
 import { BUDDY_ENV } from "../../src/storage/constants"
@@ -18,6 +19,8 @@ import {
   type TJsonObject,
 } from "../helpers/parse"
 
+const app = new Hono().route("/api/skills", SkillsRoutes)
+
 const HOME_ENVIRONMENT_KEY = "HOME"
 const CODEX_HOME_ENVIRONMENT_KEY = "CODEX_HOME"
 
@@ -26,7 +29,7 @@ function skillRecords(value: TJsonValue | undefined, label: string): TJsonObject
 }
 
 describe("skills routes", () => {
-  test("applies skills v2 roots, external toggle, and curated install flow", async () => {
+  test("applies v2 skill discovery, Buddy settings, and curated install flow", async () => {
     await using repo = await createGitRepo("buddy-route-skills")
     const workspaceAgentSkillDir = path.join(repo.path, ".agents", "skills", "local-review")
     fs.mkdirSync(workspaceAgentSkillDir, {

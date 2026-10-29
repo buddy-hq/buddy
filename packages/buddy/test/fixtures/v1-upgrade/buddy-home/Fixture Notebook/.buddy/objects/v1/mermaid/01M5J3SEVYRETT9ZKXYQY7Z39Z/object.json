@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "kind": "mermaid",
+  "objectID": "01M5J3SEVYRETT9ZKXYQY7Z39Z",
+  "title": "Photosynthesis flow",
+  "status": "ready",
+  "lifecycle": "revisioned",
+  "currentRevisionID": "01M5J3SEVY1RAF0BKPGX2F7MG0",
+  "createdAt": "2026-10-22T15:31:04.189Z",
+  "updatedAt": "2026-10-22T15:31:04.189Z",
+  "origin": {
+    "kind": "markdown",
+    "sessionID": "ses_e9bc348c6ffeVYp3hNj10v5E1K",
+    "messageID": "msg_1643cbb48001fDS5bS1RVBAACk",
+    "partID": "prt_1643cbb6c0018VHL6zs5xnhS0Z",
+    "segmentIndex": 0
+  },
+  "sourceRefs": [
+    {
+      "role": "payload",
+      "path": ".buddy/objects/v1/mermaid/01M5J3SEVYRETT9ZKXYQY7Z39Z/revisions/01M5J3SEVY1RAF0BKPGX2F7MG0/source.mmd",
+      "displayPath": ".buddy/objects/v1/mermaid/01M5J3SEVYRETT9ZKXYQY7Z39Z/revisions/01M5J3SEVY1RAF0BKPGX2F7MG0/source.mmd",
+      "workspacePath": null,
+      "mutable": false,
+      "copied": false,
+      "availability": "available",
+      "exists": true,
+      "contentHash": "6dc0882f32d9097bf21af3222b3bf1e5e9074dc8cb520a5d413c161bafaf9052"
+    }
+  ],
+  "views": [
+    {
+      "viewID": "rendered",
+      "label": "Diagram",
+      "surfaces": [
+        "inline",
+        "bench",
+        "library"
+      ],
+      "availability": {
+        "status": "available"
+      },
+      "inline": {
+        "renderer": "mermaid",
+        "params": {
+          "renderer": "mermaid",
+          "diagramType": "flowchart"
+        }
+      },
+      "bench": {
+        "resolver": "object-view"
+      },
+      "library": {
+        "section": "diagrams"
+      }
+    }
+  ],
+  "summary": {
+    "kind": "mermaid",
+    "alt": "Photosynthesis flow",
+    "caption": null,
+    "diagramType": "flowchart",
+    "renderStatus": "stale",
+    "repairOfObjectID": null,
+    "supersedesRevisionID": null,
+    "replacementRevisionID": null
+  }
+}

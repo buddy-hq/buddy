@@ -1,6 +1,6 @@
 import "../happydom"
 import { beforeEach, describe, expect, test } from "bun:test"
-import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
+import type { ProviderOauthAuthorizeResponse } from "@buddy/sdk/types"
 import {
   CINEMATIC_ONBOARDING_SCENE,
   activateDirectoryForOnboarding,
@@ -30,6 +30,7 @@ function createModel(id: string, name: string): ProviderModelInfo {
     id,
     providerID: "",
     name,
+    free: false,
     variants: [],
     status: "active",
     limit: {
@@ -62,6 +63,7 @@ function createModel(id: string, name: string): ProviderModelInfo {
 function createProvider(input: {
   id: string
   name: string
+  bundled?: boolean
   connected?: boolean
   methods?: ProviderMethodInfo[]
   models?: ProviderModelInfo[]
@@ -69,6 +71,7 @@ function createProvider(input: {
   return {
     id: input.id,
     name: input.name,
+    bundled: input.bundled ?? false,
     source: "config",
     env: [],
     connected: input.connected ?? false,
@@ -485,12 +488,16 @@ describe("ChatGPT Plus onboarding auth", () => {
             url: "https://chatgpt.example/auth",
             method: "auto",
             instructions: "Complete authorization in your browser.",
+            methodID: "chatgpt-browser",
+            attemptID: "con_test",
+            expiresAt: 9999999999999,
           }
         },
         async completeProviderOAuth(request) {
           expect(request).toEqual({
             providerID: "openai",
-            methodIndex: 0,
+            methodID: "chatgpt-browser",
+            attemptID: "con_test",
           })
           calls.push("complete")
         },
@@ -573,13 +580,17 @@ describe("ChatGPT Plus onboarding auth", () => {
           url: "https://chatgpt.example/auth",
           method: "auto",
           instructions: "Complete authorization in your browser.",
+          methodID: "chatgpt-browser",
+          attemptID: "con_test",
+          expiresAt: 9999999999999,
         }
       },
       async completeProviderOAuth() {
         completeStarted?.()
         await neverCompletes
       },
-      async cancelProviderOAuth() {
+      async cancelProviderOAuth(request) {
+        expect(request).toEqual({ providerID: "openai", attemptID: "con_test" })
         cancelCalls += 1
       },
       async reloadProviderRuntime() {},
@@ -599,8 +610,8 @@ describe("ChatGPT Plus onboarding auth", () => {
 
   test("cancels an authorization that finishes starting after the user aborts", async () => {
     const abort = new AbortController()
-    let resolveAuthorization: ((authorization: ProviderAuthAuthorization) => void) | undefined
-    const authorization = new Promise<ProviderAuthAuthorization>((resolve) => {
+    let resolveAuthorization: ((authorization: ProviderOauthAuthorizeResponse) => void) | undefined
+    const authorization = new Promise<ProviderOauthAuthorizeResponse>((resolve) => {
       resolveAuthorization = resolve
     })
     let browserOpened = false
@@ -630,7 +641,8 @@ describe("ChatGPT Plus onboarding auth", () => {
       async completeProviderOAuth() {
         completeCalled = true
       },
-      async cancelProviderOAuth() {
+      async cancelProviderOAuth(request) {
+        expect(request).toEqual({ providerID: "openai", attemptID: "con_test" })
         cancelCalls += 1
       },
       async reloadProviderRuntime() {},
@@ -645,6 +657,9 @@ describe("ChatGPT Plus onboarding auth", () => {
       url: "https://chatgpt.example/auth",
       method: "auto",
       instructions: "Complete authorization in your browser.",
+      methodID: "chatgpt-browser",
+      attemptID: "con_test",
+      expiresAt: 9999999999999,
     })
 
     await expect(connection).resolves.toEqual(
@@ -683,6 +698,9 @@ describe("ChatGPT Plus onboarding auth", () => {
             url: "https://chatgpt.example/auth",
             method: "auto",
             instructions: "Complete authorization in your browser.",
+            methodID: "chatgpt-browser",
+            attemptID: "con_test",
+            expiresAt: 9999999999999,
           }
         },
         async completeProviderOAuth() {},
@@ -769,6 +787,9 @@ describe("ChatGPT Plus onboarding auth", () => {
           url: "https://chatgpt.example/auth",
           method: "auto",
           instructions: "Complete authorization in your browser.",
+          methodID: "chatgpt-browser",
+          attemptID: "con_test",
+          expiresAt: 9999999999999,
         }
       },
       async completeProviderOAuth() {
@@ -1010,6 +1031,7 @@ describe("notebook onboarding configuration", () => {
               createProvider({
                 id: "opencode",
                 name: "OpenCode Zen",
+                bundled: true,
                 connected: true,
                 models: [createModel("zen-free", "Zen Free"), createModel("zen-plus", "Zen Plus")],
               }),
@@ -1041,6 +1063,7 @@ describe("notebook onboarding configuration", () => {
               createProvider({
                 id: "opencode",
                 name: "OpenCode Zen",
+                bundled: true,
                 connected: false,
                 models: [createModel("zen-free", "Zen Free")],
               }),
@@ -1079,6 +1102,7 @@ describe("notebook onboarding configuration", () => {
               createProvider({
                 id: "opencode",
                 name: "OpenCode Zen",
+                bundled: true,
                 models: [createModel("zen-free", "Zen Free"), preferredModel],
               }),
             ],
@@ -1117,6 +1141,7 @@ describe("notebook onboarding configuration", () => {
               createProvider({
                 id: "opencode",
                 name: "OpenCode Zen",
+                bundled: true,
                 models: [createModel("zen-free", "Zen Free"), preferredModel],
               }),
             ],
@@ -1149,6 +1174,7 @@ describe("notebook onboarding configuration", () => {
               createProvider({
                 id: "opencode",
                 name: "OpenCode Zen",
+                bundled: true,
                 models: [createModel("zen-free", "Zen Free"), preferredModel],
               }),
             ],

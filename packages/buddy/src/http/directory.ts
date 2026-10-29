@@ -76,7 +76,7 @@ function validateDirectoryAccess(directory: string): Response | undefined {
     const stats = fs.lstatSync(directory)
     if (!stats.isDirectory()) {
       return Response.json(
-        { error: `Directory not found: ${directory}` },
+        { error: `Directory not found: ${directory}`, code: "notebook.missing" },
         { status: DIRECTORY_NOT_FOUND_STATUS },
       )
     }
@@ -89,6 +89,7 @@ function validateDirectoryAccess(directory: string): Response | undefined {
       return Response.json(
         {
           error: inaccessibleDirectoryMessage(directory),
+          code: "notebook.forbidden",
         },
         { status: DIRECTORY_FORBIDDEN_STATUS },
       )
@@ -96,7 +97,7 @@ function validateDirectoryAccess(directory: string): Response | undefined {
 
     if (code === "ENOENT") {
       return Response.json(
-        { error: `Directory not found: ${directory}` },
+        { error: `Directory not found: ${directory}`, code: "notebook.missing" },
         { status: DIRECTORY_NOT_FOUND_STATUS },
       )
     }
@@ -148,7 +149,7 @@ function readRawDirectory(source: DirectoryRequestSource): RawDirectoryResult {
     return {
       ok: false,
       response: Response.json(
-        { error: DIRECTORY_CONFLICT_ERROR },
+        { error: DIRECTORY_CONFLICT_ERROR, code: "request.invalid" },
         { status: DIRECTORY_CONFLICT_STATUS },
       ),
     }
@@ -188,7 +189,7 @@ function validateAllowedDirectory(requestURL: URL, directory: string): AllowedDi
   if (!allowedByRoots && !allowedByOpenProjectRegistry) {
     return {
       ok: false,
-      response: Response.json({ error: "Directory is outside allowed roots" }, { status: 403 }),
+      response: Response.json({ error: "Directory is outside allowed roots", code: "request.forbidden" }, { status: 403 }),
     }
   }
 

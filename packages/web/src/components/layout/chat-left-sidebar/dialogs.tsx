@@ -31,6 +31,7 @@ import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import {
   formatMcpError,
   getMcpStatusLabel,
+  mcpIsPending,
   mcpNeedsAuth,
   mcpNeedsClientRegistration,
   parseMcpConfigMap,
@@ -73,7 +74,7 @@ import {
   experimentalFeatureIsEnabled,
   experimentalFeaturesQueryOptions,
 } from "@/state/experimental-features-query"
-import { EMPTY_BUDDY_CONFIG } from "@/state/parse-external"
+import { EMPTY_BUDDY_CONFIG, parseBuddyConfigObject } from "@/state/parse-external"
 
 const EMPTY_MCP_STATUS: McpStatusMap = {}
 
@@ -660,6 +661,8 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
                     <SettingsListCard>
                       {mcpNames.map((name) => {
                         const config = notebookMcpConfigByName[name] ?? globalMcpConfigByName[name]
+                        const source = notebookMcpConfigByName[name] ? rawProjectConfig : globalConfig
+                        const missingSecret = parseBuddyConfigObject(parseBuddyConfigObject(source.mcp)?.[name])?.missingSecret === true
                         const enabled = resolveNotebookMcpEnabled(
                           globalMcpConfigByName,
                           rawProjectConfig,
@@ -667,13 +670,14 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
                         )
                         const status = enabled ? mcpStatusByName[name] : undefined
                         const pending = pendingKey === `mcp:${name}`
+                        const startingUp = mcpIsPending(status)
                         const statusLabel = !enabled
                           ? language.t("mcp.statusLabels.disabled")
                           : status
                             ? getMcpStatusLabel(status.status)
                             : language.t("mcp.listPanel.configured")
                         const showRepairAction =
-                          enabled && status?.status !== "connected" && status?.status !== "disabled"
+                          !missingSecret && enabled && status?.status !== "connected" && status?.status !== "disabled"
 
                         const statusColorClass = !enabled
                           ? "text-text-weakest font-normal"
@@ -706,21 +710,37 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
                           <SettingsItemRow
                             key={name}
                             title={name}
-                            description={mcpDescription}
+                            description={missingSecret ? (
+                              <span className="text-text-warning-base font-medium">
+                                This server's secret was saved on another computer or in another Buddy edition. Enter it again.
+                              </span>
+                            ) : mcpDescription}
                             control={
                               <div className="flex items-center gap-2">
-                                {showRepairAction ? (
+                                {missingSecret ? (
                                   <Button
                                     type="button"
                                     size="xs"
                                     variant="outline"
                                     disabled={pending}
+                                    onClick={() => openNotebookMcpEditor(name)}
+                                    className="h-7 text-xs px-2.5 active:scale-[0.97] transition-transform"
+                                  >
+                                    Enter secret
+                                  </Button>
+                                ) : null}
+                                {showRepairAction ? (
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="outline"
+                                    disabled={pending || startingUp}
                                     onClick={() => {
                                       void onRepairNotebookMcp(name)
                                     }}
                                     className="h-7 text-xs px-2.5 active:scale-[0.97] transition-transform"
                                   >
-                                    {getMcpRepairButtonLabel({ pending, status })}
+                                    {getMcpRepairButtonLabel({ pending: pending || startingUp, status })}
                                   </Button>
                                 ) : null}
                                 <Switch

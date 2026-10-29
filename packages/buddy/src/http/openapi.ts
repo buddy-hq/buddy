@@ -6,6 +6,9 @@ export const JSON_CONTENT_TYPE = "application/json" as const
 export const RouteErrorSchema = z
   .object({
     error: z.string(),
+    code: z.string(),
+    errorID: z.string().optional(),
+    details: z.record(z.string(), z.unknown()).optional(),
   })
   .meta({ ref: "RouteError" })
 

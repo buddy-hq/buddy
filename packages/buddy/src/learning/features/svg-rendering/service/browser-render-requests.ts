@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { ulid } from "ulid"
-import { publishGlobalEvent } from "@buddy/opencode-adapter/global-event"
-import { resolveDirectory } from "@buddy/backend/project"
+import { publishGlobalEvent } from "@buddy/backend/events/buddy-event-bus"
+import { resolveDirectory } from "@buddy/backend/project/directory"
 import {
   BrowserSvgRenderCompletionSchema,
   BrowserSvgRenderRequestSchema,

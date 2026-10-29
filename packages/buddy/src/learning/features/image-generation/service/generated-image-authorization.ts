@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { Global } from "@buddy/opencode-adapter/global"
-import type { MessageV2 } from "@buddy/opencode-adapter/message"
+import { openCodeRuntimePaths } from "../../../../runtime/runtime-paths"
+import type { MessageWithParts } from "@buddy/transcript-contract/message"
 import {
   GeneratedImageProvenanceSchema,
   generatedImageSessionDirectory,
@@ -10,10 +10,11 @@ import {
   type GeneratedImageProvenance,
 } from "./generated-image"
 
+
 const IMAGEGEN_TOOL_ID = "imagegen" as const
 
 type GeneratedImageAuthorizationContext = {
-  messages: readonly MessageV2.WithParts[]
+  messages: readonly MessageWithParts[]
   sessionID: string
 }
 
@@ -43,13 +44,13 @@ function matchingGeneratedImageProvenance(
       }
 
       const parsed = GeneratedImageProvenanceSchema.safeParse(
-        part.state.metadata.generatedImageProvenance,
+        part.state.metadata?.generatedImageProvenance,
       )
       if (
         !parsed.success ||
         parsed.data.sessionID !== ctx.sessionID ||
         parsed.data.callID !== part.callID ||
-        part.state.metadata.savedPath !== parsed.data.path ||
+        part.state.metadata?.savedPath !== parsed.data.path ||
         path.resolve(parsed.data.path) !== resolvedImagePath
       ) {
         continue
@@ -68,7 +69,7 @@ async function resolveCanonicalManagedSessionRoot(sessionID: string): Promise<
     }
   | undefined
 > {
-  const lexicalDataRoot = path.resolve(Global.Path.data)
+  const lexicalDataRoot = path.resolve(openCodeRuntimePaths().data)
   const lexicalGeneratedRoot = path.resolve(generatedImagesRoot())
   const lexicalSessionRoot = path.resolve(generatedImageSessionDirectory(sessionID))
   if (

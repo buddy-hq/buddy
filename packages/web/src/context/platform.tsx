@@ -76,6 +76,7 @@ export type Platform = {
   startWindowDragging?(): Promise<void>
   toggleWindowMaximize?(): Promise<void>
   getIsFullscreen?(): Promise<boolean>
+  focusWindow?(): Promise<void>
   storage?(name?: string): PlatformStateStorage
   openDirectoryPickerDialog?(opts?: OpenDirectoryPickerOptions): Promise<string | string[] | null>
   openFilePickerDialog?(opts?: OpenFilePickerOptions): Promise<string | string[] | null>

@@ -41,7 +41,7 @@ describe("Chat sidebar directory list", () => {
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <ChatLeftSidebarDirectoryList
-              directoryGroups={[{ directory, sessions: [] }]}
+              directoryGroups={[{ directory, sessions: [], folderMissing: false }]}
               currentDirectory={directory}
               sessionsByDirectory={{}}
               sessionStatusByDirectory={{}}
@@ -132,7 +132,7 @@ describe("Chat sidebar directory list", () => {
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <ChatLeftSidebarDirectoryList
-              directoryGroups={[{ directory, sessions }]}
+              directoryGroups={[{ directory, sessions, folderMissing: false }]}
               currentDirectory={directory}
               sessionsByDirectory={{ [directory]: sessions }}
               sessionStatusByDirectory={{}}
@@ -204,7 +204,7 @@ describe("Chat sidebar directory list", () => {
           <QueryClientProvider client={queryClient}>
             <TooltipProvider>
               <ChatLeftSidebarDirectoryList
-                directoryGroups={[{ directory, sessions: rootSessions }]}
+                directoryGroups={[{ directory, sessions: rootSessions, folderMissing: false }]}
                 currentDirectory={directory}
                 activeSessionID={activeSessionID}
                 sessionsByDirectory={{ [directory]: allSessions }}

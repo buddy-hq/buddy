@@ -1,0 +1,16 @@
+{
+  "fixture-remote-mcp": {
+    "tokens": {
+      "accessToken": "fixture-mcp-access-token-not-real",
+      "refreshToken": "fixture-mcp-refresh-token-not-real",
+      "expiresAt": 1893456000,
+      "scope": "read"
+    },
+    "clientInfo": {
+      "clientId": "fixture-mcp-client-id",
+      "clientSecret": "fixture-mcp-client-secret-not-real",
+      "clientIdIssuedAt": 1767225600
+    },
+    "serverUrl": "https://mcp.example.invalid/mcp"
+  }
+}

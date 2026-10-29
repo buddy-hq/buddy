@@ -66,7 +66,7 @@ describe("desktop storage paths", () => {
         isPackaged: true,
         userDataPath: userData,
       }),
-    ).toBe(path.join(home, ".local", "share", "buddy", "opencode", "opencode.db"))
+    ).toBe(path.join(home, ".local", "share", "buddy", "opencode", "opencode-v2.db"))
 
     expect(
       resolveOpenCodeSqlitePath({
@@ -75,7 +75,7 @@ describe("desktop storage paths", () => {
         isPackaged: true,
         userDataPath: userData,
       }),
-    ).toBe(path.join(userData, "xdg", "data", "buddy", "opencode", "opencode.db"))
+    ).toBe(path.join(userData, "xdg", "data", "buddy", "opencode", "opencode-v2.db"))
 
     expect(
       resolveOpenCodeSqlitePath({
@@ -84,7 +84,7 @@ describe("desktop storage paths", () => {
         isPackaged: true,
         userDataPath: userData,
       }),
-    ).toBe(path.join(userData, "xdg", "data", "buddy", "opencode", "opencode.db"))
+    ).toBe(path.join(userData, "xdg", "data", "buddy", "opencode", "opencode-v2.db"))
   })
 
   test("resolves OpenCode sqlite paths from configured XDG and Buddy data roots", () => {
@@ -113,7 +113,7 @@ describe("desktop storage paths", () => {
         isPackaged: true,
         userDataPath: userData,
       }),
-    ).toBe(path.join(buddyDataDir, "opencode", "opencode.db"))
+    ).toBe(path.join(buddyDataDir, "opencode", "opencode-v2.db"))
   })
 })
 
@@ -153,8 +153,8 @@ describe("desktop storage plan", () => {
         )
         expect(plan.openCodeSqlitePath).toBe(
           production
-            ? "/sandbox/home/.local/share/buddy/opencode/opencode.db"
-            : "/sandbox/user-data/xdg/data/buddy/opencode/opencode.db",
+            ? "/sandbox/home/.local/share/buddy/opencode/opencode-v2.db"
+            : "/sandbox/user-data/xdg/data/buddy/opencode/opencode-v2.db",
         )
         if (!beta) {
           // Captured from the pre-change implementation using these sandbox inputs.
@@ -166,7 +166,7 @@ describe("desktop storage plan", () => {
             envBuddyDataDir: "/sandbox/custom-data",
             envXdgDataHome: "/sandbox/custom-xdg",
           })
-          expect(overridden.openCodeSqlitePath).toBe("/sandbox/custom-data/opencode/opencode.db")
+          expect(overridden.openCodeSqlitePath).toBe("/sandbox/custom-data/opencode/opencode-v2.db")
         }
       })
     }
@@ -219,7 +219,7 @@ describe("desktop storage plan", () => {
         TMP: at("xdg/tmp"),
         TEMP: at("xdg/tmp"),
         OPENCODE_CONFIG_DIR: at("xdg/config/buddy"),
-        OPENCODE_DB: "opencode.db",
+        OPENCODE_DB: "opencode-v2.db",
         BUDDY_CHANNEL: "beta",
         BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases",
       })
@@ -230,7 +230,7 @@ describe("desktop storage plan", () => {
         crashDumps: at("crash-dumps"),
       })
       expect(plan.storeCwd).toBe(u)
-      expect(plan.openCodeSqlitePath).toBe(at("xdg/data/buddy/opencode/opencode.db"))
+      expect(plan.openCodeSqlitePath).toBe(at("xdg/data/buddy/opencode/opencode-v2.db"))
       expect(
         resolveDesktopStoragePlan({
           channel: "beta",

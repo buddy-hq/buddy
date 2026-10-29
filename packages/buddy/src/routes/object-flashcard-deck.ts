@@ -1,3 +1,4 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
@@ -5,16 +6,13 @@ import {
   directoryQuerySchema,
   IDEMPOTENCY_KEY_HEADER,
   idempotencyHeaderSchema,
-  mapIdempotencyRouteError,
   routeErrors,
   runRouteTask,
   withDirectoryRoute,
 } from "../http"
-import { BuddyObjectIDSchema, mapBuddyObjectRouteError } from "../objects"
+import { BuddyObjectIDSchema } from "../objects"
 import { readFlashcardDeckObject } from "../learning/features/flashcards/storage/read-deck"
 import {
-  FlashcardCardNotFoundError,
-  FlashcardCardNotQueuedError,
   getQueuedFlashcardObjectsForReview,
   submitFlashcardObjectReview,
 } from "../learning/features/flashcards/storage/review"
@@ -43,16 +41,6 @@ const queuedCardsQuerySchema = directoryQuerySchema.extend({
     .max(MAX_FLASHCARD_QUEUE_FETCH_LIMIT)
     .default(DEFAULT_FLASHCARD_QUEUE_FETCH_LIMIT),
 })
-
-function mapFlashcardObjectRouteError<TError>(error: TError): Response | undefined {
-  if (error instanceof FlashcardCardNotFoundError) {
-    return Response.json({ error: error.message }, { status: 404 })
-  }
-  if (error instanceof FlashcardCardNotQueuedError) {
-    return Response.json({ error: error.message }, { status: 409 })
-  }
-  return mapIdempotencyRouteError(error) ?? mapBuddyObjectRouteError(error)
-}
 
 export const ObjectFlashcardDeckRoutes = new Hono()
   .get(
@@ -84,7 +72,7 @@ export const ObjectFlashcardDeckRoutes = new Hono()
             )
             return c.json(deck)
           },
-          mapError: mapFlashcardObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -119,7 +107,7 @@ export const ObjectFlashcardDeckRoutes = new Hono()
             })
             return c.json(queue)
           },
-          mapError: mapFlashcardObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -162,7 +150,7 @@ export const ObjectFlashcardDeckRoutes = new Hono()
             })
             return c.json(result)
           },
-          mapError: mapFlashcardObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )

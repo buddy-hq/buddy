@@ -1,7 +1,4 @@
 import path from "node:path"
-import { Global } from "@buddy/opencode-adapter/global"
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
-import { Truncate } from "@buddy/opencode-adapter/tool"
 import { Config } from "../config.js"
 import {
   applyBuddyPersonaHiddenFlags,
@@ -28,10 +25,6 @@ const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   codesearch: "allow",
 }
 
-/**
- * Commands injected into every session via the config overlay.
- * Keyed by slash-command name (e.g. "flashcard" → `/flashcard`).
- */
 const BUDDY_BUILTIN_COMMANDS = {
   flashcard: {
     description: "Generate flashcards from context in learn mode",
@@ -40,7 +33,7 @@ const BUDDY_BUILTIN_COMMANDS = {
       "",
       "Use the flashcard-author subagent if it is available. If no arguments are provided, create flashcards based on the current conversation and context.",
       "",
-      "Before delegating to the flashcard-author subagent, use the task prompt to pass along the learner's requested scope and any relevant conversation context. Keep the short task description concise, but make the delegated prompt itself specific.",
+      "Before delegating to the flashcard-author subagent, use the subagent prompt to pass along the learner's requested scope and any relevant conversation context. Keep the short task description concise, but make the delegated prompt itself specific.",
       "",
       "If the task is grounded in one or more resources, do not replace those resources with your own summary. Instead, enumerate each relevant resource in the delegation prompt with its title, alias or resource key when known, and the prepared full-text path when available. State the exact scope to read from each resource, and explicitly tell the flashcard-author subagent to call `ingest_full_text` for the named resources before authoring cards unless the full text is already present in the delegated context.",
       "",
@@ -90,10 +83,8 @@ function buildOpenCodePermissionOverlay(
     [EXTERNAL_DIRECTORY_PERMISSION]: appendPermissionRules(
       permission?.[EXTERNAL_DIRECTORY_PERMISSION],
       [
-        [Truncate.GLOB, ALLOW_ACTION],
-        [path.join(Global.Path.tmp, ANY_PATTERN), ALLOW_ACTION],
         ...(skillPaths ?? []).map(
-          (skillPath) => [path.join(skillPath, ANY_PATTERN), ALLOW_ACTION] as const,
+          (skillPath) => [path.join(skillPath, ANY_PATTERN).replaceAll("\\", "/"), ALLOW_ACTION] as const,
         ),
         [notesPermissionPatterns.absoluteRoot, ALLOW_ACTION],
         [notesPermissionPatterns.absoluteDescendants, ALLOW_ACTION],
@@ -101,21 +92,29 @@ function buildOpenCodePermissionOverlay(
     ),
     [READ_PERMISSION]: appendPermissionRules(
       permission?.[READ_PERMISSION],
-      notesPermissionPatterns.relative
+      [
+        [notesPermissionPatterns.absoluteRoot, ALLOW_ACTION],
+        [notesPermissionPatterns.absoluteDescendants, ALLOW_ACTION],
+        ...(notesPermissionPatterns.relative
         ? [
-            [notesPermissionPatterns.relative.root, ALLOW_ACTION],
-            [notesPermissionPatterns.relative.descendants, ALLOW_ACTION],
+            [notesPermissionPatterns.relative.root, ALLOW_ACTION] as const,
+            [notesPermissionPatterns.relative.descendants, ALLOW_ACTION] as const,
           ]
-        : [],
+        : []),
+      ],
     ),
     [EDIT_PERMISSION]: appendPermissionRules(
       permission?.[EDIT_PERMISSION],
-      notesPermissionPatterns.relative
+      [
+        [notesPermissionPatterns.absoluteRoot, ASK_ACTION],
+        [notesPermissionPatterns.absoluteDescendants, ASK_ACTION],
+        ...(notesPermissionPatterns.relative
         ? [
-            [notesPermissionPatterns.relative.root, ASK_ACTION],
-            [notesPermissionPatterns.relative.descendants, ASK_ACTION],
+            [notesPermissionPatterns.relative.root, ASK_ACTION] as const,
+            [notesPermissionPatterns.relative.descendants, ASK_ACTION] as const,
           ]
-        : [],
+        : []),
+      ],
     ),
   }
 }
@@ -145,16 +144,15 @@ async function buildOpenCodeConfigOverlay(input: { config: Config.Info; director
     buddyHomeDirectory: buddyHome.resolvedPath,
     configuredDirectory: globalConfig.notes_directory,
   }).resolvedDirectory
-  const { project } = await OpenCodeProject.fromDirectory(input.directory)
-  const relativeNotesDirectory = path.relative(project.worktree, notesDirectory)
+  const relativeNotesDirectory = path.relative(input.directory, notesDirectory)
   const notesPermissionPatterns = {
-    absoluteRoot: notesDirectory,
-    absoluteDescendants: path.join(notesDirectory, ANY_PATTERN),
+    absoluteRoot: notesDirectory.replaceAll("\\", "/"),
+    absoluteDescendants: path.join(notesDirectory, ANY_PATTERN).replaceAll("\\", "/"),
     ...(relativeNotesDirectory
       ? {
           relative: {
-            root: relativeNotesDirectory,
-            descendants: path.join(relativeNotesDirectory, ANY_PATTERN),
+            root: relativeNotesDirectory.replaceAll("\\", "/"),
+            descendants: path.join(relativeNotesDirectory, ANY_PATTERN).replaceAll("\\", "/"),
           },
         }
       : undefined),

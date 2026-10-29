@@ -1,4 +1,4 @@
-import type { ToolRendererToken } from "@buddy/opencode-adapter/tool-presentation"
+import type { ToolRendererToken } from "@buddy/transcript-contract/tool-presentation"
 
 export function rendererDefaultOpen(
   renderer: ToolRendererToken | undefined,

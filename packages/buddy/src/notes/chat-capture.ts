@@ -1,10 +1,7 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { isVisibleToUserTextPartInfo } from "@buddy/opencode-adapter/message-visibility"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { loadRuntimeSessionInDirectory } from "../session/orchestration/lookup"
+import type { MessageWithParts } from "@buddy/transcript-contract/message"
+import { readSessionInDirectory, readSessionMessages } from "../project/session-history"
 import { writeTextFileAtomic } from "../storage/atomic-file"
 import { withFileLock } from "../storage/file-lock"
 import { textFileWriteLockPath } from "../storage/locked-atomic-file"
@@ -131,33 +128,17 @@ async function writeCaptureImages(root: string, images: NoteCaptureImage[]) {
   return saved
 }
 
-function readableMessageText(
-  message: Awaited<ReturnType<typeof OpenCodeSession.messages>>[number],
-) {
-  return message.parts
-    .flatMap((part) => {
-      if (
-        part.type !== "text" ||
-        !isVisibleToUserTextPartInfo(part) ||
-        part.text.trim().length === 0
-      ) {
-        return []
-      }
-      return [part.text.trim()]
-    })
-    .join("\n\n")
-}
-
-async function loadSessionMessages(directory: string, sessionID: string) {
-  const runtimeSessionID = SessionID.make(sessionID)
-  return OpenCodeInstance.provide({
-    directory,
-    fn: () => OpenCodeSession.messages({ sessionID: runtimeSessionID }),
-  })
+function readableMessageText(message: MessageWithParts): string | undefined {
+  if (message.info.role === "assistant" && message.info.kind) return undefined
+  const textParts = message.parts.flatMap((part) => part.type === "text" && !part.synthetic && !part.ignored ? [part.text] : [])
+  const text = message.info.role === "user"
+    ? textParts.join("").trim()
+    : textParts.map((part) => part.trim()).filter(Boolean).join("\n\n")
+  return text || undefined
 }
 
 async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCaptureResult> {
-  const session = await loadRuntimeSessionInDirectory(input.directory, input.sessionID)
+  const session = await readSessionInDirectory(input.directory, input.sessionID)
   if (!session) throw new NotesError(404, "Chat not found")
   const normalizedText = input.text.trim()
   const images = input.images ?? []
@@ -167,7 +148,7 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
 
   let annotationQuote: string | undefined
   if (input.kind === "annotation") {
-    const messages = await loadSessionMessages(input.directory, input.sessionID)
+    const messages = await readSessionMessages(input.directory, input.sessionID)
     const message = messages.find((candidate) => candidate.info.id === input.messageID)
     annotationQuote = message ? readableMessageText(message) : undefined
     if (!annotationQuote) throw new NotesError(404, "Chat message not found")
@@ -207,9 +188,9 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
       if (!existing) {
         created = true
         const latestSession =
-          (await loadRuntimeSessionInDirectory(input.directory, input.sessionID)) ?? session
+          (await readSessionInDirectory(input.directory, input.sessionID)) ?? session
         const title = normalizeNoteTitle(
-          sessionNoteTitle(latestSession.title, latestSession.time.created),
+          sessionNoteTitle(latestSession.title ?? "", latestSession.time.created),
           DEFAULT_SESSION_TITLE,
         )
         const id = createNoteID()

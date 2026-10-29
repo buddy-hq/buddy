@@ -1,8 +1,8 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import {
-  mapAgentsMdConflictError,
   readNotebookAgentsMd,
   saveNotebookAgentsMd,
 } from "../agents-md/service"
@@ -83,7 +83,7 @@ export const AgentsMdRoutes = new Hono()
             })
             return c.json(saved)
           },
-          mapError: mapAgentsMdConflictError,
+          mapError: mapRouteError,
         }),
       ),
   )

@@ -4,6 +4,7 @@ import { Loader2Icon } from "@/icons/app-icons"
 import { type HtmlWidgetPresentation, type HtmlWidgetViewport } from "@/lib/html-widgets"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { useKeyedMediaState } from "../use-keyed-media-state"
+import { useWidgetFrameLink } from "../use-widget-frame-link"
 
 const INLINE_MAX_HEIGHT_RATIO = 0.7
 const INLINE_MAX_HEIGHT_PX = 720
@@ -123,20 +124,26 @@ function useHtmlWidgetRuntimeFrame(input: {
   onLoadStateChange?: (state: HtmlWidgetFrameLoadState) => void
 }) {
   const { widget, reloadKey, onLoadStateChange } = input
+  const link = useWidgetFrameLink(widget.runtimeUrl, reloadKey)
+  const frameKey = appendRenderKey(widget.runtimeUrl, reloadKey)
   const runtimeUrl = useMemo(
-    () => resolveAssetUrl(appendRenderKey(widget.runtimeUrl, reloadKey)),
-    [reloadKey, widget.runtimeUrl],
+    () =>
+      link.status === "ready" ? resolveAssetUrl(appendRenderKey(link.url, reloadKey)) : undefined,
+    [reloadKey, link],
   )
-  const [loadState, setLoadState] = useKeyedMediaState<HtmlWidgetFrameLoadState>(
-    runtimeUrl,
+  const [documentLoadState, setLoadState] = useKeyedMediaState<HtmlWidgetFrameLoadState>(
+    frameKey,
     "loading",
   )
+  const loadState: HtmlWidgetFrameLoadState =
+    link.status === "ready" ? documentLoadState : link.status === "error" ? "error" : "loading"
 
   useEffect(() => {
     onLoadStateChange?.(loadState)
   }, [onLoadStateChange, loadState])
 
   return {
+    frameKey,
     runtimeUrl,
     loadState,
     handleLoaded: () => setLoadState("loaded"),
@@ -241,9 +248,9 @@ function HtmlWidgetInlineFrame(props: {
           aspectRatio: `${props.widget.viewport.width} / ${props.widget.viewport.height}`,
         }}
       >
-        {measured ? (
+        {measured && frame.runtimeUrl ? (
           <iframe
-            key={frame.runtimeUrl}
+            key={frame.frameKey}
             title={props.widget.title}
             src={frame.runtimeUrl}
             sandbox="allow-scripts"
@@ -290,16 +297,18 @@ function HtmlWidgetBenchFrame(props: {
         props.className,
       )}
     >
-      <iframe
-        key={frame.runtimeUrl}
-        title={props.widget.title}
-        src={frame.runtimeUrl}
-        sandbox="allow-scripts"
-        referrerPolicy="no-referrer"
-        className="block h-full w-full border-0 bg-background-base"
-        onLoad={frame.handleLoaded}
-        onError={frame.handleError}
-      />
+      {frame.runtimeUrl ? (
+        <iframe
+          key={frame.frameKey}
+          title={props.widget.title}
+          src={frame.runtimeUrl}
+          sandbox="allow-scripts"
+          referrerPolicy="no-referrer"
+          className="block h-full w-full border-0 bg-background-base"
+          onLoad={frame.handleLoaded}
+          onError={frame.handleError}
+        />
+      ) : null}
       {props.showStateOverlay ? <HtmlWidgetFrameOverlay loadState={frame.loadState} /> : null}
     </div>
   )

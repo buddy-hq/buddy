@@ -6,10 +6,11 @@ import {
   parseTString,
   parseTBoolean,
   parseTNumber,
+  type TJsonObject,
 } from "@/components/chat/tools/types"
 import { parseStringArray } from "@/state/chat-types"
 
-type TMcpOAuthObject = {
+type TMcpOAuthObject = TJsonObject & {
   clientId?: string
   clientSecret?: string
   scope?: string
@@ -49,6 +50,7 @@ export type McpFormDraft = {
   clientId: string
   clientSecret: string
   scope: string
+  oauthExtraFields?: TJsonObject
 }
 
 export type McpFieldName = "name" | "timeout" | "url" | "headers" | "command" | "environment"
@@ -70,6 +72,7 @@ export type McpDraftParseResult =
     }
 
 export const STATUS_LABELS = {
+  pending: language.t("mcp.listPanel.connecting"),
   connected: language.t("mcp.statusLabels.connected"),
   disabled: language.t("mcp.statusLabels.disabled"),
   failed: language.t("mcp.statusLabels.failed"),
@@ -79,6 +82,10 @@ export const STATUS_LABELS = {
 
 export function getMcpStatusLabel(status: McpStatusInfo["status"]) {
   return STATUS_LABELS[status]
+}
+
+export function mcpIsPending(status: McpStatusInfo | undefined) {
+  return status?.status === "pending"
 }
 
 export function mcpNeedsAuth(status: McpStatusInfo | undefined) {
@@ -152,15 +159,20 @@ function parseTPositiveInteger<TValue>(value: TValue) {
 function parseOAuthObject<TValue>(value: TValue): TMcpOAuthObject {
   const record = parseTJsonObject(value)
   if (!record) return {}
-  const clientId = parseTString(record.clientId)
-  const clientSecret = parseTString(record.clientSecret)
-  const scope = parseTString(record.scope)
+  const {
+    clientId: rawClientId,
+    clientSecret: rawClientSecret,
+    scope: rawScope,
+    ...oauthExtraFields
+  } = record
+  const clientId = parseTString(rawClientId)
+  const clientSecret = parseTString(rawClientSecret)
+  const scope = parseTString(rawScope)
   return Object.assign(
-    Object.assign(
-      {},
-      clientId === undefined ? undefined : { clientId },
-      clientSecret === undefined ? undefined : { clientSecret },
-    ),
+    {},
+    oauthExtraFields,
+    clientId === undefined ? undefined : { clientId },
+    clientSecret === undefined ? undefined : { clientSecret },
     scope === undefined ? undefined : { scope },
   )
 }
@@ -269,6 +281,7 @@ export function buildDraft(name: string, config: McpConfig): McpFormDraft {
 
   const oauthCandidate = config.oauth === false ? undefined : config.oauth
   const oauthObject = parseTJsonObject(oauthCandidate) ? oauthCandidate : undefined
+  const { clientId, clientSecret, scope, ...oauthExtraFields } = oauthObject ?? {}
 
   return {
     name,
@@ -280,9 +293,10 @@ export function buildDraft(name: string, config: McpConfig): McpFormDraft {
     headersText: config.headers ? JSON.stringify(config.headers, null, 2) : "",
     environmentText: "",
     oauthEnabled: config.oauth !== false,
-    clientId: oauthObject?.clientId ?? "",
-    clientSecret: oauthObject?.clientSecret ?? "",
-    scope: oauthObject?.scope ?? "",
+    clientId: clientId ?? "",
+    clientSecret: clientSecret ?? "",
+    scope: scope ?? "",
+    oauthExtraFields,
   }
 }
 
@@ -400,8 +414,10 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
   }
 
   try {
-    const parsedUrl = new URL(url)
-    void parsedUrl
+    if (!/\{(?:env|file):[^}]+\}/u.test(url)) {
+      const parsedUrl = new URL(url)
+      void parsedUrl
+    }
   } catch {
     return {
       fieldError: createFieldError("url", language.t("mcp.validation.remoteUrlValid")),
@@ -430,6 +446,7 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
 
   const oauthObject: TMcpOAuthObject = Object.assign(
     {},
+    draft.oauthExtraFields,
     draft.clientId.trim() ? { clientId: draft.clientId.trim() } : undefined,
     draft.clientSecret.trim() ? { clientSecret: draft.clientSecret.trim() } : undefined,
     draft.scope.trim() ? { scope: draft.scope.trim() } : undefined,

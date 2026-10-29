@@ -515,8 +515,7 @@ Success criteria:
 If load succeeds but the dynamic tool is still unavailable in the same run,
 inspect:
 
-- [packages/opencode-adapter/src/session-live.ts](../../packages/opencode-adapter/src/session-live.ts)
-- [packages/opencode-adapter/docs/dynamic-tools.md](../../packages/opencode-adapter/docs/dynamic-tools.md)
+- [packages/opencode-adapter/src/extension/tools.ts](../../packages/opencode-adapter/src/extension/tools.ts)
 
 ## Project route smoke
 

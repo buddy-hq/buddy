@@ -1,23 +1,14 @@
 import katex from "katex"
-import { Marked, type MarkedExtension, type Tokens } from "marked"
+import type { MarkedExtension, Tokens } from "marked"
 import markedShiki from "marked-shiki"
+import { createMarkdownBase } from "./marked-base"
 
 export function createMarkdownParser(highlight: (code: string, language: string) => string | Promise<string>) {
-  return new Marked(
-    {
-      renderer: {
-        link({ href, title, text }) {
-          const titleAttr = title ? ` title="${title}"` : ""
-          return `<a href="${href}"${titleAttr} class="external-link" target="_blank" rel="noopener noreferrer">${text}</a>`
-        },
-      },
-    },
-    katexExtension,
-    markedShiki({ highlight }),
-  )
+  return createMarkdownBase().use(katexExtension, markedShiki({ highlight }))
 }
 
 const inlineMathRegex = /^\\\(((?:\\.|[^\\\n])*?)\\\)/
+
 const blockMathRegex = /^\$\$\n([\s\S]+?)\n\$\$(?:\n|$)/
 
 const katexExtension: MarkedExtension = {
@@ -27,12 +18,16 @@ const katexExtension: MarkedExtension = {
       level: "inline",
       start(src) {
         const index = src.indexOf("\\(")
+
         if (index === -1) return
+
         return index
       },
       tokenizer(src) {
         const match = src.match(inlineMathRegex)
+
         if (!match) return
+
         return {
           type: "inlineKatex",
           raw: match[0],
@@ -47,7 +42,9 @@ const katexExtension: MarkedExtension = {
       level: "block",
       tokenizer(src) {
         const match = src.match(blockMathRegex)
+
         if (!match) return
+
         return {
           type: "blockKatex",
           raw: match[0],

@@ -1,15 +1,18 @@
+import { routeErrorBody } from "../http/route-errors"
+import { mapRouteError } from "../http/route-errors"
 import path from "node:path"
+import fs from "node:fs/promises"
+import { isPathInsideDirectory } from "../storage/path-containment"
+import { subscribeGlobalEvent } from "../events/buddy-event-bus"
 import { Hono } from "hono"
+import { McpInputRequestedEventSchema, McpInputSettledEventSchema } from "@buddy/agent-runtime/events"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { Schema } from "effect"
 import z from "zod"
-import { Command as OpenCodeCommand } from "@buddy/opencode-adapter/command"
-import { File as OpenCodeFile } from "@buddy/opencode-adapter/file"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { File as OpenCodeFile } from "../project/notebook-files"
 import { toOpenApiSchema } from "../http/effect-schema"
 import {
-  buildOpenCodeEventStreamRequestHeaders,
-  transformOpenCodeEventStreamResponse,
+  createBuddyEventStreamResponse,
   type TBuddyEventStreamMultiplexer,
 } from "../http/opencode-event-stream"
 import {
@@ -26,15 +29,16 @@ import {
   runRouteTask,
   withConfigSync,
   withDirectoryRoute,
-  respondWithSdkResult,
   runSdkRoute,
-  openCodeDirectoryParams,
 } from "../http"
-import { getOpenCodeClient } from "../opencode-runtime/client"
-import { ensureBuddyToolPresentationCatalog } from "../opencode-runtime/buddy-tool-presentation-catalog"
-import { fetchInProcessOpenCode } from "../opencode-runtime/in-process-fetch"
+import { getAgentRuntime } from "../runtime/agent-runtime"
 import {
-  mapProjectTextFileEditorError,
+  RUNTIME_UPGRADE_VERSION,
+  runtimeUpgradeAnswersHealth,
+  waitForRuntimeUpgrade,
+} from "../runtime/runtime-upgrade"
+import { ensureBuddyToolPresentationCatalog } from "../runtime/buddy-tool-presentation-catalog"
+import {
   readProjectTextFile,
   readProjectTextFileStatus,
   renameProjectTextFile,
@@ -109,6 +113,15 @@ const eventStreamQuerySchema = directoryQuerySchema.extend({
   connectionGeneration: z.coerce.number().int().nonnegative().optional(),
 })
 
+const eventStreamResponseSchema = z.object({
+  directory: z.string().optional(),
+  payload: z.union([
+    McpInputRequestedEventSchema,
+    McpInputSettledEventSchema,
+    z.object({ type: z.string(), properties: z.record(z.string(), z.unknown()) }),
+  ]),
+}).meta({ ref: "BuddyStreamEvent" })
+
 const FILE_ESCAPE_ERROR = "Access denied: path escapes project directory"
 
 function resolveProjectFilePath(directory: string, relativePath: string) {
@@ -132,9 +145,19 @@ export const CompatibilityRoutes = new Hono()
     }),
     async (c) =>
       runSdkRoute(c, async () => {
-        const client = await getOpenCodeClient()
-        const result = await client.global.health()
-        return respondWithSdkResult(c, result)
+        const upgrade = waitForRuntimeUpgrade()
+        try {
+          const version = await Promise.race([
+            getAgentRuntime().then((runtime) => runtime.version),
+            upgrade.upgrading.then(() => RUNTIME_UPGRADE_VERSION),
+          ])
+          return c.json({ healthy: true, version })
+        } catch (error) {
+          if (!runtimeUpgradeAnswersHealth()) throw error
+          return c.json({ healthy: true, version: RUNTIME_UPGRADE_VERSION })
+        } finally {
+          upgrade.cancel()
+        }
       }),
   )
   .get(
@@ -147,7 +170,7 @@ export const CompatibilityRoutes = new Hono()
           description: "Server-sent events stream",
           content: {
             "text/event-stream": {
-              schema: resolver(z.string()),
+              schema: resolver(eventStreamResponseSchema),
             },
           },
         },
@@ -162,20 +185,13 @@ export const CompatibilityRoutes = new Hono()
 
       await ensureBuddyToolPresentationCatalog(directoryContext.context.directory)
 
-      const query = new URLSearchParams()
-      query.set("directory", directoryContext.context.directory)
-
-      const response = await fetchInProcessOpenCode({
-        directory: directoryContext.context.directory,
-        path: "/global/event",
-        query: query.size > 0 ? `?${query.toString()}` : "",
-        headers: buildOpenCodeEventStreamRequestHeaders(c.req.raw.headers),
+      const directory = directoryContext.context.directory
+      const runtime = await getAgentRuntime()
+      return createBuddyEventStreamResponse({
+        events: runtime.events,
+        directory,
         signal: c.req.raw.signal,
-      })
-
-      return transformOpenCodeEventStreamResponse({
-        response,
-        directory: directoryContext.context.directory,
+        globalEvents: { subscribe: subscribeGlobalEvent },
         buddyEvents:
           eventQuery.workspaceInstanceID && eventQuery.connectionGeneration !== undefined
             ? ((): TBuddyEventStreamMultiplexer<BenchClientSseEvent> => {
@@ -236,23 +252,14 @@ export const CompatibilityRoutes = new Hono()
         const directoryContext = resolveDirectoryRequestContext(c)
         if (!directoryContext.ok) return directoryContext.response
 
-        await OpenCodeInstance.provide({
-          directory: directoryContext.context.directory,
-          fn: async () => {
-            await OpenCodeFile.init()
-          },
-        }).catch(() => undefined)
-
         const query = c.req.valid("query")
-        const client = await getOpenCodeClient(directoryContext.context.directory)
-        const result = await client.find.files({
-          ...openCodeDirectoryParams(directoryContext.context.directory),
+        const runtime = await getAgentRuntime()
+        const result = await runtime.workspace.findFiles(directoryContext.context.directory, {
           query: query.query,
-          dirs: query.dirs,
-          type: query.type,
+          kind: query.type ?? (query.dirs === "false" ? "file" : undefined),
           limit: query.limit,
         })
-        return respondWithSdkResult(c, result)
+        return c.json(result)
       }),
   )
   .get(
@@ -278,10 +285,7 @@ export const CompatibilityRoutes = new Hono()
         const directoryContext = resolveDirectoryRequestContext(c)
         if (!directoryContext.ok) return directoryContext.response
 
-        const result = await OpenCodeInstance.provide({
-          directory: directoryContext.context.directory,
-          fn: () => OpenCodeFile.listSearchPaths({ signal: c.req.raw.signal }),
-        })
+        const result = await OpenCodeFile.listSearchPaths(directoryContext.context.directory, { signal: c.req.raw.signal })
         return c.json(result)
       }),
   )
@@ -308,19 +312,8 @@ export const CompatibilityRoutes = new Hono()
         const directoryContext = resolveDirectoryRequestContext(c)
         if (!directoryContext.ok) return directoryContext.response
 
-        await OpenCodeInstance.provide({
-          directory: directoryContext.context.directory,
-          fn: async () => {
-            await OpenCodeFile.init()
-          },
-        }).catch(() => undefined)
-
-        const client = await getOpenCodeClient(directoryContext.context.directory)
-        const result = await client.file.list({
-          ...openCodeDirectoryParams(directoryContext.context.directory),
-          path: c.req.valid("query").path,
-        })
-        return respondWithSdkResult(c, result)
+        const result = await OpenCodeFile.list(directoryContext.context.directory, c.req.valid("query").path)
+        return c.json(result)
       }),
   )
   .get(
@@ -346,19 +339,8 @@ export const CompatibilityRoutes = new Hono()
         const directoryContext = resolveDirectoryRequestContext(c)
         if (!directoryContext.ok) return directoryContext.response
 
-        await OpenCodeInstance.provide({
-          directory: directoryContext.context.directory,
-          fn: async () => {
-            await OpenCodeFile.init()
-          },
-        }).catch(() => undefined)
-
-        const client = await getOpenCodeClient(directoryContext.context.directory)
-        const result = await client.file.read({
-          ...openCodeDirectoryParams(directoryContext.context.directory),
-          path: c.req.valid("query").path,
-        })
-        return respondWithSdkResult(c, result)
+        const result = await OpenCodeFile.read(directoryContext.context.directory, c.req.valid("query").path)
+        return c.json(result)
       }),
   )
   .get(
@@ -384,18 +366,19 @@ export const CompatibilityRoutes = new Hono()
       const directoryContext = resolveDirectoryRequestContext(c)
       if (!directoryContext.ok) return directoryContext.response
 
-      return OpenCodeInstance.provide({
-        directory: directoryContext.context.directory,
-        fn: async () => {
+      return runSdkRoute(c, async () => {
           const requestedPath = c.req.valid("query").path
           const absolutePath = resolveProjectFilePath(
             directoryContext.context.directory,
             requestedPath,
           )
+          if (!isPathInsideDirectory(directoryContext.context.directory, absolutePath)) {
+            return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
+          }
           const fileRecord = readRawFileRecord(absolutePath)
           if (!fileRecord.ok) return fileRecord.response
-          if (!OpenCodeInstance.containsPath(fileRecord.filepath)) {
-            return Response.json({ error: FILE_ESCAPE_ERROR }, { status: 403 })
+          if (!isPathInsideDirectory(await fs.realpath(directoryContext.context.directory), fileRecord.filepath)) {
+            return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
           }
 
           const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
@@ -406,7 +389,6 @@ export const CompatibilityRoutes = new Hono()
               size: fileRecord.size,
             }),
           })
-        },
       })
     },
   )
@@ -419,18 +401,19 @@ export const CompatibilityRoutes = new Hono()
       const directoryContext = resolveDirectoryRequestContext(c)
       if (!directoryContext.ok) return directoryContext.response
 
-      return OpenCodeInstance.provide({
-        directory: directoryContext.context.directory,
-        fn: async () => {
+      return runSdkRoute(c, async () => {
           const requestedPath = c.req.valid("query").path
           const absolutePath = resolveProjectFilePath(
             directoryContext.context.directory,
             requestedPath,
           )
+          if (!isPathInsideDirectory(directoryContext.context.directory, absolutePath)) {
+            return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
+          }
           const fileRecord = readRawFileRecord(absolutePath)
           if (!fileRecord.ok) return fileRecord.response
-          if (!OpenCodeInstance.containsPath(fileRecord.filepath)) {
-            return Response.json({ error: FILE_ESCAPE_ERROR }, { status: 403 })
+          if (!isPathInsideDirectory(await fs.realpath(directoryContext.context.directory), fileRecord.filepath)) {
+            return Response.json(routeErrorBody(403, FILE_ESCAPE_ERROR), { status: 403 })
           }
 
           const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
@@ -441,7 +424,6 @@ export const CompatibilityRoutes = new Hono()
               size: fileRecord.size,
             }),
           })
-        },
       })
     },
   )
@@ -473,7 +455,7 @@ export const CompatibilityRoutes = new Hono()
                 path: c.req.valid("query").path,
               }),
             ),
-          mapError: mapProjectTextFileEditorError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -505,7 +487,7 @@ export const CompatibilityRoutes = new Hono()
                 path: c.req.valid("query").path,
               }),
             ),
-          mapError: mapProjectTextFileEditorError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -546,7 +528,7 @@ export const CompatibilityRoutes = new Hono()
             })
             return c.json(saved)
           },
-          mapError: mapProjectTextFileEditorError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -595,7 +577,7 @@ export const CompatibilityRoutes = new Hono()
             ])
             return c.json(renamed)
           },
-          mapError: mapProjectTextFileEditorError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -609,7 +591,7 @@ export const CompatibilityRoutes = new Hono()
           description: "Project command metadata",
           content: {
             "application/json": {
-              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeCommand.Info))),
+              schema: resolver(z.array(z.object({ name: z.string(), description: z.string().optional(), source: z.enum(["command", "mcp", "skill"]) }))),
             },
           },
         },
@@ -624,11 +606,11 @@ export const CompatibilityRoutes = new Hono()
       if (!syncResult.ok) return syncResult.response
 
       return runSdkRoute(c, async () => {
-        const client = await getOpenCodeClient(syncResult.value.directory)
-        const result = await client.command.list(
-          openCodeDirectoryParams(syncResult.value.directory),
-        )
-        return respondWithSdkResult(c, result)
+        const runtime = await getAgentRuntime()
+        const directory = syncResult.value.directory
+        const [commands, servers] = await Promise.all([runtime.catalog.commands(directory), runtime.mcp.servers(directory)])
+        const serverNames = new Set(servers.map((server) => server.name.replace(/[^a-zA-Z0-9_-]/gu, "_")))
+        return c.json(commands.map((command) => Object.assign({}, command, { source: command.source === "command" && serverNames.has(command.name.split(":")[0] ?? "") && command.name.includes(":") ? "mcp" : command.source })))
       })
     },
   )

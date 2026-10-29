@@ -1,13 +1,12 @@
 import type { ProviderCatalogState, ProviderInfo } from "@/state/chat-types"
-import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 
 export type ProviderModelSelection = {
   providerID: string
   modelID: string
 }
 
-export function isAnonymousOpenCodeProvider(provider: ProviderInfo | undefined): boolean {
-  return provider?.id === OPENCODE_PROVIDER_ID && !provider.connected
+export function isAnonymousBundledProvider(provider: ProviderInfo | undefined): boolean {
+  return provider?.bundled === true && !provider.connected
 }
 
 export function getConnectedProviders(providers: ProviderInfo[]) {
@@ -17,7 +16,7 @@ export function getConnectedProviders(providers: ProviderInfo[]) {
 export function getUsableProviders(providers: ProviderInfo[]) {
   return providers.filter(
     (provider) =>
-      provider.connected || (isAnonymousOpenCodeProvider(provider) && provider.models.length > 0),
+      provider.connected || (isAnonymousBundledProvider(provider) && provider.models.length > 0),
   )
 }
 

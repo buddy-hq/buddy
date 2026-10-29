@@ -30,7 +30,7 @@ import {
   experimentalFeatureIsEnabled,
   experimentalFeaturesQueryOptions,
 } from "@/state/experimental-features-query"
-import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
+import type { ProviderInfo, SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import {
   ChatLeftSidebarDialogs,
   NotebookCreationDialog,
@@ -48,6 +48,7 @@ import { ChatLeftSidebarRecentsList } from "./chat-left-sidebar/recents-list"
 import { stepSidebarChat, type SidebarChat } from "./chat-left-sidebar/chat-navigation"
 import { findRootSessionID } from "./chat-left-sidebar/thread-helpers"
 import { GetStartedChats } from "./chat-left-sidebar/get-started-chats"
+import { V1ImportNotice } from "./chat-left-sidebar/v1-import-notice"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
 import {
@@ -73,6 +74,7 @@ type ChatLeftSidebarProps = {
   directories: string[]
   currentDirectory: string
   selectedModel?: string
+  providers?: readonly ProviderInfo[]
   sessionsByDirectory: Record<string, SessionInfo[]>
   activeSessionID?: string
   sessionStatusByDirectory: Record<string, Record<string, SessionStatusInfo>>
@@ -201,7 +203,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     [globalConfigQuery.data],
   )
   const primaryUse = readPersonalization(globalConfigQuery.data ?? {}).primaryUse
-  const getStartedFlow = useGetStartedFlow(props.currentDirectory, props.selectedModel)
+  const getStartedFlow = useGetStartedFlow(props.currentDirectory, props.selectedModel, props.providers)
   const teacherStandardsAutoSetupComplete = useUiPreferences(
     (state) => state.teacherStandardsAutoSetupComplete,
   )
@@ -320,7 +322,10 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     const groupsByDirectory = new Map(directoryGroups.map((group) => [group.directory, group]))
     const pinnedGroups = pinnedDirectories
       .filter((directory) => openDirectories.has(directory))
-      .map((directory) => groupsByDirectory.get(directory) ?? { directory, sessions: [] })
+      .map(
+        (directory) =>
+          groupsByDirectory.get(directory) ?? { directory, sessions: [], folderMissing: false },
+      )
     const pinnedSet = new Set(pinnedGroups.map((group) => group.directory))
     return {
       pinnedDirectoryGroups: pinnedGroups,
@@ -638,6 +643,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           </TooltipProvider>
 
           <SidebarScrollArea className="px-1.5 pb-3">
+            <V1ImportNotice directories={props.directories} />
             {getStartedFlow.isActive && onStageGetStartedChat ? (
               <GetStartedChats
                 chats={getStartedFlow.chats}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import type { FileChange } from "@buddy/transcript-contract/message"
 
 import {
   ChevronRightIcon,
@@ -20,13 +21,7 @@ import {
 import { workspaceRelativeFilePath } from "@/lib/workspace-file-paths"
 
 import { basename, dirname } from "../../utils/path"
-import {
-  isRecord,
-  parseTString,
-  readNonEmptyString,
-  readNonNegativeInt,
-  readString,
-} from "../types"
+import { readNonEmptyString, type ToolState } from "../types"
 import { PierreContentCode, PierreContentDiff } from "./pierre-content"
 import {
   normalizePierreDiff,
@@ -36,7 +31,7 @@ import {
 } from "./pierre-diff"
 import type { ToolActivityEntry } from "./entries"
 
-type FilePatchKind = "add" | "update" | "delete" | "move"
+type FilePatchKind = NonNullable<FileChange["kind"]>
 
 type FilePatch = {
   path: string
@@ -49,15 +44,7 @@ type FileChangeDetails =
   | { type: "write"; path: string; content: string }
   | { type: "patch"; files: FilePatch[] }
 
-function patchKind<TValue>(value: TValue): FilePatchKind | undefined {
-  const kind = parseTString(value)
-  if (kind === "add" || kind === "update" || kind === "delete" || kind === "move") {
-    return kind
-  }
-  return undefined
-}
-
-function patchStatus(type: FilePatchKind): PierreFileStatus {
+function patchStatus(type: FilePatchKind | undefined): PierreFileStatus {
   if (type === "add") return "added"
   if (type === "delete") return "deleted"
   return "modified"
@@ -72,172 +59,68 @@ function usePierreViewDiff(diff: PierreDiffInput): PierreViewDiff {
   )
 }
 
-function editFilePath(state: ToolActivityEntry["state"]): string | undefined {
-  const filediff = isRecord(state.metadata.filediff) ? state.metadata.filediff : undefined
-  return readNonEmptyString(filediff?.file) ?? readNonEmptyString(state.input.filePath)
+function hasPreview(change: FileChange): boolean {
+  return (
+    change.content !== undefined ||
+    change.patch !== undefined ||
+    change.before !== undefined ||
+    change.after !== undefined
+  )
 }
 
-function writeFilePath(state: ToolActivityEntry["state"]): string | undefined {
-  return readNonEmptyString(state.metadata.filepath) ?? readNonEmptyString(state.input.filePath)
+function previewedFileChanges(state: ToolState): FileChange[] {
+  if (state.status === "pending") return []
+  return (state.fileChanges ?? []).filter(hasPreview)
 }
 
-function editDetails(entry: ToolActivityEntry): FileChangeDetails | undefined {
-  const state = entry.state
-  if (!state) return undefined
+function openableFilePath(change: FileChange): string | undefined {
+  return change.kind === "move" || change.kind === "delete" ? undefined : change.path
+}
 
-  const filediff = isRecord(state.metadata.filediff) ? state.metadata.filediff : undefined
-  const path =
-    readNonEmptyString(filediff?.file) ??
-    readNonEmptyString(state.input.filePath) ??
-    state.title ??
-    "file"
-  const before = readString(filediff?.before) ?? readString(state.input.oldString)
-  const after = readString(filediff?.after) ?? readString(state.input.newString)
-  const filediffPatch = readString(filediff?.patch)
-  const patch =
-    filediffPatch ??
-    (before === undefined && after === undefined ? readString(state.metadata.diff) : undefined)
-  if (patch === undefined && before === undefined && after === undefined) return undefined
-
+function filePatch(change: FileChange, state: ToolState): FilePatch {
+  const path = change.relativePath ?? change.path ?? state.title ?? "file"
   return {
-    type: "patch",
-    files: [
-      {
-        path,
-        absolutePath: editFilePath(state),
-        diff: {
-          file: path,
-          patch,
-          before,
-          after,
-          additions: readNonNegativeInt(filediff?.additions) ?? 0,
-          deletions: readNonNegativeInt(filediff?.deletions) ?? 0,
-          status: "modified",
-        },
-      },
-    ],
+    path,
+    absolutePath: openableFilePath(change),
+    type: change.kind,
+    diff: {
+      file: path,
+      patch: change.patch,
+      before: change.before,
+      after: change.after,
+      additions: change.additions ?? 0,
+      deletions: change.deletions ?? 0,
+      status: patchStatus(change.kind),
+    },
   }
-}
-
-function writeDetails(entry: ToolActivityEntry): FileChangeDetails | undefined {
-  const state = entry.state
-  if (!state) return undefined
-
-  const content = readString(state.input.content)
-  if (content === undefined) return undefined
-
-  return {
-    type: "write",
-    path: readNonEmptyString(state.input.filePath) ?? state.title ?? "file",
-    content,
-  }
-}
-
-function applyPatchDetails(entry: ToolActivityEntry): FileChangeDetails | undefined {
-  const files = entry.state?.metadata.files
-  if (!Array.isArray(files)) return undefined
-
-  const patches = files.flatMap((value): FilePatch[] => {
-    if (!isRecord(value)) return []
-
-    const type = patchKind(value.type)
-    const filePath = readNonEmptyString(value.filePath)
-    const relativePath = readNonEmptyString(value.relativePath) ?? filePath
-    if (!type || !filePath || !relativePath) return []
-
-    const patch = readString(value.patch) ?? readString(value.diff)
-    const before = readString(value.before)
-    const after = readString(value.after)
-    if (patch === undefined && before === undefined && after === undefined) return []
-
-    const additions = readNonNegativeInt(value.additions) ?? 0
-    const deletions = readNonNegativeInt(value.deletions) ?? 0
-    return [
-      {
-        path: relativePath,
-        // A moved file no longer lives at `filePath`, and a deleted one is gone.
-        absolutePath: type === "move" || type === "delete" ? undefined : filePath,
-        type,
-        diff: {
-          file: relativePath,
-          patch,
-          before,
-          after,
-          additions,
-          deletions,
-          status: patchStatus(type),
-        },
-      },
-    ]
-  })
-
-  return patches.length > 0 ? { type: "patch", files: patches } : undefined
 }
 
 function detailsForEntry(entry: ToolActivityEntry): FileChangeDetails | undefined {
-  const tool = String(entry.part.tool ?? "")
-  if (tool === "edit") return editDetails(entry)
-  if (tool === "write") return writeDetails(entry)
-  return tool === "apply_patch" ? applyPatchDetails(entry) : undefined
-}
+  const { state } = entry
+  const changes = previewedFileChanges(state)
+  const written = changes.find((change) => change.content !== undefined)?.content
+  if (written !== undefined) {
+    return {
+      type: "write",
+      path: readNonEmptyString(state.summary?.subject) ?? state.title ?? "file",
+      content: written,
+    }
+  }
 
-// The one file a finished write or edit changed, as an absolute path.
-export function activityEntryFilePath(entry: ToolActivityEntry): string | undefined {
-  const state = entry.state
-  if (state?.status !== "completed") return undefined
-
-  const tool = String(entry.part.tool ?? "")
-  if (tool === "write") return writeFilePath(state)
-  if (tool === "edit") return editFilePath(state)
-  if (tool !== "apply_patch") return undefined
-
-  const details = applyPatchDetails(entry)
-  return details?.type === "patch" && details.files.length === 1
-    ? details.files[0].absolutePath
+  return changes.length > 0
+    ? { type: "patch", files: changes.map((change) => filePatch(change, state)) }
     : undefined
 }
 
+export function activityEntryFilePath(entry: ToolActivityEntry): string | undefined {
+  if (entry.state.status !== "completed") return undefined
+
+  const changes = previewedFileChanges(entry.state)
+  return changes.length === 1 ? openableFilePath(changes[0]) : undefined
+}
+
 export function hasActivityFileChangeDetails(entry: ToolActivityEntry): boolean {
-  const state = entry.state
-  if (!state) return false
-
-  const tool = String(entry.part.tool ?? "")
-  if (tool === "write") {
-    return readString(state.input.content) !== undefined
-  }
-
-  if (tool === "edit") {
-    const filediff = isRecord(state.metadata.filediff) ? state.metadata.filediff : undefined
-    return (
-      readString(filediff?.before) !== undefined ||
-      readString(filediff?.after) !== undefined ||
-      readString(filediff?.patch) !== undefined ||
-      readString(state.input.oldString) !== undefined ||
-      readString(state.input.newString) !== undefined ||
-      readString(state.metadata.diff) !== undefined
-    )
-  }
-
-  if (tool !== "apply_patch") return false
-
-  const files = state.metadata.files
-  if (!Array.isArray(files)) return false
-
-  return files.some((value) => {
-    if (!isRecord(value)) return false
-
-    const type = patchKind(value.type)
-    const filePath = readNonEmptyString(value.filePath)
-    const relativePath = readNonEmptyString(value.relativePath) ?? filePath
-    if (!type || !filePath || !relativePath) return false
-
-    return (
-      readString(value.patch) !== undefined ||
-      readString(value.diff) !== undefined ||
-      readString(value.before) !== undefined ||
-      readString(value.after) !== undefined
-    )
-  })
+  return previewedFileChanges(entry.state).length > 0
 }
 
 function ActivityDiffChanges({ additions, deletions }: { additions: number; deletions: number }) {

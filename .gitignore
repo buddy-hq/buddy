@@ -72,6 +72,7 @@ packages/sdk/.buddy-runtime/
 packages/web/.tanstack/
 packages/web/e2e/test-results/
 packages/web/e2e/playwright-report/
+packages/desktop-electron/test-results/
 docs/audits/
 # Claude Code
 .claude/

@@ -14,24 +14,6 @@ const sessionJsonValidatorSchema = z.function({
   input: [z.literal("json")],
   output: z.json(),
 })
-const openCodeErrorPayloadSchema = z.object({
-  name: z.string().optional(),
-  message: z.string().optional(),
-  data: z
-    .object({
-      message: z.string().optional(),
-    })
-    .optional(),
-})
-
-export type TOpenCodeErrorPayload = {
-  name?: string
-  message?: string
-  data?: {
-    message?: string
-  }
-}
-
 export function parseTSessionJsonObject<TValue>(value: TValue): TSessionJsonObject | undefined {
   return parseJsonObject(value)
 }
@@ -65,12 +47,3 @@ export function parseTSessionJsonValidator<TValue>(
   return (target) => parseTSessionJsonObject(parsed.data(target)) ?? {}
 }
 
-export function parseTOpenCodeErrorPayload<TValue>(
-  value: TValue,
-): TOpenCodeErrorPayload | undefined {
-  const parsed = openCodeErrorPayloadSchema.safeParse(value)
-  if (!parsed.success) {
-    return undefined
-  }
-  return parsed.data
-}

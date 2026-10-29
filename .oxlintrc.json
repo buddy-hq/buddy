@@ -50,6 +50,19 @@
     "suspicious": "warn",
     "perf": "warn"
   },
+  "overrides": [
+    {
+      "files": [
+        "packages/ui/src/theme/opencode/color.ts",
+        "packages/ui/src/theme/opencode/resolve.ts",
+        "packages/ui/src/theme/opencode/default-themes.ts"
+      ],
+      "rules": {
+        "anti-slop/no-known-value-widening": "off",
+        "anti-slop/require-safety-comment-for-type-assertion": "off"
+      }
+    }
+  ],
   "rules": {
     "react-in-jsx-scope": "off",
     "eslint/no-shadow": "off",

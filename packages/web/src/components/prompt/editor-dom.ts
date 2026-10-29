@@ -2,11 +2,11 @@ import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_SKILL,
   NOTEBOOK_REFERENCE_PART_TYPE,
-  OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
+  isReferencePartType,
 } from "./prompt-types"
 
 const MAX_BREAKS = 200
@@ -19,7 +19,7 @@ function isStructuredPromptNode(node: Node): boolean {
   if (!(node instanceof HTMLElement)) return false
   return (
     node.dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
-    node.dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
+    isReferencePartType(node.dataset.type) ||
     node.dataset.type === PROMPT_PART_TYPE_AGENT ||
     node.dataset.type === PROMPT_PART_TYPE_SKILL ||
     node.dataset.type === RESOURCE_REFERENCE_PART_TYPE ||

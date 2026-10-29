@@ -3,13 +3,14 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { LEGACY_REFERENCE_PART_TYPE } from "@buddy/transcript-contract/prompt"
 import { READER_ANCHOR_KIND_CFI_TEXT, READER_ANCHOR_KIND_PDF_TEXT } from "@buddy/reader-contract"
 import {
   CITATION_SCHEMA_VERSION,
   formatCitationForProvider,
   type Citation,
 } from "@buddy/citation-contract"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { closeAgentRuntime } from "../../src/runtime/agent-runtime"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import {
@@ -21,7 +22,7 @@ import {
   flattenPromptPartsForRuntime,
   NOTEBOOK_REFERENCE_PART_TYPE,
   normalizePromptParts,
-  OPENCODE_REFERENCE_PART_TYPE,
+  runtimePromptFromParts,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
@@ -55,6 +56,24 @@ async function waitForReadyResourceReference(input: {
 }
 
 describe("message prompt resource references", () => {
+  test("converts chip segments, synthetic context and file or agent mention offsets to v2 prompt metadata", () => {
+    const chip = { buddyPromptPart: { type: "notebook-reference", text: "Outline", title: "Outline", kind: "note" } }
+    expect(runtimePromptFromParts({ system: "Compiled context", metadata: { source: "buddy", buddy: { other: true } }, parts: [
+      { type: "text", text: "Private", synthetic: true },
+      { type: "text", text: "Read @note.md with @research " },
+      { type: "file", url: "file:///workspace/note.md", filename: "note.md", source: { text: { value: "@note.md", start: 5, end: 13 } } },
+      { type: "agent", name: "research", source: { value: "@research", start: 19, end: 28 } },
+      { type: "text", text: "Outline", metadata: chip },
+    ] })).toEqual({
+      text: "PrivateRead @note.md with @research Outline",
+      files: [{ uri: "file:///workspace/note.md", name: "note.md", mention: { text: "@note.md", start: 12, end: 20 } }],
+      agents: [{ name: "research", mention: { text: "@research", start: 26, end: 35 } }],
+      metadata: { source: "buddy", buddy: { other: true, prompt: { system: "Compiled context", segments: [
+        { start: 0, end: 7, synthetic: true }, { start: 7, end: 36 }, { start: 36, end: 43, metadata: chip },
+      ] } } },
+    })
+  })
+
   test("rewrites raw file references and workspace-file-reference parts", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
@@ -87,7 +106,7 @@ describe("message prompt resource references", () => {
     expect(parts).toHaveLength(3)
     expect(parts[0]).toEqual({
       type: "text",
-      text: "See ",
+      text: "See @notes.md",
     })
     expect(parts[1]).toMatchObject({
       type: "file",
@@ -135,7 +154,7 @@ describe("message prompt resource references", () => {
           content: "",
           parts: [
             {
-              type: OPENCODE_REFERENCE_PART_TYPE,
+              type: LEGACY_REFERENCE_PART_TYPE,
               name: "docs",
               path: referenceDirectory,
             },
@@ -164,7 +183,7 @@ describe("message prompt resource references", () => {
             content: "",
             parts: [
               {
-                type: OPENCODE_REFERENCE_PART_TYPE,
+                type: LEGACY_REFERENCE_PART_TYPE,
                 name: "docs",
                 path: path.join(project.path, "different-path"),
               },
@@ -185,7 +204,7 @@ describe("message prompt resource references", () => {
             content: "",
             parts: [
               {
-                type: OPENCODE_REFERENCE_PART_TYPE,
+                type: LEGACY_REFERENCE_PART_TYPE,
                 name: "pending",
                 path: path.join(project.path, "pending-docs"),
               },
@@ -196,7 +215,7 @@ describe("message prompt resource references", () => {
         }),
       ).rejects.toThrow("Workspace reference is not ready: pending")
     } finally {
-      await OpenCodeInstance.disposeAll()
+      await closeAgentRuntime()
     }
   })
 
@@ -363,7 +382,7 @@ describe("message prompt resource references", () => {
     ])
   })
 
-  test("points the model at a mentioned chat's database and a mentioned object's folder", async () => {
+  test("points the model at the chat reading tool and a mentioned object's folder", async () => {
     const directory = path.resolve("/workspace/notebook")
     const diagramID = "01KZGMGX84CM3G9Q35SQ46GN25"
     const chat = {
@@ -398,7 +417,7 @@ describe("message prompt resource references", () => {
     // Each pointer is its own synthetic part, so the user's message shows only the reference.
     expect(flattened.map((part) => [part.text, part.synthetic, part.metadata])).toEqual([
       [chat.text, undefined, { [BUDDY_PROMPT_PART_METADATA_KEY]: chat }],
-      [expect.stringContaining("The chat mentioned just before"), true, undefined],
+      [expect.stringContaining("Read the chat mentioned just before with bench_read_chat using its ID."), true, undefined],
       [diagram.text, undefined, { [BUDDY_PROMPT_PART_METADATA_KEY]: diagram }],
       [
         `The mermaid mentioned just before is stored in folder ${path.join(directory, ".buddy", "objects", "v1", "mermaid", diagramID)}. Read it with your file tools.`,
@@ -612,15 +631,7 @@ describe("message prompt resource references", () => {
     expect(parts).toEqual([
       {
         type: "text",
-        text: "Check ",
-      },
-      {
-        type: "text",
-        text: "@missing.txt",
-      },
-      {
-        type: "text",
-        text: " and keep going",
+        text: "Check @missing.txt and keep going",
       },
     ])
   })
@@ -681,13 +692,14 @@ describe("message prompt resource references", () => {
     expect(parts).toEqual([
       {
         type: "text",
-        text: "Read ",
+        text: 'Read @"notes with spaces.txt"',
       },
       {
         type: "file",
         mime: "text/plain",
         filename: "notes with spaces.txt",
         url: pathToFileURL(notesPath).href,
+        source: { text: { value: '@"notes with spaces.txt"', start: 5, end: 29 } },
       },
     ])
   })
@@ -741,15 +753,7 @@ describe("message prompt resource references", () => {
       expect(parts).toEqual([
         {
           type: "text",
-          text: "Review ",
-        },
-        {
-          type: "text",
-          text: `@${outsidePath}`,
-        },
-        {
-          type: "text",
-          text: " carefully",
+          text: `Review @${outsidePath} carefully`,
         },
       ])
     } finally {

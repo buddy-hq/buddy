@@ -1,15 +1,10 @@
-import type { ToolPartProps } from "../../registry"
-import { useSubagentCardData } from "./task-card-header"
+import { useSubagentCardData, type SubagentCardInput } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
 
-export function TaskToolCard({
-  state,
-  onOpenSession,
-  directory,
-}: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
-  const { taskTitle, openChildSession, activityLine, activityContent, status } =
-    useSubagentCardData({ state, onOpenSession, directory })
-  const error = state.status === "error" ? state.output || state.error || "" : undefined
+export function TaskToolCard({ subagent, state, onOpenSession, directory }: SubagentCardInput) {
+  const { taskTitle, openChildSession, activityLine, activityContent, status, result } =
+    useSubagentCardData({ subagent, state, onOpenSession, directory })
+  const error = status === "error" ? result : undefined
 
   return (
     <SubagentCard

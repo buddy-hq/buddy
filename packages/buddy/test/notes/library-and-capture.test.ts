@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { MessageID, ModelID, PartID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { closeAgentRuntime, getAgentRuntime } from "../../src/runtime/agent-runtime"
+import { createRuntimeHarness } from "../conformance/harness"
 import { app } from "../../src/index.ts"
 import { Config } from "../../src/config"
 import { annotateChatMessage, captureComposerNote } from "../../src/notes/chat-capture"
@@ -47,8 +46,6 @@ function requestWeekOneImage(src: string) {
   )
 }
 
-type RouteMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
-
 async function configureNotesHome(directory: string) {
   const previous = await Config.getGlobal()
   await Config.replaceGlobal({
@@ -60,47 +57,17 @@ async function configureNotesHome(directory: string) {
 }
 
 async function seedReadableChat(directory: string) {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: async () => {
-      const session = await OpenCodeSession.create({ title: "Research chat" })
-      const sessionID = SessionID.make(session.id)
-      const userMessageID = MessageID.ascending()
-      await OpenCodeSession.updateMessage({
-        id: userMessageID,
-        sessionID,
-        role: "user",
-        time: { created: 1 },
-        agent: "buddy",
-        model: {
-          providerID: ProviderID.openai,
-          modelID: ModelID.make("gpt-5.4-mini"),
-        },
-        tools: {},
-      } satisfies RouteMessage["info"])
-      await OpenCodeSession.updatePart({
-        id: PartID.ascending(),
-        sessionID,
-        messageID: userMessageID,
-        type: "text",
-        text: "Visible question",
-      })
-      await OpenCodeSession.updatePart({
-        id: PartID.ascending(),
-        sessionID,
-        messageID: userMessageID,
-        type: "text",
-        text: "Hidden synthetic context",
-        synthetic: true,
-      })
-      return { sessionID: session.id, userMessageID }
-    },
-  })
+  const harness = await createRuntimeHarness({ directory })
+  try {
+    const chat = await harness.seedTextConversation({ title: "Research chat", text: "Visible question", contextText: "Hidden synthetic context" })
+    return { sessionID: chat.sessionID, userMessageID: chat.messageID, [Symbol.asyncDispose]: () => harness[Symbol.asyncDispose]() }
+  } catch (error) {
+    await harness[Symbol.asyncDispose]()
+    throw error
+  }
 }
 
-afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
-})
+afterEach(async () => { await closeAgentRuntime() })
 
 function handEditedNoteSource(generatedTitle: string[]) {
   return [
@@ -515,7 +482,7 @@ describe("Notes library and chat capture", () => {
     const previous = await configureNotesHome(home.path)
 
     try {
-      const chat = await seedReadableChat(notebook.path)
+      await using chat = await seedReadableChat(notebook.path)
       const first = await captureComposerNote({
         directory: notebook.path,
         sessionID: chat.sessionID,
@@ -561,7 +528,7 @@ describe("Notes library and chat capture", () => {
     const previous = await configureNotesHome(home.path)
 
     try {
-      const chat = await seedReadableChat(notebook.path)
+      await using chat = await seedReadableChat(notebook.path)
       const sessionNoteRoute = `/api/notes/session/${encodeURIComponent(chat.sessionID)}`
       expect(await (await app.request(sessionNoteRoute)).json()).toEqual({})
 
@@ -591,7 +558,7 @@ describe("Notes library and chat capture", () => {
     const previous = await configureNotesHome(home.path)
 
     try {
-      const chat = await seedReadableChat(notebook.path)
+      await using chat = await seedReadableChat(notebook.path)
       const capture = await annotateChatMessage({
         directory: notebook.path,
         sessionID: chat.sessionID,
@@ -611,9 +578,47 @@ describe("Notes library and chat capture", () => {
       expect(document.content).toContain(
         `> [Open message](buddy://chat/${chat.sessionID}?message=${chat.userMessageID})`,
       )
+      expect(document.content).not.toContain("Hidden synthetic context")
       expect(document.content).toContain("Remember this")
       expect(document.content).toMatch(/!\[Diagram\.png\]\(\.\.\/Attachments\/\w+\.png\)/u)
-      expect(document.content).not.toContain("Hidden synthetic context")
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
+  })
+
+  test("annotations exclude a synthetic prelude from the quoted user message", async () => {
+    await using home = await tmpdir()
+    await using notebook = await tmpdir()
+    const previous = await configureNotesHome(home.path)
+
+    try {
+      await using harness = await createRuntimeHarness({ directory: notebook.path })
+      const chat = await harness.create({ title: "Osmosis" })
+      const runtime = await getAgentRuntime()
+      const prelude = "Hidden synthetic learner context\n"
+      const text = "What is osmosis?"
+      const messageID = "msg_osmosis_annotation"
+      const result = await runtime.execution.prompt({
+        sessionID: chat.id,
+        messageID,
+        text: prelude + text,
+        metadata: { buddy: { prompt: { segments: [
+          { start: 0, end: prelude.length, synthetic: true },
+          { start: prelude.length, end: prelude.length + text.length },
+        ] } } },
+      }, { directory: notebook.path })
+      expect(result.ok).toBe(true)
+
+      const capture = await annotateChatMessage({
+        directory: notebook.path,
+        sessionID: chat.id,
+        messageID,
+        text: "",
+      })
+      const document = await readNote(capture.note.relativePath)
+
+      expect(document.content).toContain("> [!quote]+ What is osmosis?\n> What is osmosis?\n")
+      expect(document.content).not.toContain(prelude.trim())
     } finally {
       await Config.replaceGlobal(previous)
     }
@@ -630,7 +635,7 @@ describe("Notes library and chat capture", () => {
       const previous = await configureNotesHome(home.path)
 
       try {
-        const chat = await seedReadableChat(notebook.path)
+        await using chat = await seedReadableChat(notebook.path)
         const first = await captureComposerNote({
           directory: notebook.path,
           sessionID: chat.sessionID,
@@ -683,7 +688,7 @@ describe("Notes library and chat capture", () => {
     const previous = await configureNotesHome(home.path)
 
     try {
-      const chat = await seedReadableChat(notebook.path)
+      await using chat = await seedReadableChat(notebook.path)
       const capture = await annotateChatMessage({
         directory: notebook.path,
         sessionID: chat.sessionID,
@@ -847,7 +852,7 @@ describe("Notes library and chat capture", () => {
     const previous = await configureNotesHome(home.path)
 
     try {
-      const chat = await seedReadableChat(notebook.path)
+      await using chat = await seedReadableChat(notebook.path)
       const capture = await captureComposerNote({
         directory: notebook.path,
         sessionID: chat.sessionID,
@@ -1126,7 +1131,7 @@ describe("Notes library and chat capture", () => {
     const previous = await configureNotesHome(home.path)
 
     try {
-      const chat = await seedReadableChat(notebook.path)
+      await using chat = await seedReadableChat(notebook.path)
       const imageBytes = Buffer.from("screenshot bytes")
       const capture = await captureComposerNote({
         directory: notebook.path,
@@ -1177,7 +1182,7 @@ describe("Notes library and chat capture", () => {
     const previous = await configureNotesHome(home.path)
 
     try {
-      const chat = await seedReadableChat(notebook.path)
+      await using chat = await seedReadableChat(notebook.path)
       const first = await captureComposerNote({
         directory: notebook.path,
         sessionID: chat.sessionID,
@@ -1248,7 +1253,7 @@ describe("Notes library and chat capture", () => {
     })
     expect(oversized.status).toBe(413)
     expect(await oversized.json()).toEqual({
-      error: "Note capture exceeds the request size limit.",
+      code: "request.too_large", error: "Note capture exceeds the request size limit.",
     })
   })
 

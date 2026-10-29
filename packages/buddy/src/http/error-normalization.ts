@@ -1,5 +1,6 @@
 import { isJsonContentType, safeReadJson } from "./http"
 import { parseTBoolean, parseTJsonObject, parseTNumber, parseTString } from "./parse"
+import { routeErrorBody, routeErrorResponse } from "./route-errors"
 
 type TErrorPayloadData = {
   message?: string
@@ -108,38 +109,30 @@ export async function normalizeErrorResponse(
   response: Response,
   forceBusyAs409 = false,
 ): Promise<Response> {
-  if (response.status < 400 || !isJsonContentType(response.headers.get("content-type"))) {
+  if (response.status < 400) {
     return response
   }
 
-  const payload = await safeReadJson(response, { clone: true })
-  const message = extractErrorMessage(payload)
-  if (!message) return response
+  const payload = isJsonContentType(response.headers.get("content-type"))
+    ? await safeReadJson(response, { clone: true })
+    : undefined
+  const record = parseTJsonObject(payload)
+  const rawMessage = extractValidationErrorMessage(payload) ?? extractErrorMessage(payload)
+    ?? ((await response.clone().text()).trim() || response.statusText || "Request failed")
+  const message = response.status === 400 && rawMessage === "Malformed JSON in request body"
+    ? "Invalid JSON body" : rawMessage
 
   const busy = /busy/i.test(message)
-  if (forceBusyAs409 && busy) {
-    return Response.json({ error: "Session is already running" }, { status: 409 })
-  }
-
-  return Response.json({ error: message }, { status: response.status })
-}
-
-export async function normalizeValidationFailureResponse(response: Response): Promise<Response> {
-  if (response.status !== 400 || !isJsonContentType(response.headers.get("content-type"))) {
-    return response
-  }
-
-  const payload = await safeReadJson(response, { clone: true })
-  const message = extractValidationErrorMessage(payload)
-  if (!message) {
-    return response
-  }
-
+  const status = forceBusyAs409 && busy ? 409 : response.status
+  const readableMessage = forceBusyAs409 && busy ? "Session is already running" : message
+  const code = parseTString(record?.code)
+  const body = code !== undefined
+    ? { ...record, error: readableMessage, code }
+    : status === 500
+      ? await (await routeErrorResponse(new Error("Upstream route failed", { cause: payload ?? message }))).json()
+      : routeErrorBody(status, readableMessage)
   const headers = new Headers(response.headers)
+  headers.delete("content-length")
   headers.set("content-type", "application/json; charset=UTF-8")
-
-  return new Response(JSON.stringify({ error: message }), {
-    status: response.status,
-    headers,
-  })
+  return new Response(JSON.stringify(body), { status, headers })
 }

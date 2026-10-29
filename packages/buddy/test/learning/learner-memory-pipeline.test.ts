@@ -1,12 +1,11 @@
 import fs from "node:fs/promises"
+import { createRuntimeHarness, scenario } from "../conformance/harness"
 import { describe, expect, test } from "bun:test"
-import type { SessionV2 } from "@buddy/opencode-adapter/session-v2"
-import { SessionV2 as SessionV2Schema } from "@buddy/opencode-adapter/session-v2"
-import { Schema } from "effect"
+import type { MessageWithParts } from "@buddy/transcript-contract/message"
+import { createLearnerEvent } from "../../src/learning/features/memory/storage"
+import { decideLearnerMemoryAttention } from "../../src/learning/features/memory/attention-gate"
+import { LearnerMemoryPath } from "../../src/learning/features/memory/paths"
 import {
-  createLearnerEvent,
-  decideLearnerMemoryAttention,
-  LearnerMemoryPath,
   markLearnerMemoryPhaseTwoJobSucceeded,
   listLearnerMemoryStageOneOutputs,
   markLearnerMemoryStageOneJobFailed,
@@ -17,7 +16,8 @@ import {
   tryClaimLearnerMemoryExtractionBudget,
   tryClaimLearnerMemoryPhaseTwoJob,
   tryClaimLearnerMemoryStageOneJob,
-} from "../../src/learning/features/memory"
+} from "../../src/learning/features/memory/stage-one-store"
+
 import {
   parseLearnerMemoryRegistry,
   renderRegistryMarkdown,
@@ -29,36 +29,25 @@ import { tmpdir } from "../helpers/tmpdir"
 
 describe("learner memory Codex-aligned pipeline mechanics", () => {
   test("preserves file and agent attachment source text in extraction source text", () => {
-    const userMessage = Schema.decodeUnknownSync(SessionV2Schema.Message)({
-      id: "msg_user",
-      type: "user",
-      text: "Use the attached learning materials.",
-      files: [
-        {
-          name: "worked-example.md",
-          mime: "text/markdown",
-          uri: "file:///worked-example.md",
-          source: {
-            start: 0,
-            end: 42,
-            text: "The learner benefits from fully worked examples.",
-          },
-        },
-      ],
-      agents: [
-        {
-          name: "teaching-assistant",
-          source: {
-            start: 43,
-            end: 84,
-            text: "Focus on concrete explanations before abstraction.",
-          },
-        },
-      ],
-      time: {
-        created: 1_777_777_777_000,
+    const userMessage = {
+      info: {
+        id: "msg_user", sessionID: "ses_source", role: "user", agent: "buddy",
+        model: { providerID: "test-provider", modelID: "test-model" },
+        time: { created: 1_777_777_777_000 },
       },
-    }) satisfies SessionV2.Message
+      parts: [
+        { id: "prt_text", messageID: "msg_user", sessionID: "ses_source", type: "text", text: "Use the attached learning materials." },
+        {
+          id: "prt_file", messageID: "msg_user", sessionID: "ses_source", type: "file",
+          filename: "worked-example.md", mime: "text/markdown", url: "data:text/markdown;base64,",
+          source: { type: "uri", uri: "file:///worked-example.md", text: { start: 0, end: 42, value: "The learner benefits from fully worked examples." } },
+        },
+        {
+          id: "prt_agent", messageID: "msg_user", sessionID: "ses_source", type: "agent", name: "teaching-assistant",
+          source: { start: 43, end: 84, value: "Focus on concrete explanations before abstraction." },
+        },
+      ],
+    } satisfies MessageWithParts
 
     const source = buildFilteredSessionSource({
       messages: [userMessage],
@@ -69,40 +58,42 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
     expect(source.transcript).toContain("Focus on concrete explanations before abstraction.")
   })
 
-  test("excludes assistant reasoning from extraction source text", () => {
-    const assistantMessage = Schema.decodeUnknownSync(SessionV2Schema.Message)({
-      id: "msg_assistant",
-      type: "assistant",
-      agent: "buddy",
-      model: {
-        id: "test-model",
-        providerID: "test-provider",
+  test("preserves learner text alongside synthetic learner context in extraction source text", () => {
+    const prelude = "<learner_context>Hidden learner context</learner_context>\n"
+    const text = "I prefer worked examples"
+    const userMessage = {
+      info: {
+        id: "msg_user", sessionID: "ses_source", role: "user", agent: "buddy",
+        model: { providerID: "test-provider", modelID: "test-model" },
+        time: { created: 1_777_777_777_000 },
+        sourceText: prelude + text,
       },
-      content: [
-        {
-          id: "reasoning_1",
-          type: "reasoning",
-          text: "private reasoning should not become learner memory evidence",
-        },
-        {
-          id: "text_1",
-          type: "text",
-          text: "The learner prefers concrete worked examples.",
-        },
+      parts: [
+        { id: "prt_context", messageID: "msg_user", sessionID: "ses_source", type: "text", text: prelude, synthetic: true },
+        { id: "prt_text", messageID: "msg_user", sessionID: "ses_source", type: "text", text },
       ],
-      tokens: {
-        input: 10,
-        output: 8,
-        reasoning: 6,
-        cache: {
-          read: 0,
-          write: 0,
-        },
+    } satisfies MessageWithParts
+
+    const source = buildFilteredSessionSource({ messages: [userMessage], learningEvents: [] })
+
+    expect(source.transcript).toContain("I prefer worked examples")
+    expect(source.transcript).not.toContain("learner_context")
+  })
+
+  test("excludes assistant reasoning from extraction source text", () => {
+    const assistantMessage = {
+      info: {
+        id: "msg_assistant", sessionID: "ses_source", role: "assistant", agent: "buddy", mode: "buddy",
+        parentID: "msg_user", providerID: "test-provider", modelID: "test-model",
+        path: { cwd: "/workspace", root: "/workspace" }, cost: 0,
+        tokens: { input: 10, output: 8, reasoning: 6, cache: { read: 0, write: 0 } },
+        time: { created: 1_777_777_777_000 },
       },
-      time: {
-        created: 1_777_777_777_000,
-      },
-    }) satisfies SessionV2.Message
+      parts: [
+        { id: "prt_reasoning", messageID: "msg_assistant", sessionID: "ses_source", type: "reasoning", text: "private reasoning should not become learner memory evidence", time: { start: 1_777_777_777_000 } },
+        { id: "prt_text", messageID: "msg_assistant", sessionID: "ses_source", type: "text", text: "The learner prefers concrete worked examples." },
+      ],
+    } satisfies MessageWithParts
 
     const source = buildFilteredSessionSource({
       messages: [assistantMessage],
@@ -111,6 +102,29 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
 
     expect(source.transcript).toContain("The learner prefers concrete worked examples.")
     expect(source.transcript).not.toContain("private reasoning")
+  })
+
+  test("preserves ordered tool files and failures as memory evidence", async () => {
+    await using harness = await createRuntimeHarness({ toolResults: [
+      { name: "memory_evidence", parts: [
+        { type: "text", text: "Worked example" },
+        { type: "file", filename: "example.md", mime: "text/markdown", url: "file:///example.md" },
+        { type: "text", text: "Follow-up practice" },
+      ] },
+      { name: "memory_failure", parts: [], error: "Practice result unavailable" },
+    ] })
+    const session = await harness.create()
+    await using events = await harness.events()
+    for (const name of ["memory_evidence", "memory_failure"]) {
+      const response = await harness.prompt(session.id, scenario({ kind: "tool", name, arguments: {} }))
+      expect(response.status).toBe(200)
+      await events.idle(session.id)
+    }
+    const messages = await harness.messages(session.id)
+    const expectedText = "Worked example\nexample.md text/markdown file:///example.md\nFollow-up practice"
+    const source = buildFilteredSessionSource({ messages, learningEvents: [] })
+    expect(source.messages.some((message) => message.text.includes(expectedText))).toBe(true)
+    expect(source.messages.some((message) => message.text.includes("Practice result unavailable"))).toBe(true)
   })
 
   test("preserves malformed memory blocks during registry rewrites", () => {

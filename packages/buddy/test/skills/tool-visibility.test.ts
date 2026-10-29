@@ -1,40 +1,13 @@
-import { describe, expect, test } from "bun:test"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { syncOpenCodeProjectConfig } from "@buddy/backend/config/runtime"
-import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import { expect, test } from "bun:test"
+import { createRuntimeHarness, scenario } from "../conformance/harness"
 
-describe("skill tool visibility", () => {
-  test("vendor skill tool exposes Buddy teaching skills through agent permissions", async () => {
-    try {
-      await using project = await tmpdir({ git: true })
-
-      const output = await OpenCodeInstance.provide({
-        directory: project.path,
-        async fn() {
-          await syncOpenCodeProjectConfig(project.path, true)
-
-          const tools = await ToolRegistry.tools(TEST_TOOL_MODEL, "buddy")
-          const skillTool = requireTool(tools, "skill")
-          const loaded = await skillTool.execute(
-            {
-              name: "teaching-models",
-            },
-            createToolContext({
-              sessionID: "ses_skill",
-              messageID: "msg_skill",
-              agent: "buddy",
-            }),
-          )
-
-          return loaded.output
-        },
-      })
-
-      expect(output).toContain("teaching-models")
-    } finally {
-      await OpenCodeInstance.disposeAll()
-    }
-  }, 15_000)
+test("loads a Buddy teaching skill through the runtime skill tool and notebook permissions", async () => {
+  await using harness = await createRuntimeHarness()
+  const session = await harness.create({ agent: "buddy" })
+  const response = await harness.prompt(session.id, scenario({ kind: "tool", name: "skill", arguments: { id: "teaching-models" } }), { agent: "buddy" })
+  expect(response.status).toBe(200)
+  const history = await harness.messages(session.id)
+  const loaded = history.flatMap((message) => message.parts).find((part) => part.type === "tool" && part.tool === "skill")
+  expect(loaded?.type === "tool" ? loaded.state.status : undefined).toBe("completed")
+  expect(loaded?.type === "tool" && loaded.state.status === "completed" ? loaded.state.output : undefined).toContain('<skill_content name="teaching-models">')
 })

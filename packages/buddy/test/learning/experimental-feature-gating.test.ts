@@ -27,7 +27,7 @@ async function setLearnerMemoryExperiment(enabled: boolean): Promise<Response> {
   })
 }
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
-import { PermissionNext } from "@buddy/opencode-adapter/permission"
+import { evaluatePermission } from "@buddy/transcript-contract/permission-rules"
 import { LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY } from "../../src/learning/features/memory/subagents/memory-consolidator"
 import { getBuddySubagentDefinition } from "../../src/learning/subagent-manifest"
 
@@ -157,7 +157,7 @@ describe("experimental feature gating", () => {
     )
     expect(sessionRuntime.access.subagents[LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY]).toBeUndefined()
     expect(
-      PermissionNext.evaluate("task", LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY, sessionPermission)
+      evaluatePermission("subagent", LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY, sessionPermission, process.platform === "win32" ? "win32" : "posix")
         .action,
     ).toBe("deny")
   })
@@ -182,7 +182,7 @@ describe("experimental feature gating", () => {
 
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.toEqual({
-      error: "Memory is an experimental feature that is not enabled",
+      code: "request.forbidden", error: "Memory is an experimental feature that is not enabled",
     })
   })
 

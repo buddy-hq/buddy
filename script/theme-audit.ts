@@ -12,7 +12,7 @@ import {
   resolveThemeVariant,
   type HexColor,
   type ResolvedTheme,
-} from "@buddy/opencode-adapter/theme"
+} from "@buddy/ui/theme"
 
 const SOURCE_ROOTS = ["packages/ui/src", "packages/web/src"] as const
 const SOURCE_EXTENSIONS = [".css", ".ts", ".tsx"] as const

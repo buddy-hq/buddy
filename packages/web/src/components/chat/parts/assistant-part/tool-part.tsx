@@ -85,7 +85,7 @@ export const ToolPartCard = memo(function ToolPartCard({
   const renderer = resolveToolRenderer(presentation.renderer)
   const icon = resolveToolIcon(presentation.icon)
 
-  const info = getToolInfo(tool, state, presentation)
+  const info = getToolInfo(state, presentation)
   const props: ToolPartProps = {
     part,
     state,

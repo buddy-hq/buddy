@@ -10,7 +10,7 @@ import { catalogIconReleaseFilename } from "../../src/learning/skill-management/
 import type { SkillCatalogEntry } from "../../src/learning/skill-management/service/library"
 import { temporaryDirectory } from "../helpers/temporary-directory"
 
-function webpBytes(label: string): Buffer {
+function webpBytes(label: string): Buffer<ArrayBuffer> {
   return Buffer.from(`RIFF0000WEBP${label}`, "ascii")
 }
 

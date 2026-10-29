@@ -1,39 +1,16 @@
-import { afterEach, describe, expect, test } from "bun:test"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { ToolJsonSchema } from "@buddy/opencode-adapter/tool"
-import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
-import { getDynamicToolSearchTools } from "../../src/learning/runtime/dynamic-tool-discovery"
-import { allBuddyTools } from "../../src/learning/runtime/feature-registry"
+import { describe, expect, test } from "bun:test"
 import { BenchPresentInputSchema } from "../../src/learning/features/bench/tools/present"
 import { PresentHtmlWidgetInputSchema } from "../../src/learning/features/html-widgets/tools/present-html-widget"
 import { CreateWhiteboardViewInputSchema } from "../../src/learning/features/whiteboard/tools/create-view"
-import { AdvancedMathRuntimeService } from "../../src/local-runtimes/advanced-math/service"
-import { StandardsRuntimeService } from "../../src/local-runtimes/standards/service"
-import { loadOpenCodeApp } from "../../src/opencode-runtime"
-import { TEST_TOOL_MODEL } from "../helpers/tools"
+import { ensureBuddyPluginTools, listBuddyTools } from "../helpers/tools"
+import z from "zod"
 import { tmpdir } from "../helpers/tmpdir"
 import { parseJsonObject, type TJsonObject } from "../helpers/parse"
 
-const CREATED_BUDDY_TOOL_IDS = new Set([
-  ...allBuddyTools().map((tool) => tool.id),
-  ...getDynamicToolSearchTools().map((tool) => tool.id),
-])
 const PRESENT_HTML_WIDGET_REQUIRED_FIELDS = ["action"] as const
 const BENCH_PRESENT_REQUIRED_FIELDS = ["action"] as const
 const WHITEBOARD_CREATE_REQUIRED_FIELDS = ["objectAction", "boardAction", "elements"] as const
 const TEST_OBJECT_ID = "01KG1A0KH77HJ9QGAQ5QK0N4BD"
-
-const originalAdvancedMathReady = AdvancedMathRuntimeService.isReady.bind(
-  AdvancedMathRuntimeService,
-)
-const originalStandardsReady = StandardsRuntimeService.isReady.bind(StandardsRuntimeService)
-
-afterEach(async () => {
-  AdvancedMathRuntimeService.isReady = originalAdvancedMathReady
-  StandardsRuntimeService.isReady = originalStandardsReady
-  await OpenCodeInstance.disposeAll()
-})
 
 type TJsonSchemaObject = TJsonObject
 
@@ -60,27 +37,21 @@ function expectStringProperty(
 }
 
 describe("tool schema compatibility", () => {
-  test("all Buddy createBuddyTool schemas serialize to object-root JSON Schema", async () => {
-    AdvancedMathRuntimeService.isReady = () => true
-    StandardsRuntimeService.isReady = () => true
-
+  test("registers object-root Buddy schemas with the v2 runtime", async () => {
     await using project = await tmpdir({ git: true })
-
-    await loadOpenCodeApp()
-    await syncOpenCodeProjectConfig(project.path)
-
-    const toolSchemas = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        return tools
-          .filter((tool) => CREATED_BUDDY_TOOL_IDS.has(tool.id))
-          .map((tool) => ({
-            id: tool.id,
-            schema: tool.jsonSchema ?? ToolJsonSchema.fromSchema(tool.parameters),
-          }))
-      },
+    await using runtime = await ensureBuddyPluginTools(project.path)
+    const CREATED_BUDDY_TOOL_IDS = new Set((await listBuddyTools()).map((tool) => tool.id))
+    const inputSchema = z.object({
+      "~standard": z.object({
+        jsonSchema: z.object({ input: z.function({ output: z.record(z.string(), z.json()) }) }),
+      }),
     })
+    const toolSchemas = (await runtime.listTools())
+      .filter((tool) => CREATED_BUDDY_TOOL_IDS.has(tool.name))
+      .map((tool) => ({
+        id: tool.name,
+        schema: expectJsonSchemaObject(inputSchema.parse(tool.input)["~standard"].jsonSchema.input(), tool.name),
+      }))
 
     const checkedToolIDs = new Set(toolSchemas.map((entry) => entry.id))
     const missingToolIDs = [...CREATED_BUDDY_TOOL_IDS].filter(

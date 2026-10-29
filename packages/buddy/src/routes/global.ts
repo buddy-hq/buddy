@@ -1,7 +1,6 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { mapConfigRouteError, patchGlobalConfig } from "@buddy/backend/config/orchestration"
-import { Config } from "@buddy/backend/config"
 import z from "zod"
 import {
   EXPERIMENTAL_FEATURE_IDS,
@@ -9,7 +8,6 @@ import {
   setExperimentalFeatureEnabled,
 } from "../experimental-features"
 import {
-  mapAgentsMdConflictError,
   readGlobalAgentsMd,
   saveGlobalAgentsMd,
 } from "../agents-md/service"
@@ -17,18 +15,18 @@ import {
   booleanJsonResponse,
   routeErrors,
   runRouteTask,
-  respondWithSdkResult,
   runSdkRoute,
 } from "../http"
-import { getOpenCodeClient } from "../opencode-runtime/client"
+import { refreshActiveNotebookConfigs } from "../config/runtime/opencode-sync"
+import { loadConfigFile } from "../config/contract/document"
+import { resolveGlobalConfigFile } from "../config/store/config-paths"
+import { McpSettingsInfo, projectMcpSettingsConfig } from "../config/secrets/mcp-secrets"
 import {
-  mapNotesDirectoryError,
   readNotesDirectoryState,
   saveNotesDirectory,
 } from "../notes/settings"
 import {
   listManagedNotebooks,
-  mapManagedNotebookError,
   readBuddyHomeDefaultAccessState,
   readNotebookHomeState,
   saveNotebookHome,
@@ -99,7 +97,7 @@ export const GlobalRoutes = new Hono()
         200: {
           description: "Global configuration payload",
           content: {
-            "application/json": { schema: resolver(Config.Info) },
+            "application/json": { schema: resolver(McpSettingsInfo) },
           },
         },
         ...routeErrors(400),
@@ -107,7 +105,7 @@ export const GlobalRoutes = new Hono()
     }),
     async (c) =>
       runRouteTask({
-        task: async () => c.json(await Config.getGlobal()),
+        task: async () => c.json(await projectMcpSettingsConfig(await loadConfigFile(resolveGlobalConfigFile(), { resolveSubstitutions: false }))),
         mapError: mapConfigRouteError,
       }),
   )
@@ -120,7 +118,7 @@ export const GlobalRoutes = new Hono()
         200: {
           description: "Updated global configuration",
           content: {
-            "application/json": { schema: resolver(Config.Info) },
+            "application/json": { schema: resolver(McpSettingsInfo) },
           },
         },
         ...routeErrors(400),
@@ -129,7 +127,7 @@ export const GlobalRoutes = new Hono()
     validator("json", z.record(z.string(), z.unknown())),
     async (c) =>
       runRouteTask({
-        task: async () => c.json(await patchGlobalConfig(c.req.valid("json"))),
+        task: async () => c.json(await projectMcpSettingsConfig(await patchGlobalConfig(c.req.valid("json")))),
         mapError: mapConfigRouteError,
       }),
   )
@@ -201,7 +199,7 @@ export const GlobalRoutes = new Hono()
     async (c) =>
       runRouteTask({
         task: async () => c.json(await readNotebookHomeState()),
-        mapError: (error) => mapManagedNotebookError(error) ?? mapConfigRouteError(error),
+        mapError: mapConfigRouteError,
       }),
   )
   .get(
@@ -249,7 +247,7 @@ export const GlobalRoutes = new Hono()
     async (c) =>
       runRouteTask({
         task: async () => c.json(await saveNotebookHome(c.req.valid("json").directory)),
-        mapError: (error) => mapManagedNotebookError(error) ?? mapConfigRouteError(error),
+        mapError: mapConfigRouteError,
       }),
   )
   .get(
@@ -288,7 +286,7 @@ export const GlobalRoutes = new Hono()
     async (c) =>
       runRouteTask({
         task: async () => c.json(await saveNotesDirectory(c.req.valid("json").directory)),
-        mapError: (error) => mapNotesDirectoryError(error) ?? mapConfigRouteError(error),
+        mapError: mapConfigRouteError,
       }),
   )
   .get(
@@ -309,14 +307,14 @@ export const GlobalRoutes = new Hono()
     async (c) =>
       runRouteTask({
         task: async () => c.json(await listManagedNotebooks()),
-        mapError: (error) => mapManagedNotebookError(error) ?? mapConfigRouteError(error),
+        mapError: mapConfigRouteError,
       }),
   )
   .post(
     "/dispose",
     describeRoute({
       operationId: "global.dispose",
-      summary: "Dispose all global runtime instances",
+      summary: "Refresh active notebook configuration",
       responses: {
         200: {
           description: "Disposal response",
@@ -328,9 +326,8 @@ export const GlobalRoutes = new Hono()
     }),
     async (c) =>
       runSdkRoute(c, async () => {
-        const client = await getOpenCodeClient()
-        const result = await client.global.dispose()
-        return respondWithSdkResult(c, result)
+        await refreshActiveNotebookConfigs()
+        return c.json(true)
       }),
   )
   .get(
@@ -352,7 +349,7 @@ export const GlobalRoutes = new Hono()
     async (c) =>
       runRouteTask({
         task: async () => c.json(await readGlobalAgentsMd()),
-        mapError: mapAgentsMdConflictError,
+        mapError: mapConfigRouteError,
       }),
   )
   .put(
@@ -384,6 +381,6 @@ export const GlobalRoutes = new Hono()
             }),
           )
         },
-        mapError: mapAgentsMdConflictError,
+        mapError: mapConfigRouteError,
       }),
   )

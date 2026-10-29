@@ -1,6 +1,6 @@
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { readProjectConfig } from "../../../config/runtime"
+import type { Session } from "@buddy/transcript-contract/session"
+import { listDirectorySessions } from "../../../project/session-history"
+import { readProjectConfig } from "../../../config/runtime/project-config"
 import { internalLearnerMemorySession } from "./internal-session"
 import { readLearnerMemorySettings } from "./settings"
 import { extractLearnerMemoryFromSession } from "./session-extraction"
@@ -27,7 +27,7 @@ type LearnerMemoryStartupSessionResult = {
 type LearnerMemoryStartupPlan = {
   scanned: number
   startupConcurrency: number
-  eligible: OpenCodeSession.Info[]
+  eligible: Session[]
   skippedReason?: string
 }
 
@@ -38,7 +38,7 @@ type LearnerMemoryStartupObserver = {
 }
 
 function eligibleSession(input: {
-  session: OpenCodeSession.Info
+  session: Session
   currentSessionID?: string
   now: number
   minIdleMs: number
@@ -81,7 +81,7 @@ async function runWithConcurrency<T>(
 }
 
 function startupSessionSummary(
-  session: OpenCodeSession.Info,
+  session: Session,
 ): Omit<LearnerMemoryStartupSessionResult, "extraction" | "error"> {
   return Object.assign(
     {
@@ -107,10 +107,7 @@ async function buildLearnerMemoryStartupPlan(input: {
     }
   }
 
-  const sessions = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => OpenCodeSession.list({ directory: input.directory }),
-  })
+  const sessions = await listDirectorySessions(input.directory)
   const now = Date.now()
   const eligible = sessions
     .filter((session) =>

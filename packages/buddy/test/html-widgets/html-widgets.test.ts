@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
+import { INERT_DOCUMENT_CSP } from "../../src/http/inert-document-headers"
 import { app } from "../../src/index"
 import { BUDDY_OBJECT_KINDS, BuddyObjectResultSchema } from "../../src/objects"
 import {
@@ -93,6 +94,7 @@ describe("HTML widget objects", () => {
     )
     expect(runtimeResponse.status).toBe(200)
     expect(runtimeResponse.headers.get("content-security-policy")).toBe(HTML_WIDGET_RUNTIME_CSP)
+    expect(runtimeResponse.headers.get("content-security-policy")).not.toBe(INERT_DOCUMENT_CSP)
     expect(runtimeResponse.headers.get("content-security-policy")).toContain(
       "sandbox allow-scripts",
     )

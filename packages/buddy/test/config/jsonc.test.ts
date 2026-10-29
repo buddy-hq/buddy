@@ -2,12 +2,21 @@ import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { Config, InvalidError, JsonError } from "@buddy/backend/config"
-import { updateKnownConfigDocument } from "../../src/config/contract/document"
+import { loadConfigText, updateKnownConfigDocument } from "../../src/config/contract/document"
 import { projectConfigFile, writeProjectConfig } from "../helpers/project-config"
 import { parseJsonObject } from "../helpers/parse"
 import { createGitRepo } from "../helpers/repo"
 
 describe("config jsonc", () => {
+  test("keeps credential values out of parse diagnostics exposed by config routes", async () => {
+    const text = '{ "provider": { "custom": { "options": { "apiKey": "private-test-key" } } }, invalid }'
+    const error = await loadConfigText(text, { path: "/fixture/buddy.jsonc" }).catch((cause: unknown) => cause)
+    expect(error).toBeInstanceOf(JsonError)
+    if (!(error instanceof JsonError)) throw error
+    expect(error.message).toContain("line 1, column")
+    expect(JSON.stringify(error.data)).not.toContain("private-test-key")
+  })
+
   test("parses comments and trailing commas", async () => {
     await using repository = await createGitRepo("buddy-config-jsonc")
     writeProjectConfig(

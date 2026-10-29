@@ -1,11 +1,11 @@
 import type { MessageWithParts } from "@/state/chat-types"
+import { createBeforeRevertFilter } from "@/state/session-revert"
 
 import { isChatToolPart } from "../utils/part-guards"
-import { parseToolState } from "./parse-tool-state"
-import { isRecord, readNonEmptyString } from "./types"
+import { parseToolState, readToolSummaryKind } from "./parse-tool-state"
 import type { ToolState } from "./registry"
 
-export const TODO_WRITE_TOOL_ID = "todowrite"
+const UPDATE_PLAN_TOOL_KIND = "update-plan"
 
 export type TodoStatus = "in_progress" | "pending" | "completed" | "cancelled"
 
@@ -29,52 +29,12 @@ export type TodoProgress = {
   state: TodoProgressState
 }
 
-const STATUS_ALIASES = new Map<string, TodoStatus>(
-  Object.entries({
-    in_progress: "in_progress",
-    "in-progress": "in_progress",
-    inprogress: "in_progress",
-    running: "in_progress",
-    pending: "pending",
-    todo: "pending",
-    not_started: "pending",
-    completed: "completed",
-    complete: "completed",
-    done: "completed",
-    cancelled: "cancelled",
-    canceled: "cancelled",
-    skipped: "cancelled",
-  }),
-)
-
-function normalizeStatus(status: string): TodoStatus {
-  return STATUS_ALIASES.get(status.trim().toLowerCase()) ?? "pending"
-}
-
-export function readTodoItems<TValue>(value: TValue): TodoItem[] | undefined {
-  if (!Array.isArray(value)) return undefined
-
-  return value.flatMap((item, index): TodoItem[] => {
-    if (!isRecord(item)) return []
-
-    const content = readNonEmptyString(item.content)
-    if (!content) return []
-
-    const rawStatus = readNonEmptyString(item.status) ?? "pending"
-    return [
-      {
-        key: `${index}:${content}`,
-        content,
-        status: normalizeStatus(rawStatus),
-      },
-    ]
-  })
-}
-
 export function readTodosFromToolState(state: ToolState): TodoItem[] | undefined {
-  const metadataTodos = readTodoItems(state.metadata.todos)
-  if (metadataTodos) return metadataTodos
-  return readTodoItems(state.input.todos)
+  return state.todos?.map((todo, index) => ({
+    key: `${index}:${todo.text}`,
+    content: todo.text,
+    status: todo.status,
+  }))
 }
 
 export function todoProgress(todos: readonly TodoItem[]): TodoProgress {
@@ -99,21 +59,25 @@ export function todoProgress(todos: readonly TodoItem[]): TodoProgress {
 export function findLatestTodoSnapshot(input: {
   messages: readonly MessageWithParts[]
   revertMessageID?: string
+  transcriptComplete: boolean
 }): TodoSnapshot | undefined {
+  const isBeforeRevert = createBeforeRevertFilter({
+    messages: input.messages,
+    revertMessageID: input.revertMessageID,
+    transcriptComplete: input.transcriptComplete,
+  })
   const latestVisibleUserMessageIndex = input.messages.findLastIndex(
-    (message) =>
-      message.info.role === "user" &&
-      (!input.revertMessageID || message.info.id < input.revertMessageID),
+    (message) => message.info.role === "user" && isBeforeRevert(message),
   )
 
   for (let messageIndex = input.messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
     const message = input.messages[messageIndex]
     if (!message) continue
-    if (input.revertMessageID && message.info.id >= input.revertMessageID) continue
+    if (!isBeforeRevert(message)) continue
 
     for (let partIndex = message.parts.length - 1; partIndex >= 0; partIndex -= 1) {
       const part = message.parts[partIndex]
-      if (!part || !isChatToolPart(part) || part.tool !== TODO_WRITE_TOOL_ID) continue
+      if (!part || !isChatToolPart(part) || readToolSummaryKind(part) !== UPDATE_PLAN_TOOL_KIND) continue
 
       const state = parseToolState(part)
       if (state.status === "error") continue

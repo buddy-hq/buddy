@@ -1,6 +1,6 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { refreshActiveNotebookSkillCatalogs } from "../../../config/runtime/opencode-sync"
 import type { BuddySkill } from "../../runtime/define-buddy-skill"
 import { skillArtifactPublicKey, systemSkillPackArtifactUrl } from "./artifact-config"
 import { renderBuddySkillManifest } from "./manifests"
@@ -298,7 +298,7 @@ export async function refreshSystemSkillPack(
   })
   const changed = await publishPack(resolution.value)
   if (changed) {
-    await (dependencies?.refreshSkillRuntime ?? OpenCodeInstance.disposeAll)()
+    await (dependencies?.refreshSkillRuntime ?? refreshActiveNotebookSkillCatalogs)()
   }
   return Object.assign(
     {

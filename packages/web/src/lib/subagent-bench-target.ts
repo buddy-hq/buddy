@@ -14,6 +14,7 @@ type OpenOwnedSubagentBenchInput = {
   activeSessionID: string | undefined
   selectSession: (directory: string, sessionID: string) => Promise<boolean>
   openSubagentBench: (directory: string, sessionID: string) => Promise<boolean>
+  loadSession?: (directory: string, sessionID: string) => Promise<Pick<SessionInfo, "id" | "parentID">>
 }
 
 export function subagentBenchSelection(
@@ -31,7 +32,8 @@ export function subagentBenchSelection(
     if (visited.has(ownerSessionID)) return undefined
     visited.add(ownerSessionID)
     const parent = sessionsByID.get(ownerSessionID)
-    if (!parent?.parentID) break
+    if (!parent) return undefined
+    if (!parent.parentID) break
     ownerSessionID = parent.parentID
   }
 
@@ -45,8 +47,25 @@ export function subagentBenchSelection(
 export async function openOwnedSubagentBench(
   input: OpenOwnedSubagentBenchInput,
 ): Promise<boolean | undefined> {
-  const selection = subagentBenchSelection(input.sessions, input.sessionID)
-  if (!selection) return undefined
+  const sessions = new Map(input.sessions.map((session) => [session.id, session]))
+  let sessionID: string | undefined = input.sessionID
+  const visited = new Set<string>()
+  while (sessionID) {
+    if (visited.has(sessionID)) return false
+    visited.add(sessionID)
+    let session = sessions.get(sessionID)
+    if (!session && input.loadSession) {
+      try {
+        session = await input.loadSession(input.directory, sessionID)
+        if (session.id !== sessionID) return false
+        sessions.set(session.id, session)
+      } catch { return false }
+    }
+    if (!session) return sessionID === input.sessionID ? undefined : false
+    sessionID = session.parentID
+  }
+  const selection = subagentBenchSelection([...sessions.values()], input.sessionID)
+  if (!selection) return sessions.get(input.sessionID)?.parentID ? false : undefined
 
   const ownerAlreadyActive =
     input.directory === input.activeDirectory && input.activeSessionID === selection.ownerSessionID

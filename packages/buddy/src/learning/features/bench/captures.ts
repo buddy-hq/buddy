@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { BUDDY_TMP_DIR } from "../../../opencode-runtime/env"
+import { BUDDY_TMP_DIR } from "../../../runtime/runtime-paths"
 import {
   BENCH_CAPTURE_MAX_BASE64_CHARACTERS,
   BENCH_CAPTURE_MAX_DIMENSION_PIXELS,

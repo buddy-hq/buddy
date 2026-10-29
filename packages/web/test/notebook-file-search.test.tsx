@@ -48,14 +48,14 @@ async function until(ready: () => boolean, description: string) {
   }
 }
 
-function tool(name: string, status: string) {
+function toolPart(state: { status: string; filesChanged?: boolean }) {
   return {
     id: "part",
     sessionID: "session",
     messageID: "message",
     type: "tool",
-    tool: name,
-    state: { status },
+    tool: "tool",
+    state,
   }
 }
 
@@ -742,26 +742,14 @@ describe("shared notebook search", () => {
     expect(search?.error).toBe(false)
   })
 
-  test("only finished file-changing tool calls reload the file index", () => {
-    expect(FileChangingToolCompletionSchema.safeParse(tool("write", "completed")).success).toBe(
-      true,
-    )
-    expect(FileChangingToolCompletionSchema.safeParse(tool("bash", "completed")).success).toBe(true)
-    expect(FileChangingToolCompletionSchema.safeParse(tool("write", "running")).success).toBe(false)
-    expect(FileChangingToolCompletionSchema.safeParse(tool("read", "completed")).success).toBe(
-      false,
-    )
-    const finished = {
-      ...tool("edit", "completed"),
-      state: { status: "completed", time: { start: 1, end: 2 } },
-    }
-    expect(FileChangingToolCompletionSchema.safeParse(finished).success).toBe(true)
-    // Compaction re-saves old calls; they must not reload the index again.
-    const compacted = {
-      ...finished,
-      state: { ...finished.state, time: { start: 1, end: 2, compacted: 3 } },
-    }
-    expect(FileChangingToolCompletionSchema.safeParse(compacted).success).toBe(false)
+  test("only tool calls marked as changing files reload the file index", () => {
+    const changed = toolPart({ status: "completed", filesChanged: true })
+    const unchanged = toolPart({ status: "completed", filesChanged: false })
+    const unmarked = toolPart({ status: "completed" })
+
+    expect(FileChangingToolCompletionSchema.safeParse(changed).success).toBe(true)
+    expect(FileChangingToolCompletionSchema.safeParse(unchanged).success).toBe(false)
+    expect(FileChangingToolCompletionSchema.safeParse(unmarked).success).toBe(false)
   })
 
   test("an aborted Notes request preserves the cancellation reason", async () => {

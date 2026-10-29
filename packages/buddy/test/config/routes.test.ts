@@ -1,11 +1,23 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, spyOn, test } from "bun:test"
 import path from "node:path"
 import fs from "node:fs"
 import { writeFileSync } from "node:fs"
-import { app } from "../../src/index.ts"
+import { Hono } from "hono"
+import { ConfigRoutes } from "../../src/routes/config"
+import { GlobalRoutes } from "../../src/routes/global"
 import { Config } from "../../src/config"
+import { readSecrets, secretReference, storeSecret } from "../../src/config/secrets/secret-store"
+import { loadConfigFile } from "../../src/config/contract/document"
+import { resolveGlobalConfigFile } from "../../src/config/store/config-paths"
+import {
+  closeOpenProjectRegistryEntry,
+  listOpenProjects,
+  openProjectRegistryEntry,
+  setOpenProjectRegistryEntries,
+} from "../../src/project/open-project-registry"
 import { Global } from "../../src/storage"
 import { projectConfigFile, writeProjectConfig } from "../helpers/project-config"
+import { temporaryEnvironment } from "../helpers/temporary-environment"
 import { createGitRepo } from "../helpers/repo"
 import {
   parseJsonObject,
@@ -15,6 +27,8 @@ import {
   requireString,
 } from "../helpers/parse"
 
+const app = new Hono().route("/api/config", ConfigRoutes).route("/api/global", GlobalRoutes)
+
 function normalizePathForAssertion(value: string): string {
   if (process.platform !== "darwin") {
     return value
@@ -22,7 +36,279 @@ function normalizePathForAssertion(value: string): string {
   return value.startsWith("/private/") ? value.slice("/private".length) : value
 }
 
+async function assertWebSafeConfigResponse(response: Response) {
+  expect(response.status).toBe(200)
+  const body = requireJsonObject(await response.json())
+  const text = JSON.stringify(body)
+  for (const secret of ["resolved-env-key", "resolved-file-key", "resolved.example.test", "literal-provider-secret", "opaque-provider-secret", "nested-password", "model-header-key", "literal-header", "literal-mcp-key", "literal-oauth-secret", "literal-environment", "inherited-key", "inherited-token", "inherited-client-secret"]) expect(text).not.toContain(secret)
+  expect(text).toContain("{env:REVIEW_FIXTURE_KEY}")
+  expect(text).toContain("{file:key.txt}")
+  expect(body.provider).toMatchObject({ fixture: { options: { clientSecret: "[REDACTED]", setCacheKey: true } } })
+  return body
+}
+
 describe("config routes", () => {
+  test("marks missing MCP secrets in notebook and global Settings responses", async () => {
+    await using repo = await createGitRepo("buddy-route-missing-mcp-secret")
+    using environment = temporaryEnvironment({ BUDDY_ALLOWED_DIRECTORY_ROOTS: repo.path })
+    void environment
+    const config = { mcp: { missing: { type: "remote", url: "https://example.test/mcp", headers: { Authorization: "{secret:sec_other_machine}" } } } }
+    writeProjectConfig(repo.path, JSON.stringify(config))
+    const headers = { "x-buddy-directory": repo.path }
+    for (const url of ["/api/config/raw", "/api/config"]) {
+      const response = await app.request(url, { headers })
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({ mcp: { missing: { missingSecret: true, headers: { Authorization: "[REDACTED]" } } } })
+    }
+    const previousGlobal = await Config.getGlobal()
+    try {
+      await Config.replaceGlobal(Config.Info.parse(config))
+      const response = await app.request("/api/global/config")
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({ mcp: { missing: { missingSecret: true } } })
+    } finally {
+      await Config.replaceGlobal(previousGlobal)
+    }
+  })
+
+  test("Settings saves delete replaced and removed IDs used only by the saved notebook", async () => {
+    await using repo = await createGitRepo("buddy-route-cleanup-mcp-secret")
+    using environment = temporaryEnvironment({ BUDDY_ALLOWED_DIRECTORY_ROOTS: repo.path })
+    void environment
+    const headers = { "x-buddy-directory": repo.path, "content-type": "application/json" }
+    const put = (name: string, config: Config.Mcp) => app.request(`/api/config/mcp/${name}`, { method: "PUT", headers, body: JSON.stringify(config) })
+    expect((await put("remote", { type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: "old-header" }, oauth: { clientSecret: "old-oauth" } })).status).toBe(200)
+    expect((await put("local", { type: "local", command: ["fixture"], enabled: false, environment: { TOKEN: "old-env" } })).status).toBe(200)
+    const old = await readSecrets()
+    const oldIds = Object.keys(old).filter((id) => ["old-header", "old-oauth", "old-env"].includes(old[id]))
+    expect(oldIds).toHaveLength(3)
+    expect((await put("remote", { type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: "new-header" } })).status).toBe(200)
+    expect((await put("local", { type: "local", command: ["fixture"], enabled: false })).status).toBe(200)
+    const replaced = await readSecrets()
+    for (const id of oldIds) expect(replaced).not.toHaveProperty(id)
+    expect(Object.values(replaced)).toContain("new-header")
+    const newId = Object.keys(replaced).find((id) => replaced[id] === "new-header")
+    if (!newId) throw new Error("Expected replacement secret ID")
+    const removed = await app.request("/api/config", { method: "PATCH", headers, body: JSON.stringify({ mcp: { remote: null } }) })
+    expect(removed.status).toBe(200)
+    expect(await readSecrets()).not.toHaveProperty(newId)
+  })
+
+  test.each(["open", "closed"])("removing a notebook secret checks whether the other notebook is %s", async (copyState) => {
+    await using source = await createGitRepo("buddy-secret-source")
+    await using copy = await createGitRepo("buddy-secret-copy", { readme: "# copied notebook\n" })
+    using environment = temporaryEnvironment({ BUDDY_ALLOWED_DIRECTORY_ROOTS: path.dirname(source.path) })
+    void environment
+    const id = await storeSecret("shared-notebook-header")
+    const config = { mcp: { shared: { type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: secretReference(id) } } } }
+    writeProjectConfig(source.path, JSON.stringify(config))
+    writeProjectConfig(copy.path, JSON.stringify(config))
+    const copyBefore = fs.readFileSync(projectConfigFile(copy.path), "utf8")
+    const previousRegistry = await listOpenProjects()
+    try {
+      await openProjectRegistryEntry(source.path)
+      await openProjectRegistryEntry(copy.path)
+      if (copyState === "closed") await closeOpenProjectRegistryEntry(copy.path)
+      const response = await app.request("/api/config", {
+        method: "PATCH",
+        headers: { "x-buddy-directory": source.path, "content-type": "application/json" },
+        body: JSON.stringify({ mcp: { shared: null } }),
+      })
+      expect(response.status).toBe(200)
+      expect(fs.readFileSync(projectConfigFile(copy.path), "utf8")).toBe(copyBefore)
+      if (copyState === "open") {
+        expect((await readSecrets())[id]).toBe("shared-notebook-header")
+        expect(await Config.getProjectFile(copy.path)).toMatchObject({ mcp: { shared: { headers: { Authorization: "shared-notebook-header" } } } })
+      } else {
+        expect(await readSecrets()).not.toHaveProperty(id)
+        const listed = await app.request("/api/config/raw", { headers: { "x-buddy-directory": copy.path } })
+        expect(listed.status).toBe(200)
+        expect(await listed.json()).toMatchObject({ mcp: { shared: { missingSecret: true, headers: { Authorization: "[REDACTED]" } } } })
+      }
+    } finally {
+      await setOpenProjectRegistryEntries(previousRegistry.directories)
+    }
+  })
+
+  test.each(["notebook", "global"])("removing a %s reference preserves the secret shared by global and notebook config", async (removedOwner) => {
+    await using repo = await createGitRepo("buddy-secret-global-copy")
+    using environment = temporaryEnvironment({ BUDDY_ALLOWED_DIRECTORY_ROOTS: repo.path })
+    void environment
+    const previousGlobal = await loadConfigFile(resolveGlobalConfigFile(), { resolveSubstitutions: false })
+    const previousRegistry = await listOpenProjects()
+    const id = await storeSecret("shared-global-header")
+    const config = { mcp: { shared: { type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: secretReference(id) } } } }
+    try {
+      await Config.replaceGlobal(Config.Info.parse(config))
+      writeProjectConfig(repo.path, JSON.stringify(config))
+      await openProjectRegistryEntry(repo.path)
+      const response = await app.request(removedOwner === "notebook" ? "/api/config" : "/api/global/config", {
+        method: "PATCH",
+        headers: { "x-buddy-directory": repo.path, "content-type": "application/json" },
+        body: JSON.stringify({ mcp: { shared: null } }),
+      })
+      expect(response.status).toBe(200)
+      expect((await readSecrets())[id]).toBe("shared-global-header")
+      const survivingConfig = removedOwner === "notebook" ? await Config.getGlobal() : await Config.getProjectFile(repo.path)
+      expect(survivingConfig).toMatchObject({ mcp: { shared: { headers: { Authorization: "shared-global-header" } } } })
+    } finally {
+      await setOpenProjectRegistryEntries(previousRegistry.directories)
+      await Config.replaceGlobal(previousGlobal)
+    }
+  })
+
+  test("global Settings deletes a replaced secret once no config still uses it", async () => {
+    const previousGlobal = await loadConfigFile(resolveGlobalConfigFile(), { resolveSubstitutions: false })
+    const id = await storeSecret("old-global-header")
+    try {
+      await Config.replaceGlobal({ mcp: { unique: { type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: secretReference(id) } } } })
+      const response = await app.request("/api/global/config", {
+        method: "PATCH", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mcp: { unique: { headers: { Authorization: "new-global-header" } } } }),
+      })
+      expect(response.status).toBe(200)
+      const secrets = await readSecrets()
+      expect(secrets).not.toHaveProperty(id)
+      expect(Object.values(secrets)).toContain("new-global-header")
+    } finally {
+      await Config.replaceGlobal(previousGlobal)
+    }
+  })
+
+  test("a notebook save keeps an ID still used elsewhere in its own file even when it is not open", async () => {
+    await using repo = await createGitRepo("buddy-secret-saved-owner")
+    using environment = temporaryEnvironment({ BUDDY_ALLOWED_DIRECTORY_ROOTS: repo.path })
+    void environment
+    const id = await storeSecret("shared-in-saved-file")
+    const server = { type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: secretReference(id) } }
+    writeProjectConfig(repo.path, JSON.stringify({ mcp: { removed: server, kept: server } }))
+    const response = await app.request("/api/config", {
+      method: "PATCH", headers: { "x-buddy-directory": repo.path, "content-type": "application/json" },
+      body: JSON.stringify({ mcp: { removed: null } }),
+    })
+    expect(response.status).toBe(200)
+    expect((await readSecrets())[id]).toBe("shared-in-saved-file")
+    expect(await Config.getProjectFile(repo.path)).toMatchObject({ mcp: { kept: { headers: { Authorization: "shared-in-saved-file" } } } })
+  })
+
+  test.each(["notebook", "global"])("a %s Settings save succeeds and logs when secret deletion fails", async (owner) => {
+    await using repo = await createGitRepo("buddy-secret-cleanup-failure")
+    using environment = temporaryEnvironment({ BUDDY_ALLOWED_DIRECTORY_ROOTS: repo.path })
+    void environment
+    const previousGlobal = await loadConfigFile(resolveGlobalConfigFile(), { resolveSubstitutions: false })
+    const id = await storeSecret("cleanup-failure-header")
+    const config = { mcp: { unique: { type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: secretReference(id) } } } }
+    if (owner === "global") await Config.replaceGlobal(Config.Info.parse(config))
+    else writeProjectConfig(repo.path, JSON.stringify(config))
+    const storePath = path.join(Global.Path.data, "secrets.json")
+    const backupPath = path.join(repo.path, "original-secret-store.json")
+    fs.renameSync(storePath, backupPath)
+    fs.mkdirSync(storePath)
+    const warnings = spyOn(console, "warn").mockImplementation(() => undefined)
+    try {
+      const response = await app.request(owner === "notebook" ? "/api/config" : "/api/global/config", {
+        method: "PATCH", headers: { "x-buddy-directory": repo.path, "content-type": "application/json" },
+        body: JSON.stringify({ mcp: { unique: null } }),
+      })
+      expect(response.status).toBe(200)
+      const saved = requireJsonObject(await response.json())
+      expect(requireJsonObject(saved.mcp)).not.toHaveProperty("unique")
+      expect(warnings.mock.calls.some((call) => call[0] === "Failed to clean up unused MCP secrets after saving config")).toBe(true)
+    } finally {
+      warnings.mockRestore()
+      fs.rmSync(storePath, { recursive: true, force: true })
+      fs.renameSync(backupPath, storePath)
+      await Config.replaceGlobal(previousGlobal)
+    }
+  })
+
+  test("config responses keep substitutions unresolved and redact literal and inherited secrets across reads and writes", async () => {
+    await using repo = await createGitRepo("buddy-route-config-secrets")
+    using environment = temporaryEnvironment({ REVIEW_FIXTURE_KEY: "resolved-env-key", REVIEW_FIXTURE_URL: "https://resolved.example.test", BUDDY_ALLOWED_DIRECTORY_ROOTS: repo.path })
+    void environment
+    const previousGlobal = await Config.getGlobal()
+    try {
+      await Config.replaceGlobal(Config.Info.parse({ provider: { inherited: { options: { apiKey: "inherited-key", accessToken: "inherited-token" } } }, mcp: { inherited: { type: "remote", url: "https://example.test/mcp", enabled: false, oauth: { clientSecret: "inherited-client-secret" } } } }))
+      fs.mkdirSync(path.join(repo.path, ".buddy"), { recursive: true })
+      writeFileSync(path.join(repo.path, ".buddy", "key.txt"), "resolved-file-key")
+      writeProjectConfig(repo.path, JSON.stringify({
+        provider: {
+          fixture: { npm: "@ai-sdk/openai-compatible", options: { apiKey: "{env:REVIEW_FIXTURE_KEY}", baseURL: "{env:REVIEW_FIXTURE_URL}", clientSecret: "literal-provider-secret", session: "opaque-provider-secret", password: "nested-password", setCacheKey: true }, models: { keep: { headers: { "x-api-key": "model-header-key" } } } },
+          file: { options: { apiKey: "{file:key.txt}" } },
+        },
+        mcp: {
+          remote: { type: "remote", url: "{env:REVIEW_FIXTURE_URL}", enabled: false, headers: { Authorization: "Bearer literal-header", "X-API-Key": "literal-mcp-key" }, oauth: { clientSecret: "literal-oauth-secret" } },
+          local: { type: "local", command: ["fixture"], enabled: false, environment: { TOKEN: "literal-environment", FROM_ENV: "{env:REVIEW_FIXTURE_KEY}" } },
+        },
+      }))
+      const headers = { "x-buddy-directory": repo.path, "content-type": "application/json" }
+      const before = fs.readFileSync(projectConfigFile(repo.path), "utf8")
+      const raw = await assertWebSafeConfigResponse(await app.request("/api/config/raw", { headers }))
+      expect(raw.provider).not.toHaveProperty("inherited")
+      const merged = await assertWebSafeConfigResponse(await app.request("/api/config", { headers }))
+      expect(merged.provider).toMatchObject({ inherited: { options: { apiKey: "[REDACTED]" } } })
+      expect(fs.readFileSync(projectConfigFile(repo.path), "utf8")).toBe(before)
+      await assertWebSafeConfigResponse(await app.request("/api/config", { method: "PATCH", headers, body: JSON.stringify({ ...raw, model: "fixture/keep" }) }))
+      expect(await Config.getProjectFile(repo.path)).toMatchObject({ provider: { fixture: { options: { clientSecret: "literal-provider-secret", apiKey: "resolved-env-key" } }, file: { options: { apiKey: "resolved-file-key" } } }, mcp: { remote: { headers: { Authorization: "Bearer literal-header" }, oauth: { clientSecret: "literal-oauth-secret" } }, local: { environment: { TOKEN: "literal-environment" } } } })
+      const remote = requireJsonObject(requireJsonObject(raw.mcp).remote)
+      await assertWebSafeConfigResponse(await app.request("/api/config/mcp/remote", { method: "PUT", headers, body: JSON.stringify({ ...remote, timeout: 5000 }) }))
+      expect(await Config.getProjectFile(repo.path)).toMatchObject({ mcp: { remote: { timeout: 5000, headers: { Authorization: "Bearer literal-header" }, oauth: { clientSecret: "literal-oauth-secret" } } } })
+      expect(fs.readFileSync(projectConfigFile(repo.path), "utf8")).not.toContain("[REDACTED]")
+      const replace = await app.request("/api/config", { method: "PATCH", headers, body: JSON.stringify({ provider: { fixture: { options: { clientSecret: "replacement-secret" } } } }) })
+      expect(replace.status).toBe(200)
+      expect(await replace.text()).not.toContain("replacement-secret")
+      expect(await Config.getProjectFile(repo.path)).toMatchObject({ provider: { fixture: { options: { clientSecret: "replacement-secret" } } } })
+      const clear = await app.request("/api/config", { method: "PATCH", headers, body: JSON.stringify({ provider: { fixture: { options: { clientSecret: null } } } }) })
+      expect(clear.status).toBe(200)
+      expect((await Config.getProjectFile(repo.path)).provider?.fixture?.options).not.toHaveProperty("clientSecret")
+      const clearedMcp = await app.request("/api/config/mcp/remote", { method: "PUT", headers, body: JSON.stringify({ type: "remote", url: "https://example.test/mcp", enabled: false, oauth: {} }) })
+      expect(clearedMcp.status).toBe(200)
+      expect((await Config.getProjectFile(repo.path)).mcp?.remote).toMatchObject({ oauth: {} })
+      expect((await Config.getProjectFile(repo.path)).mcp?.remote).not.toHaveProperty("headers")
+    } finally { await Config.replaceGlobal(previousGlobal) }
+  })
+
+  test("keeps MCP secrets entered in Settings in the private store and leaves hand-written ones in the notebook", async () => {
+    await using repo = await createGitRepo("buddy-route-config-mcp-secret-store")
+    using environment = temporaryEnvironment({ BUDDY_ALLOWED_DIRECTORY_ROOTS: repo.path })
+    void environment
+    writeProjectConfig(repo.path, JSON.stringify({ mcp: { kept: { type: "remote", url: "https://example.test/kept", enabled: false, headers: { Authorization: "Bearer typed-by-hand" } } } }))
+    const headers = { "x-buddy-directory": repo.path, "content-type": "application/json" }
+    const added = await app.request("/api/config/mcp/added", { method: "PUT", headers, body: JSON.stringify({ type: "remote", url: "https://example.test/mcp", enabled: false, headers: { Authorization: "Bearer entered-header" }, oauth: { clientSecret: "entered-client-secret" } }) })
+    expect(added.status).toBe(200)
+    const patched = await app.request("/api/config", { method: "PATCH", headers, body: JSON.stringify({ mcp: { local: { type: "local", command: ["fixture"], enabled: false, environment: { TOKEN: "entered-token" } } } }) })
+    expect(patched.status).toBe(200)
+    const text = fs.readFileSync(projectConfigFile(repo.path), "utf8")
+    for (const secret of ["entered-header", "entered-client-secret", "entered-token"]) {
+      expect(text).not.toContain(secret)
+      expect(await added.clone().text()).not.toContain(secret)
+    }
+    expect(text).toContain("Bearer typed-by-hand")
+    expect(text.match(/\{secret:sec_[a-f0-9]{32}\}/gu)).toHaveLength(3)
+    expect(await Config.getProjectFile(repo.path)).toMatchObject({ mcp: {
+      kept: { headers: { Authorization: "Bearer typed-by-hand" } },
+      added: { headers: { Authorization: "Bearer entered-header" }, oauth: { clientSecret: "entered-client-secret" } },
+      local: { environment: { TOKEN: "entered-token" } },
+    } })
+    const stored = Object.keys(await readSecrets()).length
+    const raw = requireJsonObject(await (await app.request("/api/config/raw", { headers })).json())
+    const resaved = await app.request("/api/config/mcp/added", { method: "PUT", headers, body: JSON.stringify({ ...requireJsonObject(requireJsonObject(raw.mcp).added), timeout: 5000 }) })
+    expect(resaved.status).toBe(200)
+    expect(Object.keys(await readSecrets())).toHaveLength(stored)
+    expect(fs.readFileSync(projectConfigFile(repo.path), "utf8").match(/\{secret:sec_[a-f0-9]{32}\}/gu)).toHaveLength(3)
+    expect(await Config.getProjectFile(repo.path)).toMatchObject({ mcp: { added: { timeout: 5000, oauth: { clientSecret: "entered-client-secret" } } } })
+  })
+
+  test("returns runnable agent IDs when a configured agent has a display name", async () => {
+    await using repo = await createGitRepo("buddy-route-config-agent-id")
+    writeProjectConfig(repo.path, JSON.stringify({ agent: { reviewer: { name: "Notebook reviewer" } } }))
+    const response = await app.request("/api/config/agents", { headers: { "x-buddy-directory": repo.path } })
+    expect(response.status).toBe(200)
+    const agents = requireJsonArray(await response.json())
+    expect(agents.map((agent) => parseJsonObject(agent)?.name)).toContain("reviewer")
+    expect(agents.map((agent) => parseJsonObject(agent)?.name)).not.toContain("Notebook reviewer")
+  })
+
   test("orders teaching-buddy first when teaching is the primary use", async () => {
     await using repo = await createGitRepo("buddy-route-config-personas-teach-default")
     writeProjectConfig(

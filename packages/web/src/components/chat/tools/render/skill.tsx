@@ -3,18 +3,9 @@ import { getSkillToolRowAction, humanizeSkillDisplayName } from "../../tools/ski
 import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject } from "../tool-row"
 import type { ToolPartProps } from "../registry"
 
-function parseSkillName(output?: string): string | undefined {
-  if (!output) return undefined
-  const match = output.match(/<skill_content name="([^"]+)">/)
-  return match?.[1]
-}
-
 export function renderSkillTool({ state, icon }: ToolPartProps) {
   const active = state.status === "pending" || state.status === "running"
-  const rawSkillName =
-    readNonEmptyString(state.metadata.name) ??
-    readNonEmptyString(state.input.name) ??
-    readNonEmptyString(parseSkillName(state.output))
+  const rawSkillName = readNonEmptyString(state.summary?.subject)
   const skillName = rawSkillName ? humanizeSkillDisplayName(rawSkillName) : undefined
 
   return (

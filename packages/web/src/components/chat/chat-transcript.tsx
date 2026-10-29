@@ -20,7 +20,7 @@ import type {
   ToolCollectionToken,
   ToolLayoutRole,
   ToolRendererToken,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 import { useShallow } from "zustand/react/shallow"
 
 import "@/components/chat/tools/text-shimmer.css"
@@ -28,7 +28,9 @@ import { language } from "@/context/language"
 import { useChatStore } from "@/state/chat-store"
 import { useChatSettings } from "@/state/chat-settings"
 import { IDLE_SESSION_STATUS, isSessionWorking } from "@/state/session-status"
+import { createBeforeRevertFilter } from "@/state/session-revert"
 import {
+  compareMessages,
   getTranscriptPart,
   loadOlderTranscriptMessages,
   useTranscriptMessage,
@@ -38,7 +40,7 @@ import {
   useTranscriptSessionMessages,
   useTranscriptSessionMeta,
 } from "@/state/transcript-repository"
-import type { MessagePart, ProviderInfo, SessionStatusInfo } from "@/state/chat-types"
+import type { MessageInfo, MessagePart, ProviderInfo, SessionStatusInfo, SessionStoppedTurn } from "@/state/chat-types"
 import {
   getTranscriptPerformanceProbe,
   recordTranscriptPerfEvent,
@@ -110,7 +112,10 @@ import {
   resolveRenderedTextRange,
 } from "@buddy/citation-contract/rendered-text"
 import { observeSelectionActions } from "@buddy/citation-contract/selection-actions"
-import { registerCitationNavigationHandler } from "@/lib/citations/navigation"
+import {
+  registerCitationNavigationHandler,
+  resolveChatCitationTarget,
+} from "@/lib/citations/navigation"
 import {
   registerNoteMessageNavigationHandler,
   retryPendingNoteMessageNavigation,
@@ -577,19 +582,24 @@ function useStableTimelineRows(rows: TimelineRow[]) {
 function useProjectedRows(input: {
   messages: ReturnType<typeof useTranscriptSessionMessages>
   revertMessageID: string | undefined
+  transcriptComplete: boolean
   isBusy: boolean
   sessionID: string | undefined
   directory: string | undefined
   activeSessionStatus: SessionStatusInfo
   showReasoningSummaries: boolean
+  stoppedTurn?: SessionStoppedTurn
 }) {
   const visibleMessages = useMemo(() => {
-    const filtered = input.messages.filter((message) => !isHiddenFromUserMessage(message))
-    const revertMessageID = input.revertMessageID
-    return revertMessageID
-      ? filtered.filter((message) => message.info.id < revertMessageID)
-      : filtered
-  }, [input.messages, input.revertMessageID])
+    const isBeforeRevert = createBeforeRevertFilter({
+      messages: input.messages,
+      revertMessageID: input.revertMessageID,
+      transcriptComplete: input.transcriptComplete,
+    })
+    return input.messages.filter(
+      (message) => !isHiddenFromUserMessage(message) && isBeforeRevert(message),
+    )
+  }, [input.messages, input.revertMessageID, input.transcriptComplete])
 
   const projected = useMemo(
     () =>
@@ -601,6 +611,7 @@ function useProjectedRows(input: {
         directory: input.directory,
         activeSessionStatus: input.activeSessionStatus,
         showReasoningSummaries: input.showReasoningSummaries,
+        stoppedTurn: input.stoppedTurn,
       }),
     [
       input.activeSessionStatus,
@@ -609,6 +620,7 @@ function useProjectedRows(input: {
       input.revertMessageID,
       input.sessionID,
       input.showReasoningSummaries,
+      input.stoppedTurn,
       visibleMessages,
     ],
   )
@@ -965,7 +977,11 @@ function TimelineRowRenderer(props: {
         >
           <MessageDivider
             label={
-              props.row.label === "compaction" ? language.t("chat.compaction.compacted") : "Stopped"
+              props.row.label === "compaction"
+                ? language.t("chat.compaction.compacted")
+                : props.row.stopReason === "inactivity"
+                  ? "Stopped after an hour with no activity. Send a message to carry on."
+                  : "Stopped"
             }
           />
         </article>
@@ -1197,7 +1213,9 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   })
   const { rows, visibleMessages } = useProjectedRows({
     messages,
+    stoppedTurn: sessionID ? directoryState?.stoppedTurnBySessionID?.[sessionID] : undefined,
     revertMessageID: activeSession?.revert?.messageID,
+    transcriptComplete: transcriptMeta.complete,
     isBusy,
     sessionID,
     directory,
@@ -1205,7 +1223,8 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     showReasoningSummaries,
   })
   const lastUserMessage = visibleMessages.findLast((message) => message.info.role === "user")
-  const lastUserMessageID = lastUserMessage?.info.id
+  const lastUserMessageInfo = lastUserMessage?.info
+  const lastUserMessageID = lastUserMessageInfo?.id
   // A freshly sent message is added optimistically; async-loaded history is not.
   // This lets the very first send of an empty session animate (no prior tail id
   // to advance past) without also animating when an existing conversation's
@@ -1270,14 +1289,14 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
 
   // Entrance animation: play the user block's transform/opacity "pop" once (and
   // its mirror on the assistant's thinking placeholder), only for a genuine
-  // send. The tail user-message id advances to a strictly newer id exactly when
-  // the user sends — assistant replies and history prepends leave it unchanged,
+  // send. The tail user message advances to a chronologically newer message exactly
+  // when the user sends — assistant replies and history prepends leave it unchanged,
   // and a revert moves it backwards. The first send of an empty session has no
   // prior tail to beat, so we fall back to the optimistic flag, which a live
   // send carries but async-loaded history does not. Never on session switch or
-  // re-scroll. Message ids are time-ordered (compared with < elsewhere here).
+  // re-scroll.
   const entranceCacheKeyRef = useRef<string | undefined>(cacheKey)
-  const previousLastUserMessageIDRef = useRef<string | undefined>(lastUserMessageID)
+  const previousLastUserMessageRef = useRef<MessageInfo | undefined>(lastUserMessageInfo)
   const [entranceUserMessageID, setEntranceUserMessageID] = useState<string | undefined>(undefined)
 
   // useLayoutEffect, not useEffect: it must set the flag before the browser
@@ -1287,22 +1306,25 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   // very first painted frame already carries the entrance's hidden start state.
   useLayoutEffect(() => {
     const sessionChanged = entranceCacheKeyRef.current !== cacheKey
-    const previous = previousLastUserMessageIDRef.current
+    const previous = previousLastUserMessageRef.current
     entranceCacheKeyRef.current = cacheKey
-    previousLastUserMessageIDRef.current = lastUserMessageID
+    previousLastUserMessageRef.current = lastUserMessageInfo
     if (sessionChanged) {
       setEntranceUserMessageID(undefined)
       return
     }
-    if (lastUserMessageID === undefined) return
-    const advanced = previous !== undefined && lastUserMessageID > previous
+    if (lastUserMessageInfo === undefined) return
+    const advanced =
+      previous !== undefined &&
+      lastUserMessageInfo.id !== previous.id &&
+      compareMessages(lastUserMessageInfo, previous) > 0
     // First send in a session we've been watching empty: no prior tail to beat,
     // but the optimistic flag confirms it's a live send rather than a history load.
     const firstSend = previous === undefined && lastUserMessageIsOptimistic
     if (advanced || firstSend) {
-      setEntranceUserMessageID(lastUserMessageID)
+      setEntranceUserMessageID(lastUserMessageInfo.id)
     }
-  }, [cacheKey, lastUserMessageID, lastUserMessageIsOptimistic])
+  }, [cacheKey, lastUserMessageInfo, lastUserMessageIsOptimistic])
 
   // Stop flagging the entrance after it has had time to play, so remounting the
   // row (scrolling it out of and back into the virtual window) never replays it.
@@ -1526,11 +1548,14 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         rowVirtualizer.scrollToIndex(rowIndex, { align: "center" })
         for (let attempt = 0; attempt < 30; attempt += 1) {
           await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
-          const source = scrollViewportRef?.current?.querySelector<HTMLElement>(
-            `[data-citation-part="${CSS.escape(citationSource.partID)}"]`,
-          )
-          if (!source) continue
-          const range = resolveRenderedTextRange(source, citation.excerpt, citationSource.selector)
+          const container = scrollViewportRef?.current
+          if (!container) continue
+          const target = resolveChatCitationTarget(container, {
+            ...citationSource,
+            excerpt: citation.excerpt,
+          })
+          if (!target) continue
+          const { source, range } = target
           if (range) revealCitationRange(range, source)
           else {
             source.scrollIntoView({ block: "center", behavior: "smooth" })

@@ -4,7 +4,7 @@ import type {
   ReasoningPart as SdkReasoningPart,
   TextPart as SdkTextPart,
   ToolPart as SdkToolPart,
-} from "@buddy/sdk"
+} from "@buddy/transcript-contract/message"
 import type { ReaderTextAnchor } from "@buddy/reader-contract"
 import { readCitation, type Citation } from "@buddy/citation-contract"
 import type { MessagePart } from "@/state/chat-types"

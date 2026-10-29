@@ -1,4 +1,5 @@
-import type { Citation } from "@buddy/citation-contract"
+import type { Citation, CitationTextSelector } from "@buddy/citation-contract"
+import { resolveRenderedTextRange } from "@buddy/citation-contract/rendered-text"
 
 export type CitationNavigationResult = boolean | "pending"
 export type CitationNavigationHandler = (
@@ -7,6 +8,36 @@ export type CitationNavigationHandler = (
 
 const handlers = new Set<CitationNavigationHandler>()
 let pendingCitation: Citation | undefined
+
+export function resolveChatCitationTarget(
+  container: ParentNode,
+  input: {
+    messageID: string
+    partID: string
+    excerpt: string
+    selector: CitationTextSelector
+  },
+): { source: HTMLElement; range: Range | undefined } | undefined {
+  const messageSelector = `[data-citation-message="${CSS.escape(input.messageID)}"]`
+  const exact = container.querySelector<HTMLElement>(
+    `${messageSelector}[data-citation-part="${CSS.escape(input.partID)}"]`,
+  )
+  if (exact) {
+    return {
+      source: exact,
+      range: resolveRenderedTextRange(exact, input.excerpt, input.selector),
+    }
+  }
+  let first: HTMLElement | undefined
+  for (const source of container.querySelectorAll<HTMLElement>(
+    `${messageSelector}[data-citation-part]`,
+  )) {
+    first ??= source
+    const range = resolveRenderedTextRange(source, input.excerpt, input.selector)
+    if (range) return { source, range }
+  }
+  return first ? { source: first, range: undefined } : undefined
+}
 
 /** Register a mounted source surface that can reveal citations it owns. */
 export function registerCitationNavigationHandler(handler: CitationNavigationHandler): () => void {

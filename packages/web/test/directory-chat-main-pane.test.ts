@@ -520,6 +520,7 @@ describe("directory chat main pane helpers", () => {
   test("counts only reverted user messages for the restore banner", () => {
     const count = resolveRevertedUserMessageCount({
       revertMessageID: "msg-2",
+      transcriptComplete: true,
       messages: [
         createMessageWithParts(createUserMessageInfo({ id: "msg-1", sessionID: "session-1" })),
         createMessageWithParts(

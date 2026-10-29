@@ -26,4 +26,5 @@ export type DeleteState = {
 export type DirectoryGroup = {
   directory: string
   sessions: SessionInfo[]
+  folderMissing: boolean
 }

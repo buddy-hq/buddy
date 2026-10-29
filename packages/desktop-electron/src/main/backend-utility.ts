@@ -1,12 +1,6 @@
-import { Buffer } from "node:buffer"
 import * as http from "node:http"
 import * as tls from "node:tls"
-import { BUDDY_ENV } from "@buddy/script/storage-env"
 import { z } from "zod"
-
-const DEFAULT_BACKEND_SERVER_USERNAME = "buddy"
-const GLOBAL_DISPOSE_PATH = "/api/global/dispose" as const
-const RUNTIME_DISPOSE_TIMEOUT_MS = 3_000
 
 const UtilityCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("start"), hostname: z.string(), port: z.number() }),
@@ -30,17 +24,10 @@ type BackendModule = {
   listen: (config: { hostname: string; port: number }) => Listener | Promise<Listener>
 }
 
-type ActiveServer = {
-  hostname: string
-  password: string | undefined
-  port: number
-  username: string
-}
-
 const parentPort = getParentPort()
 let listener: Listener | undefined
-let activeServer: ActiveServer | undefined
 let backendModuleTask: Promise<BackendModule> | undefined
+let stopping: Promise<void> | undefined
 
 parentPort.on("message", (event) => {
   const parsedCommand = UtilityCommandSchema.safeParse(event.data)
@@ -53,7 +40,12 @@ parentPort.on("message", (event) => {
   void start(command)
 })
 
+process.on("SIGTERM", () => {
+  void stop()
+})
+
 async function start(command: StartCommand) {
+  if (stopping) return
   try {
     if (listener) {
       postParentMessage({ type: "ready" })
@@ -69,12 +61,6 @@ async function start(command: StartCommand) {
       hostname: command.hostname,
       port: command.port,
     })
-    activeServer = {
-      hostname: command.hostname,
-      password: process.env[BUDDY_ENV.SERVER_PASSWORD],
-      port: command.port,
-      username: process.env[BUDDY_ENV.SERVER_USERNAME] ?? DEFAULT_BACKEND_SERVER_USERNAME,
-    }
     postParentMessage({ type: "ready" })
   } catch (error) {
     const serializedError =
@@ -84,40 +70,25 @@ async function start(command: StartCommand) {
   }
 }
 
-async function stop() {
-  try {
-    await disposeActiveServer()
-    await listener?.stop(true)
-  } finally {
-    activeServer = undefined
-    listener = undefined
-    postParentMessage({ type: "stopped" })
-    setImmediate(() => process.exit(0))
-  }
-}
-
-async function disposeActiveServer(): Promise<void> {
-  if (!activeServer?.password) return
-
-  const authorization = Buffer.from(`${activeServer.username}:${activeServer.password}`).toString(
-    "base64",
-  )
-  try {
-    await fetch(new URL(GLOBAL_DISPOSE_PATH, serverBaseUrl(activeServer)), {
-      method: "POST",
-      headers: {
-        authorization: `Basic ${authorization}`,
-      },
-      signal: AbortSignal.timeout(RUNTIME_DISPOSE_TIMEOUT_MS),
-    })
-  } catch (error) {
-    console.warn("failed to dispose Buddy backend runtime before shutdown", error)
-  }
-}
-
-function serverBaseUrl(server: ActiveServer): string {
-  const hostname = server.hostname.includes(":") ? `[${server.hostname}]` : server.hostname
-  return `http://${hostname}:${server.port}`
+function stop(): Promise<void> {
+  stopping ??= (async () => {
+    let exitCode = 0
+    try {
+      await listener?.stop(true)
+    } catch (error) {
+      console.error("Failed to stop Buddy backend utility", error)
+      exitCode = 1
+    } finally {
+      listener = undefined
+      try {
+        postParentMessage({ type: "stopped" })
+      } catch (error) {
+        console.warn("Failed to notify the parent that Buddy backend stopped", error)
+      }
+      setImmediate(() => process.exit(exitCode))
+    }
+  })()
+  return stopping
 }
 
 async function loadBackendModule(): Promise<BackendModule> {

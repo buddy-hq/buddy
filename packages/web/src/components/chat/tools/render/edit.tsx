@@ -1,4 +1,3 @@
-import { readString } from "../../tools/types"
 import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject } from "../tool-row"
 import type { ToolPartProps } from "../registry"
 
@@ -9,7 +8,7 @@ function basename(filePath: string): string {
 
 /** Renders a native file tool with its resolved lifecycle action and file target. */
 export function renderEditTool({ state, icon, info }: ToolPartProps) {
-  const filePath = readString(state.input.filePath)
+  const filePath = state.summary?.subject
   const fileName = filePath ? basename(filePath) : info?.subtitle
 
   return (

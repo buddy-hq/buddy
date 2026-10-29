@@ -1,5 +1,5 @@
 import { mergeDeep } from "remeda"
-import { Wildcard } from "@buddy/opencode-adapter/wildcard"
+import { matchPermissionPattern } from "@buddy/transcript-contract/permission-rules"
 import { InvalidError } from "../contract/errors.js"
 import { parseConfigJsonValue, parseConfigObject, parsePermissionAction } from "../parse-values.js"
 import { Permission } from "./types.js"
@@ -115,7 +115,7 @@ function defaultSkillPermissionRule(permission: Record<string, PermissionRule>):
       return []
     }
 
-    if (!Wildcard.match(SKILL_PERMISSION_KEY, permissionKey)) {
+    if (!matchPermissionPattern(SKILL_PERMISSION_KEY, permissionKey, process.platform === "win32" ? "win32" : "posix")) {
       return []
     }
 

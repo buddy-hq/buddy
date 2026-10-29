@@ -5,11 +5,19 @@ import { createAssistantMessageInfo } from "./test-utils"
 
 const TARGET_PATH = "notes/worksheet.md"
 
+const TOOL_KINDS = {
+  shell: "run-command",
+  edit: "edit-file",
+  write: "write-file",
+  patch: "change-files",
+} as const
+
 function toolPart(input: {
   id: string
-  tool: string
+  tool: keyof typeof TOOL_KINDS
   status: string
   filePath?: string
+  changedPaths?: string[]
   end?: number
 }): MessagePart {
   return {
@@ -20,7 +28,12 @@ function toolPart(input: {
     tool: input.tool,
     state: {
       status: input.status,
-      input: input.filePath ? { filePath: input.filePath } : {},
+      input: {},
+      summary: Object.assign(
+        { kind: TOOL_KINDS[input.tool] },
+        input.filePath ? { subject: input.filePath } : undefined,
+      ),
+      fileChanges: (input.changedPaths ?? []).map((path) => ({ path, relativePath: path })),
       time: input.end === undefined ? {} : { end: input.end },
     },
   }
@@ -39,7 +52,7 @@ describe("Markdown Bench agent edit activity", () => {
   test("tracks only file-edit tools that target the open document", () => {
     const activity = markdownBenchAgentEditActivity(
       messages([
-        toolPart({ id: "part-1", tool: "bash", status: "running" }),
+        toolPart({ id: "part-1", tool: "shell", status: "running" }),
         toolPart({ id: "part-2", tool: "edit", status: "running", filePath: "other/file.md" }),
       ]),
       TARGET_PATH,
@@ -56,6 +69,23 @@ describe("Markdown Bench agent edit activity", () => {
           tool: "edit",
           status: "completed",
           filePath: `/repo/${TARGET_PATH}`,
+          end: 1700,
+        }),
+      ]),
+      TARGET_PATH,
+    )
+
+    expect(activity).toEqual({ running: false, completedKey: "part-1:1700" })
+  })
+
+  test("tracks a patch whose changed files include the open document", () => {
+    const activity = markdownBenchAgentEditActivity(
+      messages([
+        toolPart({
+          id: "part-1",
+          tool: "patch",
+          status: "completed",
+          changedPaths: ["/repo/other.md", `/repo/${TARGET_PATH}`],
           end: 1700,
         }),
       ]),

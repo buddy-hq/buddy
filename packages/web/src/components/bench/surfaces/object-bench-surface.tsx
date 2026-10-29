@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { toast } from "@buddy/ui"
+import { Button, toast } from "@buddy/ui"
 import {
   AlertCircleIcon,
   ClipboardCopyIcon,
@@ -7,6 +7,7 @@ import {
   FolderOpenIcon,
   Loader2Icon,
   PencilIcon,
+  RefreshCwIcon,
 } from "@/icons/app-icons"
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
@@ -47,6 +48,7 @@ import { MarkdownBenchPage } from "@/components/bench/markdown/page"
 import { QuestionSetBenchReview } from "@/components/bench/question-set-bench-review"
 import { SvgBenchView } from "@/components/bench/svg-bench-view"
 import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
+import { useWidgetFrameLink } from "@/components/media/use-widget-frame-link"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { DirectoryChatReadingPage } from "@/components/directory-chat/directory-chat-reading-page"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
@@ -598,7 +600,9 @@ function HtmlWidgetObjectBenchView(props: {
   view: ObjectsViewResponse
   data: ObjectHtmlWidgetViewData
 }) {
-  const runtimeUrl = useMemo(() => resolveAssetUrl(props.data.runtimeUrl), [props.data.runtimeUrl])
+  const [reloadKey, setReloadKey] = useState(0)
+  const frameLink = useWidgetFrameLink(props.data.runtimeUrl, reloadKey)
+  const runtimeUrl = frameLink.status === "ready" ? resolveAssetUrl(frameLink.url) : undefined
 
   return (
     <ObjectBenchContextProvider
@@ -637,14 +641,26 @@ function HtmlWidgetObjectBenchView(props: {
         hideHeader
         surfaceClassName="bg-background-base"
       >
-        <iframe
-          key={runtimeUrl}
-          title={props.view.title}
-          src={runtimeUrl}
-          sandbox="allow-scripts"
-          referrerPolicy="no-referrer"
-          className="block h-full w-full border-0 bg-background-base"
-        />
+        {runtimeUrl ? (
+          <iframe
+            key={`${props.data.runtimeUrl}:${reloadKey}`}
+            title={props.view.title}
+            src={runtimeUrl}
+            sandbox="allow-scripts"
+            referrerPolicy="no-referrer"
+            className="block h-full w-full border-0 bg-background-base"
+          />
+        ) : frameLink.status === "error" ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-4 text-sm text-text-weak">
+            <p>Widget failed to load.</p>
+            <Button variant="secondary" size="sm" onClick={() => setReloadKey((key) => key + 1)}>
+              <RefreshCwIcon data-icon="inline-start" aria-hidden />
+              Reload widget
+            </Button>
+          </div>
+        ) : (
+          <BenchMediaMessage>Opening…</BenchMediaMessage>
+        )}
       </BenchSurfaceViewer>
     </ObjectBenchContextProvider>
   )

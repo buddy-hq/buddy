@@ -1,11 +1,12 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { ingestLearnerContextDelivery } from "../../features/memory/ingestion"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
-import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
+import {
+  readTeachingSessionState,
+  teachingSessionCompactionCount,
+  withoutTeachingContextDelivery,
+  writeTeachingSessionState,
+} from "../state/session-state"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
 import type { SessionTransformContext } from "./types"
 import { runMessagePromptPipeline } from "../../prompt/message-prompt-pipeline"
@@ -26,11 +27,7 @@ export async function orchestrateSessionMessageTransform(input: {
   context: SessionTransformContext
   body: TJsonObject
 }): Promise<SessionMessageTransformOrchestrationResult> {
-  await OpenCodeInstance.provide({
-    directory: input.context.directory,
-    fn: () => ToolRegistry.prime(),
-  })
-
+  const compactionCount = teachingSessionCompactionCount(input.context.sessionID)
   const projectConfig = await readProjectConfig(input.context.directory)
   const previousState = readTeachingSessionState(input.context.directory, input.context.sessionID)
   const conciseResponseSnapshot = previousState
@@ -129,65 +126,69 @@ export async function orchestrateSessionMessageTransform(input: {
         directory: input.context.directory,
         sessionID: input.context.sessionID,
         previousState,
+        compactionCount,
       })
-    writeTeachingSessionState(
-      input.context.directory,
+    const nextState = Object.assign(
       Object.assign(
         Object.assign(
           Object.assign(
-            Object.assign(
-              {},
-              previousState?.lastDeliveredLearnerContextDigest
-                ? {
-                    lastDeliveredLearnerContextDigest:
-                      previousState.lastDeliveredLearnerContextDigest,
-                  }
-                : undefined,
-              previousState?.lastDeliveredLearnerContextItems
-                ? {
-                    lastDeliveredLearnerContextItems:
-                      previousState.lastDeliveredLearnerContextItems,
-                  }
-                : undefined,
-              previousState?.lastDeliveredLearnerContextMessageId
-                ? {
-                    lastDeliveredLearnerContextMessageId:
-                      previousState.lastDeliveredLearnerContextMessageId,
-                  }
-                : undefined,
-            ),
-            previousState?.lastDeliveredReadingTurnContextDigest
+            {},
+            previousState?.lastDeliveredLearnerContextDigest
               ? {
-                  lastDeliveredReadingTurnContextDigest:
-                    previousState.lastDeliveredReadingTurnContextDigest,
+                  lastDeliveredLearnerContextDigest:
+                    previousState.lastDeliveredLearnerContextDigest,
                 }
               : undefined,
-            previousState?.lastDeliveredBenchTurnContextDigest
+            previousState?.lastDeliveredLearnerContextItems
               ? {
-                  lastDeliveredBenchTurnContextDigest:
-                    previousState.lastDeliveredBenchTurnContextDigest,
+                  lastDeliveredLearnerContextItems:
+                    previousState.lastDeliveredLearnerContextItems,
                 }
               : undefined,
-            previousState?.lastDeliveredTeachingTurnContextDigest
+            previousState?.lastDeliveredLearnerContextMessageId
               ? {
-                  lastDeliveredTeachingTurnContextDigest:
-                    previousState.lastDeliveredTeachingTurnContextDigest,
+                  lastDeliveredLearnerContextMessageId:
+                    previousState.lastDeliveredLearnerContextMessageId,
                 }
               : undefined,
           ),
-          pipelineResult.nextTeachingState,
-          readingDeliveryPatch,
-          benchDeliveryPatch,
+          previousState?.lastDeliveredReadingTurnContextDigest
+            ? {
+                lastDeliveredReadingTurnContextDigest:
+                  previousState.lastDeliveredReadingTurnContextDigest,
+              }
+            : undefined,
+          previousState?.lastDeliveredBenchTurnContextDigest
+            ? {
+                lastDeliveredBenchTurnContextDigest:
+                  previousState.lastDeliveredBenchTurnContextDigest,
+              }
+            : undefined,
+          previousState?.lastDeliveredTeachingTurnContextDigest
+            ? {
+                lastDeliveredTeachingTurnContextDigest:
+                  previousState.lastDeliveredTeachingTurnContextDigest,
+              }
+            : undefined,
         ),
-        teachingDeliveryPatch,
-        pipelineResult.learnerContextDelivery
-          ? {
-              lastDeliveredLearnerContextDigest: pipelineResult.learnerContextDelivery.fingerprint,
-              lastDeliveredLearnerContextItems: pipelineResult.learnerContextDelivery.items,
-              lastDeliveredLearnerContextMessageId: undefined,
-            }
-          : undefined,
+        pipelineResult.nextTeachingState,
+        readingDeliveryPatch,
+        benchDeliveryPatch,
       ),
+      teachingDeliveryPatch,
+      pipelineResult.learnerContextDelivery
+        ? {
+            lastDeliveredLearnerContextDigest: pipelineResult.learnerContextDelivery.fingerprint,
+            lastDeliveredLearnerContextItems: pipelineResult.learnerContextDelivery.items,
+            lastDeliveredLearnerContextMessageId: undefined,
+          }
+        : undefined,
+    )
+    writeTeachingSessionState(
+      input.context.directory,
+      teachingSessionCompactionCount(input.context.sessionID) !== compactionCount
+        ? withoutTeachingContextDelivery(nextState)
+        : nextState,
     )
   }
 
@@ -196,17 +197,6 @@ export async function orchestrateSessionMessageTransform(input: {
     sessionID: input.context.sessionID,
     sessionRuntime: pipelineResult.sessionRuntimeForPermissions,
   })
-
-  if (pipelineResult.subagentSessionPermission) {
-    await OpenCodeInstance.provide({
-      directory: input.context.directory,
-      fn: () =>
-        OpenCodeSession.setPermission({
-          sessionID: SessionID.make(input.context.sessionID),
-          permission: pipelineResult.subagentSessionPermission!,
-        }),
-    })
-  }
 
   const learnerContextDelivery = pipelineResult.learnerContextDelivery
   writeLastLlmOutbound({
@@ -246,10 +236,16 @@ export async function orchestrateSessionMessageTransform(input: {
                 )
                 if (state) {
                   const messageId = `learner_ctx_${input.context.sessionID}_${Date.now()}`
-                  writeTeachingSessionState(input.context.directory, {
+                  const nextState = {
                     ...state,
                     lastDeliveredLearnerContextMessageId: messageId,
-                  })
+                  }
+                  writeTeachingSessionState(
+                    input.context.directory,
+                    teachingSessionCompactionCount(input.context.sessionID) !== compactionCount
+                      ? withoutTeachingContextDelivery(nextState)
+                      : nextState,
+                  )
                   await ingestLearnerContextDelivery({
                     directory: input.context.directory,
                     sessionID: input.context.sessionID,

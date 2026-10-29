@@ -1,22 +1,13 @@
-import { afterEach, describe, expect, test } from "bun:test"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { afterAll, describe, expect, test } from "bun:test"
+import { getAgentRuntime, closeAgentRuntime } from "../../src/runtime/agent-runtime"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
 import { requireJsonObject, requireJsonArray, requireString } from "../helpers/parse"
 
-afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
-})
+afterAll(closeAgentRuntime)
 
 async function createSession(directory: string) {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: async () => {
-      const session = await OpenCodeSession.create({})
-      return session.id
-    },
-  })
+  return (await (await getAgentRuntime()).conversations.create(directory)).id
 }
 
 async function postInlineMermaidObject(input: {

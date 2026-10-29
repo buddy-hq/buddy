@@ -1,13 +1,14 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
 import { mergeDeep } from "remeda"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import {
   loadConfigText,
   loadProjectConfigText,
   removeConfigDocumentValue,
   updateKnownConfigDocument,
 } from "../contract/document.js"
+import { preserveConfigSecrets } from "../contract/web-safe"
+import { deleteUnusedMcpSecrets, storeEnteredMcpSecrets, withMcpSecretConfigLock } from "../secrets/mcp-secrets"
 import { JsonError } from "../contract/errors.js"
 import { parseNodeErrorCode } from "../parse-values.js"
 import { resetGlobalConfigCache } from "./global-cache.js"
@@ -42,9 +43,12 @@ async function writeConfigDocument<TConfig>(input: {
   before: string
   next: TConfig
   load: ConfigDocumentLoader<TConfig>
+  storeMcpSecrets?: boolean
 }): Promise<void> {
   const current = await input.load(input.before, input.filepath)
-  let updated = updateKnownConfigDocument(input.before, current, input.next, input.filepath)
+  const preserved = preserveConfigSecrets(input.next, current)
+  const next = input.storeMcpSecrets === true ? await storeEnteredMcpSecrets(preserved, current) : preserved
+  let updated = updateKnownConfigDocument(input.before, current, next, input.filepath)
 
   updated = removeConfigDocumentValue(updated, input.filepath, [
     ...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH,
@@ -58,14 +62,14 @@ function loadGlobalConfigDocument(text: string, filepath: string): Promise<Confi
   return loadConfigText(text, {
     dir: path.dirname(filepath),
     source: filepath,
-  })
+  }, { resolveSubstitutions: false })
 }
 
 function loadProjectConfigDocument(text: string, filepath: string): Promise<ProjectConfigInfo> {
   return loadProjectConfigText(text, {
     dir: path.dirname(filepath),
     source: filepath,
-  })
+  }, { resolveSubstitutions: false })
 }
 
 async function withGlobalConfigChangeLock<T>(task: () => Promise<T>): Promise<T> {
@@ -92,16 +96,19 @@ export async function updateProjectConfig(
   directory: string,
   config: ProjectConfigInfo,
 ): Promise<void> {
-  const { configDirectory } = await resolveProjectConfigContext(directory)
-  const filepath = resolveProjectConfigFile(configDirectory)
-  await ensureParentDirectory(filepath)
+  return withMcpSecretConfigLock(async () => {
+    const { configDirectory } = await resolveProjectConfigContext(directory)
+    const filepath = resolveProjectConfigFile(configDirectory)
+    await ensureParentDirectory(filepath)
 
-  const before = await readConfigTextOrDefault(filepath)
-  await writeConfigDocument({
-    filepath,
-    before,
-    next: config,
-    load: loadProjectConfigDocument,
+    const before = await readConfigTextOrDefault(filepath)
+    await writeConfigDocument({
+      filepath,
+      before,
+      next: config,
+      load: loadProjectConfigDocument,
+      storeMcpSecrets: true,
+    })
   })
 }
 
@@ -110,25 +117,27 @@ export async function setProjectMcpConfig(
   name: string,
   mcp: Mcp,
 ): Promise<void> {
-  const { configDirectory } = await resolveProjectConfigContext(directory)
-  const filepath = resolveProjectConfigFile(configDirectory)
-  await ensureParentDirectory(filepath)
+  return withMcpSecretConfigLock(async () => {
+    const { configDirectory } = await resolveProjectConfigContext(directory)
+    const filepath = resolveProjectConfigFile(configDirectory)
+    await ensureParentDirectory(filepath)
 
-  const before = await readConfigTextOrDefault(filepath)
-  const current = await loadProjectConfigDocument(before, filepath)
-  const next = ProjectInfo.parse({
-    ...current,
-    mcp: {
-      ...current.mcp,
-      [name]: mcp,
-    },
+    const before = await readConfigTextOrDefault(filepath)
+    const current = await loadProjectConfigDocument(before, filepath)
+    const next = ProjectInfo.parse({
+      ...current,
+      mcp: {
+        ...current.mcp,
+        [name]: mcp,
+      },
+    })
+    let updated = removeConfigDocumentValue(before, filepath, [
+      ...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH,
+    ])
+    updated = updateKnownConfigDocument(updated, current, await storeEnteredMcpSecrets(preserveConfigSecrets(next, current), current), filepath)
+    await loadProjectConfigDocument(updated, filepath)
+    await fsp.writeFile(filepath, updated, "utf8")
   })
-  let updated = removeConfigDocumentValue(before, filepath, [
-    ...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH,
-  ])
-  updated = updateKnownConfigDocument(updated, current, next, filepath)
-  await loadProjectConfigDocument(updated, filepath)
-  await fsp.writeFile(filepath, updated, "utf8")
 }
 
 export async function updateGlobalConfig(config: ConfigInfo): Promise<ConfigInfo> {
@@ -139,11 +148,8 @@ export async function replaceGlobalConfig(config: ConfigInfo): Promise<ConfigInf
   return mutateGlobalConfig(() => config)
 }
 
-export async function mutateGlobalConfig(mutation: GlobalConfigMutation): Promise<ConfigInfo> {
-  return withGlobalConfigChangeLock(async () => {
-    const filepath = resolveGlobalConfigFile()
-    await ensureParentDirectory(filepath)
-
+async function writeGlobalConfig(filepath: string, mutation: GlobalConfigMutation): Promise<string> {
+  return withMcpSecretConfigLock(async () => {
     const before = await readConfigTextOrDefault(filepath)
     const current = await loadGlobalConfigDocument(before, filepath)
     const next = Info.parse(mutation(current))
@@ -153,11 +159,24 @@ export async function mutateGlobalConfig(mutation: GlobalConfigMutation): Promis
       before,
       next,
       load: loadGlobalConfigDocument,
+      storeMcpSecrets: true,
     })
+    return before
+  })
+}
+
+export async function mutateGlobalConfig(mutation: GlobalConfigMutation): Promise<ConfigInfo> {
+  return withGlobalConfigChangeLock(async () => {
+    const filepath = resolveGlobalConfigFile()
+    await ensureParentDirectory(filepath)
+
+    const before = await writeGlobalConfig(filepath, mutation)
 
     resetGlobalConfigCache()
-    await OpenCodeInstance.disposeAll()
+    const { refreshActiveNotebookConfigs } = await import("../runtime/opencode-sync")
+    await refreshActiveNotebookConfigs()
+    await deleteUnusedMcpSecrets({ filepath, before })
 
-    return next
+    return loadGlobalConfigDocument(await fsp.readFile(filepath, "utf8"), filepath)
   })
 }

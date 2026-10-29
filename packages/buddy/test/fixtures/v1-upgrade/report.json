@@ -1,0 +1,498 @@
+{
+  "notebookDirectory": "/private/tmp/buddy-v1-fixture/home/Documents/Buddy/Fixture Notebook",
+  "parentSessionID": "ses_e9bc348c6ffeVYp3hNj10v5E1K",
+  "mermaid": {
+    "objectID": "01M5J3SEVYRETT9ZKXYQY7Z39Z",
+    "messageID": "msg_1643cbb48001fDS5bS1RVBAACk",
+    "partID": "prt_1643cbb6c0018VHL6zs5xnhS0Z"
+  },
+  "annotation": {
+    "messageID": "msg_1643cb7be001VNTXEe9rsxZkGN",
+    "result": {
+      "note": {
+        "kind": "buddy",
+        "id": "01M5J3SEWRSX4HHEHNRFVSR0M5",
+        "type": "buddy-session-note",
+        "title": "Photosynthesis basics",
+        "relativePath": "Chat notes/Photosynthesis basics.md",
+        "notebookID": "01M5J3SEWPMVS08BYP5QVTXK3H",
+        "notebook": "Fixture Notebook",
+        "notebookAvailable": false,
+        "updatedAt": 1792683064232.0056,
+        "sessionID": "ses_e9bc348c6ffeVYp3hNj10v5E1K"
+      },
+      "created": true
+    }
+  },
+  "secondSessionID": "ses_e9bc34367ffeUhIRiVk04oUEhK",
+  "sessions": [
+    {
+      "id": "ses_e9bc34367ffeUhIRiVk04oUEhK",
+      "title": "Respiration follow-up"
+    },
+    {
+      "id": "ses_e9bc348c6ffeVYp3hNj10v5E1K",
+      "title": "Photosynthesis basics"
+    },
+    {
+      "id": "ses_e9bc3458effeCghW9g8z1MN0VQ",
+      "title": "Summarise lesson (@general subagent)",
+      "parentID": "ses_e9bc348c6ffeVYp3hNj10v5E1K"
+    }
+  ],
+  "messages": {
+    "ses_e9bc34367ffeUhIRiVk04oUEhK": [
+      {
+        "id": "msg_1643cbccb001gaVRo7vqhm14zE",
+        "role": "user",
+        "summary": {
+          "diffs": []
+        },
+        "parts": [
+          {
+            "id": "prt_1643cbccd001vV16cEenA85uYl",
+            "type": "text",
+            "text": "<system-reminder>\n<learner_context fingerprint=\"c357476eaf143ef4cdb96b5b9997a203"
+          },
+          {
+            "id": "prt_1643cbccd002Htq7KlpkK5taYp",
+            "type": "text",
+            "text": "FIXTURE_SECOND_CHAT How is respiration related?"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cbcd1001lwyv8oVoYEm23s",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cbcf8001OQV62vV6LGhT9D",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cbcf9001nE5jWwizS2IY85",
+            "type": "text",
+            "text": "Fixture assistant reply 7: photosynthesis uses light, water and carbon dioxide t"
+          },
+          {
+            "id": "prt_1643cbcfc001XSubYSfj1w5uUX",
+            "type": "step-finish"
+          }
+        ]
+      }
+    ],
+    "ses_e9bc348c6ffeVYp3hNj10v5E1K": [
+      {
+        "id": "msg_1643cb7a2001leIKcrGaUU9mMR",
+        "role": "user",
+        "summary": {
+          "diffs": []
+        },
+        "parts": [
+          {
+            "id": "prt_1643cb7a7001p8HiTkwGi8ad7L",
+            "type": "text",
+            "text": "<system-reminder>\n<learner_context fingerprint=\"c357476eaf143ef4cdb96b5b9997a203"
+          },
+          {
+            "id": "prt_1643cb7a7002nzd5rrJ1WSIDV9",
+            "type": "text",
+            "text": "What is photosynthesis?"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cb7be001VNTXEe9rsxZkGN",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cb87d001FWZG31X3VLc0ad",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cb87f001BvkoKuFoQpBoaB",
+            "type": "text",
+            "text": "Fixture assistant reply 1: photosynthesis uses light, water and carbon dioxide t"
+          },
+          {
+            "id": "prt_1643cb8820015kiTRKJF2MNCDo",
+            "type": "step-finish"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cb8c2001oKaYdQyeh7XRgB",
+        "role": "user",
+        "summary": {
+          "diffs": []
+        },
+        "parts": [
+          {
+            "id": "prt_1643cb8c2002zjJPKj6rUhMO1m",
+            "type": "text",
+            "text": "FIXTURE_READ Please read lesson.md and tell me what it says."
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cb8c7001LVtSrryDrLOmqC",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cb8e30012TkeGQKKKqfB40",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cb8e5001bLZBYzVsw0zHzv",
+            "type": "tool",
+            "tool": "read",
+            "status": "completed"
+          },
+          {
+            "id": "prt_1643cb8f9001TGrbzSuqgY002s",
+            "type": "step-finish"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cb8fd001s8q3lNULWNTGCg",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cb91b0011RK9p8FEXOwGOc",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cb91d001g0mQJutRQn4faK",
+            "type": "text",
+            "text": "I checked that for you (step 2). The lesson says plants turn light, water and ca"
+          },
+          {
+            "id": "prt_1643cb920001FGEzKv74g9uKEN",
+            "type": "step-finish"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cb958001k05skJjeP44Erb",
+        "role": "user",
+        "summary": {
+          "diffs": []
+        },
+        "parts": [
+          {
+            "id": "prt_1643cb958002FE1eLlNBKQ1gXt",
+            "type": "text",
+            "text": "What does this diagram show?"
+          },
+          {
+            "id": "prt_1643cb958003fg0sm4gbIyBcqn",
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cb9770019P71uRZEkdckZV",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cb992001y6NdzEptso08HK",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cb9930011dqr6J7Fx6cEhe",
+            "type": "text",
+            "text": "Fixture assistant reply 3: photosynthesis uses light, water and carbon dioxide t"
+          },
+          {
+            "id": "prt_1643cb9960012MJP68To7iLYKa",
+            "type": "step-finish"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cb9d00015i2JpKo7mwonwj",
+        "role": "user",
+        "summary": {
+          "diffs": []
+        },
+        "parts": [
+          {
+            "id": "prt_1643cb9d9001DBxVJT6IkQt3R0",
+            "type": "text",
+            "text": "Use my reading list for the next step."
+          },
+          {
+            "id": "prt_1643cb9d9002UAJQ6lidycetE8",
+            "type": "text",
+            "text": "Called the Read tool with the following input: {\"filePath\":\"/private/tmp/buddy-v"
+          },
+          {
+            "id": "prt_1643cb9d90031gcEwG3mGAHoQc",
+            "type": "text",
+            "text": "<path>/private/tmp/buddy-v1-fixture/outside/reading-list.txt</path>\n<type>file</"
+          },
+          {
+            "id": "prt_1643cb9d9004hkZvvavcu8UEn6",
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cb9e0001NsL2nET4T2K1CA",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cb9f8001d1DxduqH5ZSZ8U",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cb9f90014y1eZgZ1iGmUlg",
+            "type": "text",
+            "text": "Fixture assistant reply 4: photosynthesis uses light, water and carbon dioxide t"
+          },
+          {
+            "id": "prt_1643cb9fc001NmhAe3CB1Urky2",
+            "type": "step-finish"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cba440011fperf36WdO0vB",
+        "role": "user",
+        "summary": {
+          "diffs": []
+        },
+        "parts": [
+          {
+            "id": "prt_1643cba4400212FBLkaBlpgFxd",
+            "type": "text",
+            "text": "FIXTURE_TASK Ask a helper to summarise the lesson."
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cba49001yGRbBu4qatYd5z",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cba6a001EfsPy1MQKsIjIZ",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cba6d001SXJkrRh1zfl1dE",
+            "type": "tool",
+            "tool": "task",
+            "status": "completed"
+          },
+          {
+            "id": "prt_1643cbada001x9pRjYK7mPru0E",
+            "type": "step-finish"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cbadd001icRd3iTZAkHV0M",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cbaf9001S96D7cnQMJEJbz",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cbafa001Ic6B7pNa8sXUoq",
+            "type": "text",
+            "text": "I checked that for you (step 5). The lesson says plants turn light, water and ca"
+          },
+          {
+            "id": "prt_1643cbafc001HR5pnNFk3feunL",
+            "type": "step-finish"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cbb44001qP4HJT29Dt1LHf",
+        "role": "user",
+        "summary": {
+          "diffs": []
+        },
+        "parts": [
+          {
+            "id": "prt_1643cbb44002vIRSp03ZKzTGvd",
+            "type": "text",
+            "text": "FIXTURE_MERMAID Draw the flow as a diagram."
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cbb48001fDS5bS1RVBAACk",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cbb6a001JHeFzT7hntEO0V",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cbb6c0018VHL6zs5xnhS0Z",
+            "type": "text",
+            "text": "Here is the flow as a diagram:\n\n```mermaid\nflowchart LR\n  Light --> Chlorophyll "
+          },
+          {
+            "id": "prt_1643cbb6e001Mm61BbJ2NzeLm1",
+            "type": "step-finish"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cbbd6001KHPKDqhqTXU72h",
+        "role": "user",
+        "summary": {
+          "diffs": []
+        },
+        "parts": [
+          {
+            "id": "prt_1643cbbd7001YQ0DTwO3l1tlE1",
+            "type": "compaction"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cbbdb001BHrSSAhdDOPHQk",
+        "role": "assistant",
+        "summary": true,
+        "parts": [
+          {
+            "id": "prt_1643cbbe0001sD3yZI9KgLuvOI",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cbbe2001qh4KnX0VnErWnv",
+            "type": "text",
+            "text": "## Goal\nThe learner is studying photosynthesis in the Fixture Notebook.\n## Progr"
+          },
+          {
+            "id": "prt_1643cbbe40010mNcyTYCZyL3Ju",
+            "type": "step-finish"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cbc39001V7bzZuy0xPg18J",
+        "role": "user",
+        "summary": {
+          "diffs": []
+        },
+        "parts": [
+          {
+            "id": "prt_1643cbc39002tB78iBWYp16Dss",
+            "type": "text",
+            "text": "Thanks. What happens at night?"
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cbc3e001Cs9SBTTdxjDs5p",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cbc58001xWTijqXNTRcwfu",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cbc5a001XZpjOuJ5Bwlj0F",
+            "type": "text",
+            "text": "Fixture assistant reply 6: photosynthesis uses light, water and carbon dioxide t"
+          },
+          {
+            "id": "prt_1643cbc5c001hqAIBtJi4Eabfi",
+            "type": "step-finish"
+          }
+        ]
+      }
+    ],
+    "ses_e9bc3458effeCghW9g8z1MN0VQ": [
+      {
+        "id": "msg_1643cba86001jCnZbRDVfWVlKo",
+        "role": "user",
+        "summary": {
+          "diffs": []
+        },
+        "parts": [
+          {
+            "id": "prt_1643cba96001nlIlGIRr06BT1W",
+            "type": "text",
+            "text": "FIXTURE_CHILD Summarise the photosynthesis lesson in two sentences."
+          }
+        ]
+      },
+      {
+        "id": "msg_1643cba9a001utgfb33tLBlMff",
+        "role": "assistant",
+        "parts": [
+          {
+            "id": "prt_1643cbabe001yaVbWC5T19jrHU",
+            "type": "step-start"
+          },
+          {
+            "id": "prt_1643cbabf0013Lw9gC7PtXzxRI",
+            "type": "text",
+            "text": "Photosynthesis converts light energy into chemical energy stored in glucose. It "
+          },
+          {
+            "id": "prt_1643cbac1001x4Zw4TzitrN8R4",
+            "type": "step-finish"
+          }
+        ]
+      }
+    ]
+  },
+  "subagentType": "general",
+  "llmCalls": [
+    "title",
+    "text",
+    "tool-read",
+    "after-tool",
+    "text",
+    "text",
+    "tool-task",
+    "child",
+    "after-tool",
+    "mermaid",
+    "compaction",
+    "text",
+    "title",
+    "text"
+  ],
+  "firstToolList": [
+    "bash",
+    "bench_present",
+    "bench_read_context",
+    "edit",
+    "glob",
+    "grep",
+    "imagegen",
+    "inapp_browser_open",
+    "ingest_full_text",
+    "learning_tool_load",
+    "learning_tool_search",
+    "prepare_resource",
+    "present_html_widget",
+    "present_media",
+    "question",
+    "read",
+    "reflection",
+    "render_figure",
+    "render_freeform_figure",
+    "render_mermaid",
+    "render_svg",
+    "skill",
+    "stepwise_solve",
+    "task",
+    "todowrite",
+    "webfetch",
+    "websearch",
+    "whiteboard_create_view",
+    "whiteboard_read_context",
+    "write"
+  ]
+}

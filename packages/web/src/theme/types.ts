@@ -10,7 +10,7 @@ export type {
   CssVarRef,
   TokenCategory,
   ThemeToken,
-} from "@buddy/opencode-adapter/theme"
+} from "@buddy/ui/theme"
 
 export type ColorScheme = "system" | "light" | "dark"
 

@@ -23,6 +23,7 @@ import {
 } from "../../../../objects"
 import { mimeTypeForPath } from "../../../../http/mime"
 import { writeJsonFileAtomic } from "../../../../storage/atomic-file"
+import { nodeErrorHasCode } from "../../../../storage/parse-node-error"
 import {
   MAX_HTML_WIDGET_SOURCE_BYTES,
   type HtmlWidgetViewportPreset,
@@ -39,16 +40,19 @@ const HTML_REMOTE_REFERENCE_PATTERN = /^[a-z][a-z\d+.-]*:\/\//iu
 const HTML_FETCH_REFERENCE_PATTERN =
   /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(\s*(?:"([^"]*)"|'([^']*)')/giu
 const HTML_REFERENCE_WARNING_LIMIT = 8
-const HTML_WIDGET_SOURCE_VERSION_FILE_LIMIT = 512
-const HTML_WIDGET_SOURCE_VERSION_TOTAL_BYTES_LIMIT = 5_000_000
-const HTML_WIDGET_SOURCE_VERSION_DEPTH_LIMIT = 16
+const HTML_WIDGET_SOURCE_VERSION_FILE_LIMIT = 10_000
+const HTML_WIDGET_SOURCE_VERSION_DEPTH_LIMIT = 32
 const HTML_WIDGET_SOURCE_VERSION_IGNORE_NAMES = new Set([
   ".DS_Store",
   ".git",
+  ".hg",
+  ".svn",
+  ".bzr",
+  ".pijul",
+  "_darcs",
+  "CVS",
   "node_modules",
   ".turbo",
-  "dist",
-  "build",
 ])
 const HTML_WIDGET_SOURCE_VERSION_IGNORE_EXTENSIONS = new Set([".log"])
 const HTML_WIDGET_DEFAULT_CONTENT_TYPE = "application/octet-stream" as const
@@ -383,7 +387,8 @@ export async function resolveHtmlWidgetObjectRuntimeFile(input: {
   contentType: string
   isDocument: boolean
   immutable: boolean
-}> {
+  versioned: boolean
+} | undefined> {
   await readHtmlWidgetObjectManifest(input.directory, input.objectID)
   validateSafeRelativePath(input.assetPath, "HTML widget runtime asset path")
   const sourceRoot = BuddyObjectPath.sourceRoot(
@@ -392,20 +397,23 @@ export async function resolveHtmlWidgetObjectRuntimeFile(input: {
     input.objectID,
   )
   const filePath = path.join(sourceRoot, input.assetPath)
-  await assertPathInsideRoot(sourceRoot, filePath)
-  const stats = await fs.stat(filePath)
+  const stats = await assertPathInsideRoot(sourceRoot, filePath)
+    .then(() => fs.stat(filePath))
+    .catch((error) => {
+      if (nodeErrorHasCode(error, "ENOENT") || nodeErrorHasCode(error, "ENOTDIR") || nodeErrorHasCode(error, "ENAMETOOLONG")) return undefined
+      throw error
+    })
+  if (!stats) return undefined
   if (!stats.isFile()) {
     throw new HtmlWidgetValidationError("HTML widget runtime path must point to a file.")
   }
-  const sourceVersion = await computeHtmlWidgetSourceVersion({
-    directory: input.directory,
-    objectID: input.objectID,
-  }).catch(() => null)
+  const source = await readHtmlWidgetSourceVersion(sourceRoot).catch(() => undefined)
   return {
     filePath,
     contentType: mimeTypeForPath(filePath, HTML_WIDGET_DEFAULT_CONTENT_TYPE),
     isDocument: HTML_FILE_EXTENSIONS.has(path.extname(filePath).toLowerCase()),
-    immutable: !!input.version && !!sourceVersion && input.version === sourceVersion,
+    immutable: !!input.version && !!source && input.version === source.version,
+    versioned: source?.files.has(filePath) ?? false,
   }
 }
 
@@ -672,9 +680,16 @@ async function computeHtmlWidgetSourceVersion(input: {
 }
 
 async function computeHtmlWidgetSourceVersionForRoot(sourceRoot: string): Promise<string> {
+  return (await readHtmlWidgetSourceVersion(sourceRoot)).version
+}
+
+async function readHtmlWidgetSourceVersion(sourceRoot: string): Promise<{
+  version: string
+  files: ReadonlySet<string>
+}> {
   const hash = crypto.createHash("sha256")
+  const files = new Set<string>()
   let fileCount = 0
-  let totalBytes = 0
 
   async function visit(currentPath: string, depth: number): Promise<void> {
     if (depth > HTML_WIDGET_SOURCE_VERSION_DEPTH_LIMIT) {
@@ -697,20 +712,14 @@ async function computeHtmlWidgetSourceVersionForRoot(sourceRoot: string): Promis
           "HTML widget source tree has too many files to version.",
         )
       }
-      const bytes = await fs.readFile(entryPath)
-      totalBytes += bytes.byteLength
-      if (totalBytes > HTML_WIDGET_SOURCE_VERSION_TOTAL_BYTES_LIMIT) {
-        throw new HtmlWidgetValidationError("HTML widget source tree is too large to version.")
-      }
-      hash.update(relativePath)
-      hash.update("\0")
-      hash.update(bytes)
-      hash.update("\0")
+      const stats = await fs.stat(entryPath)
+      hash.update(`${relativePath}\0${stats.size}\0${Math.floor(stats.mtimeMs)}\0`)
+      files.add(entryPath)
     }
   }
 
   await visit(sourceRoot, 0)
-  return hash.digest("hex").slice(0, 26).toUpperCase()
+  return { version: hash.digest("hex").slice(0, 26).toUpperCase(), files }
 }
 
 function normalizeWorkspaceRelativePath(filepath: string): string | undefined {

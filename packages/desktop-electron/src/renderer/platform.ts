@@ -244,6 +244,9 @@ export function createDesktopPlatform(): Platform {
     openLink(url: string) {
       window.api.openLink(url)
     },
+    focusWindow() {
+      return window.api.setWindowFocus()
+    },
     async notify(title, description, href) {
       const focused = await window.api.getWindowFocused().catch(() => document.hasFocus())
       if (focused) return

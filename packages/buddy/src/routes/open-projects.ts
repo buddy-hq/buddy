@@ -1,3 +1,4 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
@@ -6,13 +7,12 @@ import {
   closeOpenProjectRegistryEntry,
   inspectOpenProjectRegistryRecovery,
   listOpenProjects,
-  mapOpenProjectRegistryError,
   openProjectRegistryEntry,
   reorderOpenProjectRegistryEntries,
   restoreOpenProjectRegistryRecovery,
   startFreshOpenProjectRegistryRecovery,
 } from "../project/open-project-registry"
-import { createManagedNotebook, mapManagedNotebookError } from "../project"
+import { createManagedNotebook } from "../project"
 
 const openProjectsRecoverySummarySchema = z.object({
   needed: z.boolean(),
@@ -77,7 +77,7 @@ export const OpenProjectsRoutes = new Hono()
     async (c) =>
       runRouteTask({
         task: async () => c.json(await listOpenProjects()),
-        mapError: mapOpenProjectRegistryError,
+        mapError: mapRouteError,
       }),
   )
   .get(
@@ -100,7 +100,7 @@ export const OpenProjectsRoutes = new Hono()
     async (c) =>
       runRouteTask({
         task: async () => c.json(await inspectOpenProjectRegistryRecovery()),
-        mapError: mapOpenProjectRegistryError,
+        mapError: mapRouteError,
       }),
   )
   .post(
@@ -127,7 +127,7 @@ export const OpenProjectsRoutes = new Hono()
           c.json({
             directories: await restoreOpenProjectRegistryRecovery(c.req.valid("json").directories),
           }),
-        mapError: mapOpenProjectRegistryError,
+        mapError: mapRouteError,
       }),
   )
   .post(
@@ -153,7 +153,7 @@ export const OpenProjectsRoutes = new Hono()
           c.json({
             directories: await startFreshOpenProjectRegistryRecovery(),
           }),
-        mapError: mapOpenProjectRegistryError,
+        mapError: mapRouteError,
       }),
   )
   .post(
@@ -178,7 +178,7 @@ export const OpenProjectsRoutes = new Hono()
       runRouteTask({
         task: async () =>
           c.json({ directory: await openProjectRegistryEntry(c.req.valid("json").directory) }),
-        mapError: mapOpenProjectRegistryError,
+        mapError: mapRouteError,
       }),
   )
   .post(
@@ -203,7 +203,7 @@ export const OpenProjectsRoutes = new Hono()
       runRouteTask({
         task: async () =>
           c.json({ directory: await createManagedNotebook(c.req.valid("json").name) }),
-        mapError: (error) => mapManagedNotebookError(error) ?? mapOpenProjectRegistryError(error),
+        mapError: mapRouteError,
       }),
   )
   .delete(
@@ -230,7 +230,7 @@ export const OpenProjectsRoutes = new Hono()
           c.json({
             directory: await closeOpenProjectRegistryEntry(c.req.valid("query").directory),
           }),
-        mapError: mapOpenProjectRegistryError,
+        mapError: mapRouteError,
       }),
   )
   .put(
@@ -257,6 +257,6 @@ export const OpenProjectsRoutes = new Hono()
           c.json({
             directories: await reorderOpenProjectRegistryEntries(c.req.valid("json").directories),
           }),
-        mapError: mapOpenProjectRegistryError,
+        mapError: mapRouteError,
       }),
   )

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises"
 import path from "node:path"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { isPathInsideDirectory } from "../../storage/path-containment"
 import { resolveAtomicWriteTarget } from "../../storage/locked-atomic-file"
 import type { BuddyToolContext } from "./create-buddy-tool"
 import { parseTNodeErrorCode } from "../shared/parse-values"
@@ -23,56 +23,38 @@ function externalDirectoryPattern(filePath: string): string {
   return path.join(path.dirname(filePath), DIRECTORY_CHILD_PATTERN)
 }
 
-function containedByCurrentInstance(filePath: string): boolean | undefined {
-  try {
-    return OpenCodeInstance.containsPath(filePath, OpenCodeInstance.current)
-  } catch {
-    return undefined
+async function workspaceRoot(directory: string): Promise<string> {
+  let current = path.resolve(directory)
+  while (path.dirname(current) !== current) {
+    const markers = await Promise.all([".git", ".hg"].map((marker) =>
+      fs.stat(path.join(current, marker)).then(() => true, (error) => {
+        if (isMissingPathError(error)) return false
+        throw error
+      }),
+    ))
+    if (markers.some(Boolean)) return current
+    current = path.dirname(current)
   }
+  return directory
 }
 
-function isFileSystemRoot(filePath: string): boolean {
-  const resolvedPath = path.resolve(filePath)
-  return path.parse(resolvedPath).root === resolvedPath
-}
-
-function lexicalInstanceBoundaries(ctx: ExternalFileAuthorizationContext): string[] {
-  const boundaries = [ctx.directory]
-  try {
-    const current = OpenCodeInstance.current
-    boundaries.push(current.directory)
-    if (!isFileSystemRoot(current.worktree)) {
-      boundaries.push(current.worktree)
-    }
-  } catch {
-    // The explicit tool context directory remains the fallback boundary.
-  }
-  return uniqueValues(boundaries.map((boundary) => path.resolve(boundary)))
-}
-
-function isWithinBoundary(boundaryPath: string, filePath: string): boolean {
-  const relativePath = path.relative(boundaryPath, filePath)
-  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
+async function workspaceBoundaries(ctx: ExternalFileAuthorizationContext): Promise<string[]> {
+  const directory = path.resolve(ctx.directory)
+  const canonicalDirectory = await fs.realpath(directory).catch(() => directory)
+  const roots = await Promise.all([workspaceRoot(directory), workspaceRoot(canonicalDirectory)])
+  const boundaries = uniqueValues([directory, canonicalDirectory, ...roots])
+  const canonical = await Promise.all(boundaries.map((boundary) => fs.realpath(boundary).catch(() => boundary)))
+  return uniqueValues([...boundaries, ...canonical])
 }
 
 async function requestExternalFileAuthorization(
   paths: readonly string[],
   ctx: ExternalFileAuthorizationContext,
 ): Promise<void> {
-  const lexicalBoundaries = lexicalInstanceBoundaries(ctx)
-  const canonicalBoundaries = await Promise.all(
-    lexicalBoundaries.map((boundary) => fs.realpath(boundary).catch(() => boundary)),
-  )
-  const workspaceBoundaries = uniqueValues([...lexicalBoundaries, ...canonicalBoundaries])
-  const externalPaths = uniqueValues(
-    paths.filter((filePath) => {
-      const contained = containedByCurrentInstance(filePath)
-      return (
-        contained !== true &&
-        workspaceBoundaries.every((boundary) => !isWithinBoundary(boundary, filePath))
-      )
-    }),
-  )
+  const boundaries = await workspaceBoundaries(ctx)
+  const externalPaths = uniqueValues(paths.filter((filePath) =>
+    boundaries.every((boundary) => !isPathInsideDirectory(boundary, filePath)),
+  ))
   if (externalPaths.length === 0) return
 
   const patterns = uniqueValues(externalPaths.map(externalDirectoryPattern))

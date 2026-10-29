@@ -2,7 +2,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
-import { defaultThemes, resolveThemeVariant } from "@buddy/opencode-adapter/theme"
+import { defaultThemes, resolveThemeVariant } from "@buddy/ui/theme"
 
 const OUTPUT_PATH = resolve(import.meta.dir, "../packages/ui/src/generated/theme-tokens.css")
 

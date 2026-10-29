@@ -1,4 +1,4 @@
-export { abortSessionRun } from "./orchestration/abort-actions"
+export { abortSessionRun, backgroundSessionRun } from "./orchestration/abort-actions"
 export {
   deleteSessionById,
   getSessionStatus,

@@ -12,6 +12,8 @@ const OPENCODE_EXPERIMENTAL_FILEWATCHER_ENABLED = "true"
 const args = [
   "run",
   ...(watch ? ["--watch"] : []),
+  "--preload",
+  path.join(import.meta.dir, "opencode-branding-preload.ts"),
   path.join(import.meta.dir, "..", "index.ts"),
   ...passthroughArgs,
 ]

@@ -298,7 +298,7 @@ describe("prompt parts", () => {
     const parts = [
       { type: "text", text: "Use " },
       {
-        type: "opencode-reference",
+        type: "reference",
         name: "docs",
         path: "/reference-cache/docs",
       },

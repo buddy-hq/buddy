@@ -2,7 +2,7 @@ import type { MessageInfo, MessageWithParts } from "@/state/chat-types"
 import {
   isHiddenFromUserMessageInfo,
   isSvgAutoRepairMessageID as isSharedSvgAutoRepairMessageID,
-} from "@buddy/opencode-adapter/message-visibility"
+} from "@buddy/transcript-contract/message-visibility"
 
 import { parseTString } from "../tools/types"
 

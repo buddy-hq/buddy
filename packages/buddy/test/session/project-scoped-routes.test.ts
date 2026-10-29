@@ -94,7 +94,7 @@ describe("project-scoped session routes", () => {
     )
     expect(create.status).toBe(400)
     expect(await json(create)).toEqual({
-      error:
+      code: "request.invalid", error:
         "Conflicting directory scopes were provided. Use one directory or make every scope identical.",
     })
 

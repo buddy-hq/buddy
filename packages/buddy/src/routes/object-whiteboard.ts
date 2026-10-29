@@ -1,9 +1,9 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { BuddyObjectIDSchema, mapBuddyObjectRouteError } from "../objects"
+import { BuddyObjectIDSchema } from "../objects"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { mapWhiteboardRouteError } from "../learning/features/whiteboard/errors"
 import {
   createBlankWhiteboardObject,
   readWhiteboardObject,
@@ -27,8 +27,8 @@ const objectIDParamSchema = z.object({
 })
 const WHITEBOARD_DIRECT_CREATE_ORIGIN_REASON = "direct-whiteboard-creation"
 
-function mapWhiteboardObjectRouteError<TError>(error: TError): Response | undefined {
-  return mapWhiteboardRouteError(error) ?? mapBuddyObjectRouteError(error)
+function mapWhiteboardObjectRouteError<TError>(error: TError): Promise<Response | undefined> {
+  return mapRouteError(error)
 }
 
 export const ObjectWhiteboardRoutes = new Hono()

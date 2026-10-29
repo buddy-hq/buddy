@@ -9,6 +9,7 @@ type RuntimeStateEntry = {
 }
 
 const runtimeState = new Map<string, RuntimeStateEntry>()
+const compactionCounts = new Map<string, number>()
 
 function normalizeDirectory(directory: string) {
   try {
@@ -27,11 +28,11 @@ function touchStateEntry(key: string, entry: RuntimeStateEntry) {
   runtimeState.set(key, entry)
 }
 
-function evictOldestEntriesIfNeeded() {
-  while (runtimeState.size > RUNTIME_STATE_LIMIT) {
-    const oldest = runtimeState.keys().next()
+function evictOldestEntriesIfNeeded<T>(entries: Map<string, T>) {
+  while (entries.size > RUNTIME_STATE_LIMIT) {
+    const oldest = entries.keys().next()
     if (oldest.done) return
-    runtimeState.delete(oldest.value)
+    entries.delete(oldest.value)
   }
 }
 
@@ -51,11 +52,37 @@ export function writeTeachingSessionState(directory: string, state: TeachingSess
     directory: normalizeDirectory(directory),
     state,
   })
-  evictOldestEntriesIfNeeded()
+  evictOldestEntriesIfNeeded(runtimeState)
 }
 
 export function listTeachingSessionStateEntries(): RuntimeStateEntry[] {
   return [...runtimeState.values()]
+}
+
+export function teachingSessionCompactionCount(sessionId: string): number {
+  const count = compactionCounts.get(sessionId)
+  if (count === undefined) return 0
+  compactionCounts.delete(sessionId)
+  compactionCounts.set(sessionId, count)
+  return count
+}
+
+export function recordTeachingSessionCompaction(sessionId: string) {
+  const count = teachingSessionCompactionCount(sessionId)
+  compactionCounts.set(sessionId, count + 1)
+  evictOldestEntriesIfNeeded(compactionCounts)
+}
+
+export function withoutTeachingContextDelivery(state: TeachingSessionState): TeachingSessionState {
+  return {
+    ...state,
+    lastDeliveredTeachingTurnContextDigest: undefined,
+    lastDeliveredReadingTurnContextDigest: undefined,
+    lastDeliveredBenchTurnContextDigest: undefined,
+    lastDeliveredLearnerContextDigest: undefined,
+    lastDeliveredLearnerContextItems: undefined,
+    lastDeliveredLearnerContextMessageId: undefined,
+  }
 }
 
 export function deleteTeachingSessionState(directory: string, sessionId: string) {
@@ -64,4 +91,5 @@ export function deleteTeachingSessionState(directory: string, sessionId: string)
 
 export function clearAllTeachingSessionState() {
   runtimeState.clear()
+  compactionCounts.clear()
 }

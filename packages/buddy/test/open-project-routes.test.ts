@@ -10,7 +10,7 @@ import {
 } from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
+import { getAgentRuntime } from "../src/runtime/agent-runtime"
 import { app } from "../src/index.ts"
 import { Global } from "../src/storage/global"
 import { createGitRepo } from "./helpers/repo"
@@ -349,7 +349,7 @@ describe("open project routes", () => {
 
       expect(createSessionResponse.status).toBe(403)
       await expect(createSessionResponse.json()).resolves.toEqual({
-        error: "Directory is outside allowed roots",
+        code: "request.forbidden", error: "Directory is outside allowed roots",
       })
     } finally {
       if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
@@ -515,7 +515,7 @@ describe("open project routes", () => {
 
       expect(mismatchResponse.status).toBe(400)
       await expect(mismatchResponse.json()).resolves.toEqual({
-        error: "Directory order must match the current open-project set",
+        code: "notebook.registry_failed", error: "Directory order must match the current open-project set",
       })
     } finally {
       if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
@@ -630,7 +630,8 @@ describe("open project routes", () => {
     await using repo = await createGitRepo("buddy-route-open-project-readonly")
     const canonicalRepo = realpathSync(repo.path)
     const originalCwd = process.cwd()
-    const before = (await OpenCodeProject.list()).map((project) => project.worktree)
+    const runtime = await getAgentRuntime()
+    const before = (await runtime.workspace.projects()).map((project) => project.worktree)
 
     process.chdir(repo.path)
 
@@ -638,7 +639,6 @@ describe("open project routes", () => {
       const response = await app.request("/api/open-projects")
 
       expect(response.status).toBe(200)
-      expect((await OpenCodeProject.list()).map((project) => project.worktree)).toEqual(before)
 
       const listed = requireJsonObject(await response.json())
       expect(requireJsonArray(listed.directories, "directories").includes(canonicalRepo)).toBe(
@@ -647,6 +647,7 @@ describe("open project routes", () => {
     } finally {
       process.chdir(originalCwd)
     }
+    expect((await runtime.workspace.projects()).map((project) => project.worktree)).toEqual(before)
   })
 
   test("stores normalized directories from the live desktop-notebooks file format", async () => {

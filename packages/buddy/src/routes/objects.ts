@@ -1,3 +1,4 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
@@ -10,7 +11,6 @@ import {
   BuddyObjectViewResponseSchema,
   deleteObject,
   listObjects,
-  mapBuddyObjectRouteError,
   nonEmptyString,
   readObject,
   requireBuddyObjectKindDefinition,
@@ -104,7 +104,7 @@ export const ObjectsRoutes = new Hono()
             )
             return c.json(objectListResponseSchema.parse(result))
           },
-          mapError: mapBuddyObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -140,7 +140,7 @@ export const ObjectsRoutes = new Hono()
               }),
             )
           },
-          mapError: mapBuddyObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -188,7 +188,7 @@ export const ObjectsRoutes = new Hono()
             )
             return c.json(BuddyObjectViewResponseSchema.parse(result))
           },
-          mapError: mapBuddyObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -237,7 +237,7 @@ export const ObjectsRoutes = new Hono()
             }
             return c.json(objectDeleteResponseSchema.parse({ ok: true }))
           },
-          mapError: mapBuddyObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )

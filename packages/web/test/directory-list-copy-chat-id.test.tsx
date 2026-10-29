@@ -43,7 +43,7 @@ describe("Chat sidebar chat menu", () => {
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <ChatLeftSidebarDirectoryList
-              directoryGroups={[{ directory, sessions: [session] }]}
+              directoryGroups={[{ directory, sessions: [session], folderMissing: false }]}
               currentDirectory={directory}
               sessionsByDirectory={{ [directory]: [session] }}
               sessionStatusByDirectory={{}}

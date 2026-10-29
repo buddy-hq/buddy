@@ -12,9 +12,26 @@ type Finding = {
 const REPO_ROOT = path.resolve(import.meta.dir, "..")
 const DESKTOP_PACKAGE_MANIFEST = "packages/desktop-electron/package.json"
 const WORKSPACE_VERSION_PREFIX = "workspace:"
-const OPENCODE_RUNTIME_SOURCE = "packages/buddy/src/opencode-runtime/runtime.ts"
-const TOOL_INPUT_DELTA_BRIDGE_CALL = "await ensureToolInputDeltaBridgePatched()"
-const OPENCODE_SERVER_STARTUP = "const built = await Server.Default()"
+const BUDDY_OPENCODE_ADAPTER_ALLOWED_PREFIXES = [
+  "packages/buddy/src/runtime/agent-runtime.ts",
+  "packages/buddy/src/runtime/runtime-info.ts",
+  "packages/buddy/src/runtime/runtime-paths.ts",
+  "packages/buddy/test/opencode-runtime/buddy-runtime-plugin.test.ts",
+  "packages/buddy/test/opencode-runtime/buddy-subagents.test.ts",
+  "packages/buddy/test/opencode-runtime/openai-codex-auth.test.ts",
+  "packages/buddy/test/opencode-runtime/openai-codex-provider.test.ts",
+  "packages/buddy/test/opencode-runtime/provider-model-resolution.test.ts",
+  "packages/buddy/test/opencode-runtime/subagent-transcript-history.test.ts",
+  "packages/buddy/test/opencode-runtime/scripted-model.ts",
+  "packages/buddy/test/opencode-runtime/subagent-scripted-model.ts",
+  "packages/buddy/test/config/opencode-overlay-isolation.test.ts",
+  "packages/buddy/test/helpers/opencode.ts",
+  "packages/buddy/test/helpers/v2-host.ts",
+  "packages/buddy/test/helpers/tools.ts",
+  "packages/buddy/test/helpers/scripted-tool-model.ts",
+  "packages/buddy/test/conformance/harness.ts",
+  "packages/buddy/test/conformance/harness-config.ts",
+]
 const ACTIVE_CHAT_ENTRYPOINTS = [
   "packages/web/src/app.tsx",
   "packages/web/src/routes/chat.tsx",
@@ -135,25 +152,6 @@ function checkSubagentBenchWiring(findings: Finding[]) {
   }
 }
 
-function checkToolInputDeltaBridgeStartup(findings: Finding[]) {
-  const content = readFileSync(path.join(REPO_ROOT, OPENCODE_RUNTIME_SOURCE), "utf8")
-  const bridgeInstallIndex = content.indexOf(TOOL_INPUT_DELTA_BRIDGE_CALL)
-  const serverStartupIndex = content.indexOf(OPENCODE_SERVER_STARTUP)
-
-  if (
-    bridgeInstallIndex >= 0 &&
-    serverStartupIndex >= 0 &&
-    bridgeInstallIndex < serverStartupIndex
-  ) {
-    return
-  }
-
-  findings.push({
-    file: OPENCODE_RUNTIME_SOURCE,
-    message: "The tool-input-delta bridge must be installed before OpenCode server startup.",
-  })
-}
-
 async function scanFiles(pattern: string): Promise<string[]> {
   const matches: string[] = []
   for await (const value of new Bun.Glob(pattern).scan({
@@ -269,7 +267,7 @@ function checkCrossPackageSrcImport(findings: Finding[], importerFile: string, s
   const importerPackage = getPackageNameFromAbsolutePath(importerFile)
   if (!importerPackage) return
 
-  if (specifier.startsWith("@buddy/") || specifier.startsWith("@opencode-ai/")) {
+  if (specifier.startsWith("@buddy/") || specifier.startsWith("@opencode/")) {
     findings.push({
       file: toRepoPath(importerFile),
       message: `Cross-package import "${specifier}" targets another package's src directly.`,
@@ -306,6 +304,84 @@ async function checkCrossPackageSrcImports(findings: Finding[]) {
   }
 }
 
+async function checkOpenCodeImportBoundary(findings: Finding[]) {
+  const codeFiles = (await Promise.all([
+    scanFiles("packages/**/*.{ts,tsx,js,mjs,cjs}"),
+    scanFiles("script/**/*.{ts,tsx,js,mjs,cjs}"),
+    scanFiles("*.{ts,tsx,js,mjs,cjs}"),
+  ])).flat()
+  for (const file of codeFiles) {
+    const relativePath = toRepoPath(file)
+    if (
+      relativePath.startsWith("packages/opencode-adapter/") ||
+      relativePath.startsWith("vendor/")
+    ) {
+      continue
+    }
+
+    const content = readFileSync(file, "utf8")
+    for (const specifier of getImportSpecifiers(content)) {
+      const isOpenCodePackage =
+        specifier.startsWith("@opencode/") ||
+        specifier.startsWith("@opencode-ai/") ||
+        specifier === "opencode" ||
+        specifier.startsWith("opencode/")
+      const resolvedPath =
+        specifier.startsWith(".") || path.isAbsolute(specifier)
+          ? toRepoPath(resolveRelativeSpecifier(file, specifier))
+          : undefined
+      const isVendoredOpenCodePath =
+        resolvedPath === "vendor/opencode" || resolvedPath?.startsWith("vendor/opencode/")
+      if (
+        !relativePath.startsWith("packages/") &&
+        !resolvedPath?.startsWith("vendor/opencode/packages/ui/")
+      ) continue
+      if (!isOpenCodePackage && !isVendoredOpenCodePath) continue
+
+      findings.push({
+        file: relativePath,
+        message: `OpenCode import "${specifier}" is only allowed in "packages/opencode-adapter/". Use the adapter's public exports instead.`,
+      })
+    }
+  }
+}
+
+async function checkWebOpenCodeAdapterBoundary(findings: Finding[]) {
+  const webFiles = await scanFiles("packages/web/**/*.{ts,tsx,js,mjs,cjs}")
+  for (const file of webFiles) {
+    const content = readFileSync(file, "utf8")
+    for (const specifier of getImportSpecifiers(content)) {
+      if (
+        specifier !== "@buddy/opencode-adapter" &&
+        !specifier.startsWith("@buddy/opencode-adapter/")
+      ) {
+        continue
+      }
+      findings.push({
+        file: toRepoPath(file),
+        message: `Web source imports "${specifier}". Use Buddy-owned contracts or UI packages instead of the OpenCode adapter.`,
+      })
+    }
+  }
+}
+
+async function checkBuddyOpenCodeAdapterBoundary(findings: Finding[]) {
+  const buddyFiles = await scanFiles("packages/buddy/{src,test}/**/*.{ts,tsx,js,mjs,cjs}")
+  for (const file of buddyFiles) {
+    const relativePath = toRepoPath(file)
+    if (BUDDY_OPENCODE_ADAPTER_ALLOWED_PREFIXES.some((prefix) =>
+      prefix.endsWith("/") ? relativePath.startsWith(prefix) : relativePath === prefix
+    )) continue
+    for (const specifier of getImportSpecifiers(readFileSync(file, "utf8"))) {
+      if (specifier !== "@buddy/opencode-adapter" && !specifier.startsWith("@buddy/opencode-adapter/")) continue
+      findings.push({
+        file: relativePath,
+        message: `Buddy imports "${specifier}" outside the composition roots, slice-2 files and their test support, or conformance harnesses. Use getAgentRuntime() and Buddy-owned ports. Slice 2 shrinks this allowlist.`,
+      })
+    }
+  }
+}
+
 function printFindingsAndExit(findings: Finding[]): never {
   const uniqueFindings = [
     ...new Map(findings.map((finding) => [`${finding.file}:${finding.message}`, finding])).values(),
@@ -325,10 +401,12 @@ async function main() {
   checkActiveChatTransitionEntrypoints(findings)
   checkBenchNavigationBoundary(findings)
   checkSubagentBenchWiring(findings)
-  checkToolInputDeltaBridgeStartup(findings)
   await checkUiAliasImports(findings)
   await checkWebUiBoundary(findings)
   await checkCrossPackageSrcImports(findings)
+  await checkOpenCodeImportBoundary(findings)
+  await checkWebOpenCodeAdapterBoundary(findings)
+  await checkBuddyOpenCodeAdapterBoundary(findings)
 
   if (findings.length > 0) {
     printFindingsAndExit(findings)

@@ -1,4 +1,4 @@
-import { InstallationChannel } from "@buddy/opencode-adapter/installation"
+import { AGENT_RUNTIME_INFO } from "../../../runtime/runtime-info"
 import {
   BUDDY_CHANNEL_ENV,
   BUDDY_DEFAULT_DEV_CHANNEL,
@@ -29,7 +29,7 @@ function resolveDevelopmentPersonasEnabled(input: DevelopmentPersonasInput): boo
 }
 
 const DEVELOPMENT_PERSONAS_ENABLED = resolveDevelopmentPersonasEnabled({
-  installationChannel: InstallationChannel,
+  installationChannel: AGENT_RUNTIME_INFO.version.includes("-dev") ? OPENCODE_DEV_CHANNEL : "",
   buddyChannel: process.env[BUDDY_CHANNEL_ENV],
 })
 

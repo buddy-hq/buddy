@@ -3,7 +3,7 @@ import path from "node:path"
 import { Config } from "../config"
 import { openProjectRegistryEntry } from "./open-project-registry"
 import { BuddyHomeError, resolveBuddyHomeState } from "./buddy-home"
-import { mapBuddyHomeError } from "./buddy-home"
+import { mapRouteError } from "../http/route-errors"
 import { INBOX_NOTEBOOK_NAME } from "./notebook-constants"
 import { parseProjectNodeErrnoCode, PROJECT_NODE_ERRNO } from "./parse-values"
 import { NOTES_LIBRARY_DIRECTORY_NAME } from "../notes/paths"
@@ -34,12 +34,8 @@ function hasWindowsControlCharacter(value: string) {
   return false
 }
 
-export function mapManagedNotebookError<TValue>(error: TValue): Response | undefined {
-  const buddyHomeResponse = mapBuddyHomeError(error)
-  if (buddyHomeResponse) return buddyHomeResponse
-
-  if (!(error instanceof ManagedNotebookError)) return undefined
-  return Response.json({ error: error.message }, { status: error.status })
+export function mapManagedNotebookError<TValue>(error: TValue): Promise<Response | undefined> {
+  return mapRouteError(error)
 }
 
 function normalizeNotebookName(name: string) {

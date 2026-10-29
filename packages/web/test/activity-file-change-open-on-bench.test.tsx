@@ -34,7 +34,11 @@ const [
 const directory = "/notebooks/llm"
 
 function writePart(filePath: string, status: "completed" | "running" = "completed"): MessagePart {
-  const input = { filePath, content: "# Goals\n" }
+  const changes = {
+    input: {},
+    summary: { kind: "write-file", subject: filePath },
+    fileChanges: [{ path: filePath, relativePath: filePath, content: "# Goals\n" }],
+  }
   return {
     id: "part_write",
     sessionID: "ses_bench",
@@ -56,36 +60,39 @@ function writePart(filePath: string, status: "completed" | "running" = "complete
     state:
       status === "completed"
         ? {
+            ...changes,
             status,
-            input,
             output: "Wrote file successfully.",
             title: "tracker.md",
-            metadata: { filepath: filePath },
+            metadata: {},
             attachments: [],
             time: { start: 1, end: 2 },
           }
-        : { status, input, metadata: {}, time: { start: 1 } },
+        : { ...changes, status, metadata: {}, time: { start: 1 } },
   }
 }
 
-function patchFile(relativePath: string, type: "add" | "update" | "delete") {
+function fileChange(relativePath: string, kind: "add" | "update" | "delete") {
   return {
-    filePath: `${directory}/${relativePath}`,
+    path: `${directory}/${relativePath}`,
     relativePath,
-    type,
-    before: type === "add" ? "" : "old\n",
-    after: type === "delete" ? "" : "new\n",
-    additions: type === "delete" ? 0 : 1,
-    deletions: type === "add" ? 0 : 1,
+    kind,
+    before: kind === "add" ? "" : "old\n",
+    after: kind === "delete" ? "" : "new\n",
+    additions: kind === "delete" ? 0 : 1,
+    deletions: kind === "add" ? 0 : 1,
   }
 }
 
 function applyPatchPart(status: "completed" | "running" = "completed"): MessagePart {
-  const metadata = {
-    files: [
-      patchFile("notes/tracker.md", "update"),
-      patchFile("model.py", "add"),
-      patchFile("old.py", "delete"),
+  const changes = {
+    input: {},
+    metadata: {},
+    summary: { kind: "change-files" },
+    fileChanges: [
+      fileChange("notes/tracker.md", "update"),
+      fileChange("model.py", "add"),
+      fileChange("old.py", "delete"),
     ],
   }
   return {
@@ -109,15 +116,14 @@ function applyPatchPart(status: "completed" | "running" = "completed"): MessageP
     state:
       status === "completed"
         ? {
+            ...changes,
             status,
-            input: {},
             output: "Done",
             title: "3 files",
-            metadata,
             attachments: [],
             time: { start: 1, end: 2 },
           }
-        : { status, input: {}, metadata, time: { start: 1 } },
+        : { ...changes, status, time: { start: 1 } },
   }
 }
 

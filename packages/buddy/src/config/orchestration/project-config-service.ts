@@ -1,17 +1,19 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { ZodError } from "zod"
+import { getAgentRuntime } from "../../runtime/agent-runtime"
 import { personaCatalogEntries } from "../../learning/personas/wiring/persona-metadata"
 import { Config } from "../config.js"
 import {
   isConfigValidationError,
-  readProjectConfigFile,
   readProjectConfig,
   syncOpenCodeProjectConfig,
 } from "../runtime/opencode-sync.js"
+import { renderOpenCodeHostConfig, syncOpenCodeHostConfig } from "../runtime/opencode-host-config.js"
 import { resolveProjectConfigContext, resolveProjectConfigFile } from "../store/config-paths.js"
 import { InvalidError } from "../contract/errors.js"
+import { loadProjectConfigFile } from "../store/read-config"
+import { deleteUnusedMcpSecrets, withMcpSecretConfigLock } from "../secrets/mcp-secrets"
 import {
   parseCaughtErrorMessage,
   parseConfigObject,
@@ -40,18 +42,16 @@ export async function listProjectAgents(directory: string) {
     )
   })
 
-  const agents = await OpenCodeInstance.provide({
-    directory,
-    fn: () => OpenCodeAgent.list(),
-  })
+  const agents = await (await getAgentRuntime()).catalog.agents(directory)
+  const config = await readProjectConfig(directory)
 
   return agents.map((agent) => ({
-    name: agent.name,
+    name: agent.id,
     description: agent.description,
     mode: agent.mode,
     hidden: agent.hidden,
-    model: agent.model,
-    variant: agent.variant,
+    model: agent.model && { providerID: agent.model.providerID, modelID: agent.model.modelID },
+    variant: agent.model?.variant ?? config.agent?.[agent.id]?.variant,
   }))
 }
 
@@ -69,10 +69,7 @@ async function withProjectConfigChangeLock<T>(
 ): Promise<T> {
   const key = path.resolve(await resolveProjectConfigPath(directory))
   const previous = projectConfigChangeLocks.get(key) ?? Promise.resolve()
-  let releaseLock!: () => void
-  const current = new Promise<void>((resolve) => {
-    releaseLock = resolve
-  })
+  const { promise: current, resolve: releaseLock } = Promise.withResolvers<void>()
   const queued = previous.finally(() => current)
   projectConfigChangeLocks.set(key, queued)
   await previous.catch(() => undefined)
@@ -107,13 +104,15 @@ async function captureProjectConfigSnapshot(directory: string): Promise<ProjectC
 }
 
 async function restoreProjectConfigSnapshot(snapshot: ProjectConfigSnapshot): Promise<void> {
-  if (!snapshot.existed) {
-    await fsp.rm(snapshot.filepath, { force: true })
-    return
-  }
+  await withMcpSecretConfigLock(async () => {
+    if (!snapshot.existed) {
+      await fsp.rm(snapshot.filepath, { force: true })
+      return
+    }
 
-  await fsp.mkdir(path.dirname(snapshot.filepath), { recursive: true })
-  await fsp.writeFile(snapshot.filepath, snapshot.contents ?? "{}", "utf8")
+    await fsp.mkdir(path.dirname(snapshot.filepath), { recursive: true })
+    await fsp.writeFile(snapshot.filepath, snapshot.contents ?? "{}", "utf8")
+  })
 }
 
 async function applyAndSyncProjectConfigChange(input: {
@@ -122,11 +121,14 @@ async function applyAndSyncProjectConfigChange(input: {
 }) {
   return withProjectConfigChangeLock(input.directory, async () => {
     const snapshot = await captureProjectConfigSnapshot(input.directory)
+    let applied = false
 
     try {
       await input.apply()
+      applied = true
       await syncOpenCodeProjectConfig(input.directory)
     } catch (error) {
+      if (!applied && (isConfigValidationError(error) || error instanceof ZodError)) throw error
       let recovered = true
 
       try {
@@ -147,6 +149,7 @@ async function applyAndSyncProjectConfigChange(input: {
 
       throw error
     }
+    await deleteUnusedMcpSecrets({ filepath: snapshot.filepath, before: snapshot.contents ?? "{}" })
   })
 }
 
@@ -158,7 +161,7 @@ export async function patchProjectConfig<TPayload>(input: {
     directory: input.directory,
     apply: async () => {
       const parsed = mergeAndValidateConfigPatch({
-        current: await readProjectConfigFile(input.directory),
+        current: await loadProjectConfigFile(input.directory, { resolveSubstitutions: false }),
         patch: requireConfigPatchObject(input.payload),
         parse: (value) => Config.ProjectInfo.parse(value),
       })
@@ -170,13 +173,21 @@ export async function patchProjectConfig<TPayload>(input: {
 }
 
 export async function patchGlobalConfig<TPayload>(payload: TPayload) {
-  return Config.mutateGlobal((current) =>
-    mergeAndValidateConfigPatch({
+  let previousHostConfig: string | undefined
+  const next = await Config.mutateGlobal((current) => {
+    previousHostConfig = renderOpenCodeHostConfig(current)
+    return mergeAndValidateConfigPatch({
       current,
       patch: requireConfigPatchObject(payload),
       parse: (value) => Config.Info.parse(value),
-    }),
-  )
+    })
+  })
+  if (previousHostConfig !== renderOpenCodeHostConfig(next)) {
+    await syncOpenCodeHostConfig().catch((error) => {
+      console.warn("Failed to apply global compaction settings to the running OpenCode host:", error)
+    })
+  }
+  return next
 }
 
 const DELETE_PATCH_SENTINEL = Symbol("delete_patch_value")

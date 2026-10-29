@@ -1,6 +1,5 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { Schema } from "effect"
 import z from "zod"
 import { Config } from "@buddy/backend/config"
 import {
@@ -10,9 +9,9 @@ import {
   patchProjectConfig,
   putProjectMcpConfig,
 } from "@buddy/backend/config/orchestration"
-import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
-import { toOpenApiSchema } from "../http/effect-schema"
+import { loadProjectConfig, loadProjectConfigFile } from "../config/store/read-config"
+import { McpSettingsInfo, McpSettingsProjectInfo, projectMcpSettingsConfig } from "../config/secrets/mcp-secrets"
+import { providerConfigSchema } from "@buddy/agent-runtime/providers"
 import {
   directoryQuerySchema,
   McpNameParamSchema,
@@ -20,11 +19,9 @@ import {
   runRouteTask,
   withConfigSyncRoute,
   withDirectoryRoute,
-  respondWithSdkResult,
   runSdkRoute,
-  openCodeDirectoryParams,
 } from "../http"
-import { getOpenCodeClient } from "../opencode-runtime/client"
+import { getAgentRuntime } from "../runtime/agent-runtime"
 
 const personaCatalogEntrySchema = z.object({
   id: z.string(),
@@ -49,12 +46,6 @@ const agentConfigEntrySchema = z.object({
   variant: z.string().optional(),
 })
 
-const providerConfigResponseSchema = toOpenApiSchema(
-  Schema.Struct({
-    providers: Schema.Array(OpenCodeProvider.Info),
-    default: Schema.Record(Schema.String, Schema.String),
-  }),
-)
 const projectConfigPatchSchema = z.record(z.string(), z.unknown())
 
 export const ConfigRoutes = new Hono()
@@ -125,7 +116,7 @@ export const ConfigRoutes = new Hono()
         200: {
           description: "Configured providers and defaults",
           content: {
-            "application/json": { schema: resolver(providerConfigResponseSchema) },
+            "application/json": { schema: resolver(providerConfigSchema) },
           },
         },
         ...routeErrors(400, 403),
@@ -137,9 +128,9 @@ export const ConfigRoutes = new Hono()
         operation: "listing providers",
         handler: async (context) =>
           runSdkRoute(c, async () => {
-            const client = await getOpenCodeClient(context.directory)
-            const result = await client.config.providers(openCodeDirectoryParams(context.directory))
-            return respondWithSdkResult(c, result)
+            const runtime = await getAgentRuntime()
+            const result = await runtime.providers.catalog(context.directory)
+            return c.json({ providers: result.all, default: result.default })
           }),
       }),
   )
@@ -152,7 +143,7 @@ export const ConfigRoutes = new Hono()
         200: {
           description: "Raw project config payload",
           content: {
-            "application/json": { schema: resolver(Config.ProjectInfo) },
+            "application/json": { schema: resolver(McpSettingsProjectInfo) },
           },
         },
         ...routeErrors(400, 403),
@@ -163,8 +154,8 @@ export const ConfigRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const config = await Config.getProjectFile(context.directory)
-            return c.json(config)
+            const config = await loadProjectConfigFile(context.directory, { resolveSubstitutions: false })
+            return c.json(await projectMcpSettingsConfig(config))
           },
           mapError: mapConfigRouteError,
         }),
@@ -179,7 +170,7 @@ export const ConfigRoutes = new Hono()
         200: {
           description: "Project config payload",
           content: {
-            "application/json": { schema: resolver(Config.Info) },
+            "application/json": { schema: resolver(McpSettingsInfo) },
           },
         },
         ...routeErrors(400, 403),
@@ -190,8 +181,8 @@ export const ConfigRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const config = await readProjectConfig(context.directory)
-            return c.json(config)
+            const config = await loadProjectConfig(context.directory, { resolveSubstitutions: false })
+            return c.json(await projectMcpSettingsConfig(config))
           },
           mapError: mapConfigRouteError,
         }),
@@ -206,7 +197,7 @@ export const ConfigRoutes = new Hono()
         200: {
           description: "Updated project config payload",
           content: {
-            "application/json": { schema: resolver(Config.Info) },
+            "application/json": { schema: resolver(McpSettingsInfo) },
           },
         },
         ...routeErrors(400, 403),
@@ -218,11 +209,11 @@ export const ConfigRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const config = await patchProjectConfig({
+            await patchProjectConfig({
               directory: context.directory,
               payload: c.req.valid("json"),
             })
-            return c.json(config)
+            return c.json(await projectMcpSettingsConfig(await loadProjectConfig(context.directory, { resolveSubstitutions: false })))
           },
           mapError: mapConfigRouteError,
         }),
@@ -237,7 +228,7 @@ export const ConfigRoutes = new Hono()
         200: {
           description: "Updated project config payload",
           content: {
-            "application/json": { schema: resolver(Config.Info) },
+            "application/json": { schema: resolver(McpSettingsInfo) },
           },
         },
         ...routeErrors(400, 403),
@@ -250,12 +241,12 @@ export const ConfigRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const config = await putProjectMcpConfig({
+            await putProjectMcpConfig({
               directory: context.directory,
               name: c.req.valid("param").name,
               payload: c.req.valid("json"),
             })
-            return c.json(config)
+            return c.json(await projectMcpSettingsConfig(await loadProjectConfig(context.directory, { resolveSubstitutions: false })))
           },
           mapError: mapConfigRouteError,
         }),

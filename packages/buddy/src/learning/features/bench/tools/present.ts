@@ -3,7 +3,7 @@ import path from "node:path"
 import type {
   ToolPresentationResolutionContext,
   ToolSilentOutcome,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import z from "zod"
 import { inAppBrowserFallbackTitle } from "@buddy/browser-contract"
@@ -1309,7 +1309,7 @@ async function presentOnBench(input: {
         benchTarget: null,
         mode: null,
         message:
-          "Chat tabs can only be switched to by the user. Call bench_read_context for the chat ID and where its transcript is stored.",
+          "Chat tabs can only be switched to by the user. Call bench_read_context for the chat ID, then read its transcript with bench_read_chat.",
         objectResult: null,
       }
     }

@@ -1,133 +1,24 @@
 import { describe, expect, test } from "bun:test"
-import z from "zod"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { defineToolPresentation } from "@buddy/opencode-adapter/tool-presentation"
-import { loadOpenCodeApp } from "../../src/opencode-runtime"
-import { createCompatiblePluginAskHandler } from "../../src/opencode-runtime/plugin-ask-compat"
-import { buddyToolToPluginTool } from "../../src/opencode-runtime/buddy-tool-shim"
-import { createBuddyTool } from "../../src/learning/runtime/create-buddy-tool"
-import { tmpdir } from "../helpers/tmpdir"
-import { requireToolObjectResult } from "../helpers/parse"
-import type { ToolContext } from "@opencode-ai/plugin"
+import { getAgentRuntime } from "../../src/runtime/agent-runtime"
+import { createRuntimeHarness, scenario } from "../conformance/harness"
 
-type TPluginAskInput = Parameters<ReturnType<typeof createCompatiblePluginAskHandler>>[0]
-type TPluginMetadataUpdate = Parameters<ToolContext["metadata"]>[0]
-
-const TEST_TOOL_PRESENTATION = defineToolPresentation({ archetype: "silent" })
-
-function createSlowAbortTool() {
-  const started = Promise.withResolvers<void>()
-  const release = Promise.withResolvers<void>()
-  const tool = createBuddyTool({
-    id: "slow_abort_test",
-    description: "Slow tool used to verify abort propagation.",
-    presentation: TEST_TOOL_PRESENTATION,
-    parameters: z.object({
-      value: z.string(),
-    }),
-    async execute(args) {
-      started.resolve()
-      await release.promise
-      return {
-        title: "slow",
-        output: args.value,
-        metadata: {},
-      }
-    },
-  })
-  return { tool, started: started.promise, release: release.resolve }
-}
-
-const permissionBridgeTool = createBuddyTool({
-  id: "permission_bridge_test",
-  description: "Tool used to verify permission effects execute.",
-  presentation: TEST_TOOL_PRESENTATION,
-  parameters: z.object({}),
-  async execute(_args, ctx) {
-    await ctx.ask({
-      permission: "read",
-      patterns: ["*"],
-      always: ["*"],
-      metadata: {},
-    })
-    await ctx.metadata({
-      title: "permission-bridge-test",
-      metadata: {},
-    })
-    return {
-      title: "permission-bridge",
-      output: "ok",
-      metadata: {},
-    }
-  },
-})
-
-describe("buddy tool abort handling", () => {
-  test("rejects promptly when the tool context aborts", async () => {
-    await using project = await tmpdir({ git: true })
-
-    const slowAbortTool = createSlowAbortTool()
-    const pluginTool = buddyToolToPluginTool(slowAbortTool.tool, project.path)
-    const abortController = new AbortController()
-
-    const execution = pluginTool.execute(
-      { value: "late result" },
-      {
-        sessionID: "ses_abort",
-        messageID: "msg_abort",
-        agent: "buddy",
-        directory: project.path,
-        worktree: project.path,
-        abort: abortController.signal,
-        metadata() {},
-        ask: createCompatiblePluginAskHandler(),
-      },
-    )
-
-    await slowAbortTool.started
-    abortController.abort()
-    slowAbortTool.release()
-    await expect(execution).rejects.toMatchObject({
-      name: "AbortError",
-    })
-  })
-
-  test("runs permission and metadata through the plugin tool path", async () => {
-    await using project = await tmpdir({ git: true })
-    await loadOpenCodeApp()
-
-    const asks: TPluginAskInput[] = []
-    const metadataUpdates: TPluginMetadataUpdate[] = []
-
-    const pluginTool = buddyToolToPluginTool(permissionBridgeTool, project.path)
-
-    const result = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: async () => {
-        return requireToolObjectResult(
-          await pluginTool.execute(
-            {},
-            {
-              sessionID: "ses_test",
-              messageID: "msg_test",
-              agent: "buddy",
-              directory: project.path,
-              worktree: project.path,
-              abort: new AbortController().signal,
-              metadata(input) {
-                metadataUpdates.push(input)
-              },
-              ask: createCompatiblePluginAskHandler((input) => {
-                asks.push(input)
-              }),
-            },
-          ),
-        )
-      },
-    })
-
-    expect(result.output).toBe("ok")
-    expect(asks).toHaveLength(1)
-    expect(metadataUpdates).toEqual([{ title: "permission-bridge-test", metadata: {} }])
+describe("tool cancellation", () => {
+  test("interrupts a real tool turn and discards its late result", async () => {
+    await using api = await createRuntimeHarness()
+    const runtime = await getAgentRuntime()
+    const session = await api.create()
+    const gate = api.gate()
+    const turn = runtime.execution.prompt({ sessionID: session.id, text: scenario({ kind: "pause", key: gate.key, text: "Cancelled answer" }) }, { directory: api.directory, signal: AbortSignal.timeout(10_000) })
+    try {
+      await gate.entered
+      expect(await runtime.execution.interrupt(session.id)).toBe(true)
+      gate.release()
+      await turn
+      const history = await api.messages(session.id)
+      const tools = history.flatMap((message) => message.parts).filter((part) => part.type === "tool")
+      expect(tools).toContainEqual(expect.objectContaining({ state: expect.objectContaining({ status: "error", errorType: "aborted" }) }))
+      expect(JSON.stringify(history)).not.toContain("Pause released.")
+      expect(await runtime.execution.interrupt(session.id)).toBe(false)
+    } finally { gate.release(); await turn }
   })
 })

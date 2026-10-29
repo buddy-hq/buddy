@@ -17,15 +17,17 @@ import {
   isUserAttachmentFilePart,
   projectUserMessageStackedContent,
 } from "../utils/user-message-stacked-content"
+import type {
+  LEGACY_REFERENCE_PART_TYPE,
+  REFERENCE_PART_TYPE,
+} from "@buddy/transcript-contract/prompt"
 import {
-  OPENCODE_REFERENCE_PART_TYPE,
+  isReferencePartType,
+  readPromptNotebookReferenceMetadata,
+  readPromptNotebookReferencePart,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
 import type { MessagePart } from "@/state/chat-types"
-import {
-  readPromptNotebookReferenceMetadata,
-  readPromptNotebookReferencePart,
-} from "@/components/prompt/prompt-types"
 
 import type { UserSectionProps } from "../types"
 import { parseTString } from "../tools/types"
@@ -36,8 +38,8 @@ type ChatWorkspaceFileReferencePart = MessagePart & {
   path: string
 }
 
-type ChatOpenCodeReferencePart = MessagePart & {
-  type: typeof OPENCODE_REFERENCE_PART_TYPE
+type ChatReferencePart = MessagePart & {
+  type: typeof REFERENCE_PART_TYPE | typeof LEGACY_REFERENCE_PART_TYPE
   name: string
   path: string
 }
@@ -46,7 +48,7 @@ type StandaloneReferencePart =
   | ChatAgentPart
   | ChatFilePart
   | ChatWorkspaceFileReferencePart
-  | ChatOpenCodeReferencePart
+  | ChatReferencePart
 
 function isChatWorkspaceFileReferencePart(
   part: MessagePart,
@@ -54,9 +56,9 @@ function isChatWorkspaceFileReferencePart(
   return part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && parseTString(part.path) !== undefined
 }
 
-function isChatOpenCodeReferencePart(part: MessagePart): part is ChatOpenCodeReferencePart {
+function isChatReferencePart(part: MessagePart): part is ChatReferencePart {
   return (
-    part.type === OPENCODE_REFERENCE_PART_TYPE &&
+    isReferencePartType(part.type) &&
     parseTString(part.name) !== undefined &&
     parseTString(part.path) !== undefined
   )
@@ -67,7 +69,7 @@ function isStandaloneReferencePart(part: MessagePart): part is StandaloneReferen
     isChatAgentPart(part) ||
     isChatFilePart(part) ||
     isChatWorkspaceFileReferencePart(part) ||
-    isChatOpenCodeReferencePart(part)
+    isChatReferencePart(part)
   )
 }
 
@@ -76,12 +78,12 @@ function collapseDisplayWhitespace(text: string) {
 }
 
 function hasTextSource(part: ChatAgentPart | ChatFilePart) {
-  return part.source !== null && part.source !== undefined
+  return isChatFilePart(part) ? part.source?.text !== undefined : part.source !== null && part.source !== undefined
 }
 
 function getReferencePath(part: StandaloneReferencePart) {
   if (isChatAgentPart(part)) return part.name
-  if (isChatOpenCodeReferencePart(part)) return part.name
+  if (isChatReferencePart(part)) return part.name
   if (isChatWorkspaceFileReferencePart(part)) return part.path
   const filename = parseTString(part.filename)
   return filename !== undefined && filename.length > 0 ? filename : part.url
@@ -130,20 +132,17 @@ export const UserSection = memo(function UserSection({
     () => userParts.filter(isChatWorkspaceFileReferencePart),
     [userParts],
   )
-  const userOpenCodeReferenceParts = useMemo(
-    () => userParts.filter(isChatOpenCodeReferencePart),
-    [userParts],
-  )
+  const userReferenceParts = useMemo(() => userParts.filter(isChatReferencePart), [userParts])
   const userTextParts = useMemo(() => userParts.filter(isVisibleUserTextPart), [userParts])
   const standaloneReferenceParts = useMemo(
     () =>
       dedupeReferenceParts([
         ...userInlineFileParts.filter((part) => !hasTextSource(part)),
         ...userAgentParts.filter((part) => !hasTextSource(part)),
-        ...userOpenCodeReferenceParts,
+        ...userReferenceParts,
         ...userWorkspaceReferenceParts,
       ]),
-    [userAgentParts, userInlineFileParts, userOpenCodeReferenceParts, userWorkspaceReferenceParts],
+    [userAgentParts, userInlineFileParts, userReferenceParts, userWorkspaceReferenceParts],
   )
   // Sent, a reference is a text part tagged with metadata; still optimistic, it is the composer's part.
   const notebookReferences = useMemo(

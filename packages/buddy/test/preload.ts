@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto"
 import { afterAll } from "bun:test"
 import { TEST_SANDBOX } from "../../../script/test-preload"
 import {
+  OPENCODE_TEST_HOME_ENVIRONMENT_KEY,
   POSIX_HOME_ENVIRONMENT_KEY,
   WINDOWS_HOME_ENVIRONMENT_KEY,
 } from "../../../script/test-sandbox"
@@ -33,10 +34,23 @@ process.env[XDG_ENV.DATA_HOME] = dataHome
 process.env[XDG_ENV.CACHE_HOME] = cacheHome
 process.env[XDG_ENV.CONFIG_HOME] = configHome
 process.env[XDG_ENV.STATE_HOME] = stateHome
+delete process.env[BUDDY_ENV.RUNTIME_ROOT]
+delete process.env[BUDDY_ENV.DATA_DIR]
+delete process.env[BUDDY_ENV.STATE_DIR]
+delete process.env[BUDDY_ENV.CACHE_DIR]
+delete process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR]
+delete process.env.BUDDY_MANAGED_HOME_DIR
+delete process.env.BUDDY_DEFAULT_NOTEBOOK_HOME
+delete process.env.BUDDY_DIRECTORY_BASE
+delete process.env.BUDDY_CONFIG
+delete process.env.BUDDY_CONFIG_CONTENT
+delete process.env.OPENCODE_DB
+delete process.env.OPENCODE_CONFIG_DIR
 process.env[BUDDY_ENV.TEST_HOME] = testHome
 process.env[BUDDY_ENV.TEST_XDG_ROOT] = runRoot
 process.env[POSIX_HOME_ENVIRONMENT_KEY] = testHome
 process.env[WINDOWS_HOME_ENVIRONMENT_KEY] = testHome
+process.env[OPENCODE_TEST_HOME_ENVIRONMENT_KEY] = testHome
 process.env[BUDDY_ENV.DISABLE_SKILL_ARTIFACT_FETCH] = "1"
 process.env[OPENCODE_ENV.DISABLE_DEFAULT_PLUGINS] = "1"
 process.env[OPENCODE_ENV.DISABLE_MODELS_FETCH] = "1"

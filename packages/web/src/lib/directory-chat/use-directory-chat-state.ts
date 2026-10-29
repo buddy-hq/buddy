@@ -54,7 +54,7 @@ import type {
 import type { AgentConfigOption, PersonaConfigOption } from "@/state/chat-actions"
 import {
   getUsableProviders,
-  isAnonymousOpenCodeProvider,
+  isAnonymousBundledProvider,
   resolveAutoModelSelection,
   resolveUsableModelSelection,
   type ProviderModelSelection,
@@ -161,7 +161,7 @@ export function resolveVisibleModelKeys(input: {
 }
 
 export function resolveProviderModelGroup(provider: ProviderInfo) {
-  if (isAnonymousOpenCodeProvider(provider)) {
+  if (isAnonymousBundledProvider(provider)) {
     return language.t("prompt.toolbar.groups.freeModels")
   }
   return provider.name
@@ -327,7 +327,6 @@ export type DirectoryChatState = DirectoryChatStoreSlice &
     isTurnActive: boolean
     isReady: ChatStore["directories"][string]["isReady"]
     loadingSessionID: ChatStore["directories"][string]["loadingSessionID"]
-    error: ChatStore["directories"][string]["error"] | undefined
     pendingPermissions: ChatStore["directories"][string]["pendingPermissions"]
     pendingQuestions: ChatStore["directories"][string]["pendingQuestions"]
     messages: MessageWithParts[]
@@ -499,7 +498,18 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   )
   const currentAgentName = currentAgent?.name ?? props.defaultAgent
   const recentModels = useMemo(
-    () => recentModelKeys.map(parseConfiguredModel).filter(isModelSelection),
+    () => {
+      const seen = new Set<string>()
+      return recentModelKeys
+        .map(parseConfiguredModel)
+        .filter(isModelSelection)
+        .filter((model) => {
+          const key = modelSelectionKey(model)
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+    },
     [recentModelKeys],
   )
   const autoModelSelection = useMemo(() => {
@@ -607,7 +617,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     transcriptMeta.loading && sessionID && messages.length === 0
       ? sessionID
       : directoryState?.loadingSessionID
-  const error = directoryState?.error
   const pendingPermissions = directoryState?.pendingPermissions ?? []
   const pendingQuestions = directoryState?.pendingQuestions ?? []
   const mcpStatus = directoryState?.mcpStatus ?? EMPTY_RECORD
@@ -730,7 +739,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     isTurnActive,
     isReady,
     loadingSessionID,
-    error,
     pendingPermissions,
     pendingQuestions,
     messages,

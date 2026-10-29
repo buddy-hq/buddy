@@ -1,9 +1,10 @@
 import { isMessageAbortError } from "./utils/error"
+import { interruptedAssistantMessageID } from "./utils/interrupted-assistant-message"
 import type {
   ToolCollectionToken,
   ToolLayoutRole,
   ToolRendererToken,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 import { buildTurns, groupAssistantParts } from "./utils/message-utils"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./utils/part-guards"
 import { visibleUserTextLength } from "./utils/user-message-text"
@@ -15,7 +16,7 @@ import { parseTNumber, parseTPartTime } from "./tools/types"
 import { parseToolState } from "./tools/parse-tool-state"
 import { parseToolPresentation } from "./tools/parse-tool-presentation"
 import type { AssistantRenderItem, ChatTurn } from "./types"
-import type { MessagePart, MessageWithParts, SessionStatusInfo } from "@/state/chat-types"
+import type { MessagePart, MessageWithParts, SessionStatusInfo, SessionStoppedTurn } from "@/state/chat-types"
 import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
 import { isSessionStatusRetry } from "@/state/session-status"
 import {
@@ -70,6 +71,7 @@ export type TimelineRow =
       key: string
       userMessageID: string
       label: "compaction" | "interrupted"
+      stopReason?: "inactivity"
     }
   | {
       type: "assistant"
@@ -147,12 +149,7 @@ type ProjectTimelineRowsInput = {
   directory: string | undefined
   activeSessionStatus: SessionStatusInfo
   showReasoningSummaries: boolean
-}
-
-const ASSISTANT_ABORT_FINISH_REASONS = new Set(["aborted", "cancelled", "interrupted"])
-
-function isAssistantAbortFinish(finish: string | null | undefined): boolean {
-  return finish !== null && finish !== undefined && ASSISTANT_ABORT_FINISH_REASONS.has(finish)
+  stoppedTurn?: SessionStoppedTurn
 }
 
 function assistantPartIDs(item: AssistantRenderItem): string[] {
@@ -260,14 +257,6 @@ function activeTurnIndex(turns: ChatTurn[], isBusy: boolean) {
   return lastTurn && turnHasOptimisticUserInput(lastTurn) && lastTurn.assistants.length === 0
     ? lastTurnIndex
     : -1
-}
-
-function assistantAborted(messages: MessageWithParts[]) {
-  return messages.some(
-    (message) =>
-      message.info.role === "assistant" &&
-      (isAssistantAbortFinish(message.info.finish) || isMessageAbortError(message.info.error)),
-  )
 }
 
 function assistantError(messages: MessageWithParts[]) {
@@ -389,7 +378,8 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     const assistantParts = turn.assistants.flatMap((message) => message.parts)
     const assistantItems = groupAssistantParts(assistantParts, true)
     const textPartID = lastTextPartID(assistantParts)
-    const aborted = assistantAborted(turn.assistants)
+    const interruptedMessageID = interruptedAssistantMessageID(turn.assistants)
+    const aborted = interruptedMessageID !== undefined
     const error = assistantError(turn.assistants)
     const hasVisibleText = assistantParts.some(
       (part) => isChatTextPart(part) && part.text.trim().length > 0,
@@ -409,7 +399,7 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     // look uneven (tight above, loose below).
     if (turnIndex > 0) {
       const previousTurn = turns[turnIndex - 1]
-      const previousAborted = assistantAborted(previousTurn.assistants)
+      const previousAborted = interruptedAssistantMessageID(previousTurn.assistants) !== undefined
       if (!previousAborted) {
         rows.push({
           type: "turn-gap",
@@ -526,6 +516,9 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         key: `turn-divider:${userMessageID}:interrupted`,
         userMessageID,
         label: "interrupted",
+        stopReason: input.stoppedTurn && input.stoppedTurn.assistantMessageID === interruptedMessageID
+          ? input.stoppedTurn.reason
+          : undefined,
       })
     }
 
@@ -588,6 +581,7 @@ function stringArraysEqual(left: string[], right: string[]) {
 
 function assistantErrorModelsEqual(left: AssistantErrorModel, right: AssistantErrorModel) {
   return (
+    left.code === right.code &&
     left.category === right.category &&
     left.disposition === right.disposition &&
     left.details.name === right.details.name &&
@@ -596,9 +590,9 @@ function assistantErrorModelsEqual(left: AssistantErrorModel, right: AssistantEr
     left.details.statusCode === right.details.statusCode &&
     left.details.isRetryable === right.details.isRetryable &&
     left.details.responseBody === right.details.responseBody &&
-    left.details.providerError?.type === right.details.providerError?.type &&
-    left.details.providerError?.code === right.details.providerError?.code &&
-    left.details.providerError?.message === right.details.providerError?.message
+    left.details.limit?.plan === right.details.limit?.plan &&
+    left.details.limit?.resetsAt === right.details.limit?.resetsAt &&
+    left.details.limit?.resetsInSeconds === right.details.limit?.resetsInSeconds
   )
 }
 
@@ -623,7 +617,8 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
       return (
         right.type === "turn-divider" &&
         left.userMessageID === right.userMessageID &&
-        left.label === right.label
+        left.label === right.label &&
+        left.stopReason === right.stopReason
       )
     case "assistant":
       return (

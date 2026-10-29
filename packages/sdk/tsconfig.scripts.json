@@ -13,7 +13,7 @@
     "declarationMap": false,
     "noEmit": true,
     "strict": true,
-    "types": ["node"]
+    "types": ["bun"]
   },
   "include": [
     "scripts/**/*.ts",

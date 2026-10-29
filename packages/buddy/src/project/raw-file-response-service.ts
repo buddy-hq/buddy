@@ -1,5 +1,6 @@
 import fs from "node:fs"
 import { mimeTypeForPath } from "../http/mime"
+import { INERT_DOCUMENT_CSP } from "../http/inert-document-headers"
 import { validateReaderSourcePath } from "../resources/reader-source-validator"
 
 const FILE_NOT_FOUND_ERROR = "File not found"
@@ -11,6 +12,13 @@ const CONTENT_LENGTH_HEADER = "content-length"
 const CONTENT_TYPE_HEADER = "content-type"
 const INLINE_CONTENT_DISPOSITION_PREFIX = "inline; filename*=UTF-8''"
 const BYTE_RANGE_DECIMAL_TOKEN_PATTERN = /^\d+$/u
+const INERT_DOCUMENT_CONTENT_TYPES = new Set([
+  "text/html",
+  "application/xhtml+xml",
+  "image/svg+xml",
+  "application/xml",
+  "text/xml",
+])
 
 type RawFileRecord =
   | {
@@ -73,10 +81,18 @@ async function buildRawFileHeaders(input: {
   filepath: string
   size: number
 }): Promise<Record<string, string>> {
-  return {
+  const contentType = await readRawFileMimeType(input.filepath)
+  const headers = {
     "content-disposition": buildInlineContentDisposition(input.downloadName),
     [CONTENT_LENGTH_HEADER]: String(input.size),
-    [CONTENT_TYPE_HEADER]: await readRawFileMimeType(input.filepath),
+    [CONTENT_TYPE_HEADER]: contentType,
+  }
+  const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? ""
+  if (!INERT_DOCUMENT_CONTENT_TYPES.has(mediaType) && !mediaType.endsWith("+xml")) return headers
+  return {
+    ...headers,
+    "content-security-policy": INERT_DOCUMENT_CSP,
+    "x-content-type-options": "nosniff",
   }
 }
 

@@ -17,10 +17,15 @@ import {
 } from "../src/components/bench/bench-route-context"
 import { BenchMediaPreview } from "../src/components/bench/bench-media-preview"
 import { FileBenchSurface } from "../src/components/bench/surfaces/file-bench-surface"
+import { ObjectBenchSurface } from "../src/components/bench/surfaces/object-bench-surface"
 import { MarkdownBenchPage } from "../src/components/bench/markdown/page"
 import { obsidianVaultQueryKeys } from "../src/state/obsidian-vault-query"
 import { notifyNotebookFilesChanged } from "../src/state/notebook-files-changed"
-import { invalidateWorkspaceFileMetadata } from "../src/state/bench-surface-query"
+import {
+  benchSurfaceQueryKeys,
+  invalidateWorkspaceFileMetadata,
+} from "../src/state/bench-surface-query"
+import { objectViewQueryOptions } from "../src/state/workspace-objects-query"
 import { readingResourceBlobQueryKey } from "../src/state/resources-query"
 import {
   DirectoryNotebookRouteContext,
@@ -65,6 +70,7 @@ import type {
   ObjectFlashcardDeckQueuedCardsResponse,
   ObjectFlashcardDeckReadDeckResponse,
   ObjectQuestionSetReadQuestionsResponse,
+  ObjectsViewResponse,
 } from "@buddy/sdk/types"
 import { parseRequestUrl } from "./parse-test-values"
 import { ThemeProvider } from "../src/theme"
@@ -495,6 +501,16 @@ describe("bench surface rendering", () => {
   })
 
   test("renders HTML widgets as an unscaled full bench iframe", async () => {
+    setRuntimePlatform({
+      ...originalPlatform,
+      fetch: withFetchPreconnect(
+        async (input) => {
+          expect(parseRequestUrl(input)).toContain("/api/frame/widget-links")
+          return Response.json({ url: "/api/frame/widget/signed.pass/index.html" })
+        },
+        originalFetch,
+      ),
+    })
     await act(async () => {
       root.render(
         <ServerProvider value={createServerConnection()}>
@@ -508,7 +524,120 @@ describe("bench surface rendering", () => {
     expect(iframe?.className).toContain("h-full")
     expect(iframe?.className).toContain("w-full")
     expect(iframe?.getAttribute("style") ?? "").not.toContain("transform")
+    expect(iframe?.getAttribute("src")).toBe("/api/frame/widget/signed.pass/index.html?renderKey=0")
   })
+
+  async function renderObjectWidget(exchangeResponse: () => Promise<Response>) {
+    const widget = createWidget()
+    const view: ObjectsViewResponse = {
+      ref: { kind: "html-widget", objectID: widget.objectID, revisionID: null, itemID: null },
+      viewID: "runtime",
+      title: widget.title,
+      data: {
+        renderer: "html-widget",
+        runtimeUrl: widget.runtimeUrl,
+        sourceRoot: widget.sourceRoot,
+        entryPath: widget.entryPath,
+        sourceVersion: widget.sourceVersion,
+        viewportPreset: widget.viewport.preset,
+      },
+    }
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const input = {
+      directory: TEST_DIRECTORY,
+      kind: "html-widget" as const,
+      objectID: widget.objectID,
+      viewID: "runtime",
+    }
+    queryClient.setQueryData(benchSurfaceQueryKeys.objectView(input), { ...input, view })
+    queryClient.setQueryData(objectViewQueryOptions(input).queryKey, view)
+    setRuntimePlatform({
+      ...originalPlatform,
+      fetch: withFetchPreconnect(
+        async (request) => {
+          const url = parseRequestUrl(request)
+          if (url.includes("/api/frame/widget-links")) return exchangeResponse()
+          if (url.includes("/view")) return Response.json(view)
+          throw new Error(`Unexpected widget test request: ${url}`)
+        },
+        originalFetch,
+      ),
+    })
+    useChatStore.getState().setStreamStatus("connecting")
+    useChatStore.getState().setStreamStatus("connected")
+    await act(async () => {
+      root.render(
+        <ServerProvider value={createServerConnection()}>
+          <QueryClientProvider client={queryClient}>
+            <DirectoryNotebookRouteContext.Provider value={OPENING_NOTEBOOK_ROUTE}>
+              <TestBenchContextProvider
+                target={{ type: "object", ref: view.ref, viewID: view.viewID }}
+              >
+                <ObjectBenchSurface {...input} />
+              </TestBenchContextProvider>
+            </DirectoryNotebookRouteContext.Provider>
+          </QueryClientProvider>
+        </ServerProvider>,
+      )
+      await flushEffects()
+    })
+    return queryClient
+  }
+
+  test("object widget retries a failed exchange with Reload widget", async () => {
+    let response = new Response("", { status: 404 })
+    const queryClient = await renderObjectWidget(async () => response)
+    try {
+      expect(container.textContent).toContain("Widget failed to load.")
+      expect(container.querySelector("iframe")).toBeNull()
+      const reload = Array.from(container.querySelectorAll("button")).find((button) =>
+        (button.getAttribute("aria-label") ?? button.textContent)?.includes("Reload widget"),
+      )
+      expect(reload).toBeDefined()
+      response = Response.json({ url: "/api/frame/widget/retry.pass/index.html" })
+      await act(async () => {
+        reload?.click()
+      })
+      expect(container.querySelector("iframe")?.getAttribute("src")).toContain(
+        "/api/frame/widget/retry.pass/index.html",
+      )
+      expect(container.textContent).not.toContain("Widget failed to load.")
+    } finally {
+      queryClient.clear()
+    }
+  })
+
+  test.each(["first.pass", "restarted.pass"])(
+    "object widget refreshes after stream reconnect (%s)",
+    async (pass) => {
+      let response = Promise.withResolvers<Response>()
+      response.resolve(Response.json({ url: "/api/frame/widget/first.pass/index.html" }))
+      let exchanges = 0
+      const queryClient = await renderObjectWidget(async () => {
+        exchanges += 1
+        return response.promise
+      })
+      try {
+        const frame = container.querySelector("iframe")
+        expect(frame).not.toBeNull()
+        response = Promise.withResolvers<Response>()
+        await act(async () => {
+          useChatStore.getState().setStreamStatus("error")
+          useChatStore.getState().setStreamStatus("connecting")
+          useChatStore.getState().setStreamStatus("connected")
+        })
+        expect(exchanges).toBe(2)
+        expect(container.querySelector("iframe")).toBe(frame)
+        await act(async () => {
+          response.resolve(Response.json({ url: `/api/frame/widget/${pass}/index.html` }))
+        })
+        expect(container.querySelector("iframe")).toBe(frame)
+        expect(frame?.getAttribute("src")).toContain(`/api/frame/widget/${pass}/index.html`)
+      } finally {
+        queryClient.clear()
+      }
+    },
+  )
 
   test.each([
     ["notes.md", "read-only-markdown-bench-view"],
@@ -642,6 +771,9 @@ describe("bench surface rendering", () => {
       mock(async (input: RequestInfo | URL) => {
         const url = parseRequestUrl(input)
         requestedUrls.push(url)
+        if (url === "/api/runtime/v1-import") {
+          return Response.json({ upgrade: { state: "idle" }, import: null })
+        }
         if (!url.includes("/api/objects/media-presentation/files/resolve")) {
           throw new Error(`Unexpected fetch: ${url}`)
         }
@@ -693,7 +825,10 @@ describe("bench surface rendering", () => {
       link?.click()
       await flushEffects()
     })
-    expect(requestedUrls.length).toBe(1)
+    expect(requestedUrls.filter((url) => url.includes("/files/resolve"))).toEqual([
+      "/api/objects/media-presentation/files/resolve?directory=%2Frepo",
+    ])
+    expect(requestedUrls.filter((url) => url === "/api/runtime/v1-import")).toHaveLength(1)
     await waitForEffect(() => revealedPaths.length > 0)
 
     expect(revealedPaths).toEqual(["/tmp/bundle.zip"])
@@ -701,6 +836,7 @@ describe("bench surface rendering", () => {
   })
 
   test("does not register an outgoing surface under the next route target", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const registrations: BenchSurfaceRegistrationInput[] = []
     const registerSurface = spyOn(
       DirectoryWorkspaceLifecycleService.prototype,
@@ -713,12 +849,14 @@ describe("bench surface rendering", () => {
     try {
       await act(async () => {
         root.render(
-          <TestBenchContextProvider target={TEST_ALPHA_MARKDOWN_TARGET}>
-            <TargetBoundContextProbe
-              target={TEST_ALPHA_MARKDOWN_TARGET}
-              content="alpha-token-9944-zzzz"
-            />
-          </TestBenchContextProvider>,
+          <QueryClientProvider client={queryClient}>
+            <TestBenchContextProvider target={TEST_ALPHA_MARKDOWN_TARGET}>
+              <TargetBoundContextProbe
+                target={TEST_ALPHA_MARKDOWN_TARGET}
+                content="alpha-token-9944-zzzz"
+              />
+            </TestBenchContextProvider>
+          </QueryClientProvider>,
         )
         await flushEffects()
       })
@@ -729,12 +867,14 @@ describe("bench surface rendering", () => {
 
       await act(async () => {
         root.render(
-          <TestBenchContextProvider target={TEST_BETA_MARKDOWN_TARGET}>
-            <TargetBoundContextProbe
-              target={TEST_ALPHA_MARKDOWN_TARGET}
-              content="alpha-token-9944-zzzz"
-            />
-          </TestBenchContextProvider>,
+          <QueryClientProvider client={queryClient}>
+            <TestBenchContextProvider target={TEST_BETA_MARKDOWN_TARGET}>
+              <TargetBoundContextProbe
+                target={TEST_ALPHA_MARKDOWN_TARGET}
+                content="alpha-token-9944-zzzz"
+              />
+            </TestBenchContextProvider>
+          </QueryClientProvider>,
         )
         await flushEffects()
       })
@@ -743,6 +883,7 @@ describe("bench surface rendering", () => {
         benchTargetKey(TEST_ALPHA_MARKDOWN_TARGET),
       ])
     } finally {
+      queryClient.clear()
       registerSurface.mockRestore()
     }
   })
@@ -1291,16 +1432,16 @@ describe("bench surface rendering", () => {
     await act(async () => {
       root.render(
         <ServerProvider value={createServerConnection()}>
-          <TestBenchContextProvider>
-            <QueryClientProvider client={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <TestBenchContextProvider>
               <FlashcardBenchDeck
                 directory={TEST_DIRECTORY}
                 objectID={TEST_DECK_ID}
                 target={TEST_FLASHCARD_TARGET}
                 deck={createFlashcardDeck()}
               />
-            </QueryClientProvider>
-          </TestBenchContextProvider>
+            </TestBenchContextProvider>
+          </QueryClientProvider>
         </ServerProvider>,
       )
       await flushEffects()
@@ -1358,16 +1499,16 @@ describe("bench surface rendering", () => {
       await act(async () => {
         root.render(
           <ServerProvider value={createServerConnection()}>
-            <TestBenchContextProvider target={TEST_FLASHCARD_TARGET}>
-              <QueryClientProvider client={queryClient}>
+            <QueryClientProvider client={queryClient}>
+              <TestBenchContextProvider target={TEST_FLASHCARD_TARGET}>
                 <FlashcardBenchDeck
                   directory={TEST_DIRECTORY}
                   objectID={TEST_DECK_ID}
                   target={TEST_FLASHCARD_TARGET}
                   deck={createFlashcardDeck()}
                 />
-              </QueryClientProvider>
-            </TestBenchContextProvider>
+              </TestBenchContextProvider>
+            </QueryClientProvider>
           </ServerProvider>,
         )
         await flushEffects()
@@ -1431,16 +1572,16 @@ describe("bench surface rendering", () => {
     await act(async () => {
       root.render(
         <ServerProvider value={createServerConnection()}>
-          <TestBenchContextProvider>
-            <QueryClientProvider client={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <TestBenchContextProvider>
               <FlashcardBenchDeck
                 directory={TEST_DIRECTORY}
                 objectID={TEST_DECK_ID}
                 target={TEST_FLASHCARD_TARGET}
                 deck={createFlashcardDeck()}
               />
-            </QueryClientProvider>
-          </TestBenchContextProvider>
+            </TestBenchContextProvider>
+          </QueryClientProvider>
         </ServerProvider>,
       )
       await flushEffects()
@@ -1498,16 +1639,16 @@ describe("bench surface rendering", () => {
     await act(async () => {
       root.render(
         <ServerProvider value={createServerConnection()}>
-          <TestBenchContextProvider>
-            <QueryClientProvider client={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <TestBenchContextProvider>
               <FlashcardBenchDeck
                 directory={TEST_DIRECTORY}
                 objectID={TEST_DECK_ID}
                 target={TEST_FLASHCARD_TARGET}
                 deck={createFlashcardDeck()}
               />
-            </QueryClientProvider>
-          </TestBenchContextProvider>
+            </TestBenchContextProvider>
+          </QueryClientProvider>
         </ServerProvider>,
       )
       await flushEffects()
@@ -1617,16 +1758,16 @@ describe("bench surface rendering", () => {
     await act(async () => {
       root.render(
         <ServerProvider value={createServerConnection()}>
-          <TestBenchContextProvider>
-            <QueryClientProvider client={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <TestBenchContextProvider>
               <FlashcardBenchDeck
                 directory={TEST_DIRECTORY}
                 objectID={TEST_DECK_ID}
                 target={TEST_FLASHCARD_TARGET}
                 deck={createFlashcardDeck()}
               />
-            </QueryClientProvider>
-          </TestBenchContextProvider>
+            </TestBenchContextProvider>
+          </QueryClientProvider>
         </ServerProvider>,
       )
       await flushEffects()
@@ -1682,16 +1823,16 @@ describe("bench surface rendering", () => {
     await act(async () => {
       root.render(
         <ServerProvider value={createServerConnection()}>
-          <TestBenchContextProvider>
-            <QueryClientProvider client={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <TestBenchContextProvider>
               <FlashcardBenchDeck
                 directory={TEST_DIRECTORY}
                 objectID={TEST_DECK_ID}
                 target={TEST_FLASHCARD_TARGET}
                 deck={createFlashcardDeck()}
               />
-            </QueryClientProvider>
-          </TestBenchContextProvider>
+            </TestBenchContextProvider>
+          </QueryClientProvider>
         </ServerProvider>,
       )
       await flushEffects()
@@ -1758,16 +1899,16 @@ describe("bench surface rendering", () => {
       await act(async () => {
         root.render(
           <ServerProvider value={createServerConnection()}>
-            <TestBenchContextProvider target={TEST_FLASHCARD_TARGET}>
-              <QueryClientProvider client={queryClient}>
+            <QueryClientProvider client={queryClient}>
+              <TestBenchContextProvider target={TEST_FLASHCARD_TARGET}>
                 <FlashcardBenchDeck
                   directory={TEST_DIRECTORY}
                   objectID={TEST_DECK_ID}
                   target={TEST_FLASHCARD_TARGET}
                   deck={createFlashcardDeck()}
                 />
-              </QueryClientProvider>
-            </TestBenchContextProvider>
+              </TestBenchContextProvider>
+            </QueryClientProvider>
           </ServerProvider>,
         )
         await flushEffects()

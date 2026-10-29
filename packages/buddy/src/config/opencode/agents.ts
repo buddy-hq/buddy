@@ -10,6 +10,7 @@ import {
 import { createBuddyPersonaAgent } from "../../learning/personas/wiring/create-buddy-persona-agent"
 import { REGISTERED_BUDDY_PERSONAS } from "../../learning/personas/registry"
 import { listBuddySubagents } from "../../learning/runtime-subagents"
+import { getBuddySubagentDefinition } from "../../learning/subagent-manifest"
 import { deriveStaticPersonaToolPermissionsFromProfile } from "../../learning/runtime/persona-tool-permissions"
 import { Config } from "../config.js"
 import { parseConfigObject, parsePermissionAction } from "../parse-values.js"
@@ -110,7 +111,9 @@ function mergeBuddyAndConfiguredAgents(
   for (const [name, agent] of Object.entries(agentOverlay)) {
     const baseAgent = merged[name]
     const nextAgent = normalizeConfiguredAgentOverride(name, baseAgent, agent)
-    merged[name] = baseAgent ? mergeBuddyAgentConfig(baseAgent, nextAgent) : nextAgent
+    const combined = baseAgent ? mergeBuddyAgentConfig(baseAgent, nextAgent) : nextAgent
+    const role = getBuddySubagentDefinition(name)
+    merged[name] = role ? { ...combined, mode: "subagent", hidden: !role.delegatable || combined.hidden } : combined
   }
 
   return merged

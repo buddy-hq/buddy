@@ -4,10 +4,10 @@ import {
   buildRetryStateModel,
   resolveLatestTerminalAssistantError,
   retryStage,
-  type AssistantErrorCategory,
 } from "../src/state/chat-error-model"
+import { parseSessionMessagesPayload } from "../src/state/session-messages"
 import { normalizeSessionStatusValue, sessionStatusEquals } from "../src/state/session-status"
-import type { MessageError, SessionStatusInfo, TMessageErrorData } from "../src/state/chat-types"
+import type { MessageError, SessionStatusInfo } from "../src/state/chat-types"
 import {
   createAssistantMessageInfo,
   createMessageWithParts,
@@ -16,10 +16,6 @@ import {
 } from "./test-utils"
 
 type RetryStatus = Extract<SessionStatusInfo, { type: "retry" }>
-
-function error(name: string, data: TMessageErrorData = {}): MessageError {
-  return { name, data }
-}
 
 function retryStatus(attempt: number): RetryStatus {
   return {
@@ -80,175 +76,49 @@ describe("retry state model", () => {
 })
 
 describe("assistant error model", () => {
-  test("classifies every runtime error discriminant", () => {
-    const cases: Array<[MessageError, AssistantErrorCategory]> = [
-      [error("ProviderAuthError"), "auth"],
-      [error("UnknownError"), "unknown"],
-      [error("MessageOutputLengthError"), "output-length"],
-      [error("MessageAbortedError"), "stopped"],
-      [error("StructuredOutputError"), "format"],
-      [error("ContextOverflowError"), "context"],
-      [error("ContentFilterError"), "content"],
-      [error("APIError", { statusCode: 429 }), "rate-limit"],
-    ]
-
-    for (const [value, category] of cases) {
-      expect(buildAssistantErrorModel(value, { hasVisibleText: false }).category).toBe(category)
-    }
-  })
-
   test("treats output length as a caveat only when visible text exists", () => {
-    const value = error("MessageOutputLengthError")
+    const value: MessageError = { name: "MessageOutputLengthError", code: "output_limit" }
     expect(buildAssistantErrorModel(value, { hasVisibleText: true }).disposition).toBe("caveat")
     expect(buildAssistantErrorModel(value, { hasVisibleText: false }).disposition).toBe("terminal")
   })
 
-  test("uses structured provider errors before HTTP status fallbacks", () => {
-    expect(
-      buildAssistantErrorModel(error("APIError", { statusCode: 401 }), {
-        hasVisibleText: false,
-      }).category,
-    ).toBe("auth")
-    expect(
-      buildAssistantErrorModel(error("APIError", { statusCode: 503 }), {
-        hasVisibleText: false,
-      }).category,
-    ).toBe("temporarily-unavailable")
-    expect(
-      buildAssistantErrorModel(error("APIError", { statusCode: 402 }), {
-        hasVisibleText: false,
-      }).category,
-    ).toBe("usage-limit")
-    expect(
-      buildAssistantErrorModel(error("APIError", { statusCode: 403 }), {
-        hasVisibleText: false,
-      }).category,
-    ).toBe("auth")
-    expect(
-      buildAssistantErrorModel(
-        error("APIError", { statusCode: 403, message: "Permission denied" }),
-        {
-          hasVisibleText: false,
-        },
-      ).category,
-    ).toBe("access-restricted")
-    expect(
-      buildAssistantErrorModel(
-        error("APIError", {
-          statusCode: 503,
-          message: "Upstream connection timed out",
-        }),
-        { hasVisibleText: false },
-      ).category,
-    ).toBe("temporarily-unavailable")
-    expect(
-      buildAssistantErrorModel(error("APIError", { message: "socket connection reset" }), {
-        hasVisibleText: false,
-      }).category,
-    ).toBe("network")
-  })
-
-  test("classifies OpenAI subscription exhaustion as a usage limit", () => {
-    const model = buildAssistantErrorModel(
-      error("APIError", {
-        statusCode: 429,
-        isRetryable: false,
-        message: "The usage limit has been reached",
-        responseBody: JSON.stringify({
-          error: {
-            type: "usage_limit_reached",
+  test("classifies OpenAI subscription exhaustion with the transcript's limit details", () => {
+    const user = createMessageWithParts(
+      createUserMessageInfo({ id: "msg_user", sessionID: "ses_limit" }),
+    )
+    const failed = createMessageWithParts(
+      createAssistantMessageInfo({
+        id: "msg_assistant",
+        sessionID: "ses_limit",
+        parentID: user.info.id,
+        providerID: "openai",
+        error: {
+          name: "APIError",
+          message: "The usage limit has been reached",
+          code: "quota_exceeded",
+          limit: { plan: "plus", resetsAt: 1_787_087_426, resetsInSeconds: 0 },
+          data: {
             message: "The usage limit has been reached",
+            statusCode: 429,
+            isRetryable: false,
+            responseBody: JSON.stringify({
+              error: {
+                type: "usage_limit_reached",
+                message: "The usage limit has been reached",
+              },
+            }),
           },
-        }),
+        },
       }),
-      { hasVisibleText: false, providerID: "openai" },
     )
 
-    expect(model).toMatchObject({
+    expect(
+      resolveLatestTerminalAssistantError(parseSessionMessagesPayload([user, failed]))?.model,
+    ).toMatchObject({
       category: "usage-limit",
       disposition: "terminal",
-      details: {
-        providerError: {
-          type: "usage_limit_reached",
-          message: "The usage limit has been reached",
-        },
-      },
+      details: { limit: { plan: "plus", resetsAt: 1_787_087_426, resetsInSeconds: 0 } },
     })
-  })
-
-  test("classifies Zen errors without trusting their overloaded HTTP status", () => {
-    function zenError(type: string, message: string) {
-      return error("APIError", {
-        statusCode: type === "RegionError" ? 403 : 401,
-        isRetryable: false,
-        responseBody: JSON.stringify({
-          type: "error",
-          error: { type, message },
-        }),
-      })
-    }
-
-    const anonymousContext = {
-      hasVisibleText: false,
-      providerID: "opencode",
-      providerConnected: false,
-    }
-
-    expect(
-      buildAssistantErrorModel(zenError("ModelError", "No provider available"), anonymousContext),
-    ).toMatchObject({
-      category: "temporarily-unavailable",
-      details: {
-        providerError: {
-          type: "ModelError",
-          message: "No provider available",
-        },
-      },
-    })
-    expect(
-      buildAssistantErrorModel(zenError("CreditsError", "Insufficient balance"), anonymousContext)
-        .category,
-    ).toBe("usage-limit")
-    expect(
-      buildAssistantErrorModel(zenError("ModelError", "Model is disabled"), anonymousContext)
-        .category,
-    ).toBe("model-unavailable")
-    expect(
-      buildAssistantErrorModel(
-        zenError("RegionError", "This model is not available in your region"),
-        anonymousContext,
-      ).category,
-    ).toBe("access-restricted")
-    expect(
-      buildAssistantErrorModel(zenError("AuthError", "Invalid API key"), anonymousContext).category,
-    ).toBe("model-unavailable")
-    expect(
-      buildAssistantErrorModel(zenError("AuthError", "Invalid API key"), {
-        ...anonymousContext,
-        providerConnected: true,
-      }).category,
-    ).toBe("auth")
-    expect(
-      buildAssistantErrorModel(zenError("AuthError", "Model alpha-x is not supported"), {
-        ...anonymousContext,
-        providerConnected: true,
-      }).category,
-    ).toBe("model-unavailable")
-  })
-
-  test("never turns an anonymous free-model auth status into a reconnect error", () => {
-    const input = {
-      hasVisibleText: false,
-      providerID: "opencode",
-      providerConnected: false,
-    }
-
-    expect(buildAssistantErrorModel(error("APIError", { statusCode: 401 }), input).category).toBe(
-      "temporarily-unavailable",
-    )
-    expect(buildAssistantErrorModel(error("ProviderAuthError"), input).category).toBe(
-      "model-unavailable",
-    )
   })
 
   test("resolves only a terminal error belonging to the latest user turn", () => {
@@ -260,7 +130,11 @@ describe("assistant error model", () => {
         id: "msg_assistant",
         sessionID: "ses_error",
         parentID: user.info.id,
-        error: error("APIError", { statusCode: 503, message: "Overloaded" }),
+        error: {
+          name: "APIError",
+          code: "temporarily_unavailable",
+          data: { statusCode: 503, message: "Overloaded" },
+        },
       }),
     )
 
@@ -287,7 +161,7 @@ describe("assistant error model", () => {
     expect(resolveLatestTerminalAssistantError([user, failed, recovered])).toBeUndefined()
   })
 
-  test("uses current provider access only to guard recovery presentation", () => {
+  test("uses the anonymous code only while the bundled provider is disconnected", () => {
     const user = createMessageWithParts(
       createUserMessageInfo({ id: "msg_user", sessionID: "ses_free_error" }),
     )
@@ -296,22 +170,24 @@ describe("assistant error model", () => {
         id: "msg_assistant",
         sessionID: "ses_free_error",
         parentID: user.info.id,
-        providerID: "opencode",
-        modelID: "mimo-v2.5-free",
-        error: error("APIError", { statusCode: 401 }),
+        providerID: "hosted",
+        modelID: "free-model",
+        error: {
+          name: "APIError",
+          code: "auth",
+          anonymousCode: "temporarily_unavailable",
+          data: { message: "Request failed", statusCode: 401 },
+        },
       }),
     )
+    const messages = parseSessionMessagesPayload([user, failed])
+    const categoryWhen = (connected: boolean) =>
+      resolveLatestTerminalAssistantError(messages, [
+        createProviderInfo({ id: "hosted", bundled: true, connected }),
+      ])?.model.category
 
-    expect(
-      resolveLatestTerminalAssistantError(
-        [user, failed],
-        [createProviderInfo({ id: "opencode", connected: false })],
-      ),
-    ).toMatchObject({
-      providerID: "opencode",
-      modelID: "mimo-v2.5-free",
-      model: { category: "temporarily-unavailable" },
-    })
+    expect(categoryWhen(false)).toBe("temporarily-unavailable")
+    expect(categoryWhen(true)).toBe("auth")
   })
 })
 

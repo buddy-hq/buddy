@@ -17,6 +17,7 @@ function splitPath(prefix: string, tailSegments: string[]): TPermissionDockPathD
 }
 
 export function getPermissionDockPathDisplay(path: string): TPermissionDockPathDisplay {
+  if (/^https?:\/\//i.test(path)) return { kind: "plain", path }
   const segments = pathSegments(path)
   if (segments.length <= 3) {
     return { kind: "plain", path }
@@ -31,6 +32,8 @@ export function getPermissionDockPathDisplay(path: string): TPermissionDockPathD
     const prefix = rest.length > 0 ? `${drive}/${rest.join("/")}/` : `${drive}/`
     return splitPath(prefix, tailSegments)
   }
+
+  if (/^[\\/]{2}/.test(path)) return splitPath(`//${prefixSegments.join("/")}/`, tailSegments)
 
   if (path.startsWith("/")) {
     return splitPath(`/${prefixSegments.join("/")}/`, tailSegments)

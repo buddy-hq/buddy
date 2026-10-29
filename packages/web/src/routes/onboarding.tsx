@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, useState, type CSSProperties } from "react"
+import { V1UpgradeFailureNotice } from "@/components/layout/chat-left-sidebar/v1-import-notice"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
 import {
   Aurora,
@@ -80,6 +81,7 @@ import {
 } from "@/state/personalization-settings-query"
 import { refreshOpenAIModelAvailability } from "@/state/openai-usage-query"
 import type { PrimaryUse } from "@/state/project-config-readers"
+import { v1ImportQueryOptions } from "@/state/v1-import-query"
 
 const EMPTY_PROVIDER_CATALOG_SNAPSHOT: ProviderCatalogState = {
   providers: [],
@@ -144,6 +146,7 @@ function OnboardingRoute() {
   const setAuthChoice = useOnboardingStore((state) => state.setAuthChoice)
   const markSetupCompleted = useOnboardingStore((state) => state.markSetupCompleted)
   const providerCatalogSnapshotQuery = useQuery(providerCatalogSnapshotQueryOptions())
+  const v1ImportQuery = useQuery(v1ImportQueryOptions())
   const providerCatalogSnapshot =
     providerCatalogSnapshotQuery.data ?? EMPTY_PROVIDER_CATALOG_SNAPSHOT
 
@@ -477,6 +480,7 @@ function OnboardingRoute() {
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-9 sm:px-14">
         <div className="w-full max-w-xl">
+          <V1UpgradeFailureNotice report={v1ImportQuery.data} />
           <AnimatePresence
             mode="wait"
             onExitComplete={() => {

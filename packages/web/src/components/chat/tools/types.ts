@@ -1,4 +1,5 @@
 import { z } from "zod"
+import type { FileChange, ToolOutcome, ToolQuestion, ToolSummary, ToolTodo } from "@buddy/transcript-contract/message"
 
 export type TJsonPrimitive = string | number | boolean | null
 export type TJsonValue = TJsonPrimitive | readonly TJsonValue[] | TJsonObject
@@ -18,7 +19,20 @@ export type ToolState = {
   end?: number
   output?: string
   error?: string
+  errorType?: string
   title?: string
+  fileChanges?: readonly FileChange[]
+  summary?: ToolSummary
+  shell?: ToolShell
+  todos?: readonly ToolTodo[]
+  questions?: readonly ToolQuestion[]
+  skillContent?: string
+  outcome?: ToolOutcome
+}
+
+export type ToolShell = {
+  command?: string
+  output?: string
 }
 
 export type ToolAttachment = {

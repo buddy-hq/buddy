@@ -22,7 +22,7 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      error: "Invalid JSON body",
+      code: "request.invalid", error: "Invalid JSON body",
     })
   })
 
@@ -40,7 +40,7 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      error: "Invalid JSON body",
+      code: "request.invalid", error: "Invalid JSON body",
     })
   })
 
@@ -58,7 +58,7 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      error: "Invalid JSON body",
+      code: "request.invalid", error: "Invalid JSON body",
     })
   })
 
@@ -87,7 +87,7 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      error: "Session not found",
+      code: "session.not_found", error: "Session not found",
     })
     expect(readTeachingSessionState(project.path, "ses_missing")).toMatchObject({
       sessionId: "ses_missing",
@@ -112,7 +112,7 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      error: "Session not found",
+      code: "session.not_found", error: "Session not found",
     })
     expect(readTeachingSessionState(project.path, "ses_missing_new")).toBeUndefined()
   })
@@ -134,7 +134,7 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      error: "Session not found",
+      code: "session.not_found", error: "Session not found",
     })
     expect(readTeachingSessionState(project.path, "ses_missing_cmd")).toBeUndefined()
   })
@@ -156,12 +156,90 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      error: "Session not found",
+      code: "session.not_found", error: "Session not found",
     })
     expect(readTeachingSessionState(project.path, "ses_missing_async")).toBeUndefined()
   })
 
   test("forwards abort even when no active status is cached", async () => {
+    await using project = await tmpdir({ git: true })
+    const created = await app.request("/api/session", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+    expect(created.status).toBe(200)
+    const session = requireJsonObject(await created.json())
+
+    const response = await app.request(`/api/session/${String(session.id)}/abort`, {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toBe(false)
+  })
+
+  test("moving an idle session's blocking work to the background is a no-op", async () => {
+    await using project = await tmpdir({ git: true })
+    const created = await app.request("/api/session", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+    expect(created.status).toBe(200)
+    const session = requireJsonObject(await created.json())
+
+    const response = await app.request(`/api/session/${String(session.id)}/background`, {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+
+    expect(response.status).toBe(204)
+  })
+
+  test("returns 404 when backgrounding a missing session", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_missing/background", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+
+    expect(response.status).toBe(404)
+  })
+
+  test("refuses to background another notebook's session", async () => {
+    await using owner = await tmpdir({ git: true })
+    await using other = await tmpdir({ git: true })
+    const created = await app.request("/api/session", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": owner.path,
+      },
+    })
+    expect(created.status).toBe(200)
+    const session = requireJsonObject(await created.json())
+
+    const response = await app.request(`/api/session/${String(session.id)}/background`, {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": other.path,
+      },
+    })
+
+    expect(response.status).toBe(404)
+  })
+
+  test("returns 404 when aborting a missing session", async () => {
     await using project = await tmpdir({ git: true })
 
     const response = await app.request("/api/session/ses_missing/abort", {
@@ -171,8 +249,10 @@ describe("session route regressions", () => {
       },
     })
 
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toBe(true)
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      code: "session.not_found", error: "Session not found",
+    })
   })
 
   test("resolves /session/status as status endpoint instead of session-id route", async () => {
@@ -213,7 +293,7 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      error: "Session not found",
+      code: "session.not_found", error: "Session not found",
     })
   })
 })

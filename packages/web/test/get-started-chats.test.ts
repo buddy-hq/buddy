@@ -102,10 +102,14 @@ describe("get started chats", () => {
 
   test("derives the learner prompt tier from the active provider model", () => {
     expect(resolveGetStartedLearnerModelTier(undefined)).toBe(GET_STARTED_LEARNER_MODEL_TIER.free)
-    expect(resolveGetStartedLearnerModelTier("opencode/deepseek-v4-flash-free")).toBe(
+    const providers = [
+      { id: "opencode", bundled: true },
+      { id: "openai", bundled: false },
+    ]
+    expect(resolveGetStartedLearnerModelTier("opencode/deepseek-v4-flash-free", providers)).toBe(
       GET_STARTED_LEARNER_MODEL_TIER.free,
     )
-    expect(resolveGetStartedLearnerModelTier("openai/gpt-5.6-sol")).toBe(
+    expect(resolveGetStartedLearnerModelTier("openai/gpt-5.6-sol", providers)).toBe(
       GET_STARTED_LEARNER_MODEL_TIER.connected,
     )
   })

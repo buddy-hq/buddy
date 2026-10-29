@@ -1,4 +1,5 @@
 import type { MessageWithParts } from "./chat-types"
+import { compareMessages } from "./transcript-repository"
 
 type TranscriptSnapshot = {
   messages: MessageWithParts[]
@@ -6,14 +7,34 @@ type TranscriptSnapshot = {
   cursor: string | undefined
 }
 
+function findRevertBoundary(messages: readonly MessageWithParts[], revertMessageID: string) {
+  return messages.find((message) => message.info.id === revertMessageID)?.info
+}
+
+export function createBeforeRevertFilter(input: {
+  messages: readonly MessageWithParts[]
+  revertMessageID?: string
+  transcriptComplete: boolean
+}): (message: MessageWithParts) => boolean {
+  const revertMessageID = input.revertMessageID
+  if (!revertMessageID) return () => true
+  const boundary = findRevertBoundary(input.messages, revertMessageID)
+  if (boundary) return (message) => compareMessages(message.info, boundary) < 0
+  const transcriptComplete = input.transcriptComplete
+  return () => transcriptComplete
+}
+
 function latestVisibleUserMessageID(
-  messages: MessageWithParts[],
+  snapshot: TranscriptSnapshot,
   revertMessageID: string | undefined,
 ) {
-  return messages.findLast(
-    (message) =>
-      message.info.role === "user" &&
-      (revertMessageID === undefined || message.info.id < revertMessageID),
+  const isBeforeRevert = createBeforeRevertFilter({
+    messages: snapshot.messages,
+    revertMessageID,
+    transcriptComplete: snapshot.complete,
+  })
+  return snapshot.messages.findLast(
+    (message) => message.info.role === "user" && isBeforeRevert(message),
   )?.info.id
 }
 
@@ -27,7 +48,7 @@ export async function resolveUndoTargetMessageID(input: {
 
   while (true) {
     const snapshot = input.readTranscript()
-    const messageID = latestVisibleUserMessageID(snapshot.messages, input.revertMessageID)
+    const messageID = latestVisibleUserMessageID(snapshot, input.revertMessageID)
     if (messageID) return messageID
     if (snapshot.complete || !snapshot.cursor) return undefined
 
@@ -47,17 +68,14 @@ export async function resolveRedoTargetMessageID(input: {
 }) {
   while (true) {
     const snapshot = input.readTranscript()
-    const oldestMessageID = snapshot.messages[0]?.info.id
-    const hasBoundaryCoverage =
-      snapshot.complete ||
-      (oldestMessageID !== undefined && oldestMessageID <= input.revertMessageID)
+    const boundary = findRevertBoundary(snapshot.messages, input.revertMessageID)
 
-    if (hasBoundaryCoverage) {
+    if (boundary) {
       return snapshot.messages.find(
-        (message) => message.info.role === "user" && message.info.id > input.revertMessageID,
+        (message) => message.info.role === "user" && compareMessages(message.info, boundary) > 0,
       )?.info.id
     }
-    if (!snapshot.cursor) return undefined
+    if (snapshot.complete || !snapshot.cursor) return undefined
 
     await input.loadOlder()
 

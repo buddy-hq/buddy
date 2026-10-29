@@ -22,6 +22,7 @@ import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
 import { getSessionContextMetrics } from "@/state/context-metrics"
 import { useChatStore } from "@/state/chat-store"
 import { HISTORY_TRANSCRIPT_MESSAGE_LIMIT } from "@/state/session-messages"
+import { createBeforeRevertFilter } from "@/state/session-revert"
 import {
   getTranscriptSessionMeta,
   loadOlderTranscriptMessages,
@@ -167,11 +168,15 @@ function contextCounts(messages: MessageWithParts[]) {
   )
 }
 
-function latestSystemPrompt(messages: MessageWithParts[], revertMessageID: string | undefined) {
-  const userMessages = messages.filter((message) => message.info.role === "user")
-  const visibleUserMessages = revertMessageID
-    ? userMessages.filter((message) => message.info.id < revertMessageID)
-    : userMessages
+function latestSystemPrompt(
+  messages: MessageWithParts[],
+  revertMessageID: string | undefined,
+  transcriptComplete: boolean,
+) {
+  const isBeforeRevert = createBeforeRevertFilter({ messages, revertMessageID, transcriptComplete })
+  const visibleUserMessages = messages.filter(
+    (message) => message.info.role === "user" && isBeforeRevert(message),
+  )
   const message = visibleUserMessages.findLast((entry) => {
     const system = entry.info.role === "user" ? entry.info.system : undefined
     return !!system?.trim()
@@ -486,8 +491,13 @@ export function DevToolsContextTab(props: DevToolsContextTabProps) {
   )
   const counts = useMemo(() => contextCounts(messages), [messages])
   const systemPrompt = useMemo(
-    () => latestSystemPrompt(messages, directorySnapshot.session?.revert?.messageID),
-    [directorySnapshot.session?.revert?.messageID, messages],
+    () =>
+      latestSystemPrompt(
+        messages,
+        directorySnapshot.session?.revert?.messageID,
+        transcriptMeta.complete,
+      ),
+    [directorySnapshot.session?.revert?.messageID, messages, transcriptMeta.complete],
   )
   const sessionLabel =
     directorySnapshot.session?.title ??

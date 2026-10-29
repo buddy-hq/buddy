@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test"
 import { act, createRef } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import { EPUB } from "foliate-js/epub.js"
 import { BenchSurfaceActivityProvider } from "../src/components/bench/bench-surface-activity"
 import type { DocumentReaderHandle, ReaderSource } from "../src/components/readers/reader-types"
 import type {
@@ -22,6 +23,24 @@ let closeCount = 0
 let annotationAddCount = 0
 let annotationDeleteCount = 0
 let annotationStateCount = 0
+
+function makeLifecycleBook() {
+  return Object.assign(
+    new EPUB({
+      loadText: async () => null,
+      loadBlob: async () => null,
+      getSize: () => 0,
+    }),
+    {
+      metadata: { title: "Lifecycle EPUB", author: "Buddy" },
+      sections: [{ id: "chapter.xhtml", cfi: "epubcfi(/6/4)", load: () => "chapter" }],
+      toc: [],
+      pageList: [],
+      landmarks: [],
+      transformTarget: new EventTarget(),
+    },
+  )
+}
 
 type ResizeObserverHarness = {
   callback: ResizeObserverCallback
@@ -46,13 +65,7 @@ class LifecycleView extends HTMLElement {
     redraw: () => undefined,
     hitTest: () => [undefined, undefined],
   }
-  book = {
-    metadata: { title: "Lifecycle EPUB", author: "Buddy" },
-    sections: [{ id: "chapter.xhtml", cfi: "epubcfi(/6/4)", load: () => "chapter" }],
-    toc: [],
-    pageList: [],
-    landmarks: [],
-  }
+  book = makeLifecycleBook()
   history = Object.assign(new EventTarget(), {
     canGoBack: false,
     canGoForward: false,
@@ -115,7 +128,7 @@ if (!customElements.get("buddy-lifecycle-foliate-view")) {
   customElements.define("buddy-lifecycle-foliate-view", LifecycleView)
 }
 
-mock.module("foliate-js/view.js", () => ({ View: LifecycleView }))
+mock.module("foliate-js/view.js", () => ({ View: LifecycleView, makeBook: async () => makeLifecycleBook() }))
 
 type DocumentReaderModule = typeof import("../src/components/readers/document-reader")
 let documentReaderModule: DocumentReaderModule | undefined

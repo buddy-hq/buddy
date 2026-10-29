@@ -41,10 +41,3 @@ export function createIdempotentEventID(input: {
     .digest("hex")
   return `evt_${input.namespace}_${digest}`
 }
-
-export function mapIdempotencyRouteError<TError>(error: TError): Response | undefined {
-  if (error instanceof IdempotencyPayloadConflictError) {
-    return Response.json({ error: error.message }, { status: 409 })
-  }
-  return undefined
-}

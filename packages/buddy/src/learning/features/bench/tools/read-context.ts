@@ -250,7 +250,7 @@ async function captureCurrentBench(input: {
 const benchReadContextTool = createBuddyTool({
   id: "bench_read_context",
   description:
-    "Read a compact model-visible summary of the current Bench surface and a bounded open-tab listing with one-based tab numbers and exact tab keys. The selected tab is marked selected and includes the minimal target needed for follow-up tools; other tabs include only number, key, and title, except chat tabs. A chat or subagent chat tab (session:...) has no readable Bench content: selected or not, its target carries the chat's sessionID, and chatTabs gives the session database to read its transcript from with your own tools. When a section list or drawer is open with the selected tab, drawer.presentation says where: drawer (over part of it), covering (in its place, so the user cannot see the item, New tab page, or chat), or beside (the item's own section list next to it, so the user sees both the list and the item). No drawer field means no list or drawer is open. Use responseFormat context_only for ordinary reads, context_and_bench_screenshot for context plus a temporary PNG path and capture receipt, or bench_screenshot_only for only the path and receipt. Omit tabSearch for the selected and recently opened tabs, or provide text such as 'tab 3' to search every internally stored open tab before Buddy returns bounded matches. Reading and searching never change the selected tab, reveal parked Bench, or dismiss a drawer.",
+    "Read a compact model-visible summary of the current Bench surface and a bounded open-tab listing with one-based tab numbers and exact tab keys. The selected tab is marked selected and includes the minimal target needed for follow-up tools; other tabs include only number, key, and title, except chat tabs. A chat or subagent chat tab (session:...) has no readable Bench content: selected or not, its target carries the chat's sessionID, and bench_read_chat reads its transcript. When a section list or drawer is open with the selected tab, drawer.presentation says where: drawer (over part of it), covering (in its place, so the user cannot see the item, New tab page, or chat), or beside (the item's own section list next to it, so the user sees both the list and the item). No drawer field means no list or drawer is open. Use responseFormat context_only for ordinary reads, context_and_bench_screenshot for context plus a temporary PNG path and capture receipt, or bench_screenshot_only for only the path and receipt. Omit tabSearch for the selected and recently opened tabs, or provide text such as 'tab 3' to search every internally stored open tab before Buddy returns bounded matches. Reading and searching never change the selected tab, reveal parked Bench, or dismiss a drawer.",
   parameters: BenchReadContextInputSchema,
   presentation: {
     archetype: "activity",
@@ -304,7 +304,7 @@ const benchReadContextTool = createBuddyTool({
       }
       if (result.visibility === "chat") {
         throw new Error(
-          "Bench shows a chat tab, which cannot be captured. Use responseFormat context_only to get the chat ID and where its transcript is stored.",
+          "Bench shows a chat tab, which cannot be captured. Use responseFormat context_only to get the chat ID, then read its transcript with bench_read_chat.",
         )
       }
       const capturedBench = await captureCurrentBench({

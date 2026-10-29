@@ -1,7 +1,7 @@
 import {
   decodeToolPresentationSnapshot,
   type ToolPresentationSnapshot,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 
 import type { MessagePart } from "@/state/chat-types"
 

@@ -1,13 +1,12 @@
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { BuddyObjectIDSchema, mapBuddyObjectRouteError, nonEmptyString } from "../objects"
+import { BuddyObjectIDSchema, nonEmptyString } from "../objects"
 import {
   ensurePresentedMediaFileObject,
-  PROJECT_FILE_NOT_FOUND_ERROR,
   PresentedMediaFileInfoSchema,
-  PresentedMediaValidationError,
   readPresentedMediaObjectItemAvailability,
   readPresentedMediaObjectRawResponse,
   resolvePresentedMediaPathInfo,
@@ -44,14 +43,6 @@ const mediaFileObjectResponseSchema = z
   })
   .strict()
 
-function mapMediaObjectRouteError<TError>(error: TError): Response | undefined {
-  if (error instanceof PresentedMediaValidationError) {
-    const status = error.message === PROJECT_FILE_NOT_FOUND_ERROR ? 404 : 400
-    return Response.json({ error: error.message }, { status })
-  }
-  return mapBuddyObjectRouteError(error)
-}
-
 export const ObjectMediaPresentationRoutes = new Hono()
   .post(
     "/files/resolve",
@@ -83,7 +74,7 @@ export const ObjectMediaPresentationRoutes = new Hono()
             })
             return c.json(PresentedMediaFileInfoSchema.parse(info))
           },
-          mapError: mapMediaObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -117,7 +108,7 @@ export const ObjectMediaPresentationRoutes = new Hono()
             })
             return c.json(mediaFileObjectResponseSchema.parse(object))
           },
-          mapError: mapMediaObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -152,7 +143,7 @@ export const ObjectMediaPresentationRoutes = new Hono()
             })
             return c.json(mediaObjectAvailabilityResponseSchema.parse(availability))
           },
-          mapError: mapMediaObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -192,7 +183,7 @@ export const ObjectMediaPresentationRoutes = new Hono()
               signal: c.req.raw.signal,
             })
           },
-          mapError: mapMediaObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -217,7 +208,7 @@ export const ObjectMediaPresentationRoutes = new Hono()
               rangeHeader: c.req.header("range"),
             })
           },
-          mapError: mapMediaObjectRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )

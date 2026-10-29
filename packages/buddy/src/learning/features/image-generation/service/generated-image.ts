@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { Global } from "@buddy/opencode-adapter/global"
+import { openCodeRuntimePaths } from "../../../../runtime/runtime-paths"
 import z from "zod"
 
 export const GENERATED_IMAGES_DIRECTORY = "generated_images"
@@ -71,7 +71,7 @@ export function generatedImageFileName(input: { title: string; uniqueID: string 
 }
 
 export function generatedImagesRoot(): string {
-  return path.join(Global.Path.data, GENERATED_IMAGES_DIRECTORY)
+  return path.join(openCodeRuntimePaths().data, GENERATED_IMAGES_DIRECTORY)
 }
 
 export function generatedImageSessionDirectory(sessionID: string): string {

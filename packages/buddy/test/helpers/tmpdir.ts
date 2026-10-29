@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises"
 import path from "node:path"
 import type { Config } from "@buddy/backend/config"
-import { LearnerMemoryPath } from "../../src/learning/features/memory"
+import { LearnerMemoryPath } from "../../src/learning/features/memory/paths"
 import { projectConfigFile } from "./project-config"
 import { temporaryDirectory } from "./temporary-directory"
 

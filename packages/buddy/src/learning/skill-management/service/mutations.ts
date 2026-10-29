@@ -1,6 +1,6 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { refreshActiveNotebookSkillCatalogs } from "../../../config/runtime/opencode-sync"
 import { normalizeSkillArtifactSha256 } from "./catalog-schemas"
 import type { CreateCustomSkillInput, SkillRuleAction } from "./contracts"
 import { SkillServiceError } from "./contracts"
@@ -39,7 +39,7 @@ async function writeManagedSkillFile(folder: string, document: string) {
 }
 
 async function refreshSkillRuntime() {
-  await OpenCodeInstance.disposeAll()
+  await refreshActiveNotebookSkillCatalogs()
 }
 
 export type InstallCuratedLibrarySkillDependencies = {

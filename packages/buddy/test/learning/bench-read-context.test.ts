@@ -14,7 +14,6 @@ import {
   type BenchClientAction,
 } from "../../src/learning/features/bench/client-actions"
 import { cleanupBenchCapturesForSession } from "../../src/learning/features/bench/captures"
-import { benchReadContextTool } from "../../src/learning/features/bench/tools/read-context"
 import {
   BENCH_READ_CONTEXT_TAB_LIMIT,
   benchTargetAbsolutePath,
@@ -30,6 +29,8 @@ import {
   requireString,
   type TJsonObject,
 } from "../helpers/parse"
+
+const { benchReadContextTool } = await import("../../src/learning/features/bench/tools/read-context")
 
 const SESSION_ID = "session-bench-read-context"
 const ONE_PIXEL_PNG_BASE64 =
@@ -212,7 +213,7 @@ describe("bench_read_context", () => {
     ])
   })
 
-  test("reports a selected chat tab as open and points at the session database", async () => {
+  test("reports a selected chat tab as open and points at the chat reading tool", async () => {
     await using project = await tmpdir({ git: true })
     publishSequencedBenchContext({
       directory: project.path,
@@ -273,8 +274,10 @@ describe("bench_read_context", () => {
       { tabNumber: 1, tabKey: TAB_KEY, title: "notes.md" },
     ])
     const chatTabs = requireJsonObject(output.chatTabs)
-    expect(path.isAbsolute(requireString(chatTabs.databasePath))).toBe(true)
-    expect(requireString(chatTabs.howToRead)).toContain("message(session_id, data JSON)")
+    expect(chatTabs.databasePath).toBeUndefined()
+    expect(requireString(chatTabs.howToRead)).toBe(
+      "Chat tabs are not readable through Bench. Read a chat tab's transcript with bench_read_chat using its target.sessionID.",
+    )
 
     await expect(
       benchReadContextTool.run({ responseFormat: "bench_screenshot_only" }, toolContext),

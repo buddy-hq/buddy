@@ -1,8 +1,7 @@
-import { parseToolState } from "@/components/chat/tools/parse-tool-state"
-import { isRecord, readNonEmptyString, readString } from "@/components/chat/tools/types"
+import { parseToolState, readToolSummaryKind } from "@/components/chat/tools/parse-tool-state"
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
 
-const FILE_EDIT_TOOL_NAMES = new Set(["edit", "write", "apply_patch"])
+const FILE_EDIT_TOOL_KINDS = new Set(["edit-file", "write-file", "change-files"])
 
 export type MarkdownBenchAgentEditActivity = {
   running: boolean
@@ -23,27 +22,18 @@ function filePathMatchesTarget(candidate: string | undefined, targetPath: string
 }
 
 export function toolMetadataTargetsPath(part: MessagePart, targetPath: string): boolean {
-  const toolName = readString(part.tool)
-  if (part.type !== "tool" || !toolName) return false
-  if (!FILE_EDIT_TOOL_NAMES.has(toolName)) return false
+  if (part.type !== "tool") return false
+  const kind = readToolSummaryKind(part)
+  if (!kind || !FILE_EDIT_TOOL_KINDS.has(kind)) return false
 
   const state = parseToolState(part)
-  if (toolName === "apply_patch") {
-    const files = state.metadata.files
-    if (!Array.isArray(files)) return false
-    return files.some((file) => {
-      if (!isRecord(file)) return false
-      return (
-        filePathMatchesTarget(readNonEmptyString(file.relativePath), targetPath) ||
-        filePathMatchesTarget(readNonEmptyString(file.filePath), targetPath)
-      )
-    })
-  }
-
-  const filediff = isRecord(state.metadata.filediff) ? state.metadata.filediff : undefined
+  const changedFileMatches = (state.fileChanges ?? []).some(
+    (file) => filePathMatchesTarget(file.relativePath, targetPath) || filePathMatchesTarget(file.path, targetPath),
+  )
+  if (kind === "change-files") return changedFileMatches
   return (
-    filePathMatchesTarget(readString(state.input.filePath), targetPath) ||
-    filePathMatchesTarget(readString(filediff?.file), targetPath) ||
+    filePathMatchesTarget(state.summary?.subject, targetPath) ||
+    changedFileMatches ||
     filePathMatchesTarget(state.title, targetPath)
   )
 }

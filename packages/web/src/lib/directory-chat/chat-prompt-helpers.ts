@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { readCitationPromptPart } from "@buddy/citation-contract"
+import { currentProviderID } from "@buddy/transcript-contract/provider-ids"
 import { serializePromptEditorParts } from "@/components/prompt/prompt-parts"
 import {
   BUDDY_PROMPT_PART_METADATA_KEY,
@@ -211,13 +212,44 @@ export function parseConfiguredModel<T>(value: T): TConfiguredModel | undefined 
   if (separator <= 0 || separator >= parsed.length - 1) return undefined
 
   return {
-    providerID: parsed.slice(0, separator),
+    providerID: currentProviderID(parsed.slice(0, separator)),
     modelID: parsed.slice(separator + 1),
   }
 }
 
 export function modelSelectionKey(input: { providerID: string; modelID: string }) {
   return `${input.providerID}/${input.modelID}`
+}
+
+export function turnSelectionDiffers(
+  turn:
+    | {
+        readonly agent: string
+        readonly model: {
+          readonly providerID: string
+          readonly modelID: string
+          readonly variant?: string | null
+        }
+      }
+    | undefined,
+  next: {
+    readonly agent?: string
+    readonly model?: { readonly providerID: string; readonly modelID: string }
+    readonly variant?: string
+  },
+): boolean {
+  if (!turn || next.agent === undefined || next.model === undefined) return false
+
+  const turnVariant =
+    turn.model.variant === "default" ? undefined : (turn.model.variant ?? undefined)
+  const nextVariant = next.variant === "default" ? undefined : next.variant
+
+  return (
+    turn.agent !== next.agent ||
+    currentProviderID(turn.model.providerID) !== currentProviderID(next.model.providerID) ||
+    turn.model.modelID !== next.model.modelID ||
+    turnVariant !== nextVariant
+  )
 }
 
 function decodeAttachmentDataUrl(dataUrl: string) {

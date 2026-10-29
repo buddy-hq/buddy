@@ -5,7 +5,7 @@ import {
   captureTextFileWriteSnapshot,
   writeTextFileAtomicLocked,
 } from "@buddy/backend/storage/locked-atomic-file"
-import { publishFileSystemChange } from "@buddy/opencode-adapter/global-event"
+import { publishFileSystemChange } from "@buddy/backend/events/buddy-event-bus"
 import {
   createBuddyTool,
   type BuddyToolContext,

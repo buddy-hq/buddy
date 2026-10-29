@@ -6,7 +6,7 @@ import type {
   ToolPresentationPhase,
   ToolPresentationSnapshot,
   ToolRendererToken,
-} from "@buddy/opencode-adapter/tool-presentation"
+} from "@buddy/transcript-contract/tool-presentation"
 
 function outcomeForPhase(phase: ToolPresentationPhase): ToolPresentationOutcome {
   if (phase === "pending" || phase === "running") return { type: "active" }

@@ -1,11 +1,12 @@
-import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
+import type { ProviderOauthAuthorizeResponse } from "@buddy/sdk/types"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
 import { language } from "@/context/language"
+import { getPlatform } from "@/context/platform"
 import type { ActiveChatTransitionResult } from "@/lib/active-chat-transition-coordinator"
 import type { ProviderCatalogState } from "@/state/chat-types"
 import type { PrimaryUse } from "@/state/project-config-readers"
 import { resolveCatalogProviderModelSelection } from "./provider-catalog"
-import { OPENAI_PROVIDER_ID, OPENCODE_PROVIDER_ID } from "./provider-ids"
+import { OPENAI_PROVIDER_ID } from "./provider-ids"
 import { findPreferredOAuthMethodIndex } from "./provider-auth"
 
 const PROVIDER_CONNECTION_POLL_INTERVAL_MS = 1_000
@@ -17,29 +18,29 @@ const PREFERRED_CHATGPT_ONBOARDING_VARIANT = "high"
 const FALLBACK_CHATGPT_ONBOARDING_MODEL_ID = "gpt-5.6-luna"
 const FALLBACK_CHATGPT_ONBOARDING_VARIANT = "xhigh"
 
-type ProviderOAuthRequest = {
-  providerID: string
-  methodIndex: number
-}
+type ProviderOAuthRequest = { providerID: string; methodIndex: number }
+type ProviderOAuthCompletion = { providerID: string; methodID: string; attemptID: string }
+type ProviderOAuthCancellation = { providerID: string; attemptID: string }
 
 function createSignInCancelledError() {
   return new Error(language.t("routes.onboarding.signInCancelled"))
 }
 
 async function cancelPendingProviderOAuth(input: {
-  cancelProviderOAuth: (request: { providerID: string }) => Promise<void>
+  request: ProviderOAuthCancellation
+  cancelProviderOAuth: (request: ProviderOAuthCancellation) => Promise<void>
 }) {
   try {
-    await input.cancelProviderOAuth({ providerID: OPENAI_PROVIDER_ID })
+    await input.cancelProviderOAuth({ providerID: input.request.providerID, attemptID: input.request.attemptID })
   } catch {
     // Cancellation is best-effort because the callback may have settled first.
   }
 }
 
 async function completeProviderOAuthUntilAborted(input: {
-  completeProviderOAuth: (request: ProviderOAuthRequest) => Promise<void>
-  cancelProviderOAuth: (request: { providerID: string }) => Promise<void>
-  request: ProviderOAuthRequest
+  completeProviderOAuth: (request: ProviderOAuthCompletion) => Promise<void>
+  cancelProviderOAuth: (request: ProviderOAuthCancellation) => Promise<void>
+  request: ProviderOAuthCompletion
   signal?: AbortSignal
 }) {
   if (!input.signal) {
@@ -90,8 +91,10 @@ export const CINEMATIC_ONBOARDING_SCENE = {
 export type CinematicOnboardingScene =
   (typeof CINEMATIC_ONBOARDING_SCENE)[keyof typeof CINEMATIC_ONBOARDING_SCENE]
 
-export function resolveOnboardingProviderID(choice: OnboardingAuthChoice) {
-  return choice === "chatgpt_plus" ? OPENAI_PROVIDER_ID : OPENCODE_PROVIDER_ID
+function resolveOnboardingProviderID(choice: OnboardingAuthChoice, catalog: ProviderCatalogState) {
+  return choice === "chatgpt_plus"
+    ? OPENAI_PROVIDER_ID
+    : catalog.providers.find((provider) => provider.bundled)?.id
 }
 
 export function shouldAutoContinueConnectedOpenAiOnboarding(input: {
@@ -142,7 +145,7 @@ function resolvePreferredFreeOnboardingModel(catalog: ProviderCatalogState) {
   )
   if (openAiConnected) return undefined
 
-  const provider = catalog.providers.find((entry) => entry.id === OPENCODE_PROVIDER_ID)
+  const provider = catalog.providers.find((entry) => entry.bundled)
   const model = provider?.models.find(
     (entry) =>
       entry.id === PREFERRED_FREE_ONBOARDING_MODEL_ID &&
@@ -203,9 +206,9 @@ export async function connectChatGptPlusForOnboarding(input: {
   loadProviderCatalogSnapshot: () => Promise<ProviderCatalogState>
   authorizeProviderOAuth: (
     request: ProviderOAuthRequest,
-  ) => Promise<ProviderAuthAuthorization | undefined>
-  completeProviderOAuth: (request: ProviderOAuthRequest) => Promise<void>
-  cancelProviderOAuth: (request: { providerID: string }) => Promise<void>
+  ) => Promise<ProviderOauthAuthorizeResponse | undefined>
+  completeProviderOAuth: (request: ProviderOAuthCompletion) => Promise<void>
+  cancelProviderOAuth: (request: ProviderOAuthCancellation) => Promise<void>
   reloadProviderRuntime: () => Promise<void>
   forceReconnect?: boolean
   onAuthenticated?: () => void
@@ -214,7 +217,9 @@ export async function connectChatGptPlusForOnboarding(input: {
   let authenticationNotified = false
   function notifyAuthenticated() {
     if (authenticationNotified) return
+    if (input.signal?.aborted) throw createSignInCancelledError()
     authenticationNotified = true
+    void getPlatform().focusWindow?.().catch(() => undefined)
     input.onAuthenticated?.()
   }
 
@@ -228,7 +233,7 @@ export async function connectChatGptPlusForOnboarding(input: {
   }
 
   if (provider.connected && !input.forceReconnect) {
-    notifyAuthenticated()
+    input.onAuthenticated?.()
     return
   }
 
@@ -243,7 +248,12 @@ export async function connectChatGptPlusForOnboarding(input: {
   })
 
   if (input.signal?.aborted) {
-    await cancelPendingProviderOAuth(input)
+    if (authorization) {
+      await cancelPendingProviderOAuth({
+        cancelProviderOAuth: input.cancelProviderOAuth,
+        request: { providerID: OPENAI_PROVIDER_ID, attemptID: authorization.attemptID },
+      })
+    }
     throw createSignInCancelledError()
   }
 
@@ -259,7 +269,8 @@ export async function connectChatGptPlusForOnboarding(input: {
       cancelProviderOAuth: input.cancelProviderOAuth,
       request: {
         providerID: OPENAI_PROVIDER_ID,
-        methodIndex,
+        methodID: authorization.methodID,
+        attemptID: authorization.attemptID,
       },
       signal: input.signal,
     })
@@ -344,13 +355,16 @@ export async function configureNotebookForOnboarding(input: {
       ? resolvePreferredChatGptOnboardingModel(providerCatalog)
       : undefined
   const preferredModel = preferredFreeModel ?? preferredChatGptModel
+  const providerID = resolveOnboardingProviderID(input.authChoice, providerCatalog)
   const model =
     preferredModel ??
-    resolveCatalogProviderModelSelection({
-      catalog: providerCatalog,
-      providerID: resolveOnboardingProviderID(input.authChoice),
-      requireConnected: input.authChoice !== "free_models",
-    })
+    (providerID
+      ? resolveCatalogProviderModelSelection({
+          catalog: providerCatalog,
+          providerID,
+          requireConnected: input.authChoice !== "free_models",
+        })
+      : undefined)
 
   if (!model) {
     throw new Error(

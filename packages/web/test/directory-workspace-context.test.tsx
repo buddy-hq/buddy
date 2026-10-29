@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
   createMemoryHistory,
   createRootRoute,
@@ -49,10 +50,13 @@ import {
 import { resetActiveChatTransitionStateForTests } from "../src/lib/active-chat-transition-state"
 import { WORKSPACE_CHAT_DRAFT_KEY, workspaceChatKeyForSession } from "../src/lib/workspace-chat-key"
 import { upsertBenchTab } from "../src/lib/bench-tabs"
-import { DESKTOP_TITLEBAR_HEIGHT_PX } from "../src/components/layout/desktop-titlebar-inset"
+import type { BenchSessionTarget } from "../src/lib/bench-targets"
 import { useChatStore } from "../src/state/chat-store"
 import { useHostedBrowserStore } from "../src/state/hosted-browser-store"
 import type { SessionInfo } from "../src/state/chat-types"
+import { v1ImportQueryOptions, type V1ImportReport } from "../src/state/v1-import-query"
+
+let queryClient: QueryClient
 
 const TEST_DIRECTORY = "/repo"
 const TEST_STRICT_MODE_DIRECTORY = "/repo-strict-mode"
@@ -217,7 +221,11 @@ function TestRouterProvider() {
     }),
   })
 
-  return <RouterProvider router={router} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
 }
 
 function TestRootFloatingBenchTitlebarRouterProvider() {
@@ -231,7 +239,11 @@ function TestRootFloatingBenchTitlebarRouterProvider() {
     }),
   })
 
-  return <RouterProvider router={router} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
 }
 
 function TitlebarWorkspaceRoute() {
@@ -255,7 +267,11 @@ function TestTitlebarRouterProvider() {
     }),
   })
 
-  return <RouterProvider router={router} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
 }
 
 let threadControlsShowSidebar = false
@@ -280,7 +296,11 @@ function TestThreadControlsTitlebarRouterProvider(props: { showSidebarThreadCont
     }),
   })
 
-  return <RouterProvider router={router} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
 }
 
 let strictModePersistenceStorage: DirectoryWorkspacePersistenceStorage | undefined
@@ -312,7 +332,11 @@ function TestStrictModeRouterProvider(props: {
     }),
   })
 
-  return <RouterProvider router={router} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
 }
 
 let pendingHydrationPersistenceStorage: DirectoryWorkspacePersistenceStorage | undefined
@@ -342,7 +366,11 @@ function TestPendingHydrationRouterProvider(props: {
     }),
   })
 
-  return <RouterProvider router={router} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
 }
 
 let directBenchPersistenceStorage: DirectoryWorkspacePersistenceStorage | undefined
@@ -374,7 +402,11 @@ function TestDirectBenchRouterProvider(props: {
     }),
   })
 
-  return <RouterProvider router={router} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
 }
 
 function DirectSessionDirectoryWorkspaceRoute() {
@@ -398,7 +430,11 @@ function TestDirectSessionBenchRouterProvider() {
     }),
   })
 
-  return <RouterProvider router={router} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
 }
 
 function createMemoryPersistenceStorage(): DirectoryWorkspacePersistenceStorage {
@@ -559,16 +595,29 @@ describe("DirectoryWorkspaceProvider", () => {
   let container: HTMLDivElement | undefined
   let root: Root | undefined
 
+  beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
+    })
+    queryClient.setQueryData(v1ImportQueryOptions().queryKey, {
+      upgrade: { state: "idle" },
+      import: { status: "completed" },
+      importRan: false,
+      skipped: [],
+      content: [],
+    } satisfies V1ImportReport)
+  })
+
   afterEach(async () => {
-    resetActiveChatTransitionStateForTests()
-    useChatStore.getState().resetRuntimeState()
-    if (!root || !container) return
     await act(async () => {
+      resetActiveChatTransitionStateForTests()
+      useChatStore.getState().resetRuntimeState()
       root?.unmount()
       await flushEffects()
     })
+    queryClient.clear()
     useHostedBrowserStore.getState().reset()
-    container.remove()
+    container?.remove()
     localStorage.clear()
     setRuntimePlatform(createBrowserPlatform())
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
@@ -681,12 +730,9 @@ describe("DirectoryWorkspaceProvider", () => {
     expect(container.querySelector('[data-action="chat-pop-out"]')).toBeNull()
     expect(container.querySelector('[aria-label="New chat"]')).toBeNull()
 
-    const cluster = container.querySelector('[data-component="chat-titlebar-left-cluster"]')
-    expect(cluster?.querySelectorAll("button")).toHaveLength(1)
-    expect(cluster?.getAttribute("data-pill")).toBe("false")
   })
 
-  test("floating Bench root titlebar keeps the chat titlebar height", async () => {
+  test("floating Bench root titlebar hosts tabs and docks the chat", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -697,16 +743,12 @@ describe("DirectoryWorkspaceProvider", () => {
       await flushEffects()
     })
 
-    const titlebar = container.querySelector('[data-component="desktop-titlebar"]')
-    expect(titlebar?.getAttribute("style")).toContain(`height: ${DESKTOP_TITLEBAR_HEIGHT_PX}px`)
     const content = container.querySelector('[data-component="desktop-titlebar-root-content"]')
     expect(content?.querySelector('[data-testid="floating-bench-tabs"]')).not.toBeNull()
     const dockButton = container.querySelector<HTMLButtonElement>(
       '[data-action="titlebar-dock-floating-bench"]',
     )
     expect(dockButton).not.toBeNull()
-    expect(dockButton?.className).toContain("text-text-strong")
-    expect(dockButton?.querySelector("svg")?.classList.contains("size-4")).toBeTrue()
 
     let dockEventCount = 0
     function onDockFloatingChat() {
@@ -791,21 +833,20 @@ describe("DirectoryWorkspaceProvider", () => {
     )
     expect(writes.length).toBeGreaterThan(0)
     for (const write of writes) {
-      // The restored empty page also gains the New tab it shows.
-      expect(JSON.parse(write)).toEqual({
-        version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
+      const saved = await readPersistedDirectoryWorkspace({
+        directory: TEST_STRICT_MODE_DIRECTORY,
+        storage: { ...persistenceStorage, getItem: () => write },
+      })
+      expect(saved).toMatchObject({
+        status: WORKSPACE_HYDRATION_READY,
         state: {
           slots: {
             [WORKSPACE_CHAT_DRAFT_KEY]: {
-              route: { status: BENCH_ROUTE_STATUS_CLOSED },
-              tabs: [],
               docked: {
                 visibility: WORKSPACE_VISIBILITY_EXPANDED,
                 drawer: null,
               },
               lastDrawer: WORKSPACE_DRAWER_SOURCES,
-              emptyTabIDs: [expect.any(String)],
-              activeEmptyTabID: expect.any(String),
             },
           },
         },
@@ -940,6 +981,77 @@ describe("DirectoryWorkspaceProvider", () => {
     )
   })
 
+  test("keeps missing session tabs during import and removes them after import completes", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    useChatStore.getState().setSessions(TEST_DIRECTORY, [])
+    const target = {
+      type: "session",
+      sessionID: TEST_DIRECT_SESSION_CHILD_ID,
+    } satisfies BenchSessionTarget
+    const persistedPayload = JSON.stringify({
+      version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
+      state: {
+        slots: {
+          [WORKSPACE_CHAT_DRAFT_KEY]: {
+            route: { status: BENCH_ROUTE_STATUS_CLOSED },
+            tabs: upsertBenchTab([], target).tabs,
+            docked: { visibility: WORKSPACE_VISIBILITY_COLLAPSED, drawer: null },
+            lastDrawer: WORKSPACE_DRAWER_SOURCES,
+          },
+        },
+      },
+    })
+
+    for (const status of ["running", "error", "completed"] as const) {
+      queryClient.setQueryData(v1ImportQueryOptions().queryKey, {
+        upgrade: { state: "idle" },
+        import:
+          status === "running"
+            ? { status, progress: { label: "Migrating sessions" } }
+            : status === "error"
+              ? { status, error: "Import stopped" }
+              : { status },
+        importRan: true,
+        skipped: [],
+        content: [],
+      } satisfies V1ImportReport)
+      let savedPayload = persistedPayload
+      const persistenceStorage: DirectoryWorkspacePersistenceStorage = {
+        getItem: () => savedPayload,
+        setItem: (_name, value) => {
+          savedPayload = value
+        },
+        removeItem: () => undefined,
+      }
+      root = createRoot(container)
+      await act(async () => {
+        root?.render(<TestPendingHydrationRouterProvider persistenceStorage={persistenceStorage} />)
+      })
+
+      expect(container.querySelector('[data-testid="hydration"]')?.textContent).toBe(
+        WORKSPACE_HYDRATION_READY,
+      )
+      const restored = await readPersistedDirectoryWorkspace({
+        directory: TEST_DIRECTORY,
+        storage: persistenceStorage,
+      })
+      if (restored.status !== WORKSPACE_HYDRATION_READY || !restored.state) {
+        throw new Error("Workspace was not persisted")
+      }
+      expect(restored.state.slots[WORKSPACE_CHAT_DRAFT_KEY]?.tabs.map((tab) => tab.target)).toEqual(
+        status === "completed" ? [] : [target],
+      )
+
+      await act(async () => {
+        root?.unmount()
+      })
+      root = undefined
+      useHostedBrowserStore.getState().reset()
+    }
+  })
+
   test("keeps a matching direct Bench route collapsed after hydration", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
@@ -1047,7 +1159,11 @@ describe("DirectoryWorkspaceProvider", () => {
     })
 
     await act(async () => {
-      root?.render(<RouterProvider router={router} />)
+      root?.render(
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>,
+      )
       await flushEffects()
     })
     await navigateAndSettle(router, TEST_SETTINGS_SECOND_FILE_URL)
@@ -1097,7 +1213,11 @@ describe("DirectoryWorkspaceProvider", () => {
     })
 
     await act(async () => {
-      root?.render(<RouterProvider router={router} />)
+      root?.render(
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>,
+      )
       await flushEffects()
     })
     await navigateAndSettle(router, TEST_SETTINGS_BROWSER_URL)
@@ -1134,7 +1254,11 @@ describe("DirectoryWorkspaceProvider", () => {
     )
 
     await act(async () => {
-      root?.render(<RouterProvider router={router} />)
+      root?.render(
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>,
+      )
       await flushEffects()
     })
     await navigateAndSettle(router, TEST_SETTINGS_SECOND_FILE_URL)

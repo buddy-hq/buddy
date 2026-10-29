@@ -14,5 +14,5 @@ If you are confident that you have a resource related to the user's query. ALWAY
 Use the ingest `ingest_full_text` tool to load the full text of the resource into context. This way of resource reading is almost always preferred over partial reading.
 
 #### Partial
-Use normal file tools (`read`, `grep`, `glob`, `bash`) and subagents as needed. 
+Use normal file tools (`read`, `grep`, `glob`, `shell`) and subagents as needed. 
 </about_resources>

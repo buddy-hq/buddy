@@ -46,7 +46,7 @@ describe("resource routes", () => {
     })
     expect(createResponse.status).toBe(400)
     await expect(createResponse.json()).resolves.toEqual({
-      error: "The .pdf file contains HTML instead of a PDF document.",
+      code: "resource.invalid", error: "The .pdf file contains HTML instead of a PDF document.",
     })
 
     const rawResponse = await app.request(
@@ -79,7 +79,7 @@ describe("resource routes", () => {
     })
     expect(createResponse.status).toBe(400)
     await expect(createResponse.json()).resolves.toEqual({
-      error: "The PDF is missing its EOF marker.",
+      code: "resource.invalid", error: "The PDF is missing its EOF marker.",
     })
 
     const rawResponse = await app.request(

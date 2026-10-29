@@ -1,8 +1,11 @@
 #!/usr/bin/env bun
 
+import { createHash } from "node:crypto"
 import {
   cpSync,
   existsSync,
+  readFileSync,
+  statSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -59,6 +62,12 @@ import {
   resolvePackagedResourcesDirectory,
 } from "./packaged-resources"
 import { createBuddyClient } from "@buddy/sdk"
+import z from "zod"
+import {
+  restoreV1UpgradeFixture,
+  V1_UPGRADE_FIXTURE,
+  type RestoredV1UpgradeFixture,
+} from "../../buddy/script/v1-upgrade-fixture"
 import { isObjectValue, parseTErrorCode, parseTString } from "../src/shared/parse-external"
 
 const BACKEND_UTILITY_SCRIPT = "backend-utility.js" as const
@@ -73,6 +82,14 @@ const SMOKE_FORCED_EXIT_TIMEOUT_MS = 5_000
 const SMOKE_CLEANUP_MAX_ATTEMPTS = 20
 const SMOKE_CLEANUP_RETRY_DELAY_MS = 250
 const PACKAGED_SMOKE_ARGUMENT = "--packaged" as const
+const SLOW_UPGRADE_ARGUMENT = "--slow-upgrade" as const
+const SLOW_UPGRADE_PAUSE_MS = 35_000
+const DESKTOP_HEALTH_DEADLINE_MS = 30_000
+const DESKTOP_HEALTH_FETCH_TIMEOUT_MS = 3_000
+const DESKTOP_HEALTH_POLL_MS = 100
+const DESKTOP_HEALTH_PATHS = ["/api/healthz", "/api/health"] as const
+const V1_IMPORT_PATH = "/api/runtime/v1-import" as const
+const V1_IMPORT_DEADLINE_MS = 60_000
 const ELECTRON_ASAR_UNPACKED_DIRECTORY_NAME = "app.asar.unpacked" as const
 const ELECTRON_MAIN_RELATIVE_PATH_SEGMENTS = ["out", "main"] as const
 const UTILITY_CWD_ENV = "BUDDY_BACKEND_UTILITY_SMOKE_CWD" as const
@@ -103,6 +120,7 @@ const nativePackageProbeScript = path.resolve(import.meta.dir, "native-package-p
 const mainOutputDir = path.resolve(packageDir, "out", "main")
 const electronBin = resolveElectronBin(packageDir)
 const packagedSmoke = process.argv.includes(PACKAGED_SMOKE_ARGUMENT)
+const slowUpgrade = process.argv.includes(SLOW_UPGRADE_ARGUMENT)
 
 type SmokeMainOutput = {
   mainDir: string
@@ -281,6 +299,107 @@ async function smokeApiRoutes(input: { baseUrl: string; directory: string }): Pr
   }
   if (FORBIDDEN_CHEMFIG_SVG_PATTERN.test(chemistrySvg)) {
     throw new Error(`${API_CHEMFIG_RENDER_PATH}.svg contains unsafe or remote content`)
+  }
+}
+
+async function desktopHealthPasses(baseUrl: string): Promise<boolean> {
+  for (const pathname of DESKTOP_HEALTH_PATHS) {
+    try {
+      const response = await fetch(new URL(pathname, baseUrl), {
+        headers: { authorization: authorizationHeader() },
+        signal: AbortSignal.timeout(DESKTOP_HEALTH_FETCH_TIMEOUT_MS),
+      })
+      if (!response.ok) return false
+    } catch {
+      return false
+    }
+  }
+  return true
+}
+
+async function waitForDesktopHealth(input: { baseUrl: string; spawnedAt: number }): Promise<number> {
+  while (true) {
+    await delay(DESKTOP_HEALTH_POLL_MS)
+    if (await desktopHealthPasses(input.baseUrl)) return performance.now() - input.spawnedAt
+    if (performance.now() - input.spawnedAt > DESKTOP_HEALTH_DEADLINE_MS) {
+      throw new Error(`The desktop health check did not pass within ${DESKTOP_HEALTH_DEADLINE_MS}ms`)
+    }
+  }
+}
+
+const v1ImportReportSchema = z.object({
+  upgrade: z.object({ state: z.string(), error: z.string().optional() }),
+  import: z.object({ status: z.string(), error: z.string().optional() }).nullable(),
+  skipped: z.array(z.object({ id: z.string() })),
+})
+
+async function readV1ImportReport(baseUrl: string) {
+  const response = await fetch(new URL(V1_IMPORT_PATH, baseUrl), { headers: { authorization: authorizationHeader() } })
+  if (!response.ok) throw new Error(`${V1_IMPORT_PATH} returned ${response.status}`)
+  return v1ImportReportSchema.parse(await response.json())
+}
+
+function digestFile(file: string): string {
+  return createHash("sha256").update(readFileSync(file)).digest("hex")
+}
+
+async function directoryJson(baseUrl: string, route: string, directory: string, init: RequestInit = {}) {
+  const url = new URL(`${API_BASE_PATH}/${route}`, baseUrl)
+  url.searchParams.set("directory", directory)
+  const response = await fetch(url, {
+    ...init,
+    headers: { authorization: authorizationHeader(), "content-type": "application/json" },
+  })
+  if (!response.ok) throw new Error(`${route} returned ${response.status}: ${await response.text()}`)
+  const data: unknown = await response.json()
+  return data
+}
+
+async function assertV1Upgrade(input: {
+  baseUrl: string
+  upgrade: RestoredV1UpgradeFixture
+  v1Digest: string
+  v2Database: string
+}): Promise<void> {
+  const deadline = performance.now() + V1_IMPORT_DEADLINE_MS + (slowUpgrade ? SLOW_UPGRADE_PAUSE_MS : 0)
+  let report = await readV1ImportReport(input.baseUrl)
+  while (report.import?.status !== "completed") {
+    if (report.import?.status === "error") throw new Error(`The v1 chat import failed: ${report.import.error}`)
+    if (report.upgrade.state === "failed") throw new Error(`The upgrade failed: ${report.upgrade.error}`)
+    if (performance.now() > deadline) throw new Error(`The v1 chat import did not complete: ${JSON.stringify(report)}`)
+    await delay(DEFAULT_POLL_INTERVAL_MS)
+    report = await readV1ImportReport(input.baseUrl)
+  }
+  if (report.upgrade.state !== "ready" || report.skipped.length > 0) {
+    throw new Error(`Unexpected upgrade report: ${JSON.stringify(report)}`)
+  }
+  if (process.platform !== "win32" && (statSync(input.v2Database).mode & 0o777) !== 0o600) {
+    throw new Error("opencode-v2.db is not restricted to its owner")
+  }
+  if (digestFile(input.upgrade.v1Database) !== input.v1Digest) throw new Error("opencode.db changed during the upgrade")
+  await directoryJson(input.baseUrl, "open-projects", input.upgrade.notebook, {
+    method: "POST",
+    body: JSON.stringify({ directory: input.upgrade.notebook }),
+  })
+  const sessions = z.array(z.object({ id: z.string() })).parse(
+    await directoryJson(input.baseUrl, "session?roots=true", input.upgrade.notebook),
+  )
+  const expected = [V1_UPGRADE_FIXTURE.parentSessionID, V1_UPGRADE_FIXTURE.separateSessionID].toSorted()
+  if (JSON.stringify(sessions.map((session) => session.id).toSorted()) !== JSON.stringify(expected)) {
+    throw new Error(`The upgraded notebook lists ${JSON.stringify(sessions)}`)
+  }
+  const children = z.array(z.object({ id: z.string(), parentID: z.string().optional() })).parse(
+    await directoryJson(input.baseUrl, `session/${V1_UPGRADE_FIXTURE.parentSessionID}/children`, input.upgrade.notebook),
+  )
+  if (children[0]?.id !== V1_UPGRADE_FIXTURE.childSessionID || children[0]?.parentID !== V1_UPGRADE_FIXTURE.parentSessionID) {
+    throw new Error(`The imported subagent chat lost its parent: ${JSON.stringify(children)}`)
+  }
+  const messages = z.array(z.object({ info: z.object({ id: z.string() }) })).parse(
+    await directoryJson(input.baseUrl, `session/${V1_UPGRADE_FIXTURE.parentSessionID}/message`, input.upgrade.notebook),
+  )
+  const ids = new Set(messages.map((message) => message.info.id))
+  for (const id of [V1_UPGRADE_FIXTURE.parentFirstMessageID, V1_UPGRADE_FIXTURE.citedMessageID, V1_UPGRADE_FIXTURE.mermaidMessageID]) {
+    if (!ids.has(id)) throw new Error(`Imported message ${id} is missing`)
   }
 }
 
@@ -507,6 +626,19 @@ const smokeMain = packagedResourcesDirectory
   ? packagedMainOutput(packagedResourcesDirectory)
   : createIsolatedMainOutput(smokeRoot)
 const notebookRoot = path.join(runtimeRoot, "notebook")
+const upgradeFixture = restoreV1UpgradeFixture({
+  root: path.join(smokeRoot, "v1 upgrade"),
+  openCodeDataDirectory: path.join(
+    resolveExplicitRuntimeRootPaths(runtimeRoot).xdgRoot,
+    "data",
+    "buddy",
+    "opencode",
+  ),
+  notebookParent: path.join(notebookRoot, "v1 upgrade l'été"),
+  credentials: false,
+})
+const upgradeV1Digest = digestFile(upgradeFixture.v1Database)
+const upgradeV2Database = path.join(path.dirname(upgradeFixture.v1Database), "opencode-v2.db")
 
 if (packagedSmoke) {
   assertChemfigRuntimeBuildContract(smokeMain.mainDir)
@@ -526,6 +658,7 @@ let smokeFailed = false
 let smokeFailure: unknown
 
 try {
+  const spawnedAt = performance.now()
   child = Bun.spawn(electronCommand(mainScript), {
     cwd: smokeRoot,
     env: {
@@ -543,6 +676,7 @@ try {
       [UTILITY_READY_ENV]: readyPath,
       [UTILITY_STARTUP_TIMEOUT_ENV]: String(DEFAULT_STARTUP_TIMEOUT_MS),
       [UTILITY_STOP_ENV]: stopPath,
+      [BUDDY_ENV.TEST_V2_SEED_PAUSE_MS]: slowUpgrade ? String(SLOW_UPGRADE_PAUSE_MS) : "0",
     },
     stderr: "pipe",
     stdout: "pipe",
@@ -558,6 +692,16 @@ try {
   })
 
   const baseUrl = `http://${HOSTNAME}:${port}`
+  const desktopHealthMs = await waitForDesktopHealth({ baseUrl, spawnedAt })
+  console.log(`Desktop health contract passed ${Math.round(desktopHealthMs)}ms after spawn`)
+  if (slowUpgrade) {
+    const during = await readV1ImportReport(baseUrl)
+    if (during.upgrade.state !== "copying") {
+      throw new Error(`Expected the upgrade to be copying during the injected pause: ${JSON.stringify(during)}`)
+    }
+  }
+  await assertV1Upgrade({ baseUrl, upgrade: upgradeFixture, v1Digest: upgradeV1Digest, v2Database: upgradeV2Database })
+  console.log(`v1 chat import completed ${Math.round(performance.now() - spawnedAt)}ms after spawn`)
   const healthz = await probe({
     baseUrl,
     pathname: HEALTHZ_PATH,

@@ -85,7 +85,7 @@ describe("SVG rendering routes", () => {
       },
     )
     expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({ error: "Invalid JSON body." })
+    expect(await response.json()).toEqual({ code: "request.invalid", error: "Invalid JSON body." })
     expect(browserSvgRenderRequests.listPending(project.path)).toEqual([enqueued.request])
   })
 

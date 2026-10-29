@@ -9,8 +9,6 @@ export const PRACTICE_AGENT = defineBuddySubagent({
     question: "allow",
     learner_memory_search: "allow",
     learner_memory_update: "allow",
-    task: "deny",
-    todoread: "deny",
-    todowrite: "deny",
+    subagent: "deny",
   },
 })

@@ -1,5 +1,8 @@
 import { createElement } from "react"
-import type { ToolActionIcon, ToolRendererToken } from "@buddy/opencode-adapter/tool-presentation"
+import type {
+  ToolActionIcon,
+  ToolRendererToken,
+} from "@buddy/transcript-contract/tool-presentation"
 import {
   AppWindow,
   BookOpen,
@@ -40,7 +43,7 @@ import { renderReadTool } from "./render/read"
 import { renderRenderFigureTool } from "./render/render-figure"
 import { renderSearchTool } from "./render/search"
 import { renderSkillTool } from "./render/skill"
-import { renderTaskTool } from "./render/task"
+import { renderSubagentTool } from "./render/task"
 import { renderTodoTool } from "./render/todo"
 import { renderWebfetchTool } from "./render/webfetch"
 import { SKILL_TOOL_ICON } from "./tool-icons"
@@ -56,7 +59,7 @@ export const toolRenderersByToken = {
   calculator: { card: renderPythonCalculatorTool },
   "web-search": { card: renderExaSearchTool },
   "web-fetch": { card: renderWebfetchTool },
-  task: { card: renderTaskTool },
+  task: { card: renderSubagentTool },
   skill: { card: renderSkillTool },
   figure: { card: renderRenderFigureTool },
   mermaid: { card: renderRenderMermaidTool },

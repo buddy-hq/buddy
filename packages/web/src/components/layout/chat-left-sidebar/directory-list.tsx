@@ -37,10 +37,12 @@ import {
   BookIcon,
 } from "@buddy/ui"
 import { language } from "@/context/language"
+import { showNotebookFolderMissing } from "@/components/directory-chat/show-notebook-folder-missing"
 import obsidianIconUrl from "@/assets/obsidian-icon.svg"
 import { formatSessionTitle } from "@/lib/session-title"
 import { collectSessionFamilyIDs } from "@/lib/session-family"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
+import { isStoredNotebookFolderMissingError, recheckMissingNotebook } from "@/state/chat-actions"
 import { getSessionActivity, type SessionActivity } from "@/state/session-status"
 import { obsidianVaultProfileQueryOptions } from "@/state/obsidian-vault-query"
 import { getFilename } from "../sidebar-helpers"
@@ -123,7 +125,6 @@ type DirectoryGroupSectionProps = {
   onRequestRename: (sessionID: string, title: string) => void
   onLabelPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
   onSectionRef: (element: HTMLElement | null) => void
-  onOpenNotebook: () => void
   onOpenNotebookSettings: () => void
   onDisconnectObsidianVault: () => void
   obsidianDisconnecting: boolean
@@ -275,7 +276,6 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
               }
               onLabelPointerDown={(event) => props.onLabelPointerDown(event, group.directory)}
               onSectionRef={props.onSectionRef(group.directory)}
-              onOpenNotebook={() => props.onSelectSession(group.directory)}
               onOpenNotebookSettings={() => props.onOpenNotebookSettings(group.directory)}
               onDisconnectObsidianVault={() => props.onDisconnectObsidianVault(group.directory)}
               obsidianDisconnecting={props.disconnectingObsidianDirectory === group.directory}
@@ -316,6 +316,20 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   const popoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const popoverOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const justCollapsedRef = useRef(false)
+
+  const handleFolderMissing = () => {
+    showNotebookFolderMissing({
+      directory: props.group.directory,
+      onCloseNotebook: props.onCloseNotebook,
+    })
+  }
+  const emptyMessage = props.group.folderMissing ? (
+    <button type="button" onClick={handleFolderMissing}>
+      {language.t("sidebar.notebookFolderMissing")}
+    </button>
+  ) : (
+    language.t("sidebar.noThreads")
+  )
 
   const handleMouseLeave = () => {
     justCollapsedRef.current = false
@@ -437,6 +451,11 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
       onOpenChange={(open) => {
         if (!open) justCollapsedRef.current = true
         props.onToggleCollapsed(open)
+        if (open && props.group.folderMissing) {
+          void recheckMissingNotebook(props.group.directory).then((error) => {
+            if (isStoredNotebookFolderMissingError(error)) handleFolderMissing()
+          })
+        }
       }}
       asChild
     >
@@ -540,7 +559,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   <>
                     <div className="mx-3 my-0.5 h-px bg-border-weaker-base" />
                     <p className="py-3 text-center text-[11px] text-icon-base">
-                      {language.t("sidebar.noThreads")}
+                      {emptyMessage}
                     </p>
                   </>
                 )}
@@ -592,7 +611,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   className="py-1 text-xs font-light text-icon-base select-none"
                   style={{ paddingLeft: `${SIDEBAR_ROW_LABEL_INSET_PX}px` }}
                 >
-                  {language.t("sidebar.noThreads")}
+                  {emptyMessage}
                 </p>
               ) : (
                 sessionsToRender.map((session) => (

@@ -1,3 +1,4 @@
+import { mapRouteError } from "../http/route-errors"
 import { NATIVE_RESOURCE_FORMATS } from "@buddy/workspace-file-policy"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
@@ -5,8 +6,7 @@ import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import {
   copyNativeResourceToNotebook,
-  NotebookUploadError,
-} from "../notebook-uploads/notebook-upload-service"
+  } from "../notebook-uploads/notebook-upload-service"
 
 const NotebookUploadCreateBodySchema = z
   .object({
@@ -25,11 +25,6 @@ const NotebookUploadSchema = z
     sizeBytes: z.number().int().nonnegative(),
   })
   .strict()
-
-function mapNotebookUploadRouteError<TError>(error: TError): Response | undefined {
-  if (!(error instanceof NotebookUploadError)) return undefined
-  return Response.json({ error: error.message }, { status: 400 })
-}
 
 export const NotebookUploadRoutes = new Hono().post(
   "/",
@@ -58,7 +53,7 @@ export const NotebookUploadRoutes = new Hono().post(
               sourcePath: c.req.valid("json").sourcePath,
             }),
           ),
-        mapError: mapNotebookUploadRouteError,
+        mapError: mapRouteError,
       }),
     ),
 )

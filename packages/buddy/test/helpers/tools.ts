@@ -1,76 +1,83 @@
-import { Effect } from "effect"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import type { Tool } from "@buddy/opencode-adapter/tool"
+import { createOpenCodeRuntime } from "@buddy/opencode-adapter/runtime"
+import type { OpenCodeHost } from "@buddy/opencode-adapter/host"
+import { Plugin, type PluginContext } from "@buddy/opencode-adapter/plugin"
 import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
-import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
-import { loadOpenCodeApp } from "../../src/opencode-runtime"
+import { generateObjectID } from "../../src/objects"
 
-type ToolList = Awaited<ReturnType<typeof ToolRegistry.tools>>
-type RuntimeTool = ToolList[number]
+export const TEST_TOOL_MODEL = { providerID: "opencode", modelID: "claude-sonnet" }
 
-export const TEST_TOOL_MODEL = {
-  providerID: ProviderID.opencode,
-  modelID: ModelID.make("claude-sonnet"),
-}
-
-export async function ensureBuddyPluginTools(directory: string) {
-  await loadOpenCodeApp()
-  await syncOpenCodeProjectConfig(directory)
-}
-
-type ToolContextInput = {
+type BuddyToolContextInput = {
+  directory: string
   sessionID?: string
   messageID?: string
   agent: string
 }
 
-type BuddyToolContextInput = ToolContextInput & {
-  directory: string
-}
-
-export function createToolContext(input: ToolContextInput): Tool.Context {
-  return {
-    sessionID: input.sessionID ? SessionID.make(input.sessionID) : SessionID.descending(),
-    messageID: input.messageID ? MessageID.make(input.messageID) : MessageID.ascending(),
-    agent: input.agent,
-    abort: new AbortController().signal,
-    messages: [],
-    metadata() {
-      return Effect.void
-    },
-    ask() {
-      return Effect.void
-    },
-  }
-}
-
 export function createBuddyToolContext(input: BuddyToolContextInput): BuddyToolContext {
   return {
     directory: input.directory,
-    sessionID: input.sessionID ? SessionID.make(input.sessionID) : SessionID.descending(),
-    messageID: input.messageID ? MessageID.make(input.messageID) : MessageID.ascending(),
+    sessionID: input.sessionID ?? `ses_${generateObjectID()}`,
+    messageID: input.messageID ?? `msg_${generateObjectID()}`,
     agent: input.agent,
     abort: new AbortController().signal,
     messages: [],
-    metadata() {
-      return Promise.resolve()
-    },
-    ask() {
-      return Promise.resolve()
-    },
+    metadata: async () => {},
+    ask: async () => {},
   }
 }
 
-export function requireTool(tools: RuntimeTool[], id: string): RuntimeTool {
-  const tool = tools.find((entry) => entry.id === id)
-  if (tool) {
-    return tool
-  }
+export const createToolContext = createBuddyToolContext
 
-  const available = tools
-    .map((entry) => entry.id)
-    .toSorted()
-    .join(", ")
+export async function listBuddyTools() {
+  await import("../../src/runtime/agent-runtime")
+  const [{ allBuddyTools }, { getDynamicToolSearchTools }] = await Promise.all([
+    import("../../src/learning/runtime/feature-registry"),
+    import("../../src/learning/runtime/dynamic-tool-discovery"),
+  ])
+  return [...allBuddyTools(), ...getDynamicToolSearchTools()]
+}
+
+export function requireTool<T extends { id: string }>(tools: readonly T[], id: string): T {
+  const tool = tools.find((entry) => entry.id === id)
+  if (tool) return tool
+  const available = tools.map((entry) => entry.id).toSorted().join(", ")
   throw new Error(`Tool "${id}" was not registered. Available tools: ${available}`)
+}
+
+export async function ensureBuddyPluginTools(directory: string, plugins: readonly Plugin.Plugin[] = []) {
+  const [{ createRuntimeExtensionPlugin }, { createBuddyRuntimeExtension }, { withBuddyToolPermissionReplies }, { syncNotebookRuntimeConfig }, { createNotebookTestHost }] = await Promise.all([
+    import("@buddy/opencode-adapter/extension/plugin"),
+    import("../../src/runtime/buddy-extension"),
+    import("@buddy/opencode-adapter/extension/tools"),
+    import("../../src/config/runtime/opencode-sync"),
+    import("./opencode"),
+  ])
+  let host: OpenCodeHost
+  let context: PluginContext | undefined
+  const runtime = await createNotebookTestHost({
+    plugins: [
+      createRuntimeExtensionPlugin(createBuddyRuntimeExtension(), async () => host),
+      Plugin.define({
+        id: "buddy.test.tool-catalog",
+        setup(ctx) { context = ctx },
+      }),
+      ...plugins,
+    ],
+  })
+  host = withBuddyToolPermissionReplies(runtime.host)
+  try {
+    await syncNotebookRuntimeConfig(directory, { runtime: createOpenCodeRuntime(host) })
+    return {
+      host,
+      agentRuntime: createOpenCodeRuntime(host),
+      async listTools() {
+        if (!context) throw new Error("Notebook tool plugin was not initialized")
+        return context.tool.list()
+      },
+      [Symbol.asyncDispose]: () => runtime[Symbol.asyncDispose](),
+    }
+  } catch (cause) {
+    await runtime[Symbol.asyncDispose]()
+    throw cause
+  }
 }

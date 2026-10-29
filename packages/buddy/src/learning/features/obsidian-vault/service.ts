@@ -5,8 +5,8 @@ import z from "zod"
 import {
   type WorkspaceFileWatcherEventKind,
   type WorkspaceFileWatcherUpdate,
-} from "@buddy/opencode-adapter/file-watcher"
-import { subscribeNativeWorkspaceFileWatcher } from "@buddy/opencode-adapter/file-watcher-native"
+} from "@buddy/transcript-contract/file-watcher"
+import { subscribeNativeWorkspaceFileWatcher } from "./file-watcher-native"
 
 const OBSIDIAN_DEFAULT_CONFIG_DIRECTORY = ".obsidian"
 const OBSIDIAN_CONFIG_DIRECTORY_PREFIX = ".obsidian-"

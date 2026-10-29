@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import {
   activateChatDirectory,
   runPreparedActiveChatMutation,
+  selectActiveChatSession,
 } from "../src/lib/active-chat-transition-coordinator"
 import { resetActiveChatTransitionStateForTests } from "../src/lib/active-chat-transition-state"
 import {
@@ -32,6 +33,8 @@ import {
 } from "../src/state/directory-workspace-store"
 import { workspaceChatKeyForSession, type WorkspaceChatKey } from "../src/lib/workspace-chat-key"
 import { upsertBenchTab } from "../src/lib/bench-tabs"
+import { setRuntimeServerConnection } from "../src/context/server"
+import { isNotebookFolderMissingError } from "../src/state/chat-actions"
 import { useChatStore } from "../src/state/chat-store"
 import { browserLocalStorage } from "../src/state/parse-external"
 import { BUSY_SESSION_STATUS } from "../src/state/session-status"
@@ -39,6 +42,7 @@ import type { SessionInfo } from "../src/state/chat-types"
 
 const DIRECTORY = "/workspace/chat-transition"
 const OTHER_DIRECTORY = "/workspace/chat-transition-other"
+const MISSING_DIRECTORY = "/workspace/chat-transition-moved"
 const WHITEBOARD_TARGET = {
   type: "object",
   ref: {
@@ -444,5 +448,45 @@ describe("active chat transition coordinator", () => {
     })
     expect(mutationOrder).toEqual(["first-started", "first-finished", "second"])
     expect(useChatStore.getState().activeDirectory).toBe(OTHER_DIRECTORY)
+  })
+
+  test("choosing a chat whose notebook folder is gone keeps the current chat and reports the missing folder", async () => {
+    const store = useChatStore.getState()
+    store.ensureOpenProject(DIRECTORY)
+    store.ensureOpenProject(MISSING_DIRECTORY)
+    store.setSessions(DIRECTORY, [session("session-a", 1)])
+    store.setActiveSession(DIRECTORY, "session-a")
+    store.setActiveDirectory(DIRECTORY)
+    store.setSessions(MISSING_DIRECTORY, [session("session-moved", 1)])
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async () =>
+        new Response(JSON.stringify({ error: `Directory not found: ${MISSING_DIRECTORY}` }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        }),
+      { preconnect: () => undefined },
+    )
+    let navigatedDirectory: string | undefined
+
+    try {
+      const result = await selectActiveChatSession({
+        directory: MISSING_DIRECTORY,
+        sessionID: "session-moved",
+        navigate: (directory) => {
+          navigatedDirectory = directory
+        },
+      })
+
+      expect(result.outcome).toBe("failed")
+      expect(result.outcome === "failed" && isNotebookFolderMissingError(result.error)).toBeTrue()
+      expect(navigatedDirectory).toBeUndefined()
+      expect(useChatStore.getState().activeDirectory).toBe(DIRECTORY)
+      expect(useChatStore.getState().directories[DIRECTORY]?.sessionID).toBe("session-a")
+    } finally {
+      globalThis.fetch = previousFetch
+      setRuntimeServerConnection({ url: "", isEmbeddedBackend: false })
+    }
   })
 })

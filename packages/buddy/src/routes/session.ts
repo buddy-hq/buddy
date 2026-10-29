@@ -1,11 +1,12 @@
+import { routeErrorBody } from "../http/route-errors"
 import { Hono } from "hono"
 import { createFactory } from "hono/factory"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { Schema } from "effect"
 import z from "zod"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { SessionStatus as OpenCodeSessionStatus } from "@buddy/opencode-adapter/session-status"
-import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
+import { Session, SessionCreate, SessionStatus } from "@buddy/transcript-contract/session"
+import { MessageWithParts } from "@buddy/transcript-contract/message"
+import { getSessionMessageById, listSessionChildren } from "../session/orchestration/core-actions"
 import {
   PERSONAS,
   PERSONA_SURFACES,
@@ -20,6 +21,7 @@ import {
 } from "../http"
 import {
   abortSessionRun,
+  backgroundSessionRun,
   deleteSessionById,
   getSessionMermaidRepairStatus,
   getSessionStatus,
@@ -78,6 +80,7 @@ const [getSessionMermaidRepairStatusHandler] = sessionRouteFactory.createHandler
 )
 const [getTeachingStateHandler] = sessionRouteFactory.createHandlers(getTeachingState)
 const [abortSessionHandler] = sessionRouteFactory.createHandlers(abortSessionRun)
+const [backgroundSessionHandler] = sessionRouteFactory.createHandlers(backgroundSessionRun)
 const [forkSessionHandler] = sessionRouteFactory.createHandlers(forkSessionById)
 const [revertSessionHandler] = sessionRouteFactory.createHandlers(revertSessionById)
 const [unrevertSessionHandler] = sessionRouteFactory.createHandlers(unrevertSessionById)
@@ -87,11 +90,11 @@ const sessionListQuerySchema = z.object({
   roots: z.coerce.boolean().optional(),
   start: z.coerce.number().optional(),
   search: z.string().optional(),
-  limit: z.coerce.number().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
 })
 
 const sessionMessagesQuerySchema = directoryQuerySchema.extend({
-  limit: z.coerce.number().optional(),
+  limit: z.coerce.number().int().min(0).max(200).optional(),
   before: z.string().optional(),
 })
 
@@ -130,6 +133,9 @@ const sessionPromptBodyOpenApiSchema = {
       },
     },
     variant: { type: "string" as const },
+    delivery: { type: "string" as const, enum: ["steer", "queue"] },
+    messageID: { type: "string" as const, pattern: "^msg_" },
+    noReply: { type: "boolean" as const },
     teaching: {
       type: "object" as const,
       additionalProperties: true,
@@ -169,6 +175,7 @@ const sessionCommandBodyOpenApiSchema = {
       ],
     },
     variant: { type: "string" as const },
+    delivery: { type: "string" as const, enum: ["steer", "queue"] },
   },
 }
 
@@ -332,7 +339,7 @@ export const SessionRoutes = new Hono()
           description: "Session list",
           content: {
             "application/json": {
-              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeSession.Info))),
+              schema: resolver(toOpenApiSchema(Schema.Array(Session))),
             },
           },
         },
@@ -351,14 +358,14 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Created session",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
+            "application/json": { schema: resolver(toOpenApiSchema(Session)) },
           },
         },
         ...routeErrors(403),
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("json", toOpenApiSchema(Schema.optional(OpenCodeSession.create.schema))),
+    validator("json", toOpenApiSchema(Schema.optional(SessionCreate))),
     createSessionHandler,
   )
   .get(
@@ -372,7 +379,7 @@ export const SessionRoutes = new Hono()
           content: {
             "application/json": {
               schema: resolver(
-                toOpenApiSchema(Schema.Record(Schema.String, OpenCodeSessionStatus.Info)),
+                toOpenApiSchema(Schema.Record(Schema.String, SessionStatus)),
               ),
             },
           },
@@ -392,7 +399,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Session info",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
+            "application/json": { schema: resolver(toOpenApiSchema(Session)) },
           },
         },
         ...routeErrors(403, 404),
@@ -430,7 +437,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Updated session info",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
+            "application/json": { schema: resolver(toOpenApiSchema(Session)) },
           },
         },
         ...routeErrors(403, 404),
@@ -451,7 +458,7 @@ export const SessionRoutes = new Hono()
           description: "Message list",
           content: {
             "application/json": {
-              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeMessage.WithParts))),
+              schema: resolver(toOpenApiSchema(Schema.Array(MessageWithParts))),
             },
           },
         },
@@ -461,6 +468,34 @@ export const SessionRoutes = new Hono()
     validator("query", sessionMessagesQuerySchema),
     validator("param", SessionIDParamSchema),
     listSessionMessagesHandler,
+  )
+  .get(
+    "/:sessionID/children",
+    describeRoute({
+      operationId: "session.children",
+      summary: "List child sessions",
+      responses: {
+        200: { description: "Child sessions", content: { "application/json": { schema: resolver(toOpenApiSchema(Schema.Array(Session))) } } },
+        ...routeErrors(403, 404),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    listSessionChildren,
+  )
+  .get(
+    "/:sessionID/message/:messageID",
+    describeRoute({
+      operationId: "session.message",
+      summary: "Get a transcript message",
+      responses: {
+        200: { description: "Message with parts", content: { "application/json": { schema: resolver(toOpenApiSchema(MessageWithParts)) } } },
+        ...routeErrors(403, 404),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema.extend({ messageID: z.string().min(1) })),
+    getSessionMessageById,
   )
   .post(
     "/:sessionID/summarize",
@@ -501,9 +536,9 @@ export const SessionRoutes = new Hono()
       },
       responses: {
         200: {
-          description: "Created user message",
+          description: "Completed assistant message",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeMessage.WithParts)) },
+            "application/json": { schema: resolver(toOpenApiSchema(MessageWithParts)) },
           },
         },
         ...routeErrors(400, 403, 409),
@@ -550,9 +585,9 @@ export const SessionRoutes = new Hono()
       },
       responses: {
         200: {
-          description: "Created command message",
+          description: "Completed command assistant or session after a command without a prompt",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeMessage.WithParts)) },
+            "application/json": { schema: resolver(toOpenApiSchema(Schema.Union([MessageWithParts, Session]))) },
           },
         },
         ...routeErrors(400, 403, 409),
@@ -626,7 +661,7 @@ export const SessionRoutes = new Hono()
         SESSION_SVG_REPAIR_MAX_REQUEST_BODY_BYTES,
       )
       if (result.status === "too_large") {
-        return c.json({ error: "SVG repair request exceeds the request size limit." }, 413)
+        return c.json(routeErrorBody(413, "SVG repair request exceeds the request size limit."), 413)
       }
       c.req.raw = replayRequestBody(c.req.raw, result.body)
       await next()
@@ -692,7 +727,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Forked session",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
+            "application/json": { schema: resolver(toOpenApiSchema(Session)) },
           },
         },
         ...routeErrors(400, 403, 404, 409),
@@ -718,7 +753,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Updated session after revert",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
+            "application/json": { schema: resolver(toOpenApiSchema(Session)) },
           },
         },
         ...routeErrors(400, 403, 404, 409),
@@ -738,7 +773,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Updated session after restoring reverted state",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
+            "application/json": { schema: resolver(toOpenApiSchema(Session)) },
           },
         },
         ...routeErrors(403, 404, 409),
@@ -766,4 +801,20 @@ export const SessionRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
     abortSessionHandler,
+  )
+  .post(
+    "/:sessionID/background",
+    describeRoute({
+      operationId: "session.background",
+      summary: "Move blocking session work to the background",
+      responses: {
+        204: {
+          description: "Blocking work moved to the background, or nothing was blocking",
+        },
+        ...routeErrors(403, 404),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    backgroundSessionHandler,
   )

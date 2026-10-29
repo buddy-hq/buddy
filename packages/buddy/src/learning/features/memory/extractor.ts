@@ -1,7 +1,6 @@
 import { ulid } from "ulid"
 import z from "zod"
-import { LLM } from "@buddy/opencode-adapter/llm"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { generateMemoryObject } from "./model-generation"
 import {
   CandidateMemoryPatchSchema,
   LearnerMemoryTypeSchema,
@@ -285,42 +284,32 @@ async function extractCandidatePatchesWithModel(input: {
   sessionID: string
   messageID?: string
 }): Promise<ModelExtractionResult> {
-  const extractionModel = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => resolveLearnerMemoryExtractionModel(input.directory),
-  })
+  const extractionModel = await resolveLearnerMemoryExtractionModel(input.directory)
   if (!extractionModel) {
     throw new Error("Memory extraction model resolution failed")
   }
-  const response = await OpenCodeInstance.provide({
+  const response = await generateMemoryObject({
     directory: input.directory,
-    fn: async () =>
-      LLM.generateStructuredText({
-        sessionID: input.sessionID,
-        messageID: input.messageID ?? `msg_learner_memory_${input.fixture.id}`,
-        providerID: extractionModel.providerID,
-        modelID: extractionModel.modelID,
-        model: extractionModel.model,
-        system: LEARNER_MEMORY_EXTRACTOR_PROMPT,
-        prompt: buildModelPrompt(input.fixture),
-        schema: MODEL_EXTRACTION_JSON_SCHEMA,
-        retries: LEARNER_MEMORY_EXTRACTION_TUNING.modelRetries,
-        timeoutMs: LEARNER_MEMORY_EXTRACTION_TUNING.modelTimeoutMs,
-      }),
+    model: extractionModel,
+    system: LEARNER_MEMORY_EXTRACTOR_PROMPT,
+    prompt: buildModelPrompt(input.fixture),
+    schema: ModelExtractionSchema,
+    jsonSchema: MODEL_EXTRACTION_JSON_SCHEMA,
+    retries: LEARNER_MEMORY_EXTRACTION_TUNING.modelRetries,
+    timeoutMs: LEARNER_MEMORY_EXTRACTION_TUNING.modelTimeoutMs,
   })
 
   return Object.assign(
     candidatesFromModelOutput({
       fixture: input.fixture,
-      structured: response.structured,
+      structured: response,
     }),
     {
       model: {
-        providerID: response.providerID,
-        modelID: response.modelID,
+        providerID: extractionModel.providerID,
+        modelID: extractionModel.modelID,
       },
     },
-    response.usage ? { usage: response.usage } : undefined,
   )
 }
 
@@ -350,46 +339,36 @@ async function extractLearnerMemoryStageOneWithModel(input: {
   sessionID: string
   messageID?: string
 }): Promise<ModelExtractionResult> {
-  const extractionModel = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => resolveLearnerMemoryExtractionModel(input.directory),
-  })
+  const extractionModel = await resolveLearnerMemoryExtractionModel(input.directory)
   if (!extractionModel) {
     throw new Error("Memory extraction model resolution failed")
   }
-  const response = await OpenCodeInstance.provide({
+  const response = await generateMemoryObject({
     directory: input.directory,
-    fn: async () =>
-      LLM.generateStructuredText({
-        sessionID: input.sessionID,
-        messageID: input.messageID ?? `msg_learner_memory_${input.fixture.id}`,
-        providerID: extractionModel.providerID,
-        modelID: extractionModel.modelID,
-        model: extractionModel.model,
-        system: LEARNER_MEMORY_EXTRACTOR_PROMPT,
-        prompt: buildStageOneModelPrompt({
-          projectPath: input.directory,
-          sessionID: input.fixture.id,
-          source: input.source,
-        }),
-        schema: MODEL_EXTRACTION_JSON_SCHEMA,
-        retries: LEARNER_MEMORY_EXTRACTION_TUNING.modelRetries,
-        timeoutMs: LEARNER_MEMORY_EXTRACTION_TUNING.modelTimeoutMs,
-      }),
+    model: extractionModel,
+    system: LEARNER_MEMORY_EXTRACTOR_PROMPT,
+    prompt: buildStageOneModelPrompt({
+      projectPath: input.directory,
+      sessionID: input.fixture.id,
+      source: input.source,
+    }),
+    schema: ModelExtractionSchema,
+    jsonSchema: MODEL_EXTRACTION_JSON_SCHEMA,
+    retries: LEARNER_MEMORY_EXTRACTION_TUNING.modelRetries,
+    timeoutMs: LEARNER_MEMORY_EXTRACTION_TUNING.modelTimeoutMs,
   })
 
   return Object.assign(
     candidatesFromModelOutput({
       fixture: input.fixture,
-      structured: response.structured,
+      structured: response,
     }),
     {
       model: {
-        providerID: response.providerID,
-        modelID: response.modelID,
+        providerID: extractionModel.providerID,
+        modelID: extractionModel.modelID,
       },
     },
-    response.usage ? { usage: response.usage } : undefined,
   )
 }
 

@@ -1,25 +1,16 @@
 import { basename, dirname } from "../utils/path"
-import type { ToolPresentationSnapshot } from "@buddy/opencode-adapter/tool-presentation"
+import { isChatToolPart } from "../utils/part-guards"
+import type { ToolSummary } from "@buddy/transcript-contract/message"
+import type { ToolPresentationSnapshot } from "@buddy/transcript-contract/tool-presentation"
 import type { MessagePart } from "@/state/chat-types"
 import { language } from "@/context/language"
 import { formatHtmlWidgetViewport, resolveHtmlWidgetViewport } from "@/lib/html-widgets"
-import { readIngestFullTextMetadata } from "./full-text-metadata"
 import {
   getSkillToolTitle,
   getSkillReferenceToolTitle,
   humanizeSkillDisplayName,
   resolveSkillReference,
 } from "./skill-reference"
-import {
-  isRecord,
-  parseTJsonObject,
-  parseTJsonText,
-  parseTNumber,
-  parseTString,
-  readNonEmptyString,
-  readNonNegativeInt,
-} from "./types"
-import { readBuddyObjectResult } from "./render/buddy-object-result"
 import type { ToolInfo, ToolState } from "./types"
 import { parseToolPresentation } from "./parse-tool-presentation"
 
@@ -36,109 +27,106 @@ function hasImageAttachments(state: ToolState): boolean {
 }
 
 const KNOWLEDGE_GRAPH_TOOL_TITLES = {
-  search_standards: "Search Standards",
-  get_standard: "Get Standard",
-  get_learning_components: "Learning Components",
-  get_prerequisites: "Prerequisites",
-  get_next_standards: "Next Standards",
-  get_crosswalk: "Crosswalk",
-  query_standards_sql: "Standards SQL",
+  "search-standards": "Search Standards",
+  "read-standard": "Get Standard",
+  "read-learning-components": "Learning Components",
+  "read-prerequisites": "Prerequisites",
+  "read-next-standards": "Next Standards",
+  "read-crosswalk": "Crosswalk",
+  "query-standards": "Standards SQL",
 } as const
 
-const KNOWLEDGE_GRAPH_TOOL_NAMES = new Set(Object.keys(KNOWLEDGE_GRAPH_TOOL_TITLES))
+const MAX_VISIBLE_TOOLS = 4
 
 type VisibleToolPresentationSnapshot = Exclude<ToolPresentationSnapshot, { archetype: "silent" }>
 
-function countNonEmptyLines(value: string): number {
-  const trimmed = value.trim()
-  if (!trimmed) return 0
-  return trimmed.split(/\r?\n/u).filter((line) => line.trim().length > 0).length
-}
-
-function parseJsonRecord(value: string) {
-  return parseTJsonObject(parseTJsonText(value))
-}
-
-function readArrayLength<TValue>(value: TValue): number | undefined {
-  return Array.isArray(value) ? value.length : undefined
-}
+type ToolResult = NonNullable<ToolSummary["result"]>
 
 function formatCountSummary(count: number, singular: string, plural: string): string {
   return `${count.toLocaleString()} ${count === 1 ? singular : plural}`
 }
 
-function knowledgeGraphValue(state: ToolState) {
-  const metadataValue = parseTJsonObject(state.metadata.value)
-  if (metadataValue) {
-    return metadataValue
-  }
-
-  if (state.output !== undefined) {
-    return parseJsonRecord(state.output)
-  }
-
-  return undefined
+function formatResultCount(
+  result: ToolResult,
+  singular: string,
+  plural: string,
+): string | undefined {
+  return result.count !== undefined ? formatCountSummary(result.count, singular, plural) : undefined
 }
 
-function formatStandardLabel(code: string | undefined, jurisdiction: string | undefined) {
-  if (code && jurisdiction) {
-    return `${code} · ${jurisdiction}`
+function formatTokenResult(result: ToolResult): string | undefined {
+  if (result.count !== undefined) {
+    return language.t(
+      result.truncated ? "chatTools.info.tokensLoadedTruncated" : "chatTools.info.tokensLoaded",
+      { count: result.count.toLocaleString() },
+    )
   }
-
-  return code ?? jurisdiction
+  return result.truncated ? language.t("chatTools.info.outputTruncated") : undefined
 }
 
-function knowledgeGraphSummary(tool: string, state: ToolState): string | undefined {
-  const value = knowledgeGraphValue(state)
-  if (!value) {
-    return undefined
-  }
+function formatViewportResult(result: ToolResult): string | undefined {
+  const viewport = result.text === undefined ? undefined : resolveHtmlWidgetViewport(result.text)
+  return viewport ? formatHtmlWidgetViewport(viewport) : undefined
+}
 
-  switch (tool) {
-    case "search_standards": {
-      const count = readNonNegativeInt(value.resultCount) ?? readArrayLength(value.results)
-      return count !== undefined
-        ? `Found ${formatCountSummary(count, "standard", "standards")}`
+function formatToolResult(result: ToolResult | undefined): string | undefined {
+  if (!result) return undefined
+
+  switch (result.unit) {
+    case "characters":
+      return result.count !== undefined ? `${result.count.toLocaleString()} chars` : undefined
+    case "matches":
+      return result.count !== undefined
+        ? language.t(
+            result.count === 1
+              ? "chatTools.info.resultCount.one"
+              : "chatTools.info.resultCount.other",
+            { count: result.count },
+          )
         : undefined
-    }
-    case "get_standard": {
-      const standard = isRecord(value.standard) ? value.standard : undefined
-      return formatStandardLabel(
-        readNonEmptyString(standard?.code),
-        readNonEmptyString(standard?.jurisdiction),
-      )
-    }
-    case "get_learning_components": {
-      const count = readNonNegativeInt(value.componentCount) ?? readArrayLength(value.components)
-      return count !== undefined
-        ? formatCountSummary(count, "learning component", "learning components")
+    case "command":
+      return language.t("chatTools.commandExecuted")
+    case "value":
+      return result.text !== undefined
+        ? language.t("chatTools.info.result", { value: result.text })
         : undefined
+    case "matched-tools":
+      return result.count ? `${result.count} matched` : undefined
+    case "loaded-tools":
+      return result.count !== undefined ? `${result.count} loaded` : undefined
+    case "tokens":
+      return formatTokenResult(result)
+    case "viewport":
+      return formatViewportResult(result)
+    case "standards": {
+      const standards = formatResultCount(result, "standard", "standards")
+      return standards ? `Found ${standards}` : undefined
     }
-    case "get_prerequisites": {
-      const count =
-        readNonNegativeInt(value.prerequisiteCount) ?? readArrayLength(value.prerequisites)
-      return count !== undefined
-        ? formatCountSummary(count, "prerequisite", "prerequisites")
-        : undefined
-    }
-    case "get_next_standards": {
-      const count =
-        readNonNegativeInt(value.nextStandardCount) ?? readArrayLength(value.nextStandards)
-      return count !== undefined
-        ? formatCountSummary(count, "next standard", "next standards")
-        : undefined
-    }
-    case "get_crosswalk": {
-      const count = readNonNegativeInt(value.crosswalkCount) ?? readArrayLength(value.crosswalks)
-      return count !== undefined ? formatCountSummary(count, "crosswalk", "crosswalks") : undefined
-    }
-    case "query_standards_sql": {
-      const count = readNonNegativeInt(value.rowCount) ?? readArrayLength(value.rows)
-      return count !== undefined ? formatCountSummary(count, "row", "rows") : undefined
-    }
+    case "label":
+      return result.text
+    case "learning-components":
+      return formatResultCount(result, "learning component", "learning components")
+    case "prerequisites":
+      return formatResultCount(result, "prerequisite", "prerequisites")
+    case "next-standards":
+      return formatResultCount(result, "next standard", "next standards")
+    case "crosswalks":
+      return formatResultCount(result, "crosswalk", "crosswalks")
+    case "rows":
+      return formatResultCount(result, "row", "rows")
     default:
       return undefined
   }
+}
+
+function formatToolArgs(summary: ToolSummary): string[] {
+  return (summary.args ?? []).map((arg) => `${arg.name}=${arg.value}`)
+}
+
+function formatMatchedToolNames(items: readonly string[] | undefined): string | undefined {
+  if (!items || items.length === 0) return undefined
+  const hidden = items.length - MAX_VISIBLE_TOOLS
+  return items.slice(0, MAX_VISIBLE_TOOLS).join(", ") + (hidden > 0 ? ` +${hidden} more` : "")
 }
 
 function withMetadataTitle(
@@ -153,69 +141,28 @@ function withMetadataTitle(
 }
 
 export function getToolInfo(
-  tool: string,
   state: ToolState,
   presentation: VisibleToolPresentationSnapshot,
 ): ToolInfo {
-  const { input, output } = state
-  const filePath = parseTString(input.filePath)
-  const path = parseTString(input.path)
-  const pattern = parseTString(input.pattern)
-  const include = parseTString(input.include)
-  const url = parseTString(input.url)
-  const query = parseTString(input.query)
-  const description = parseTString(input.description)
-  const subagent = parseTString(input.subagent_type)
-  const alt = parseTString(input.alt)
-  const caption = parseTString(input.caption)
-  const code = parseTString(input.code)
-  const jurisdiction = parseTString(input.jurisdiction)
-  const targetJurisdiction = parseTString(input.targetJurisdiction)
-  const sql = parseTString(input.sql)
-  const title = parseTString(input.title)
+  const summary = state.summary
+  const subject = summary?.subject
+  const result = formatToolResult(summary?.result)
 
   const active = state.status === "pending" || state.status === "running"
   const metadataTitle = presentation
 
-  let summary: string | undefined
-  if (KNOWLEDGE_GRAPH_TOOL_NAMES.has(tool)) {
-    summary = knowledgeGraphSummary(tool, state)
-  } else if (output) {
-    if (tool === "read") {
-      summary = `${output.length.toLocaleString()} chars`
-    } else if (
-      tool === "grep" ||
-      tool === "glob" ||
-      tool === "list" ||
-      tool === "codesearch" ||
-      tool === "websearch"
-    ) {
-      const matchCount = countNonEmptyLines(output)
-      summary = language.t(
-        matchCount === 1 ? "chatTools.info.resultCount.one" : "chatTools.info.resultCount.other",
-        { count: matchCount },
-      )
-    } else if (tool === "bash") {
-      summary = language.t("chatTools.commandExecuted")
-    }
-  }
-
-  switch (tool) {
-    case "read": {
-      const args: string[] = []
-      const offset = parseTNumber(input.offset)
-      const limit = parseTNumber(input.limit)
-      if (offset !== undefined) args.push(`offset=${offset}`)
-      if (limit !== undefined) args.push(`limit=${limit}`)
-      const isImage = isImageFilePath(filePath) || hasImageAttachments(state)
-      const skillReference = resolveSkillReference(filePath)
+  switch (summary?.kind) {
+    case "read-file": {
+      const args = formatToolArgs(summary)
+      const isImage = isImageFilePath(subject) || hasImageAttachments(state)
+      const skillReference = resolveSkillReference(subject)
       if (skillReference) {
         return withMetadataTitle(
           {
             title: getSkillReferenceToolTitle(active),
             subtitle: skillReference.displayName,
             detail: skillReference.skillName,
-            summary,
+            summary: result,
             args,
           },
           metadataTitle,
@@ -227,372 +174,262 @@ export function getToolInfo(
       return withMetadataTitle(
         {
           title,
-          subtitle: filePath ? basename(filePath) : undefined,
-          detail: filePath ? dirname(filePath) : undefined,
-          summary,
+          subtitle: subject ? basename(subject) : undefined,
+          detail: subject ? dirname(subject) : undefined,
+          summary: result,
           args,
         },
         metadataTitle,
       )
     }
-    case "list":
+    case "list-files":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.list.running" : "chatTools.info.list"),
-          subtitle: path ? dirname(path) : "/",
-          summary,
+          subtitle: subject ? dirname(subject) : "/",
+          summary: result,
         },
         metadataTitle,
       )
-    case "glob":
+    case "find-files":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.glob.running" : "chatTools.info.glob"),
-          subtitle: pattern ?? path,
-          detail: pattern && path ? path : undefined,
-          summary,
-          args: pattern && path ? [`path=${path}`] : [],
+          subtitle: subject,
+          detail: summary.detail,
+          summary: result,
+          args: formatToolArgs(summary),
         },
         metadataTitle,
       )
-    case "grep": {
-      const args: string[] = []
-      if (include) args.push(`include=${include}`)
-      if (path) args.push(`path=${path}`)
+    case "search-files":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.grep.running" : "chatTools.info.grep"),
-          subtitle: pattern ?? include ?? path,
-          detail: path,
-          summary,
-          args,
+          subtitle: subject,
+          detail: summary.detail,
+          summary: result,
+          args: formatToolArgs(summary),
         },
         metadataTitle,
       )
-    }
-    case "webfetch":
+    case "fetch-url":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.webfetch.running" : "chatTools.info.webfetch"),
-          subtitle: url,
-          summary,
+          subtitle: subject,
+          summary: result,
         },
         metadataTitle,
       )
-    case "websearch":
+    case "search-web":
       return withMetadataTitle(
         {
           title: language.t(
             active ? "chatTools.info.websearch.running" : "chatTools.info.websearch",
           ),
-          subtitle: query,
-          summary,
+          subtitle: subject,
+          summary: result,
         },
         metadataTitle,
       )
-    case "codesearch":
+    case "search-code":
       return withMetadataTitle(
         {
           title: language.t(
             active ? "chatTools.info.codesearch.running" : "chatTools.info.codesearch",
           ),
-          subtitle: query,
-          summary,
+          subtitle: subject,
+          summary: result,
         },
         metadataTitle,
       )
-    case "learning_tool_search": {
-      const matchedToolIds = Array.isArray(state.metadata.matchedToolIds)
-        ? state.metadata.matchedToolIds.flatMap((id) => {
-            const text = parseTString(id)
-            return text === undefined ? [] : [text]
-          })
-        : []
-      const MAX_VISIBLE_TOOLS = 4
-      const matchedNames =
-        matchedToolIds.length > 0
-          ? matchedToolIds.slice(0, MAX_VISIBLE_TOOLS).join(", ") +
-            (matchedToolIds.length > MAX_VISIBLE_TOOLS
-              ? ` +${matchedToolIds.length - MAX_VISIBLE_TOOLS} more`
-              : "")
-          : undefined
-      const matchCount = matchedToolIds.length > 0 ? matchedToolIds.length : undefined
+    case "search-tools":
       return withMetadataTitle(
         {
           title: "Search Tools",
-          subtitle: matchedNames ?? query,
-          summary: matchCount !== undefined ? `${matchCount} matched` : undefined,
+          subtitle: formatMatchedToolNames(summary.items) ?? subject,
+          summary: result,
         },
         metadataTitle,
       )
-    }
-    case "learning_tool_load": {
-      const registeredToolCount = Array.isArray(state.metadata.registeredToolIds)
-        ? state.metadata.registeredToolIds.length
-        : undefined
+    case "load-tools":
       return withMetadataTitle(
         {
           title: "Load Tools",
-          subtitle: Array.isArray(input.toolIds)
-            ? `${input.toolIds.length.toLocaleString()} requested`
-            : undefined,
-          summary: registeredToolCount !== undefined ? `${registeredToolCount} loaded` : undefined,
+          subtitle:
+            summary.requested !== undefined
+              ? `${summary.requested.toLocaleString()} requested`
+              : undefined,
+          summary: result,
         },
         metadataTitle,
       )
-    }
-    case "task":
+    case "delegate":
       return withMetadataTitle(
         {
-          title: subagent
-            ? language.t("chatTools.info.agent", { subagent: subagent })
+          title: summary.agent
+            ? language.t("chatTools.info.agent", { subagent: summary.agent })
             : language.t(active ? "chatTools.info.agentTask.running" : "chatTools.info.agentTask"),
-          subtitle: description,
+          subtitle: subject,
         },
         metadataTitle,
       )
-    case "write":
+    case "write-file":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.write.running" : "chatTools.info.write"),
-          subtitle: filePath ? basename(filePath) : undefined,
-          detail: filePath ? dirname(filePath) : undefined,
+          subtitle: subject ? basename(subject) : undefined,
+          detail: subject ? dirname(subject) : undefined,
         },
         metadataTitle,
       )
-    case "edit":
+    case "edit-file":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.edit.running" : "chatTools.info.edit"),
-          subtitle: filePath ? basename(filePath) : undefined,
-          detail: filePath ? dirname(filePath) : undefined,
+          subtitle: subject ? basename(subject) : undefined,
+          detail: subject ? dirname(subject) : undefined,
         },
         metadataTitle,
       )
-    case "apply_patch":
+    case "change-files":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.patch.running" : "chatTools.info.patch"),
-          subtitle: description,
+          subtitle: subject,
         },
         metadataTitle,
       )
-    case "bash":
+    case "run-command":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.shell.running" : "chatTools.info.shell"),
-          subtitle: description,
-          summary,
+          subtitle: subject,
+          summary: result,
         },
         metadataTitle,
       )
-    case "question":
+    case "ask-questions":
       return withMetadataTitle(
         {
           title: language.t(
             active ? "chatTools.info.questions.running" : "chatTools.info.questions",
           ),
-          subtitle: description,
+          subtitle: subject,
         },
         metadataTitle,
       )
-    case "todowrite":
+    case "update-plan":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.todos.running" : "chatTools.todos"),
         },
         metadataTitle,
       )
-    case "python_calculator":
+    case "calculate":
       return withMetadataTitle(
         {
           title: language.t(
             active ? "chatTools.info.pythonCalculator.running" : "chatTools.info.pythonCalculator",
           ),
-          subtitle: description,
-          summary: output
-            ? language.t("chatTools.info.result", { value: output.trim() })
-            : undefined,
+          subtitle: subject,
+          summary: result,
         },
         metadataTitle,
       )
-    case "ingest_full_text": {
-      const { resource, fullTextEstimatedTokens, truncated } = readIngestFullTextMetadata(state)
+    case "load-text":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.fullText.running" : "chatTools.info.fullText"),
-          subtitle: resource,
-          summary:
-            fullTextEstimatedTokens !== undefined
-              ? language.t(
-                  truncated
-                    ? "chatTools.info.tokensLoadedTruncated"
-                    : "chatTools.info.tokensLoaded",
-                  {
-                    count: fullTextEstimatedTokens.toLocaleString(),
-                  },
-                )
-              : truncated
-                ? language.t("chatTools.info.outputTruncated")
-                : summary,
+          subtitle: subject,
+          summary: result,
         },
         metadataTitle,
       )
-    }
-    case "prepare_resource":
+    case "prepare-resource":
       return withMetadataTitle(
         {
           title: active ? "Preparing Resource" : "Prepare Resource",
-          subtitle: parseTString(state.metadata.resource) ?? description,
+          subtitle: subject,
         },
         metadataTitle,
       )
-    case "reflection":
+    case "reflect":
       return withMetadataTitle(
         {
           title: active ? "Pedagogy Reflection" : "Pedagogy Reflection",
         },
         metadataTitle,
       )
-    case "skill": {
-      const skillNameSource =
-        readNonEmptyString(input.name) ?? readNonEmptyString(state.metadata.name)
-      const skillName = skillNameSource ? humanizeSkillDisplayName(skillNameSource) : undefined
+    case "use-skill":
       return withMetadataTitle(
         {
           title: getSkillToolTitle(active),
-          subtitle: skillName,
+          subtitle: subject ? humanizeSkillDisplayName(subject) : undefined,
         },
         metadataTitle,
       )
-    }
-    case "learner_memory_search":
+    case "search-memory":
       return withMetadataTitle(
         {
           title: active ? "Searching Memory" : "Search Memory",
-          subtitle: parseTString(state.metadata.query),
+          subtitle: subject,
         },
         metadataTitle,
       )
-    case "learner_memory_update":
+    case "update-memory":
       return withMetadataTitle(
         {
           title: active ? "Updating Memory" : "Update Memory",
         },
         metadataTitle,
       )
-    case "render_figure":
-    case "render_freeform_figure":
+    case "show-figure":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.figure.running" : "chatTools.info.figure"),
-          subtitle: caption ?? alt,
+          subtitle: subject,
         },
         metadataTitle,
       )
-    case "render_mermaid":
+    case "show-diagram":
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.mermaid.running" : "chatTools.info.mermaid"),
-          subtitle: alt,
+          subtitle: subject,
         },
         metadataTitle,
       )
-    case "present_html_widget": {
-      const objectResult = readBuddyObjectResult(state.metadata)
-      const presentation = objectResult?.presentations.find(
-        (entry) =>
-          entry.surface === "inline" &&
-          entry.ref.kind === "html-widget" &&
-          entry.data?.renderer === "html-widget",
-      )
-      const viewport =
-        presentation?.data?.renderer === "html-widget"
-          ? resolveHtmlWidgetViewport(presentation.data.viewportPreset)
-          : undefined
-      const objectTitle = objectResult?.objects.find(
-        (object) => object.kind === "html-widget" && object.objectID === presentation?.ref.objectID,
-      )?.title
+    case "show-widget":
       return withMetadataTitle(
         {
           title: active ? "Presenting HTML Widget" : "HTML Widget",
-          subtitle: objectTitle ?? title ?? path,
-          summary: viewport ? formatHtmlWidgetViewport(viewport) : undefined,
+          subtitle: subject,
+          summary: result,
         },
         metadataTitle,
       )
-    }
-    case "save_question_set":
+    case "save-questions":
       return withMetadataTitle(
         {
           title: "Save Question Set",
-          subtitle: description,
+          subtitle: subject,
         },
         metadataTitle,
       )
-    case "search_standards":
+    case "search-standards":
+    case "read-standard":
+    case "read-learning-components":
+    case "read-prerequisites":
+    case "read-next-standards":
+    case "read-crosswalk":
+    case "query-standards":
       return withMetadataTitle(
         {
-          title: KNOWLEDGE_GRAPH_TOOL_TITLES.search_standards,
-          subtitle: query,
-          summary,
-        },
-        metadataTitle,
-      )
-    case "get_standard":
-      return withMetadataTitle(
-        {
-          title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_standard,
-          subtitle: formatStandardLabel(code, jurisdiction),
-          summary,
-        },
-        metadataTitle,
-      )
-    case "get_learning_components":
-      return withMetadataTitle(
-        {
-          title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_learning_components,
-          subtitle: formatStandardLabel(code, jurisdiction),
-          summary,
-        },
-        metadataTitle,
-      )
-    case "get_prerequisites":
-      return withMetadataTitle(
-        {
-          title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_prerequisites,
-          subtitle: formatStandardLabel(code, jurisdiction),
-          summary,
-        },
-        metadataTitle,
-      )
-    case "get_next_standards":
-      return withMetadataTitle(
-        {
-          title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_next_standards,
-          subtitle: formatStandardLabel(code, jurisdiction),
-          summary,
-        },
-        metadataTitle,
-      )
-    case "get_crosswalk":
-      return withMetadataTitle(
-        {
-          title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_crosswalk,
-          subtitle:
-            code && targetJurisdiction
-              ? `${code} → ${targetJurisdiction}`
-              : formatStandardLabel(code, jurisdiction),
-          summary,
-        },
-        metadataTitle,
-      )
-    case "query_standards_sql":
-      return withMetadataTitle(
-        {
-          title: KNOWLEDGE_GRAPH_TOOL_TITLES.query_standards_sql,
-          subtitle: sql,
-          summary,
+          title: KNOWLEDGE_GRAPH_TOOL_TITLES[summary.kind],
+          subtitle: subject,
+          summary: result,
         },
         metadataTitle,
       )
@@ -600,16 +437,14 @@ export function getToolInfo(
       return {
         title: metadataTitle.action,
         subtitle: metadataTitle.detail,
-        summary,
+        summary: result,
       }
   }
 }
 
 export function getToolInfoForPart(part: MessagePart, state: ToolState): ToolInfo | undefined {
-  if (part.type !== "tool") return undefined
-  const tool = parseTString(part.tool)
-  if (tool === undefined) return undefined
+  if (!isChatToolPart(part)) return undefined
   const presentation = parseToolPresentation(part)
   if (!presentation || presentation.archetype === "silent") return undefined
-  return getToolInfo(tool, state, presentation)
+  return getToolInfo(state, presentation)
 }

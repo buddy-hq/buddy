@@ -1,3 +1,5 @@
+import { routeErrorBody } from "../http/route-errors"
+import { mapRouteError } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import type { DescribeRouteOptions } from "hono-openapi"
@@ -8,11 +10,9 @@ import {
 } from "@buddy/browser-contract"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import { readBoundedRequestBody, replayRequestBody } from "../http/bounded-request-body"
-import { assertSessionExistsInDirectory, SessionLookupError } from "../session"
+import { assertSessionExistsInDirectory } from "../session"
 import { BUDDY_OBJECT_KIND_VALUES } from "../objects"
 import {
-  BenchContextSnapshotMissingError,
-  BenchContextWriteConflictError,
   BENCH_DRAWER_KIND_VALUES,
   PublishBenchContextInputSchema,
   PublishBenchContextResponseSchema,
@@ -458,22 +458,6 @@ const storedBenchContextSnapshotOpenApiSchema = {
   },
 }
 
-function mapBenchRouteError<TError>(error: TError): Response | undefined {
-  if (error instanceof SessionLookupError) {
-    return error.response
-  }
-  if (error instanceof BenchContextSnapshotMissingError) {
-    return Response.json({ error: error.message }, { status: 404 })
-  }
-  if (
-    error instanceof BenchContextWriteConflictError ||
-    error instanceof BenchClientLeaseConflictError
-  ) {
-    return Response.json({ error: error.message }, { status: 409 })
-  }
-  return undefined
-}
-
 export const BenchRoutes = new Hono()
   .put(
     "/session/:sessionID/context",
@@ -527,7 +511,7 @@ export const BenchRoutes = new Hono()
             })
             return c.json(PublishBenchContextResponseSchema.parse({ revision: snapshot.revision }))
           },
-          mapError: mapBenchRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -561,7 +545,7 @@ export const BenchRoutes = new Hono()
             })
             return c.json(BenchClientLeaseReleaseResponseSchema.parse(result))
           },
-          mapError: mapBenchRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -594,7 +578,7 @@ export const BenchRoutes = new Hono()
         BENCH_CLIENT_ACTION_COMPLETION_MAX_REQUEST_BODY_BYTES,
       )
       if (result.status === "too_large") {
-        return c.json({ error: BENCH_CLIENT_ACTION_COMPLETION_TOO_LARGE_ERROR }, 413)
+        return c.json(routeErrorBody(413, BENCH_CLIENT_ACTION_COMPLETION_TOO_LARGE_ERROR), 413)
       }
       c.req.raw = replayRequestBody(c.req.raw, result.body)
       await next()
@@ -611,7 +595,7 @@ export const BenchRoutes = new Hono()
             })
             return c.json(BenchClientActionCompletionResponseSchema.parse(result))
           },
-          mapError: mapBenchRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )
@@ -644,7 +628,7 @@ export const BenchRoutes = new Hono()
             })
             return c.json(readBenchContext({ directory: context.directory, sessionID }))
           },
-          mapError: mapBenchRouteError,
+          mapError: mapRouteError,
         }),
       ),
   )

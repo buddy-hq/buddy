@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import type { PermissionRuleset } from "@buddy/opencode-adapter/permission"
-import { nextManagedPermission } from "../../src/learning/agent-execution/permissions/runtime-session-permissions"
+import { evaluatePermission } from "@buddy/transcript-contract/permission-rules"
+import { buildRuntimeSessionPermissionRules } from "../../src/learning/agent-execution/permissions/session-policy"
+import type { PermissionRuleset } from "@buddy/transcript-contract/permission-rules"
+const catalog = { toolIDs: ["ingest_full_text", "save_question_set"], subagentIDs: ["practice-agent"], skillNames: [], dynamicToolIDs: ["dynamic_one"] }
 
 describe("runtime session permissions", () => {
   test("preserves delegated child-session permissions without a runtime snapshot", () => {
@@ -16,14 +18,15 @@ describe("runtime session permissions", () => {
         action: "allow",
       },
       {
-        permission: "task",
+        permission: "subagent",
         pattern: "*",
         action: "deny",
       },
     ]
 
     expect(
-      nextManagedPermission({
+      buildRuntimeSessionPermissionRules({
+        catalog,
         existing: delegatedPermission,
         hasParentSession: true,
       }),
@@ -38,13 +41,14 @@ describe("runtime session permissions", () => {
         action: "allow",
       },
       {
-        permission: "task",
+        permission: "subagent",
         pattern: "*",
         action: "deny",
       },
     ]
 
-    const nextPermission = nextManagedPermission({
+    const nextPermission = buildRuntimeSessionPermissionRules({
+      catalog,
       existing: existingPermission,
       hasParentSession: false,
     })
@@ -57,8 +61,26 @@ describe("runtime session permissions", () => {
     ).toBe(false)
     expect(
       nextPermission.some(
-        (rule) => rule.permission === "task" && rule.pattern === "*" && rule.action === "deny",
+        (rule) => rule.permission === "subagent" && rule.pattern === "*" && rule.action === "deny",
       ),
     ).toBe(true)
   })
+})
+
+describe("v2 Buddy runtime policy", () => {
+  test("preserves unmanaged rules after managed allows and before managed denies", () => {
+    const preserved: PermissionRuleset = [
+      { permission: "read", pattern: ".env", action: "ask" },
+      { permission: "ingest_full_text", pattern: "private/*", action: "deny" },
+      { permission: "shell", pattern: "ls *", action: "allow" },
+    ]
+    const rules = buildRuntimeSessionPermissionRules({ catalog, existing: preserved, sessionRuntime: { access: { tools: { ingest_full_text: "allow", save_question_set: "ask" }, subagents: { "practice-agent": "ask" }, skills: { "custom-skill": "ask" } } } })
+    expect(rules.filter((rule) => rule.permission === "read" || rule.permission === "shell" || rule.pattern === "private/*")).toEqual(preserved)
+    expect(evaluatePermission("ingest_full_text", "private/file", rules).action).toBe("deny")
+    expect(evaluatePermission("ingest_full_text", "other/file", rules).action).toBe("allow")
+    expect(evaluatePermission("save_question_set", "*", rules).action).toBe("ask")
+    expect(evaluatePermission("skill", "custom-skill", rules).action).toBe("ask")
+    expect(evaluatePermission("subagent", "practice-agent", rules).action).toBe("ask")
+  })
+
 })

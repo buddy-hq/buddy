@@ -135,10 +135,8 @@ describe("locked chat error surfaces", () => {
           disposition: "terminal",
           details: {
             name: "APIError",
-            providerError: {
-              type: "usage_limit_reached",
-              message: "The usage limit has been reached",
-              planType: "plus",
+            limit: {
+              plan: "plus",
               resetsAt: 1_787_087_426,
               resetsInSeconds: 539_958,
             },
@@ -155,8 +153,8 @@ describe("locked chat error surfaces", () => {
         disposition: "terminal",
         details: {
           name: "APIError",
-          providerError: {
-            planType: "plus",
+          limit: {
+            plan: "plus",
             resetsAt: 1_787_087_426,
           },
         },
@@ -173,7 +171,7 @@ describe("locked chat error surfaces", () => {
         disposition: "terminal",
         details: {
           name: "APIError",
-          providerError: {
+          limit: {
             resetsInSeconds: Number.MAX_VALUE,
           },
         },
@@ -198,15 +196,10 @@ describe("locked chat error surfaces", () => {
 
     expect(
       createAssistantErrorCardSpec({
+        code: "region_blocked",
         category: "access-restricted",
         disposition: "terminal",
-        details: {
-          name: "APIError",
-          providerError: {
-            type: "RegionError",
-            message: "This model is not available in your region",
-          },
-        },
+        details: { name: "APIError" },
       }),
     ).toMatchObject({
       headline: "This model isn't available in your region",

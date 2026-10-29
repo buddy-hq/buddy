@@ -1,4 +1,4 @@
-import { defaultThemes as vendorThemes } from "@buddy/opencode-adapter/theme"
+import { defaultThemes as vendorThemes } from "@buddy/ui/theme"
 import type { DesktopTheme } from "./types"
 
 /** Vendor themes kept out of Buddy’s selectable catalog (branding). */

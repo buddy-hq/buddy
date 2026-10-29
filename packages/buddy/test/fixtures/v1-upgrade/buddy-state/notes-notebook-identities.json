@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "01M5J3SEWPMVS08BYP5QVTXK3H",
+      "directory": "/private/tmp/buddy-v1-fixture/home/Documents/Buddy/Fixture Notebook",
+      "kind": "notebook",
+      "filesystem": {
+        "device": "16777234",
+        "inode": "503788891"
+      }
+    }
+  ]
+}

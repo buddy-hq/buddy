@@ -237,6 +237,38 @@ describe("prompt store", () => {
     ])
   })
 
+  test("rehydrates persisted legacy reference parts with the canonical type", async () => {
+    const key = getPromptScopeKey("/repo", "session-legacy-reference")
+    localStorage.setItem(
+      PROMPT_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: PROMPT_STORE_VERSION,
+        state: {
+          draftsByKey: {
+            [key]: {
+              value: "Review @guide",
+              parts: [
+                { type: "text", text: "Review " },
+                { type: "opencode-reference", name: "guide", path: "notes/guide.md" },
+              ],
+              attachments: [],
+              cursor: 13,
+              updatedAt: 1,
+            },
+          },
+          historyByDirectory: {},
+        },
+      }),
+    )
+
+    await usePromptStore.persist.rehydrate()
+
+    expect(getPromptDraft(usePromptStore.getState(), key).parts).toEqual([
+      { type: "text", text: "Review " },
+      { type: "reference", name: "guide", path: "notes/guide.md" },
+    ])
+  })
+
   test("rehydrates canonical PDF selections without flattened location fields", async () => {
     const key = getPromptScopeKey("/repo", "session-pdf")
     const anchor = {

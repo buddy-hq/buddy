@@ -1,22 +1,20 @@
 import { useMemo } from "react"
 import { useShallow } from "zustand/react/shallow"
-import { parseSubagentSession } from "@/lib/session-family"
-import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
+import type { SubagentPresentation } from "@buddy/transcript-contract/subagent"
+import { completionForSubagent, completionSettlesSubagent, subagentRunStatus } from "@/lib/running-subagents"
 import { useChatStore } from "@/state/chat-store"
 import { isSessionStatusActive } from "@/state/session-status"
 import { useTranscriptSessionMessages } from "@/state/transcript-repository"
-import { readNonEmptyString, readString } from "../../types"
+import { readNonEmptyString } from "../../types"
 import type { ToolPartProps } from "../../registry"
-import {
-  activityEntryIsActive,
-  createActivityEntry,
-  resolveActivityHeader,
-} from "../../activity-row/entries"
+import { activityEntryIsActive, createActivityEntry, resolveActivityHeader } from "../../activity-row/entries"
 import type { SubagentCardStatus } from "./subagent-card"
 
-export function toolStateToSubagentStatus(
-  status: ToolPartProps["state"]["status"],
-): SubagentCardStatus {
+export type SubagentCardInput = Pick<ToolPartProps, "state" | "onOpenSession" | "directory"> & {
+  subagent?: SubagentPresentation
+}
+
+function toolStateToSubagentStatus(status: ToolPartProps["state"]["status"]): SubagentCardStatus {
   switch (status) {
     case "running":
       return "running"
@@ -29,73 +27,47 @@ export function toolStateToSubagentStatus(
   }
 }
 
-export function useSubagentCardData(
-  input: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">,
-) {
-  const childSessionID = readString(input.state.metadata.sessionId)
-  const configuredTaskTitle = readNonEmptyString(input.state.input.description)
-  const onOpenSession = input.onOpenSession
-  const openChildSession =
-    childSessionID && onOpenSession ? () => onOpenSession(childSessionID) : undefined
-
-  const parentToolIsActive = input.state.status === "pending" || input.state.status === "running"
+export function useSubagentCardData(input: SubagentCardInput) {
+  const subagent = input.subagent
+  const childSessionID = subagent?.childSessionID
+  const ownerMessages = useTranscriptSessionMessages(input.directory, subagent?.ownerSessionID)
   const childMessages = useTranscriptSessionMessages(input.directory, childSessionID)
-
-  const { taskTitle, childSessionStatus } = useChatStore(
-    useShallow((store) => {
-      const dirState = input.directory ? store.directories[input.directory] : undefined
-      const childSession = dirState?.sessions.find((s) => s.id === childSessionID)
-      const parsedSession = childSession ? parseSubagentSession(childSession) : undefined
-
-      return {
-        taskTitle: parsedSession?.title ?? configuredTaskTitle,
-        childSessionStatus: childSessionID
-          ? dirState?.sessionStatusByID[childSessionID]
-          : undefined,
-      }
-    }),
-  )
-  const latestChildAssistant = childMessages.findLast(
-    (message) => message.info.role === "assistant",
-  )
-  const childSettled =
-    !!latestChildAssistant &&
-    isTerminalAssistantMessageInfo(latestChildAssistant.info) &&
-    !isSessionStatusActive(childSessionStatus)
-  const cardIsActiveForHeader = parentToolIsActive && !childSettled
+  const { childTitle, childSessionStatus } = useChatStore(useShallow((store) => {
+    const directoryState = input.directory ? store.directories[input.directory] : undefined
+    return {
+      childTitle: childSessionID ? directoryState?.sessions.find((session) => session.id === childSessionID)?.title : undefined,
+      childSessionStatus: childSessionID ? directoryState?.sessionStatusByID[childSessionID] : undefined,
+    }
+  }))
+  const completion = subagent ? completionForSubagent(ownerMessages, subagent) : undefined
+  const status: SubagentCardStatus = subagent
+    ? subagentRunStatus(subagent, completion, isSessionStatusActive(childSessionStatus), completionSettlesSubagent(ownerMessages, subagent))
+    : toolStateToSubagentStatus(input.state.status)
+  const taskTitle = subagent?.description ?? readNonEmptyString(input.state.summary?.subject) ?? (childTitle || undefined)
+  const onOpenSession = input.onOpenSession
+  const openChildSession = childSessionID && onOpenSession ? () => onOpenSession(childSessionID) : undefined
+  const cardIsActive = status === "pending" || status === "running"
   const allEntries = useMemo(
-    () =>
-      childMessages
-        .filter((message) => message.info.role === "assistant")
-        .flatMap((message) => message.parts.flatMap((part) => createActivityEntry(part) ?? [])),
+    () => childMessages
+      .filter((message) => message.info.role === "assistant")
+      .flatMap((message) => message.parts.flatMap((part) => createActivityEntry(part) ?? [])),
     [childMessages],
   )
   const header = useMemo(
-    () =>
-      resolveActivityHeader({
-        entries: allEntries,
-        busy: cardIsActiveForHeader,
-        current: cardIsActiveForHeader,
-        zeroEntryLabel: "Working",
-      }),
-    [allEntries, cardIsActiveForHeader],
+    () => resolveActivityHeader({ entries: allEntries, busy: cardIsActive, current: cardIsActive, zeroEntryLabel: "Working" }),
+    [allEntries, cardIsActive],
   )
   const childHasActiveTool = allEntries.some(activityEntryIsActive)
-
-  const toolStatus = toolStateToSubagentStatus(input.state.status)
-  const status =
-    childSettled && (toolStatus === "pending" || toolStatus === "running")
-      ? "completed"
-      : toolStatus
-  const cardIsActive = status === "pending" || status === "running"
-
-  const activityLine = cardIsActive && !childHasActiveTool ? undefined : header.label
+  const workerFinished = status === "completed" || status === "error" || status === "cancelled"
 
   return {
     taskTitle,
+    childSessionID,
     openChildSession,
-    activityLine,
-    activityContent: undefined,
     status,
+    activityLine: status === "waiting" || (cardIsActive && !childHasActiveTool) ? undefined : header.label,
+    activityContent: undefined,
+    result: workerFinished ? (completion?.result ?? subagent?.result ?? input.state.error) : undefined,
+    workerFinished,
   }
 }

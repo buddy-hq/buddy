@@ -32,6 +32,8 @@ import type {
 } from "@/components/prompt/mention-autocomplete"
 import type { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
 import type { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
+import { showNotebookFolderMissing } from "@/components/directory-chat/show-notebook-folder-missing"
+import { useDirectoryErrorNotice } from "@/components/directory-chat/use-directory-error-notice"
 import {
   isResourceLocalSlashCommandName,
   parseResourceLocalSlashCommand,
@@ -49,7 +51,10 @@ import { decodeDirectory, encodeDirectory } from "../directory-token"
 import {
   abortPrompt,
   closeOpenProject,
+  directoryActionError,
   ensureDirectorySession,
+  isNotebookFolderMissingError,
+  loadSessions,
   prefetchSessionMessages,
   createManagedNotebook,
   compactSession,
@@ -86,9 +91,10 @@ import {
   type PromptDraftState,
 } from "../../state/prompt-store"
 import { useChatStore } from "../../state/chat-store"
+import { getTranscriptMessages } from "../../state/transcript-repository"
 import { useNotifications } from "../../state/notifications"
 import type { SessionInfo } from "../../state/chat-types"
-import type { PermissionReply } from "../../state/permission-types"
+import type { PermissionReply, PermissionRequest } from "../../state/permission-types"
 import { useShallow } from "zustand/react/shallow"
 import { stringifyError } from "../../state/teaching-actions"
 import { teachingSelectionKey, useTeachingRuntime } from "../../state/teaching-runtime"
@@ -98,6 +104,7 @@ import {
   buildPromptImageEditIntent,
   buildPromptPreviewParts,
   buildPromptSubmissionParts,
+  turnSelectionDiffers,
 } from "./chat-prompt-helpers"
 import { useDirectoryChatState } from "./use-directory-chat-state"
 import { useChatSync } from "./use-chat-sync"
@@ -322,7 +329,7 @@ export function useDirectoryChatPageController(
     enabled: decodedDirectory.length > 0 && hasRegisteredProject,
   })
   const mentionableReferences = useMemo(() => {
-    const references = referenceQuery.data?.data
+    const references = referenceQuery.data
     if (!references) return EMPTY_MENTIONABLE_REFERENCES
     return references
       .filter((reference) => reference.hidden !== true)
@@ -333,7 +340,7 @@ export function useDirectoryChatPageController(
           reference.description ??
           (reference.source.type === "git" ? reference.source.repository : reference.source.path),
       }))
-  }, [referenceQuery.data?.data])
+  }, [referenceQuery.data])
   const {
     clearUnread,
     migrateWorkspaceDraft,
@@ -481,7 +488,6 @@ export function useDirectoryChatPageController(
     applyQuestionAsked: cs.applyQuestionAsked,
     applyQuestionResolved: cs.applyQuestionResolved,
     clearDirectoryError: cs.clearDirectoryError,
-    setDirectoryError: cs.setDirectoryError,
     setStreamStatus: cs.setStreamStatus,
     refreshSlashCommands: chatConfig.refreshSlashCommands,
     refreshMcpStatus: chatConfig.refreshMcpStatus,
@@ -559,6 +565,23 @@ export function useDirectoryChatPageController(
     useTeachingRuntime.getState().migrateWorkspaceSelection(decodedDirectory, sessionID)
   }, [decodedDirectory, migrateWorkspaceDraft, sessionID])
 
+  const closeDirectoryRef = useRef(onCloseDirectory)
+  closeDirectoryRef.current = onCloseDirectory
+  const reportNotebookFolderMissing = useCallback(<TError>(directory: string, error: TError) => {
+    if (!isNotebookFolderMissingError(error)) return
+    showNotebookFolderMissing({
+      directory,
+      onCloseNotebook: () => {
+        void closeDirectoryRef.current(directory)
+      },
+    })
+  }, [])
+  useDirectoryErrorNotice({
+    directory: decodedDirectory,
+    onCloseNotebook: (directory) => void closeDirectoryRef.current(directory),
+    onOpenSettings: () => openSettings("general"),
+  })
+
   useEffect(() => {
     if (decodedDirectory === "/") {
       const fallback = validOpenProjects[0]
@@ -613,6 +636,7 @@ export function useDirectoryChatPageController(
       .catch(async (error) => {
         const state = useChatStore.getState()
         if (state.openProjects.includes(decodedDirectory)) {
+          reportNotebookFolderMissing(decodedDirectory, error)
           await activateChatDirectory({ directory: decodedDirectory })
           return
         }
@@ -633,6 +657,7 @@ export function useDirectoryChatPageController(
     hasRegisteredProject,
     navigate,
     navigateToWorkspaceRoute,
+    reportNotebookFolderMissing,
     validOpenProjects,
   ])
 
@@ -659,6 +684,9 @@ export function useDirectoryChatPageController(
             directory: decodedDirectory,
             sessionID: targetSessionID,
           })
+          if (result.outcome === "failed") {
+            reportNotebookFolderMissing(decodedDirectory, result.error)
+          }
           if (result.outcome !== "committed" && result.outcome !== "noop") return
           if (result.value.outcome === "draft" || result.value.outcome === "failed") return
           clearUnread(decodedDirectory, result.value.sessionID)
@@ -668,7 +696,7 @@ export function useDirectoryChatPageController(
         }
       })()
     },
-    [clearUnread, decodedDirectory],
+    [clearUnread, decodedDirectory, reportNotebookFolderMissing],
   )
 
   const syncTeachingRuntimeSelection = useCallback(
@@ -717,6 +745,9 @@ export function useDirectoryChatPageController(
       if (result.outcome !== "committed" && result.outcome !== "noop") return
       seedDraftModelSelection(targetDirectory)
       requestPromptComposerFocus(targetDirectory)
+      void loadSessions(targetDirectory).catch((error) =>
+        reportNotebookFolderMissing(targetDirectory, error),
+      )
     } catch {
       // Store already captures and displays errors.
     }
@@ -742,6 +773,7 @@ export function useDirectoryChatPageController(
         sessionID: nextSessionID,
         navigate: targetDirectory === decodedDirectory ? undefined : navigateToWorkspaceRoute,
       })
+      if (result.outcome === "failed") reportNotebookFolderMissing(targetDirectory, result.error)
       if (result.outcome !== "committed" && result.outcome !== "noop") return false
       if (result.value.outcome !== "requested" && result.value.outcome !== "fallback") {
         return false
@@ -760,13 +792,14 @@ export function useDirectoryChatPageController(
     }
   }
 
-  async function onPermissionReply(requestID: string, reply: PermissionReply) {
+  async function onPermissionReply(request: PermissionRequest, reply: PermissionReply) {
     if (!decodedDirectory) return
     try {
-      await replyPermission({ directory: decodedDirectory, requestID, reply })
-      removeDirectoryPermissionQueryData(queryClient, decodedDirectory, requestID)
-    } catch {
-      // Store error is handled elsewhere; keep UI non-blocking here.
+      await replyPermission({ directory: decodedDirectory, request, reply })
+      removeDirectoryPermissionQueryData(queryClient, decodedDirectory, request.id)
+    } catch (error) {
+      reportCurrentDirectoryError(error)
+      throw error
     }
   }
 
@@ -793,7 +826,7 @@ export function useDirectoryChatPageController(
   const reportCurrentDirectoryError = useCallback(
     <T>(error: T) => {
       if (!decodedDirectory) return
-      cs.setDirectoryError(decodedDirectory, stringifyError(error))
+      cs.setDirectoryError(decodedDirectory, directoryActionError(error))
     },
     [cs, decodedDirectory],
   )
@@ -1432,13 +1465,13 @@ export function useDirectoryChatPageController(
 
       if (slashCommand.command.name === COMPACT_SLASH_COMMAND_NAME) {
         if (!cs.effectiveModelSelection) {
-          cs.setDirectoryError(decodedDirectory, COMPACT_SESSION_MISSING_MODEL_ERROR)
+          cs.setDirectoryError(decodedDirectory, { message: COMPACT_SESSION_MISSING_MODEL_ERROR })
           restorePromptSnapshot(draftSnapshot)
           return
         }
 
         if (!sessionID) {
-          cs.setDirectoryError(decodedDirectory, COMPACT_SESSION_MISSING_SESSION_ERROR)
+          cs.setDirectoryError(decodedDirectory, { message: COMPACT_SESSION_MISSING_SESSION_ERROR })
           restorePromptSnapshot(draftSnapshot)
           return
         }
@@ -1477,7 +1510,9 @@ export function useDirectoryChatPageController(
 
       const attachmentParts = buildCommandAttachmentParts(rawAttachments)
       if (!attachmentParts) {
-        cs.setDirectoryError(decodedDirectory, NATIVE_RESOURCE_SLASH_COMMAND_UNSUPPORTED_ERROR)
+        cs.setDirectoryError(decodedDirectory, {
+          message: NATIVE_RESOURCE_SLASH_COMMAND_UNSUPPORTED_ERROR,
+        })
         restorePromptSnapshot(draftSnapshot)
         return
       }
@@ -1506,7 +1541,19 @@ export function useDirectoryChatPageController(
       return
     }
 
-    if (cs.isBusy && followupBehavior === FOLLOWUP_BEHAVIOR_QUEUE) {
+    const lastUserMessage = getTranscriptMessages(decodedDirectory, sessionID).findLast(
+      (message) => message.info.role === "user",
+    )
+    const turn = lastUserMessage?.info.role === "user" ? lastUserMessage.info : undefined
+    if (
+      cs.isBusy &&
+      (followupBehavior === FOLLOWUP_BEHAVIOR_QUEUE ||
+        turnSelectionDiffers(turn, {
+          agent: currentAgentName,
+          model: cs.effectiveModelSelection ?? undefined,
+          variant,
+        }))
+    ) {
       const queuedFollowup = enqueueFollowup(
         draft,
         "queue",
@@ -1661,6 +1708,7 @@ export function useDirectoryChatPageController(
     directories: cs.sidebarDirectories,
     currentDirectory: decodedDirectory,
     selectedModel: cs.selectedModelKey,
+    providers: cs.providers,
     sessionsByDirectory: cs.sessionsByDirectory,
     activeSessionID: cs.sessionID,
     sessionStatusByDirectory: cs.sessionStatusByDirectory,
@@ -1783,7 +1831,7 @@ export function useDirectoryChatPageController(
     },
     onPermissionReply: async (reply) => {
       if (!cs.pendingPermissions[0]) return
-      await onPermissionReply(cs.pendingPermissions[0].id, reply)
+      await onPermissionReply(cs.pendingPermissions[0], reply)
     },
     onQuestionReply: async (requestID, answers) => {
       await onQuestionReply(requestID, answers)
@@ -1798,7 +1846,7 @@ export function useDirectoryChatPageController(
     onCompactTerminalError: async ({ sessionID: failedSessionID, userMessageID }) => {
       const selection = cs.effectiveModelSelection
       if (!selection) {
-        cs.setDirectoryError(decodedDirectory, COMPACT_SESSION_MISSING_MODEL_ERROR)
+        cs.setDirectoryError(decodedDirectory, { message: COMPACT_SESSION_MISSING_MODEL_ERROR })
         return
       }
 

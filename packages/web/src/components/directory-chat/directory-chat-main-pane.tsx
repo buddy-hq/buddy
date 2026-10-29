@@ -22,6 +22,7 @@ import { preventDefaultForFileDrag } from "@/components/directory-chat/directory
 import { SessionContextUsage } from "@/components/directory-chat/session-context-usage"
 import { ChatTranscript } from "@/components/chat/chat-transcript"
 import { PermissionDock } from "@/components/directory-chat/permission-dock"
+import { McpInputNotice } from "@/components/directory-chat/mcp-input-notice"
 import { QuestionDock } from "@/components/directory-chat/question-dock"
 import {
   SessionFollowupDock,
@@ -40,6 +41,8 @@ import { getSessionContextMetrics } from "@/state/context-metrics"
 import { providerCatalogSnapshotQueryOptions } from "@/state/bootstrap-query"
 import type { ResourceReadingTarget } from "@/state/resources-query"
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
+import { createBeforeRevertFilter } from "@/state/session-revert"
+import { useTranscriptSessionMeta } from "@/state/transcript-repository"
 import type { PermissionReply } from "@/state/permission-types"
 import { Redo2Icon } from "@/icons/app-icons"
 import { JumpToLatestButton } from "@/components/chat/jump-to-latest-button"
@@ -50,7 +53,7 @@ import { useNetworkStatus } from "@/lib/network-status"
 import { useLocation } from "@tanstack/react-router"
 import { WhiteboardOpeningPreview } from "@/components/whiteboard/whiteboard-opening-preview"
 import { findLatestTodoSnapshot } from "@/components/chat/tools/todo-state"
-import { isAnonymousOpenCodeProvider } from "@/lib/provider-catalog"
+import { isAnonymousBundledProvider } from "@/lib/provider-catalog"
 import {
   AssistantErrorCard,
   createAssistantErrorCardSpec,
@@ -350,14 +353,15 @@ export function resolveCurrentSessionQuestions(input: {
 export function resolveRevertedUserMessageCount(input: {
   messages: MessageWithParts[]
   revertMessageID?: string
+  transcriptComplete: boolean
 }) {
-  const revertMessageID = input.revertMessageID
-  if (!revertMessageID) {
+  if (!input.revertMessageID) {
     return 0
   }
 
+  const isBeforeRevert = createBeforeRevertFilter(input)
   return input.messages.filter(
-    (message) => message.info.role === "user" && message.info.id >= revertMessageID,
+    (message) => message.info.role === "user" && !isBeforeRevert(message),
   ).length
 }
 
@@ -416,28 +420,35 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     [chatState.pendingQuestions, chatState.sessionID],
   )
   const revertMessageID = chatState.sessionFamily.current?.revert?.messageID
+  const transcriptComplete = useTranscriptSessionMeta(directory, chatState.sessionID).complete
   const revertedUserMessageCount = useMemo(
     () =>
       resolveRevertedUserMessageCount({
         messages: chatState.messages,
         revertMessageID,
+        transcriptComplete,
       }),
-    [chatState.messages, revertMessageID],
+    [chatState.messages, revertMessageID, transcriptComplete],
   )
   const todoSnapshot = useMemo(
     () =>
       findLatestTodoSnapshot({
         messages: chatState.messages,
         revertMessageID,
+        transcriptComplete,
       }),
-    [chatState.messages, revertMessageID],
+    [chatState.messages, revertMessageID, transcriptComplete],
   )
   const visibleMessages = useMemo(() => {
-    const visible = chatState.messages.filter((message) => !isHiddenFromUserMessage(message))
-    return revertMessageID
-      ? visible.filter((message) => message.info.id < revertMessageID)
-      : visible
-  }, [chatState.messages, revertMessageID])
+    const isBeforeRevert = createBeforeRevertFilter({
+      messages: chatState.messages,
+      revertMessageID,
+      transcriptComplete,
+    })
+    return chatState.messages.filter(
+      (message) => !isHiddenFromUserMessage(message) && isBeforeRevert(message),
+    )
+  }, [chatState.messages, revertMessageID, transcriptComplete])
   const terminalError = useMemo(
     () => resolveLatestTerminalAssistantError(visibleMessages, chatState.providers),
     [chatState.providers, visibleMessages],
@@ -446,7 +457,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     ? chatState.providers.find((provider) => provider.id === terminalError.providerID)
     : undefined
   const terminalErrorProviderName =
-    terminalErrorProvider && !isAnonymousOpenCodeProvider(terminalErrorProvider)
+    terminalErrorProvider && !isAnonymousBundledProvider(terminalErrorProvider)
       ? terminalErrorProvider.name
       : undefined
   const terminalErrorSpec = terminalError
@@ -767,6 +778,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                       directory={directory}
                       directories={props.directories}
                       selectedModel={chatState.selectedModelKey}
+                      providers={chatState.providers}
                       persona={chatState.selectedPersona}
                       onSelectNotebook={props.onSelectNotebook}
                       onStartGetStartedChat={props.onStartGetStartedChat}
@@ -801,6 +813,11 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           </div>
 
           <div ref={blockingSurfacesRef} className="shrink-0">
+            <McpInputNotice
+              sessionID={chatState.sessionID}
+              isRunning={chatState.isTurnActive}
+              onStop={stopTurn}
+            />
             {chatState.pendingPermissions.length > 0 ? (
               <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
                 <PermissionDock

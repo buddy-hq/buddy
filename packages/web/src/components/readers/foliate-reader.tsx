@@ -41,6 +41,7 @@ import { ReaderAnnotationPopover } from "./ui/reader-annotation-popover"
 import { ReaderSelectionToolbar } from "./ui/reader-selection-toolbar"
 import { FoliatePreferencesPanel } from "./ui/foliate-preferences-panel"
 import { ensureFoliateRuntimeCompat } from "@/lib/foliate/ensure-foliate-runtime-compat"
+import { openFoliateBook } from "./foliate-book"
 import type {
   FoliateDrawAnnotationEventDetail,
   FoliateNavigationTarget,
@@ -1272,7 +1273,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           view.addEventListener("load", loadListener)
           view.history.addEventListener("index-change", historyListener)
 
-          await view.open(toFoliateInput(stableSource))
+          const opened = await openFoliateBook(view, toFoliateInput(stableSource))
+          if (opened.status === "error") throw opened.error
           if (cancelled) return
 
           const currentReaderSource = readerSourceRef.current

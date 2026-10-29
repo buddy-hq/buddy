@@ -10,11 +10,8 @@ import { ensureSystemSkillsInstalled } from "../../learning/skill-management/ser
 import { BUDDY_ENV, Global } from "../../storage"
 
 const BUNDLED_FEATURE_RELATIVE_PATHS = [
-  // Bundled desktop runtime layout: resources/backend/learning/...
   "learning/features",
-  // Bundled chunks/runtime variants.
   "../learning/features",
-  // Source layout from src/config/opencode/skills.ts.
   "../../learning/features",
   "../../../learning/features",
   "../../../src/learning/features",
@@ -257,4 +254,5 @@ export {
   resolveBuddyBundledSkillRoots,
   resolveBuddySourceBundledSkillRoots,
   resolveOpenCodeSkillPaths,
+  resolveVendorSkillRoots,
 }

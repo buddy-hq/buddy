@@ -22,11 +22,11 @@ import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_SKILL,
   PROMPT_PART_TYPE_TEXT,
-  OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
+  isReferencePartType,
   readPromptNotebookReferencePart,
   readPromptReaderTextAnchor,
   type PromptComposerAttachment,
@@ -38,6 +38,7 @@ import {
   isPromptModelAttachment,
   isPromptReadyNativeResourceAttachment,
 } from "@/components/prompt/prompt-types"
+import { REFERENCE_PART_TYPE } from "@buddy/transcript-contract/prompt"
 import { z } from "zod"
 import { readCitation } from "@buddy/citation-contract"
 import { promptPartFromCitation } from "@/components/prompt/prompt-types"
@@ -232,11 +233,11 @@ function parsePromptComposerPart<TValue>(value: TValue): PromptComposerPart | un
     const name = parseStringValue(record.name)
     return name !== undefined ? { type: PROMPT_PART_TYPE_SKILL, name } : undefined
   }
-  if (type === OPENCODE_REFERENCE_PART_TYPE) {
+  if (isReferencePartType(type)) {
     const name = parseStringValue(record.name)
     const path = parseStringValue(record.path)
     return name !== undefined && path !== undefined
-      ? { type: OPENCODE_REFERENCE_PART_TYPE, name, path }
+      ? { type: REFERENCE_PART_TYPE, name, path }
       : undefined
   }
   if (type === WORKSPACE_FILE_REFERENCE_PART_TYPE) {

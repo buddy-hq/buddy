@@ -1,14 +1,12 @@
-import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { SessionPrompt as OpenCodeSessionPrompt } from "@buddy/opencode-adapter/session-prompt"
+import { getAgentRuntime } from "../../../runtime/agent-runtime"
+import { parseMemoryObject } from "./structured-output"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { ulid } from "ulid"
 import z from "zod"
 import { LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON, resolveLearnerMemoryModel } from "./models"
 import { LearnerMemoryPath } from "./paths"
-import { readProjectConfig, syncOpenCodeProjectConfig } from "../../../config/runtime"
+import { readProjectConfig } from "../../../config/runtime/project-config"
 import { readLearnerMemorySettings } from "./settings"
 import { LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY } from "./subagents/memory-consolidator"
 import { LEARNER_MEMORY_CONSOLIDATION_SESSION_TITLE } from "./internal-session"
@@ -31,26 +29,6 @@ import {
   withRecoveredConsolidationPublication,
 } from "./consolidation-publication"
 
-const CONSOLIDATION_TOOLS = {
-  apply_patch: false,
-  bash: false,
-  batch: false,
-  codesearch: false,
-  edit: true,
-  glob: true,
-  grep: true,
-  list: false,
-  lsp: false,
-  question: false,
-  read: true,
-  skill: false,
-  task: false,
-  todoread: false,
-  todowrite: false,
-  webfetch: false,
-  websearch: false,
-  write: true,
-} satisfies Record<string, boolean>
 const CONSOLIDATION_OUTPUT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -138,7 +116,7 @@ function buildConsolidationPrompt(input: {
 }
 
 function uniqueStrings(values: readonly string[]): string[] {
-  return Array.from(new Set(values))
+  return Array.from(new Set(values.map((value) => value.replaceAll("\\", "/"))))
 }
 
 async function memoryRootPermissionPatterns(input: {
@@ -149,7 +127,12 @@ async function memoryRootPermissionPatterns(input: {
   const memoryRoot = LearnerMemoryPath.root(input.directory)
   const realMemoryRoot = await fs.realpath(memoryRoot).catch(() => memoryRoot)
   const realEditableRoot = await fs.realpath(input.editableRoot).catch(() => input.editableRoot)
-  const read = uniqueStrings([path.join(memoryRoot, "*"), path.join(realMemoryRoot, "*")])
+  const read = uniqueStrings([
+    path.join(memoryRoot, "*"),
+    path.join(realMemoryRoot, "*"),
+    path.join(path.relative(input.worktree, memoryRoot), "*"),
+    path.join(path.relative(input.worktree, realMemoryRoot), "*"),
+  ])
   const editablePatterns = uniqueStrings([
     path.join(input.editableRoot, "*"),
     path.join(realEditableRoot, "*"),
@@ -323,67 +306,47 @@ async function runConsolidationSubagent(input: {
   prompt: string
   editableRoot: string
 }): Promise<z.infer<typeof ConsolidationModelOutputSchema>> {
+  const runtime = await getAgentRuntime()
+  const location = await runtime.workspace.location(input.directory)
   const permissionPatterns = await memoryRootPermissionPatterns({
     directory: input.directory,
-    worktree: OpenCodeInstance.worktree,
+    worktree: location.directory,
     editableRoot: input.editableRoot,
   })
-  const session = await OpenCodeSession.create({
+  const session = await runtime.conversations.create(input.directory, {
     title: LEARNER_MEMORY_CONSOLIDATION_SESSION_TITLE,
-    permission: [
+    agent: LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY,
+    model: { providerID: input.model.providerID, modelID: input.model.modelID },
+    permissions: [
       { permission: "*", pattern: "*", action: "deny" },
-      { permission: "read", pattern: "*", action: "deny" },
-      { permission: "edit", pattern: "*", action: "deny" },
-      { permission: "write", pattern: "*", action: "deny" },
       { permission: "glob", pattern: "*", action: "allow" },
       { permission: "grep", pattern: "*", action: "allow" },
-      ...permissionPatterns.externalDirectory.map((pattern) => ({
-        permission: "external_directory" as const,
-        pattern,
-        action: "allow" as const,
-      })),
-      ...permissionPatterns.read.map((pattern) => ({
-        permission: "read" as const,
-        pattern,
-        action: "allow" as const,
-      })),
-      ...permissionPatterns.edit.map((pattern) => ({
-        permission: "edit" as const,
-        pattern,
-        action: "allow" as const,
-      })),
-      ...permissionPatterns.write.map((pattern) => ({
-        permission: "write" as const,
-        pattern,
-        action: "allow" as const,
-      })),
+      ...permissionPatterns.externalDirectory.map((resource) => ({ permission: "external_directory", pattern: resource, action: "allow" as const })),
+      ...permissionPatterns.read.map((resource) => ({ permission: "read", pattern: resource, action: "allow" as const })),
+      ...permissionPatterns.edit.map((resource) => ({ permission: "edit", pattern: resource, action: "allow" as const })),
     ],
   })
   try {
-    const result = await OpenCodeSessionPrompt.prompt({
-      sessionID: SessionID.make(session.id),
-      messageID: MessageID.ascending(),
-      model: {
-        providerID: ProviderID.make(input.model.providerID),
-        modelID: ModelID.make(input.model.modelID),
-      },
-      agent: LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY,
-      format: {
-        type: "json_schema",
-        schema: CONSOLIDATION_OUTPUT_JSON_SCHEMA,
-        retryCount: LEARNER_MEMORY_CONSOLIDATION_TUNING.modelRetries,
-      },
-      tools: CONSOLIDATION_TOOLS,
-      parts: [{ type: "text", text: input.prompt }],
-    })
-    return ConsolidationModelOutputSchema.parse(
-      result.info.role === "assistant" ? result.info.structured : undefined,
-    )
+    const admitted = await runtime.execution.admit({ sessionID: session.id, text: input.prompt })
+    if (!admitted.ok) throw admitted.error
+    const outcome = await runtime.execution.wait(session.id)
+    if (outcome === "failed" || outcome === "interrupted") {
+      throw new Error(`Memory consolidation ${outcome}`)
+    }
+    for (let attempt = 0; attempt <= LEARNER_MEMORY_CONSOLIDATION_TUNING.modelRetries; attempt += 1) {
+      const response = await runtime.execution.generate({
+        sessionID: session.id,
+        prompt: `Report the completed consolidation as a JSON object only, matching this schema: ${JSON.stringify(CONSOLIDATION_OUTPUT_JSON_SCHEMA)}`,
+      })
+      const parsed = parseMemoryObject(response, ConsolidationModelOutputSchema)
+      if (parsed.success) return parsed.data
+      if (attempt === LEARNER_MEMORY_CONSOLIDATION_TUNING.modelRetries) throw parsed.error
+    }
+    throw new Error("Memory consolidation did not produce a result")
   } finally {
-    await OpenCodeSession.setArchived({
-      sessionID: SessionID.make(session.id),
-      time: Date.now(),
-    })
+    const archive = await runtime.conversations.transcript(session.id)
+    await writeTextFileAtomic(path.join(LearnerMemoryPath.root(input.directory), "consolidation-archives", `${session.id}.json`), JSON.stringify(archive))
+    await runtime.conversations.remove(session.id)
   }
 }
 
@@ -452,7 +415,6 @@ async function runLearnerMemoryConsolidation(input: {
   let staging: ConsolidationStagingTargets | undefined
 
   try {
-    await syncOpenCodeProjectConfig(input.directory)
     await pruneLearnerMemoryStageOneOutputs({
       directory: input.directory,
       maxUnusedDays: settings.maxUnusedStageOneDays,
@@ -482,14 +444,10 @@ async function runLearnerMemoryConsolidation(input: {
     const activeStaging = await createConsolidationStagingTargets(input.directory)
     staging = activeStaging
 
-    const model = await OpenCodeInstance.provide({
+    const model = await resolveLearnerMemoryModel({
       directory: input.directory,
-      fn: async () =>
-        resolveLearnerMemoryModel({
-          directory: input.directory,
-          purpose: "consolidate",
-          allowGenericFallback: input.force === true,
-        }),
+      purpose: "consolidate",
+      allowGenericFallback: input.force === true,
     })
     if (!model) {
       await markLearnerMemoryPhaseTwoJobFailed({
@@ -504,23 +462,19 @@ async function runLearnerMemoryConsolidation(input: {
         memoryIds: [],
       }
     }
-    const parsed = await OpenCodeInstance.provide({
+    const parsed = await runConsolidationSubagent({
       directory: input.directory,
-      fn: async () =>
-        runConsolidationSubagent({
-          directory: input.directory,
-          model,
-          editableRoot: activeStaging.root,
-          prompt: buildConsolidationPrompt({
-            directory: input.directory,
-            memoryRegistryPath: activeStaging.memoryRegistryPath,
-            memorySummaryPath: activeStaging.memorySummaryPath,
-            outputs,
-            rawMemoriesPath: artifacts.rawMemoriesPath,
-            rolloutSummaryPaths: artifacts.rolloutSummaryPaths,
-            diff: selection.diff,
-          }),
-        }),
+      model,
+      editableRoot: activeStaging.root,
+      prompt: buildConsolidationPrompt({
+        directory: input.directory,
+        memoryRegistryPath: activeStaging.memoryRegistryPath,
+        memorySummaryPath: activeStaging.memorySummaryPath,
+        outputs,
+        rawMemoriesPath: artifacts.rawMemoriesPath,
+        rolloutSummaryPaths: artifacts.rolloutSummaryPaths,
+        diff: selection.diff,
+      }),
     })
     await assertConsolidationOutputReferencesTargetFiles({
       directory: activeStaging.root,

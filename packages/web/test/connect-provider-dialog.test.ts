@@ -3,11 +3,12 @@ import { providerNeedsConfigDisable } from "../src/lib/provider-connection"
 import { createProviderInfo } from "./test-utils"
 
 describe("providerNeedsConfigDisable", () => {
-  test("never disables opencode via config on disconnect", () => {
+  test("never disables the bundled provider via config on disconnect", () => {
     expect(
       providerNeedsConfigDisable(
         createProviderInfo({
           id: "opencode",
+          bundled: true,
           source: "custom",
         }),
         {

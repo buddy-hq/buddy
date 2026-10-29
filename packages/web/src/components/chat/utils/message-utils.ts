@@ -1,6 +1,6 @@
 import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
-import type { ToolCollectionToken } from "@buddy/opencode-adapter/tool-presentation"
-import type { ToolLayoutRole } from "@buddy/opencode-adapter/tool-presentation"
+import type { ToolCollectionToken } from "@buddy/transcript-contract/tool-presentation"
+import type { ToolLayoutRole } from "@buddy/transcript-contract/tool-presentation"
 
 import { parseToolPresentation } from "../tools/parse-tool-presentation"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./part-guards"
@@ -60,7 +60,7 @@ export function assistantPartRenderable(
         (parseTNumber(time?.start) !== undefined && parseTNumber(time?.end) !== undefined))
     )
   }
-  if (part.type === "compaction") return false
+  if (part.type === "compaction") return parseTString(part.status) !== undefined
   if (part.type === "step-start" || part.type === "step-finish") return false
   if (part.type === "patch") return false
   if (!isChatToolPart(part)) return true

@@ -1,3 +1,4 @@
+import { routeErrorBody } from "../http/route-errors"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import fs from "node:fs/promises"
@@ -429,7 +430,7 @@ export const LearnerRoutes = new Hono()
   .use("*", async (c, next) => {
     const config = await Config.getGlobal()
     if (!experimentalFeatureIsEnabled(config, EXPERIMENTAL_FEATURE_ID.learnerMemory)) {
-      return c.json({ error: "Memory is an experimental feature that is not enabled" }, 403)
+      return c.json(routeErrorBody(403, "Memory is an experimental feature that is not enabled"), 403)
     }
     await next()
   })
@@ -747,7 +748,7 @@ export const LearnerRoutes = new Hono()
           memoryId: c.req.valid("param").memoryId,
         })
         if (!memory) {
-          return c.json({ error: "Memory not found" }, 404)
+          return c.json(routeErrorBody(404, "Memory not found"), 404)
         }
         const sources = await buildLearnerMemorySourcePointers({
           directory: context.directory,

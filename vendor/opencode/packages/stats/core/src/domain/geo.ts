@@ -8,7 +8,6 @@ import {
   chunks,
   collapseRows,
   inserted,
-  isMissingUniqueUsersColumn,
   omitUniqueUsers,
   rankRowsWithMarketShare,
   statPeriodKey,
@@ -16,6 +15,7 @@ import {
   synthesizeAllTierRows,
   toStatBaseRow,
   UPSERT_CHUNK_SIZE,
+  withUniqueUsersFallback,
   type StatBaseAggregate,
 } from "./stat"
 
@@ -138,14 +138,7 @@ export class GeoStatRepo extends Context.Service<GeoStatRepo, GeoStatRepo.Servic
           chunks(rows, UPSERT_CHUNK_SIZE),
           (chunk) =>
             Effect.tryPromise({
-              try: async () => {
-                try {
-                  return await upsertGeoChunk(chunk, true)
-                } catch (cause) {
-                  if (!isMissingUniqueUsersColumn(cause)) throw cause
-                  return upsertGeoChunk(chunk, false)
-                }
-              },
+              try: () => withUniqueUsersFallback((includeUniqueUsers) => upsertGeoChunk(chunk, includeUniqueUsers)),
               catch: (cause) => DatabaseError.make({ cause }),
             }),
           { discard: true },
@@ -206,7 +199,11 @@ export class GeoStatRepo extends Context.Service<GeoStatRepo, GeoStatRepo.Servic
                   inArray(geoStat.dataset, scope.datasets),
                   inArray(geoStat.client, scope.clients),
                   inArray(geoStat.source, scope.sources),
-                  or(inArray(geoStat.provider, RETIRED_STAT_PROVIDERS), inArray(geoStat.model, RETIRED_STAT_MODELS)),
+                  or(
+                    inArray(geoStat.provider, RETIRED_STAT_PROVIDERS),
+                    inArray(geoStat.model, RETIRED_STAT_MODELS),
+                    and(eq(geoStat.provider, "unknown"), eq(geoStat.model, "hy4-preview")),
+                  ),
                 ),
               ),
           catch: (cause) => DatabaseError.make({ cause }),

@@ -17,12 +17,14 @@ function completedPatchPresentation(detail: string) {
   })
 }
 
-function completedApplyPatchState(files: ToolState["metadata"]["files"]): ToolState {
+function completedChangeFilesState(fileChanges: ToolState["fileChanges"]): ToolState {
   return {
     status: "completed",
     input: {},
-    metadata: { files },
+    metadata: {},
     attachments: [],
+    summary: { kind: "change-files" },
+    fileChanges,
   }
 }
 
@@ -70,17 +72,15 @@ describe("Pierre activity file details", () => {
   test("uses the resolved presentation detail for patch summaries", () => {
     expect(
       getToolInfo(
-        "apply_patch",
-        completedApplyPatchState([{ filePath: "/workspace/notes.md", relativePath: "notes.md" }]),
+        completedChangeFilesState([{ path: "/workspace/notes.md", relativePath: "notes.md" }]),
         completedPatchPresentation("notes.md"),
       ).subtitle,
     ).toBe("notes.md")
     expect(
       getToolInfo(
-        "apply_patch",
-        completedApplyPatchState([
-          { filePath: "/workspace/notes.md", relativePath: "notes.md" },
-          { filePath: "/workspace/tasks.md", relativePath: "tasks.md" },
+        completedChangeFilesState([
+          { path: "/workspace/notes.md", relativePath: "notes.md" },
+          { path: "/workspace/tasks.md", relativePath: "tasks.md" },
         ]),
         completedPatchPresentation("2 files"),
       ).subtitle,

@@ -22,11 +22,11 @@ import { useHostedBrowserStore } from "./hosted-browser-store"
 import type { AnnotationSummaryEntry } from "./active-reading-state"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "./model-selection-store"
 import type {
+  DirectoryActionError,
   MessageInfo,
   MessagePart,
   MessageWithParts,
   McpStatusMap,
-  PermissionRequest,
   QuestionRequest,
   ProviderCatalogState,
   ProviderInfo,
@@ -50,17 +50,24 @@ import {
 } from "./transcript-repository"
 import type { TeachingPromptContext } from "./teaching-runtime"
 import { stringifyError } from "../lib/api-client"
-import { OPENCODE_PROVIDER_ID, OPENAI_PROVIDER_ID } from "../lib/provider-ids"
+import { getPlatform } from "../context/platform"
+import { OPENAI_PROVIDER_ID } from "../lib/provider-ids"
 import { canonicalProjectDirectory } from "../lib/project-directory"
 import { sessionFamilyIDs } from "../lib/session-family"
 
-import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
+import {
+  BuddyRequestError,
+  buddyResultError,
+  buddyResultMessage,
+  getBuddyClient,
+  requireBuddyData,
+} from "../lib/buddy-client"
 import { isSessionNotFoundResult } from "../lib/session-request-result"
 import type { McpLocalConfig, McpRemoteConfig } from "../components/mcp-dialog/mcp-config-schema"
+import { REFERENCE_PART_TYPE } from "@buddy/transcript-contract/prompt"
 import {
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
-  OPENCODE_REFERENCE_PART_TYPE,
   readPromptTextFileAttachmentMetadata,
   type PromptFilePart,
   type PromptSubmissionPart,
@@ -72,8 +79,9 @@ import {
   isSessionStatusActive,
   normalizeSessionStatusValue,
 } from "./session-status"
-import type { PermissionReply } from "./permission-types"
+import { permissionReplyInput, type PermissionReply, type PermissionRequest } from "./permission-types"
 import { appQueryClient } from "./query-client"
+import { v1ImportMayBeIncomplete, v1ImportQueryOptions } from "./v1-import-query"
 import {
   invalidateObsidianFileCaches,
   invalidateObsidianWatcherCaches,
@@ -337,6 +345,8 @@ const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   recommendations: [],
 }
 const SESSION_NOT_FOUND_ERROR = "Session not found"
+const DIRECTORY_NOT_FOUND_ERROR_PREFIX = "Directory not found:"
+const NOTEBOOK_MISSING_ERROR_CODE = "notebook.missing"
 const HTTP_STATUS_NOT_FOUND = 404
 const UNDO_MISSING_SESSION_ERROR = "Start a session before undoing the last message."
 const UNDO_NO_MESSAGE_ERROR = "No user message is available to undo."
@@ -448,6 +458,19 @@ type DirectorySessionLoadResult = {
   info: SessionInfo | undefined
 }
 const pendingDirectorySessionLoads = new Map<string, Promise<DirectorySessionLoadResult>>()
+const awaitedImportedSessionByDirectory = new Map<string, string>()
+
+export function takeAwaitedImportedSession(
+  directory: string,
+  sessions: readonly SessionInfo[],
+): string | undefined {
+  const sessionID = awaitedImportedSessionByDirectory.get(directory)
+  if (sessionID === undefined || !sessions.some((session) => session.id === sessionID)) {
+    return undefined
+  }
+  awaitedImportedSessionByDirectory.delete(directory)
+  return sessionID
+}
 
 type SessionMutationResponse = {
   info: MessageInfo
@@ -616,7 +639,7 @@ function createOptimisticPromptParts(input: {
         part.type === "text" ||
         part.type === "file" ||
         part.type === "agent" ||
-        part.type === OPENCODE_REFERENCE_PART_TYPE ||
+        part.type === REFERENCE_PART_TYPE ||
         part.type === SELECTION_CONTEXT_PART_TYPE ||
         part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE,
     )
@@ -633,6 +656,7 @@ function createOptimisticPromptParts(input: {
 }
 
 function addOptimisticPromptMessage(input: OptimisticPromptInput) {
+  awaitedImportedSessionByDirectory.delete(input.directory)
   const store = useChatStore.getState()
   const optimisticModel = resolveOptimisticPromptModel(input)
   store.setActiveSession(input.directory, input.sessionID)
@@ -784,6 +808,7 @@ function normalizeProviderModel(
     providerID,
     name: input.name,
     family: input.family,
+    free: input.free === true,
     releaseDate: input.release_date,
     variants: Object.keys(input.variants ?? {}).toSorted((a, b) => a.localeCompare(b)),
     status: input.status ?? "active",
@@ -815,10 +840,6 @@ function normalizeProviderModel(
   }
 }
 
-function isPublicOpenCodeModel(model: RawProviderModel) {
-  return model.cost.input === 0
-}
-
 export function normalizeProviderCatalog(
   providers: ProviderListResponse,
   authMethods: ProviderAuthResponse,
@@ -834,26 +855,23 @@ export function normalizeProviderCatalog(
     openAIModelAvailability,
     providers: providers.all
       .map((provider) => {
+        const bundled = provider.bundled === true
         const catalogModels = Object.values(provider.models)
         const runtimeConnected = connected.has(provider.id)
         const credentialConnected =
-          runtimeConnected &&
-          (provider.id !== OPENCODE_PROVIDER_ID ||
-            catalogModels.some((model) => !isPublicOpenCodeModel(model)))
+          runtimeConnected && (!bundled || catalogModels.some((model) => model.free !== true))
         const rawModels = catalogModels.filter((model) => model.status !== "deprecated")
-        const visibleModels = rawModels.filter((model) => {
-          if (provider.id === OPENCODE_PROVIDER_ID && !credentialConnected) {
-            return isPublicOpenCodeModel(model)
-          }
-          return true
-        })
+        const visibleModels =
+          bundled && !credentialConnected
+            ? rawModels.filter((model) => model.free === true)
+            : rawModels
         const source = normalizeProviderSource(
           "source" in provider ? provider.source : undefined,
           credentialConnected,
         )
 
         if (
-          provider.id === OPENCODE_PROVIDER_ID &&
+          bundled &&
           visibleModels.length > 0 &&
           !visibleModels.some((model) => model.id === normalizedDefault[provider.id])
         ) {
@@ -881,6 +899,7 @@ export function normalizeProviderCatalog(
         return {
           id: provider.id,
           name: provider.name,
+          bundled,
           source,
           env: provider.env,
           connected: credentialConnected,
@@ -1082,6 +1101,7 @@ export async function bootstrapOpenProjects() {
 }
 
 export async function closeOpenProject(directory: string) {
+  awaitedImportedSessionByDirectory.delete(normalizeProjectDirectory(directory) ?? directory)
   const normalized = normalizeProjectDirectory(directory)
   if (!normalized) return undefined
 
@@ -1119,7 +1139,9 @@ export async function loadSessions(directory: string) {
       return store.directories[directory]?.sessions ?? []
     }
 
-    store.setSessions(directory, sessions)
+    store.setSessions(directory, sessions, {
+      keepLastSession: awaitedImportedSessionByDirectory.has(directory),
+    })
     store.setDirectoryError(directory, undefined)
     return sessions
   } catch (error) {
@@ -1127,8 +1149,30 @@ export async function loadSessions(directory: string) {
       return store.directories[directory]?.sessions ?? []
     }
 
-    store.setDirectoryError(directory, stringifyError(error))
+    store.setDirectoryError(directory, directoryActionError(error))
     throw error
+  }
+}
+
+export async function recheckMissingNotebook(
+  directory: string,
+): Promise<DirectoryActionError | undefined> {
+  const store = useChatStore.getState()
+  const requestSequence = bumpDirectoryRequestSequence(
+    latestSessionListRequestByDirectory,
+    directory,
+  )
+
+  try {
+    const sessions = requireBuddyData(await getBuddyClient(directory).session.list({ directory }))
+    if (latestSessionListRequestByDirectory.get(directory) !== requestSequence) return undefined
+
+    store.setSessions(directory, sessions)
+    store.setDirectoryError(directory, undefined)
+    return undefined
+  } catch (error) {
+    if (latestSessionListRequestByDirectory.get(directory) !== requestSequence) return undefined
+    return directoryActionError(error)
   }
 }
 
@@ -1296,7 +1340,7 @@ export async function loadMessages(
     currentSelectedSessionID(directory) === sessionID
   ) {
     store.clearLoadingSession(directory, sessionID)
-    store.setDirectoryError(directory, stringifyError(lastError))
+    store.setDirectoryError(directory, directoryActionError(lastError))
   }
 
   throw lastError
@@ -1310,34 +1354,78 @@ export async function prefetchSessionMessages(directory: string, sessionID: stri
   return loadTranscriptMessages(directory, sessionID)
 }
 
+const permissionLoadsByDirectory = new Map<string, number>()
+
 export async function loadPermissions(directory: string): Promise<PermissionRequest[]> {
   const store = useChatStore.getState()
+  const generation = (permissionLoadsByDirectory.get(directory) ?? 0) + 1
+  permissionLoadsByDirectory.set(directory, generation)
   try {
-    const requests: PermissionRequest[] = requireBuddyData(
-      await getBuddyClient(directory).permission.list(),
+    const sessionID = store.directories[directory]?.sessionID
+    const requests: PermissionRequest[] = sessionID === undefined ? [] : requireBuddyData(
+      await getBuddyClient(directory).permission.list({ sessionID }),
     )
+    if (permissionLoadsByDirectory.get(directory) !== generation || useChatStore.getState().directories[directory]?.sessionID !== sessionID) return useChatStore.getState().directories[directory]?.pendingPermissions ?? []
     store.setPendingPermissions(directory, requests)
     syncPendingInputProtection(directory)
     store.setDirectoryError(directory, undefined)
     return requests
   } catch (error) {
-    store.setDirectoryError(directory, stringifyError(error))
+    if (permissionLoadsByDirectory.get(directory) !== generation) return useChatStore.getState().directories[directory]?.pendingPermissions ?? []
+    store.setDirectoryError(directory, directoryActionError(error))
     throw error
   }
 }
 
-export async function loadQuestions(directory: string) {
+const questionLoadsByDirectory = new Map<
+  string,
+  { generation: number; asked: Map<string, QuestionRequest>; settled: Set<string> }
+>()
+
+export function recordQuestionAsked(directory: string, request: QuestionRequest): void {
+  const load = questionLoadsByDirectory.get(directory)
+  if (!load) return
+  load.asked.set(request.id, request)
+  load.settled.delete(request.id)
+}
+
+export function recordQuestionSettled(directory: string, requestID: string): void {
+  const load = questionLoadsByDirectory.get(directory)
+  if (!load) return
+  load.settled.add(requestID)
+  load.asked.delete(requestID)
+}
+
+export async function loadQuestions(directory: string): Promise<QuestionRequest[]> {
   const store = useChatStore.getState()
+  const load = {
+    generation: (questionLoadsByDirectory.get(directory)?.generation ?? 0) + 1,
+    asked: new Map<string, QuestionRequest>(),
+    settled: new Set<string>(),
+  }
+  questionLoadsByDirectory.set(directory, load)
   try {
     const requests: QuestionRequest[] = requireBuddyData(
       await getBuddyClient(directory).question.list(),
     )
-    store.setPendingQuestions(directory, requests)
+    if (questionLoadsByDirectory.get(directory) !== load) {
+      return useChatStore.getState().directories[directory]?.pendingQuestions ?? []
+    }
+    const pending = requests.filter((request) => !load.settled.has(request.id))
+    const responseIDs = new Set(requests.map((request) => request.id))
+    for (const request of load.asked.values()) {
+      if (!responseIDs.has(request.id)) pending.push(request)
+    }
+    questionLoadsByDirectory.delete(directory)
+    store.setPendingQuestions(directory, pending)
     syncPendingInputProtection(directory)
     store.setDirectoryError(directory, undefined)
-    return requests
+    return pending
   } catch (error) {
-    store.setDirectoryError(directory, stringifyError(error))
+    if (questionLoadsByDirectory.get(directory) === load) {
+      questionLoadsByDirectory.delete(directory)
+    }
+    store.setDirectoryError(directory, directoryActionError(error))
     throw error
   }
 }
@@ -1368,7 +1456,7 @@ export async function loadProviderCatalog(
     return providers
   } catch (error) {
     if (options?.manageDirectoryError !== false) {
-      store.setDirectoryError(directory, stringifyError(error))
+      store.setDirectoryError(directory, directoryActionError(error))
     }
     throw error
   }
@@ -1464,8 +1552,15 @@ export async function ensureDirectorySession(directory: string) {
       const state = useChatStore.getState()
       const current = state.directories[targetDirectory]
       const storedSession = current?.sessionID ?? state.lastSessionByDirectory[targetDirectory]
-      const sessions = await loadSessions(targetDirectory)
+      const [sessions, importReport] = await Promise.all([
+        loadSessions(targetDirectory),
+        appQueryClient.ensureQueryData(v1ImportQueryOptions()).catch(() => undefined),
+      ])
       const sessionByID = new Map(sessions.map((session) => [session.id, session]))
+      const awaitedSession =
+        storedSession && !sessionByID.has(storedSession) && v1ImportMayBeIncomplete(importReport)
+          ? storedSession
+          : undefined
 
       let info: SessionInfo | undefined
       if (storedSession && sessionByID.has(storedSession)) {
@@ -1518,6 +1613,11 @@ export async function ensureDirectorySession(directory: string) {
         selectDraftSession(targetDirectory)
       }
 
+      if (awaitedSession && info?.id !== awaitedSession) {
+        awaitedImportedSessionByDirectory.set(targetDirectory, awaitedSession)
+        store.setLastSessionID(targetDirectory, awaitedSession)
+      }
+
       store.setDirectoryReady(targetDirectory, true)
       void primeDirectoryRuntimeState(targetDirectory)
       return {
@@ -1526,7 +1626,7 @@ export async function ensureDirectorySession(directory: string) {
       }
     } catch (error) {
       store.setDirectoryReady(targetDirectory, true)
-      store.setDirectoryError(targetDirectory, stringifyError(error))
+      store.setDirectoryError(targetDirectory, directoryActionError(error))
       throw error
     }
   })()
@@ -1575,6 +1675,7 @@ export async function selectSession(
   directory: string,
   sessionID: string,
 ): Promise<SessionSelectionResult> {
+  awaitedImportedSessionByDirectory.delete(directory)
   const store = useChatStore.getState()
   try {
     const current = store.directories[directory]
@@ -1588,6 +1689,7 @@ export async function selectSession(
       )
     await loadMessages(directory, sessionID, { pendingSelection: true })
     selectCanonicalSession(directory, info)
+    void loadPermissions(directory).catch(() => undefined)
     return {
       outcome: "requested",
       directory,
@@ -1596,7 +1698,7 @@ export async function selectSession(
     }
   } catch (error) {
     if (!isMissingSessionError(error)) {
-      store.setDirectoryError(directory, stringifyError(error))
+      store.setDirectoryError(directory, directoryActionError(error))
       return {
         outcome: "failed",
         directory,
@@ -1634,6 +1736,7 @@ export async function selectSession(
 }
 
 export async function startNewSession(directory: string) {
+  awaitedImportedSessionByDirectory.delete(directory)
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
   const info = await createSession(directory)
@@ -1643,6 +1746,7 @@ export async function startNewSession(directory: string) {
 }
 
 export function startNewSessionDraft(directory: string) {
+  awaitedImportedSessionByDirectory.delete(directory)
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
   selectDraftSession(directory)
@@ -1767,7 +1871,7 @@ export async function sendPrompt(
         body: promptBody,
       })
       if (!result.response || !result.response.ok || result.error !== undefined) {
-        throw new Error(buddyResultMessage(result))
+        throw buddyResultError(result)
       }
     }
 
@@ -1858,14 +1962,33 @@ export async function sendPrompt(
       void loadSessions(directory).catch(() => undefined)
     }
 
-    store.setDirectoryError(directory, stringifyError(error))
+    store.setDirectoryError(directory, directoryActionError(error))
     throw error
   }
+}
+
+export function directoryActionError<TValue>(error: TValue): DirectoryActionError {
+  if (!(error instanceof BuddyRequestError)) return { message: stringifyError(error) }
+  return { message: error.message, code: error.code, errorID: error.errorID }
 }
 
 function isMissingSessionError<TValue>(error: TValue) {
   const message = stringifyError(error).toLowerCase()
   return message.includes(SESSION_NOT_FOUND_ERROR.toLowerCase())
+}
+
+export function isNotebookFolderMissingError<TValue>(error: TValue) {
+  if (error instanceof BuddyRequestError && error.code === NOTEBOOK_MISSING_ERROR_CODE) return true
+  return stringifyError(error).startsWith(DIRECTORY_NOT_FOUND_ERROR_PREFIX)
+}
+
+export function isStoredNotebookFolderMissingError(
+  error: DirectoryActionError | undefined,
+): boolean {
+  return (
+    error?.code === NOTEBOOK_MISSING_ERROR_CODE ||
+    error?.message.startsWith(DIRECTORY_NOT_FOUND_ERROR_PREFIX) === true
+  )
 }
 
 async function isSessionMissingInDirectory(directory: string, sessionID: string) {
@@ -1895,6 +2018,7 @@ export async function sendCommand(
     variant?: string
   },
 ): Promise<string> {
+  awaitedImportedSessionByDirectory.delete(directory)
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
   let sessionID: string | undefined
@@ -1918,23 +2042,27 @@ export async function sendCommand(
       input?.variant ? { variant: input.variant } : undefined,
     )
 
-    const postCommand = async (targetSessionID: string): Promise<SessionMutationResponse> =>
-      readSessionMutationResponse(
-        requireBuddyData(
-          await getBuddyClient(directory).session.command({
-            sessionID: targetSessionID,
-            body: commandBody,
-          }),
-        ),
+    const runCommand = async (targetSessionID: string) => {
+      const response = requireBuddyData(
+        await getBuddyClient(directory).session.command({
+          sessionID: targetSessionID,
+          body: commandBody,
+        }),
       )
+      if ("info" in response) {
+        promoteSessionMutation({
+          directory,
+          sessionID: targetSessionID,
+          response: readSessionMutationResponse(response),
+        })
+        return
+      }
+      store.applySessionUpdated(directory, response)
+      store.applySessionStatus(directory, targetSessionID, IDLE_SESSION_STATUS)
+    }
 
     try {
-      const response = await postCommand(resolvedSessionID)
-      promoteSessionMutation({
-        directory,
-        sessionID: resolvedSessionID,
-        response,
-      })
+      await runCommand(resolvedSessionID)
     } catch (error) {
       const shouldRecover = await shouldRecoverMissingSession(
         directory,
@@ -1950,12 +2078,7 @@ export async function sendCommand(
       const recoveredSessionID = await resolveSessionForSend(directory)
       sessionID = recoveredSessionID
       store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
-      const response = await postCommand(recoveredSessionID)
-      promoteSessionMutation({
-        directory,
-        sessionID: recoveredSessionID,
-        response,
-      })
+      await runCommand(recoveredSessionID)
       void loadSessions(directory).catch(() => undefined)
     }
 
@@ -1972,7 +2095,7 @@ export async function sendCommand(
       void loadSessions(directory).catch(() => undefined)
     }
 
-    store.setDirectoryError(directory, stringifyError(error))
+    store.setDirectoryError(directory, directoryActionError(error))
     throw error
   }
 }
@@ -2012,7 +2135,7 @@ export async function compactSession(
       void loadMessages(directory, sessionID).catch(() => undefined)
     }
     void loadSessions(directory).catch(() => undefined)
-    store.setDirectoryError(directory, stringifyError(error))
+    store.setDirectoryError(directory, directoryActionError(error))
     throw error
   }
 }
@@ -2105,7 +2228,7 @@ export async function abortPrompt(directory: string) {
         return false
       }
 
-      store.setDirectoryError(directory, stringifyError(abortError))
+      store.setDirectoryError(directory, directoryActionError(abortError))
       throw abortError
     }
 
@@ -2204,7 +2327,7 @@ async function performSessionRevertMutation(input: {
       void loadMessages(input.directory, input.sessionID).catch(() => undefined)
     }
     void loadSessions(input.directory).catch(() => undefined)
-    store.setDirectoryError(input.directory, stringifyError(error))
+    store.setDirectoryError(input.directory, directoryActionError(error))
     throw error
   }
 }
@@ -2223,7 +2346,7 @@ export async function undoLastSessionMessage(
   const sessionID = input?.sessionID ?? initialState?.sessionID
   if (!sessionID) {
     const error = new Error(UNDO_MISSING_SESSION_ERROR)
-    store.setDirectoryError(directory, error.message)
+    store.setDirectoryError(directory, { message: error.message })
     throw error
   }
 
@@ -2242,7 +2365,7 @@ export async function undoLastSessionMessage(
 
   if (!messageID) {
     const error = new Error(UNDO_NO_MESSAGE_ERROR)
-    store.setDirectoryError(directory, error.message)
+    store.setDirectoryError(directory, { message: error.message })
     throw error
   }
 
@@ -2271,6 +2394,7 @@ export async function forkSession(
     messageID?: string
   },
 ): Promise<SessionInfo> {
+  awaitedImportedSessionByDirectory.delete(directory)
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
 
@@ -2278,7 +2402,7 @@ export async function forkSession(
   const sessionID = input?.sessionID ?? state?.sessionID
   if (!sessionID) {
     const error = new Error(FORK_MISSING_SESSION_ERROR)
-    store.setDirectoryError(directory, error.message)
+    store.setDirectoryError(directory, { message: error.message })
     throw error
   }
 
@@ -2303,7 +2427,7 @@ export async function forkSession(
       void loadMessages(directory, sessionID).catch(() => undefined)
     }
     void loadSessions(directory).catch(() => undefined)
-    store.setDirectoryError(directory, stringifyError(error))
+    store.setDirectoryError(directory, directoryActionError(error))
     throw error
   }
 }
@@ -2321,7 +2445,7 @@ export async function restoreRevertedSessionMessage(
   const sessionID = input?.sessionID ?? initialState?.sessionID
   if (!sessionID) {
     const error = new Error(RESTORE_MISSING_SESSION_ERROR)
-    store.setDirectoryError(directory, error.message)
+    store.setDirectoryError(directory, { message: error.message })
     throw error
   }
 
@@ -2333,7 +2457,7 @@ export async function restoreRevertedSessionMessage(
   const activeSession = latestState?.sessions.find((session) => session.id === sessionID)
   if (!activeSession?.revert?.messageID) {
     const error = new Error(RESTORE_NO_MESSAGE_ERROR)
-    store.setDirectoryError(directory, error.message)
+    store.setDirectoryError(directory, { message: error.message })
     throw error
   }
 
@@ -2400,19 +2524,24 @@ export async function resyncDirectoryAfterReconnect(directory: string) {
 
 export async function replyPermission(input: {
   directory: string
-  requestID: string
+  request: PermissionRequest
   reply: PermissionReply
   message?: string
 }) {
+  if (!input.request.sessionID) {
+    await loadPermissions(input.directory)
+    throw new BuddyRequestError({ message: "Could not reply. Try again." })
+  }
   const result = requireBuddyData(
     await getBuddyClient(input.directory).permission.reply({
-      requestID: input.requestID,
-      reply: input.reply,
-      message: input.message,
+      requestID: input.request.id,
+      sessionID: input.request.sessionID,
+      ...permissionReplyInput(input.reply, input.message),
     }),
   )
   if (result) {
-    useChatStore.getState().applyPermissionReplied(input.directory, input.requestID)
+    useChatStore.getState().applyPermissionReplied(input.directory, input.request.id)
+    await loadPermissions(input.directory)
   }
   return result
 }
@@ -2482,7 +2611,7 @@ export async function updateSession(input: {
     store.setDirectoryError(input.directory, undefined)
     return session
   } catch (error) {
-    store.setDirectoryError(input.directory, stringifyError(error))
+    store.setDirectoryError(input.directory, directoryActionError(error))
     throw error
   }
 }
@@ -2497,6 +2626,7 @@ export async function deleteSession(input: {
   directory: string
   sessionID: string
 }): Promise<boolean> {
+  awaitedImportedSessionByDirectory.delete(input.directory)
   const store = useChatStore.getState()
 
   try {
@@ -2516,7 +2646,7 @@ export async function deleteSession(input: {
     store.setDirectoryError(input.directory, undefined)
     return deleted
   } catch (error) {
-    store.setDirectoryError(input.directory, stringifyError(error))
+    store.setDirectoryError(input.directory, directoryActionError(error))
     throw error
   }
 }
@@ -2875,12 +3005,19 @@ export async function disconnectMcpServer(directory: string, name: string) {
 }
 
 export async function authenticateMcpServer(directory: string, name: string) {
-  requireBuddyData(
+  const status = requireBuddyData(
     await getBuddyClient(directory).mcp.auth.authenticate({
       name,
     }),
   )
-  return loadMcpStatus(directory)
+  if (status.status === "connected") {
+    void getPlatform().focusWindow?.().catch(() => undefined)
+  }
+  const statuses = await loadMcpStatus(directory)
+  if (status.status === "failed") {
+    throw new Error(status.error || "MCP sign-in failed")
+  }
+  return statuses
 }
 
 export type ProjectExplorerFileNode = FileNode

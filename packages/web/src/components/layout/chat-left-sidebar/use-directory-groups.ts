@@ -1,4 +1,7 @@
 import { useMemo } from "react"
+import { useShallow } from "zustand/react/shallow"
+import { isStoredNotebookFolderMissingError } from "@/state/chat-actions"
+import { useChatStore } from "@/state/chat-store"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionWorking } from "@/state/session-status"
 import { findRootSessionID, sessionFamilyIDs } from "./thread-helpers"
@@ -24,7 +27,16 @@ function getSortTimestamp(session: SessionInfo, sortMode: "created" | "updated")
 }
 
 export function useDirectoryGroups(props: UseDirectoryGroupsProps): DirectoryGroup[] {
+  const missingDirectories = useChatStore(
+    useShallow((state) =>
+      props.directories.filter((directory) =>
+        isStoredNotebookFolderMissingError(state.directories[directory]?.error),
+      ),
+    ),
+  )
+
   return useMemo(() => {
+    const missingDirectorySet = new Set(missingDirectories)
     const groups = props.directories
       .map((directory) => {
         const allSessions = props.sessionsByDirectory[directory] ?? []
@@ -66,9 +78,12 @@ export function useDirectoryGroups(props: UseDirectoryGroupsProps): DirectoryGro
         return {
           directory,
           sessions: visibleSessions,
+          folderMissing: missingDirectorySet.has(directory),
         }
       })
-      .filter((group) => group.sessions.length > 0 || props.showMode === "all")
+      .filter(
+        (group) => group.folderMissing || group.sessions.length > 0 || props.showMode === "all",
+      )
 
     if (props.organizeMode === "chronological") {
       return groups.toSorted((a, b) => {
@@ -80,6 +95,7 @@ export function useDirectoryGroups(props: UseDirectoryGroupsProps): DirectoryGro
 
     return groups
   }, [
+    missingDirectories,
     props.directories,
     props.sessionsByDirectory,
     props.pinnedByDirectory,

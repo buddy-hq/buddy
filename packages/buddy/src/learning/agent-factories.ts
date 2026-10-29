@@ -43,7 +43,7 @@ const PLAN_AGENT_PERMISSION_DELTA: BuddyPermissionInput = {
   },
 }
 
-function taskPermission(
+function subagentPermission(
   availableSubagents: readonly string[] | undefined,
 ): BuddyPermissionRuleInput | undefined {
   if (availableSubagents === undefined) return undefined
@@ -63,23 +63,23 @@ function isPermissionMap(
 
 function mergePermission(
   permission: BuddyPermissionInput | undefined,
-  task: BuddyPermissionRuleInput | undefined,
+  subagent: BuddyPermissionRuleInput | undefined,
 ): BuddyPermissionInput | undefined {
-  if (task === undefined) return permission
+  if (subagent === undefined) return permission
   if (permission === undefined) {
-    return { task }
+    return { subagent }
   }
 
   if (!isPermissionMap(permission)) {
     return {
       "*": permission,
-      task,
+      subagent,
     }
   }
 
   return {
     ...permission,
-    task,
+    subagent,
   }
 }
 
@@ -151,7 +151,7 @@ function createPrimaryAgent(
     ...agent,
     mode: "primary",
     permission: mergeDynamicToolDeny(
-      mergePermission(permission, taskPermission(availableSubagents)),
+      mergePermission(permission, subagentPermission(availableSubagents)),
       dynamicToolDeny,
     ),
   }

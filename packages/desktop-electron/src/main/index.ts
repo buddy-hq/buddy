@@ -33,6 +33,7 @@ import {
   LOOPBACK_HOSTNAME,
   resolveAppId,
   resolveAppName,
+  resolveUserDataPath,
   UPDATER_ENABLED,
 } from "./constants"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
@@ -145,7 +146,7 @@ app.setName(resolveAppName(app.isPackaged))
 if (process.platform === "win32") {
   app.setAppUserModelId(resolveAppId(app.isPackaged))
 }
-app.setPath("userData", join(app.getPath("appData"), resolveAppId(app.isPackaged)))
+app.setPath("userData", resolveUserDataPath(app.isPackaged, app.getPath("appData")))
 
 // Beta's session, logs and temp roots must be pinned before their first use.
 const desktopStoragePlan = resolveDesktopStoragePlan({
@@ -268,20 +269,29 @@ function setupApplication() {
     contents.on("before-input-event", handleQuitShortcut)
   })
 
-  app.on("before-quit", () => {
+  let backendShutdownTask: Promise<void> | undefined
+  let backendShutdownComplete = false
+  const stopBackendForQuit = () => {
     beginApplicationShutdown()
-    void killBackendUtility()
-  })
+    backendShutdownTask ??= killBackendUtility().catch((error) => {
+      logger.error("backend shutdown failed during quit", error)
+    })
+    return backendShutdownTask
+  }
 
-  app.on("will-quit", () => {
-    beginApplicationShutdown()
-    void killBackendUtility()
+  app.on("before-quit", (event) => {
+    if (backendShutdownComplete) return
+    event.preventDefault()
+    if (backendShutdownTask) return
+    void stopBackendForQuit().then(() => {
+      backendShutdownComplete = true
+      app.quit()
+    })
   })
 
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
     process.on(signal, () => {
-      beginApplicationShutdown()
-      void killBackendUtility().finally(() => app.exit(0))
+      void stopBackendForQuit().then(() => app.exit(0))
     })
   }
 

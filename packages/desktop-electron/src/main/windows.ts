@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import type { TitlebarTheme } from "../preload/types"
 import { BUDDY_DEV_INSTANCE_NAME_ENV } from "../shared/dev-app-name"
 import { encodeBuddyWindowVersionArg } from "../shared/window-preload-args"
+import { registerBackendAuthWindow } from "./backend-auth"
 import { CHANNEL } from "./constants"
 import { wireContextMenu } from "./context-menu"
 import { wireAppWindowExternalLinks } from "./external-links"
@@ -127,6 +128,7 @@ export function createMainWindow(globals: WindowGlobals) {
 
   state.manage(win)
   lockWindowTitle(win)
+  registerBackendAuthWindow(win)
   loadWindow(win, "index.html")
   wireContextMenu(win)
   wireExternalLinks(win)

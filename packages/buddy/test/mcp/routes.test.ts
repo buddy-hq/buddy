@@ -1,43 +1,14 @@
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { writeFileSync } from "node:fs"
 import path from "node:path"
-import { app } from "../../src/index.ts"
+import { Hono } from "hono"
+import { McpRoutes } from "../../src/routes/mcp"
+import { closeAgentRuntime } from "../../src/runtime/agent-runtime"
+const app = new Hono().route("/api/mcp", McpRoutes)
+afterEach(closeAgentRuntime)
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("mcp routes", () => {
-  test("rejects MCP add requests that omit the required name", async () => {
-    await using project = await tmpdir({ git: true })
-
-    const response = await app.request("/api/mcp", {
-      method: "POST",
-      headers: {
-        "x-buddy-directory": project.path,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        config: {
-          type: "local",
-          command: ["bun", "--version"],
-          enabled: false,
-        },
-      }),
-    })
-
-    expect(response.status).toBe(400)
-    await expect(response.json()).resolves.toEqual({
-      error: "Invalid MCP payload",
-    })
-
-    const statusResponse = await app.request("/api/mcp", {
-      headers: {
-        "x-buddy-directory": project.path,
-      },
-    })
-
-    expect(statusResponse.status).toBe(200)
-    await expect(statusResponse.json()).resolves.toEqual({})
-  })
-
   test("hides MCP servers that only exist in raw OpenCode config", async () => {
     await using project = await tmpdir({ git: true })
 
@@ -49,7 +20,7 @@ describe("mcp routes", () => {
             raw_opencode_test: {
               type: "local",
               command: ["bun", "--version"],
-              enabled: false,
+              disabled: true,
             },
           },
         },

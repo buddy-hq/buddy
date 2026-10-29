@@ -1,6 +1,5 @@
 import { AnimatePresence, motion } from "motion/react"
 import { language } from "@/context/language"
-import { isRecord, parseTString, type TJsonObject } from "../../tools/types"
 import { ToolRow, ToolRowAction, ToolRowIcon } from "../tool-row"
 import { TextShimmer } from "../../tools/text-shimmer"
 import { TASK_CARD_TRANSITION } from "./task-motion"
@@ -13,31 +12,6 @@ import {
 
 type ToolQuestion = {
   question: string
-}
-
-function readQuestions(input: TJsonObject): ToolQuestion[] {
-  const value = input.questions
-  if (!Array.isArray(value)) return []
-
-  return value.flatMap((entry): ToolQuestion[] => {
-    if (!isRecord(entry)) return []
-    const question = parseTString(entry.question)
-    if (question === undefined) return []
-    return [{ question }]
-  })
-}
-
-function readQuestionAnswers(metadata: TJsonObject): string[][] {
-  const value = metadata.answers
-  if (!Array.isArray(value)) return []
-
-  return value.map((entry) => {
-    if (!Array.isArray(entry)) return []
-    return entry.flatMap((answer) => {
-      const text = parseTString(answer)
-      return text === undefined ? [] : [text]
-    })
-  })
 }
 
 /**
@@ -90,9 +64,10 @@ function QuestionAnswerList({
 }
 
 export function renderQuestionTool({ state, info, icon }: ToolPartProps) {
-  const questions = readQuestions(state.input)
-  const questionAnswers = readQuestionAnswers(state.metadata)
-  const hasAnswers = questionAnswers.length > 0
+  const toolQuestions = state.questions ?? []
+  const questions = toolQuestions.map((entry) => ({ question: entry.text }))
+  const questionAnswers = toolQuestions.map((entry) => [...(entry.answers ?? [])])
+  const hasAnswers = toolQuestions.some((entry) => entry.answers !== undefined)
   const isActive = state.status === "pending" || state.status === "running"
   const isPending = state.status === "pending"
   const isAnswered = !isActive && hasAnswers

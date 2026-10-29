@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto"
-import { DateTime } from "effect"
 import z from "zod"
-import type { SessionV2 } from "@buddy/opencode-adapter/session-v2"
+import type { MessageWithParts, Part, ToolPart } from "@buddy/transcript-contract/message"
 import type { LearnerEvent } from "./types"
 import { redactSecrets } from "./redaction"
 import { truncateHeadTail, type TruncatedText } from "./text-budget"
@@ -43,12 +42,6 @@ function isScaffoldText(value: string): boolean {
   )
 }
 
-type AssistantToolContent = Extract<SessionV2.Assistant["content"][number], { type: "tool" }>
-type ToolOutputContent = Extract<
-  AssistantToolContent["state"],
-  { status: "completed" }
->["content"][number]
-
 function jsonText<TValue>(value: TValue): string | undefined {
   const parsed = z.string().safeParse(value)
   if (parsed.success) return parsed.data
@@ -59,89 +52,61 @@ function jsonText<TValue>(value: TValue): string | undefined {
   }
 }
 
-function toolOutputContentText(content: ToolOutputContent): string {
-  if (content.type === "text") return content.text
-
-  return [content.name, content.mime, content.uri].filter(Boolean).join(" ")
-}
-
-function toolStateText(state: AssistantToolContent["state"]): string | undefined {
+function toolStateText(part: ToolPart): string | undefined {
+  if (part.sourceText !== undefined) return part.sourceText
+  const state = part.state
   switch (state.status) {
     case "pending":
-      return state.input
+      return state.raw
     case "running":
+      return jsonText(state.input)
     case "completed":
-      return [...state.content.map(toolOutputContentText), jsonText(state.structured)]
-        .filter(Boolean)
-        .join("\n")
+      return [state.output, ...(state.attachments ?? []).map((file) => [file.filename, file.mime, file.url].filter(Boolean).join(" "))].filter(Boolean).join("\n")
     case "error":
-      return [
-        state.error.message,
-        ...state.content.map(toolOutputContentText),
-        jsonText(state.structured),
-      ]
-        .filter(Boolean)
-        .join("\n")
+      return state.error
   }
 }
 
-function assistantContentText(content: SessionV2.Assistant["content"][number]): string | undefined {
-  switch (content.type) {
+function assistantPartText(part: Part): string | undefined {
+  switch (part.type) {
     case "text":
-      return content.text
-    case "reasoning":
-      return undefined
+      return part.text
     case "tool":
-      return toolStateText(content.state)
+      return toolStateText(part)
+    default:
+      return undefined
   }
 }
 
-function userMessageText(message: SessionV2.User): string {
+function userMessageText(message: MessageWithParts): string {
+  if (message.info.role !== "user") return ""
+  const textParts = message.parts.filter((part) => part.type === "text")
+  const text = textParts.length === 0
+    ? message.info.sourceText ?? ""
+    : textParts.flatMap((part) => !part.synthetic && !part.ignored && !isScaffoldText(part.text) ? [part.text] : []).join("")
   return [
-    isScaffoldText(message.text) ? undefined : message.text,
-    ...(message.files ?? []).map((file) =>
-      [file.name, file.mime, file.uri, file.source?.text].filter(Boolean).join("\n"),
-    ),
-    ...(message.agents ?? []).map((agent) =>
-      [agent.name, agent.source?.text].filter(Boolean).join("\n"),
-    ),
-  ]
-    .filter(Boolean)
-    .join("\n")
+    isScaffoldText(text) ? undefined : text,
+    ...message.parts.flatMap((part) => {
+      if (part.type !== "file") return []
+      return [[part.filename, part.mime, part.source?.type === "uri" ? part.source.uri : undefined, part.sourceText ?? part.source?.text?.value].filter(Boolean).join("\n")]
+    }),
+    ...message.parts.flatMap((part) => part.type === "agent" ? [[part.name, part.sourceText ?? part.source?.value].filter(Boolean).join("\n")] : []),
+  ].filter(Boolean).join("\n")
 }
 
-function assistantMessageText(message: SessionV2.Assistant): string {
-  return message.content.flatMap((content) => assistantContentText(content) ?? []).join("\n")
-}
-
-function messageToolNames(message: SessionV2.Message): string[] {
-  if (message.type !== "assistant") return []
-  return message.content.flatMap((content) => (content.type === "tool" ? [content.name] : []))
-}
-
-function assistantOutputTokens(message: SessionV2.Assistant): number | undefined {
-  if (!message.tokens) return undefined
-  return message.tokens.output + message.tokens.reasoning
-}
-
-function messageCreatedAt(message: SessionV2.Message): string {
-  return new Date(DateTime.toEpochMillis(message.time.created)).toISOString()
-}
-
-function filteredMessage(message: SessionV2.Message): FilteredSessionMessage | undefined {
-  if (message.type !== "user" && message.type !== "assistant") return undefined
-  const rawText = message.type === "user" ? userMessageText(message) : assistantMessageText(message)
+function filteredMessage(message: MessageWithParts): FilteredSessionMessage | undefined {
+  if (message.info.role === "assistant" && message.info.kind) return undefined
+  const rawText = message.info.role === "user" ? userMessageText(message) : message.parts.flatMap((part) => assistantPartText(part) ?? []).join("\n")
   const text = redactSecrets(rawText.trim())
   if (!text) return undefined
-
-  const outputTokens = message.type === "assistant" ? assistantOutputTokens(message) : undefined
+  const outputTokens = message.info.role === "assistant" && message.info.usageRecorded !== false ? message.info.tokens.output + message.info.tokens.reasoning : undefined
   return Object.assign(
     {
-      id: message.id,
-      role: message.type,
-      createdAt: messageCreatedAt(message),
+      id: message.info.id,
+      role: message.info.role,
+      createdAt: new Date(message.info.time.created).toISOString(),
       text,
-      toolNames: messageToolNames(message),
+      toolNames: message.info.role === "assistant" ? message.parts.flatMap((part) => part.type === "tool" ? [part.tool] : []) : [],
     },
     outputTokens !== undefined ? { outputTokens } : undefined,
   )
@@ -206,7 +171,7 @@ function renderStructuredSource(input: {
 }
 
 function buildFilteredSessionSource(input: {
-  messages: readonly SessionV2.Message[]
+  messages: readonly MessageWithParts[]
   learningEvents: readonly LearnerEvent[]
 }): FilteredSessionSource {
   const messages = input.messages.flatMap((message) => {

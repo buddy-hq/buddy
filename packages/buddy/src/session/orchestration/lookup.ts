@@ -1,98 +1,30 @@
-import { SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { isSessionInRequestedProject } from "../../http"
+import type { Session } from "@buddy/transcript-contract/session"
+import { isNotFound, runtimeErrorStatus } from "@buddy/agent-runtime/errors"
+import { isSessionInRequestedProject } from "../../http/session"
+import { getAgentRuntime } from "../../runtime/agent-runtime"
 import { SessionLookupError } from "./errors"
-import { parseTOpenCodeErrorPayload, parseTSessionString } from "./parse-values"
 
-export type RuntimeSessionInfo = Awaited<ReturnType<typeof OpenCodeSession.get>>
+export type RuntimeSessionInfo = Session
 
 const SESSION_NOT_FOUND_ERROR = "Session not found"
-const REQUEST_FAILED_ERROR = "Request failed"
-const BAD_REQUEST_STATUS = 400
 const NOT_FOUND_STATUS = 404
 
-function readSessionNotFoundMessage(cause: unknown): string | undefined {
-  const payload = parseTOpenCodeErrorPayload(cause)
-  if (payload === undefined) {
-    return undefined
-  }
-  if (payload.data?.message !== undefined) {
-    return payload.data.message
-  }
-  return payload.message
-}
-
 export function isSessionNotFoundError(cause: unknown): boolean {
-  const text = parseTSessionString(cause)
-  if (text !== undefined) {
-    return text.startsWith("Session not found")
-  }
-
-  const payload = parseTOpenCodeErrorPayload(cause)
-  if (payload === undefined || payload.name !== "NotFoundError") {
-    return false
-  }
-
-  const message = readSessionNotFoundMessage(cause)
-  return message !== undefined && message.startsWith("Session not found:")
-}
-
-function readOpenCodeErrorMessage(cause: unknown): string | undefined {
-  const payload = parseTOpenCodeErrorPayload(cause)
-  if (payload === undefined) {
-    return undefined
-  }
-  if (payload.data?.message !== undefined && payload.data.message) {
-    return payload.data.message
-  }
-  if (payload.message !== undefined && payload.message) {
-    return payload.message
-  }
-  return undefined
+  return isNotFound(cause, "session")
 }
 
 export function runtimeSessionLookupErrorResponse(cause: unknown): Response {
-  const message = isSessionNotFoundError(cause)
-    ? SESSION_NOT_FOUND_ERROR
-    : (readOpenCodeErrorMessage(cause) ?? REQUEST_FAILED_ERROR)
-  const status = isSessionNotFoundError(cause) ? NOT_FOUND_STATUS : BAD_REQUEST_STATUS
+  const status = runtimeErrorStatus(cause)
+  const message = isNotFound(cause, "session") ? SESSION_NOT_FOUND_ERROR : cause instanceof Error ? cause.message : "Request failed"
   return Response.json({ error: message }, { status })
 }
 
-async function isSessionListedInDirectory(directory: string, sessionID: string) {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: async () => {
-      const sessions = await OpenCodeSession.list({ directory })
-      return sessions.some((entry) => entry.id === sessionID)
-    },
-  })
-}
-
-export async function loadRuntimeSessionInDirectory(
-  directory: string,
-  sessionID: string,
-): Promise<RuntimeSessionInfo | undefined> {
-  const runtimeSessionID = SessionID.make(sessionID)
-
+export async function loadRuntimeSessionInDirectory(directory: string, sessionID: string): Promise<RuntimeSessionInfo | undefined> {
   try {
-    const session = await OpenCodeInstance.provide({
-      directory,
-      fn: () => OpenCodeSession.get(runtimeSessionID),
-    })
-
-    const matchesProject = await isSessionInRequestedProject(directory, session)
-    if (matchesProject) {
-      return session
-    }
-
-    const listedInDirectory = await isSessionListedInDirectory(directory, sessionID)
-    return listedInDirectory ? session : undefined
+    const session = await (await getAgentRuntime()).conversations.get(sessionID)
+    return await isSessionInRequestedProject(directory, session) ? session : undefined
   } catch (error) {
-    if (isSessionNotFoundError(error)) {
-      return undefined
-    }
+    if (isNotFound(error, "session")) return undefined
     throw error
   }
 }

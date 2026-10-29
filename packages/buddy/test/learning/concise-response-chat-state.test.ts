@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { getAgentRuntime, closeAgentRuntime } from "../../src/runtime/agent-runtime"
+import { createRuntimeHarness } from "../conformance/harness"
 import {
   persistConciseResponseChatState,
   readConciseResponseChatState,
@@ -16,14 +15,11 @@ import {
 import { tmpdir } from "../helpers/tmpdir"
 
 afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
+  await closeAgentRuntime()
 })
 
 async function createSession(directory: string) {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: () => OpenCodeSession.create({}),
-  })
+  return (await getAgentRuntime()).conversations.create(directory)
 }
 
 describe("concise response chat state", () => {
@@ -149,32 +145,8 @@ describe("concise response chat state", () => {
   })
 
   test("treats a pre-toggle chat as having the original concise base", async () => {
-    await using project = await tmpdir({ git: true })
-    const session = await createSession(project.path)
-
-    await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () =>
-        OpenCodeSession.updateMessage({
-          id: MessageID.ascending(),
-          sessionID: SessionID.make(session.id),
-          role: "user",
-          time: { created: Date.now() },
-          agent: "buddy",
-          model: {
-            providerID: ProviderID.openai,
-            modelID: ModelID.make("gpt-5.4-mini"),
-          },
-          tools: {},
-        }),
-    })
-
-    expect(
-      await readConciseResponseChatState({
-        directory: project.path,
-        sessionID: session.id,
-        configured: false,
-      }),
-    ).toEqual({ base: true, applied: true })
+    await using harness = await createRuntimeHarness()
+    const session = await harness.seedTextConversation({ title: "Existing chat", text: "Existing chat" })
+    expect(await readConciseResponseChatState({ directory: harness.directory, sessionID: session.sessionID, configured: false })).toEqual({ base: true, applied: true })
   })
 })

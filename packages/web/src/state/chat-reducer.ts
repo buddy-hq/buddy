@@ -1,10 +1,11 @@
 import type { MessageInfo, MessagePart, MessageWithParts, TRecord } from "./chat-types"
-import { isRecord, parseString, parseStringArray } from "./chat-types"
+import { isRecord, parseFiniteNumber, parseString, parseStringArray } from "./chat-types"
 import { readerTextAnchorEquals } from "@buddy/reader-contract"
+import { LEGACY_REFERENCE_PART_TYPE, REFERENCE_PART_TYPE } from "@buddy/transcript-contract/prompt"
 import {
   NOTEBOOK_REFERENCE_PART_TYPE,
-  OPENCODE_REFERENCE_PART_TYPE,
   NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+  isReferencePartType,
   readPromptNotebookReferenceMetadata,
   readPromptReaderTextAnchor,
   SELECTION_CONTEXT_PART_TYPE,
@@ -187,7 +188,7 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
         return existing.path === incoming.filename
       }
       if (
-        existing.type === OPENCODE_REFERENCE_PART_TYPE &&
+        isReferencePartType(existing.type) &&
         parseString(existing.name) !== undefined &&
         parseString(incoming.filename) !== undefined
       ) {
@@ -214,8 +215,9 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
         return false
       }
       return parseString(existing.path) !== undefined && existing.path === incoming.path
-    case OPENCODE_REFERENCE_PART_TYPE:
-      if (existing.type !== incoming.type) {
+    case REFERENCE_PART_TYPE:
+    case LEGACY_REFERENCE_PART_TYPE:
+      if (!isReferencePartType(existing.type)) {
         return false
       }
       return (
@@ -284,13 +286,30 @@ export function preserveStreamingRawState(existing: MessagePart, incoming: Messa
   }
 }
 
+export function compareStrings(left: string, right: string) {
+  if (left < right) return -1
+  if (left > right) return 1
+  return 0
+}
+
+export function compareMessageParts(left: MessagePart, right: MessagePart) {
+  const leftPosition = parseFiniteNumber(left.position)
+  const rightPosition = parseFiniteNumber(right.position)
+  if (leftPosition !== undefined && rightPosition !== undefined && leftPosition !== rightPosition) {
+    return leftPosition - rightPosition
+  }
+  return compareStrings(left.id, right.id)
+}
+
 export function upsertMessagePart(current: MessagePart[], incoming: MessagePart) {
   const partIndex = current.findIndex((part) => part.id === incoming.id)
   if (partIndex === -1) {
     const partsWithoutReplacedOptimistic = current.filter(
       (part) => !shouldReplaceOptimisticPart(part, incoming),
     )
-    const insertIndex = partsWithoutReplacedOptimistic.findIndex((part) => part.id > incoming.id)
+    const insertIndex = partsWithoutReplacedOptimistic.findIndex(
+      (part) => compareMessageParts(part, incoming) > 0,
+    )
     return insertIndex === -1
       ? [...partsWithoutReplacedOptimistic, incoming]
       : [

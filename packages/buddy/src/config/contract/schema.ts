@@ -1,13 +1,12 @@
 import path from "node:path"
 import z from "zod"
-import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
+import * as LegacyOpenCode from "./legacy-opencode"
 import {
   PERSONA_SURFACES,
   PERSONAS,
   PRIMARY_USES,
   PRODUCTION_PERSONAS,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { zodFromEffectSchema } from "../../http/effect-schema"
 import { resolveBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
 
 export namespace ConfigSchema {
@@ -15,25 +14,25 @@ export namespace ConfigSchema {
   const NOTES_DIRECTORY_PATH_ERROR_MESSAGE = "notes_directory must be an absolute path" as const
   const NonNegativeInteger = z.number().int().nonnegative()
 
-  export const Mcp = zodFromEffectSchema(OpenCodeConfig.Mcp)
+  export const Mcp = LegacyOpenCode.Mcp
   export type Mcp = z.output<typeof Mcp>
 
-  export const Skills = zodFromEffectSchema(OpenCodeConfig.Skills)
+  export const Skills = LegacyOpenCode.Skills
   export type Skills = z.output<typeof Skills>
 
-  export const ModelID = zodFromEffectSchema(OpenCodeConfig.ModelID)
+  export const ModelID = LegacyOpenCode.ModelID
   export type ModelID = z.output<typeof ModelID>
 
-  export const Provider = zodFromEffectSchema(OpenCodeConfig.Provider)
+  export const Provider = LegacyOpenCode.Provider
   export type Provider = z.output<typeof Provider>
 
-  export type PermissionAction = OpenCodeConfig.PermissionAction
-  export type PermissionRule = OpenCodeConfig.PermissionRule
+  export type PermissionAction = LegacyOpenCode.PermissionAction
+  export type PermissionRule = LegacyOpenCode.PermissionRule
 
-  export const Permission = zodFromEffectSchema(OpenCodeConfig.Permission)
+  export const Permission = LegacyOpenCode.Permission
   export type Permission = z.output<typeof Permission>
 
-  export const Agent = zodFromEffectSchema(OpenCodeConfig.Agent)
+  export const Agent = LegacyOpenCode.Agent
   export type Agent = z.output<typeof Agent>
 
   const TOOL_TOGGLE_MAP = z.record(z.string(), z.boolean()).optional()
