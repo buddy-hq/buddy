@@ -96,31 +96,28 @@ test.each([
   "-Delimiter",
   "-NewName",
   "-Credential",
-])(
-  "PowerShell %s values are data while path parameters still need approval",
-  async (parameter) => {
-    for (const command of ["Set-Content", "set-content", "New-Item", "rm"]) {
-      expect(
-        await scanShellExternalDirectories(
-          {
-            command: `${command} -Path local.txt ${parameter} 'C:\\outside\\data'`,
-            location: winLocation,
-          },
-          windows,
-        ),
-      ).toEqual([])
-      expect(
-        await scanShellExternalDirectories(
-          {
-            command: `${command} ${parameter}:'C:\\payload\\data' -Path C:\\outside\\a`,
-            location: winLocation,
-          },
-          windows,
-        ),
-      ).toEqual(["C:\\outside"])
-    }
-  },
-)
+])("PowerShell %s values are data while path parameters still need approval", async (parameter) => {
+  for (const command of ["Set-Content", "set-content", "New-Item", "rm"]) {
+    expect(
+      await scanShellExternalDirectories(
+        {
+          command: `${command} -Path local.txt ${parameter} 'C:\\outside\\data'`,
+          location: winLocation,
+        },
+        windows,
+      ),
+    ).toEqual([])
+    expect(
+      await scanShellExternalDirectories(
+        {
+          command: `${command} ${parameter}:'C:\\payload\\data' -Path C:\\outside\\a`,
+          location: winLocation,
+        },
+        windows,
+      ),
+    ).toEqual(["C:\\outside"])
+  }
+})
 
 test("unknown PowerShell parameters still treat their value as a possible path", async () => {
   expect(
@@ -141,7 +138,9 @@ test.each([
   String.raw`rm -Path local.txt -Exclude: C:\outside\b`,
   String.raw`rm -Path local.txt -Exclude:C:\notebook\a, C:\outside\b`,
 ])("PowerShell array-valued non-path parameters stay data: %s", async (command) => {
-  expect(await scanShellExternalDirectories({ command, location: winLocation }, windows)).toEqual([])
+  expect(await scanShellExternalDirectories({ command, location: winLocation }, windows)).toEqual(
+    [],
+  )
 })
 
 test.each(["/usr/local/bin/pwsh", "/opt/powershell", "/usr/local/bin/PWSH"])(

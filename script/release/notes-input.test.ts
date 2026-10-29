@@ -6,7 +6,9 @@ import path from "node:path"
 
 const ROOT = path.resolve(import.meta.dir, "../..")
 
-async function inputFixture(input: { channel?: "prod" | "beta"; later?: boolean; noStable?: boolean; bulk?: boolean } = {}) {
+async function inputFixture(
+  input: { channel?: "prod" | "beta"; later?: boolean; noStable?: boolean; bulk?: boolean } = {},
+) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "buddy-notes-input-"))
   try {
     const git = (...args: string[]) => {
@@ -31,7 +33,11 @@ async function inputFixture(input: { channel?: "prod" | "beta"; later?: boolean;
         const message = `feat: Bulk change ${index}`
         return `commit refs/heads/beta\ncommitter Notes fixture <notes@example.test> ${1700000000 + index} +0000\ndata ${message.length}\n${message}\n${index === 0 ? `from ${parent}\n` : ""}\n`
       }).join("")
-      const result = spawnSync("git", ["fast-import", "--quiet"], { cwd: directory, input: stream, encoding: "utf8" })
+      const result = spawnSync("git", ["fast-import", "--quiet"], {
+        cwd: directory,
+        input: stream,
+        encoding: "utf8",
+      })
       if (result.status !== 0) throw new Error(result.stderr)
     }
     const bin = path.join(directory, "bin")
@@ -42,13 +48,26 @@ async function inputFixture(input: { channel?: "prod" | "beta"; later?: boolean;
       ...(input.later ? [{ tag_name: "beta-v0.1.0", draft: false, prerelease: true }] : []),
       { tag_name: "beta-v99.0.0", draft: true, prerelease: true },
     ]
-    await Bun.write(gh, `#!${process.execPath}\nconst args = process.argv.slice(2); if (args[0] !== "api" || !args.includes("--paginate") || !args.includes("--slurp")) throw new Error("Only paginated release reads are allowed"); console.log(${JSON.stringify(JSON.stringify([releases]))});\n`)
+    await Bun.write(
+      gh,
+      `#!${process.execPath}\nconst args = process.argv.slice(2); if (args[0] !== "api" || !args.includes("--paginate") || !args.includes("--slurp")) throw new Error("Only paginated release reads are allowed"); console.log(${JSON.stringify(JSON.stringify([releases]))});\n`,
+    )
     await chmod(gh, 0o755)
-    return spawnSync(process.execPath, [path.join(ROOT, "script/release/notes-input.ts"), "--channel", input.channel ?? "beta"], {
-      cwd: directory,
-      encoding: "utf8",
-      env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, BUDDY_CHANNEL: "prod", GH_REPO: "", BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases" },
-    })
+    return spawnSync(
+      process.execPath,
+      [path.join(ROOT, "script/release/notes-input.ts"), "--channel", input.channel ?? "beta"],
+      {
+        cwd: directory,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+          BUDDY_CHANNEL: "prod",
+          GH_REPO: "",
+          BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases",
+        },
+      },
+    )
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
@@ -91,7 +110,9 @@ describe("raw release notes input", () => {
   test("caps eligible commits at 400 and reports the omitted count", async () => {
     const result = await inputFixture({ bulk: true })
     expect(result.status).toBe(0)
-    expect(result.stdout.split("\n").filter((line) => /^- [0-9a-f]+ /u.test(line))).toHaveLength(400)
+    expect(result.stdout.split("\n").filter((line) => /^- [0-9a-f]+ /u.test(line))).toHaveLength(
+      400,
+    )
     expect(result.stdout).toContain("7 commits left out.")
   })
 })

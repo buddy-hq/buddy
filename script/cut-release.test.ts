@@ -28,7 +28,9 @@ async function authoredDraftFixture(channel: "prod" | "beta", existing: boolean,
     const captured = path.join(directory, "captured.json")
     const gh = path.join(directory, "gh")
     await Bun.write(notesPath, notes)
-    await Bun.write(gh, `#!${process.execPath}
+    await Bun.write(
+      gh,
+      `#!${process.execPath}
 import { readFileSync, writeFileSync } from "node:fs"
 const args = process.argv.slice(2)
 if (args[0] !== "release") throw new Error("Unexpected command")
@@ -39,9 +41,14 @@ if (args[1] === "create" || args[1] === "edit") {
   const state = JSON.parse(readFileSync(process.env.FIXTURE_CAPTURE, "utf8"))
   console.log(JSON.stringify({ assets: [], body: state.body, isDraft: true, isPrerelease: process.env.BUDDY_CHANNEL === "beta", name: state.title, tagName: args[2], url: "https://example.test/release" }))
 } else throw new Error("Unexpected release command")
-`)
+`,
+    )
     await chmod(gh, 0o755)
-    const result = spawnSync(process.execPath, ["--eval", `
+    const result = spawnSync(
+      process.execPath,
+      [
+        "--eval",
+        `
 import { createInterface } from "node:readline/promises";
 import { PassThrough } from "node:stream";
 import { editReleaseDraft, parseReleaseWizardArgs, upsertDraftRelease } from ${JSON.stringify(path.join(import.meta.dir, "cut-release.ts"))};
@@ -52,14 +59,26 @@ try {
   const edited = await editReleaseDraft(rl, "0.1.0", existing, ${JSON.stringify(CURRENT_SOURCE_SHA)}, flags);
   await upsertDraftRelease("0.1.0", edited.title, edited.body, ${JSON.stringify(CURRENT_SOURCE_SHA)}, existing);
 } finally { rl.close(); }
-`], {
-      encoding: "utf8",
-      env: { ...process.env, BUDDY_CHANNEL: channel, BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases", GH_REPO: "", PATH: `${directory}${path.delimiter}${process.env.PATH}`, FIXTURE_CAPTURE: captured },
-    })
+`,
+      ],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          BUDDY_CHANNEL: channel,
+          BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases",
+          GH_REPO: "",
+          PATH: `${directory}${path.delimiter}${process.env.PATH}`,
+          FIXTURE_CAPTURE: captured,
+        },
+      },
+    )
     return {
       result,
-      captured: await Bun.file(captured).exists()
-        ? z.object({ body: z.string(), title: z.string(), args: z.array(z.string()) }).parse(await Bun.file(captured).json())
+      captured: (await Bun.file(captured).exists())
+        ? z
+            .object({ body: z.string(), title: z.string(), args: z.array(z.string()) })
+            .parse(await Bun.file(captured).json())
         : undefined,
       source: await Bun.file(notesPath).text(),
     }
@@ -172,28 +191,37 @@ describe("cut release", () => {
 
 describe("Beta release wizard", () => {
   test.each([
-    ["prod", false], ["prod", true], ["beta", false], ["beta", true],
-  ] as const)("%s uses the notes file and title when existing draft is %s", async (channel, existing) => {
-    const notes = "- Your chat opens faster.  \n- Sources keep <details> & links.\n"
-    const fixture = await authoredDraftFixture(channel, existing, notes)
-    expect(fixture.result.status).toBe(0)
-    expect(fixture.captured?.body).toBe(channel === "beta" ? formatBetaReleaseBody(notes) : notes)
-    expect(fixture.captured?.title).toBe("Buddy: useful changes")
-    expect(fixture.captured?.args[1]).toBe(existing ? "edit" : "create")
-    expect(fixture.source).toBe(notes)
-  })
+    ["prod", false],
+    ["prod", true],
+    ["beta", false],
+    ["beta", true],
+  ] as const)(
+    "%s uses the notes file and title when existing draft is %s",
+    async (channel, existing) => {
+      const notes = "- Your chat opens faster.  \n- Sources keep <details> & links.\n"
+      const fixture = await authoredDraftFixture(channel, existing, notes)
+      expect(fixture.result.status).toBe(0)
+      expect(fixture.captured?.body).toBe(channel === "beta" ? formatBetaReleaseBody(notes) : notes)
+      expect(fixture.captured?.title).toBe("Buddy: useful changes")
+      expect(fixture.captured?.args[1]).toBe(existing ? "edit" : "create")
+      expect(fixture.source).toBe(notes)
+    },
+  )
 
   test.each([
     ["prod", false, ""],
     ["beta", true, "# Raw release notes input — replace with user-facing notes\n- raw"],
     ["beta", false, "&".repeat(25_000)],
-  ] as const)("rejects invalid %s notes before existing=%s GitHub writes", async (channel, existing, notes) => {
-    const fixture = await authoredDraftFixture(channel, existing, notes)
-    expect(fixture.result.status).toBe(1)
-    expect(fixture.result.stderr).toMatch(/must not be empty|Replace the raw input|120,000/u)
-    expect(fixture.captured).toBeUndefined()
-    expect(fixture.source).toBe(notes)
-  })
+  ] as const)(
+    "rejects invalid %s notes before existing=%s GitHub writes",
+    async (channel, existing, notes) => {
+      const fixture = await authoredDraftFixture(channel, existing, notes)
+      expect(fixture.result.status).toBe(1)
+      expect(fixture.result.stderr).toMatch(/must not be empty|Replace the raw input|120,000/u)
+      expect(fixture.captured).toBeUndefined()
+      expect(fixture.source).toBe(notes)
+    },
+  )
   test("frozen draft retries keep the body byte-identical and Beta decodes the original notes", () => {
     const notes = "- Original <Beta> & notes\n- Preserve trailing whitespace  \n"
     const body = formatBetaReleaseBody(notes).replaceAll("\n", "\r\n") + "\r\n"
@@ -219,7 +247,17 @@ describe("Beta release wizard", () => {
 
   test("defaults to prod and accepts explicit Beta targets", () => {
     expect(parseReleaseWizardArgs([]).channel).toBe("prod")
-    expect(parseReleaseWizardArgs(["--channel", "beta", "--targets", "all", "--fs", "--notes", "notes.md"])).toEqual({
+    expect(
+      parseReleaseWizardArgs([
+        "--channel",
+        "beta",
+        "--targets",
+        "all",
+        "--fs",
+        "--notes",
+        "notes.md",
+      ]),
+    ).toEqual({
       channel: "beta",
       fast: true,
       help: false,
@@ -248,35 +286,58 @@ describe("Beta release wizard", () => {
         title: "Buddy Beta: calmer chats",
       })
     }
-    for (const args of [["--notes"], ["--title"], ["--notes="], ["--title="], ["--notes", "--fast"]]) {
+    for (const args of [
+      ["--notes"],
+      ["--title"],
+      ["--notes="],
+      ["--title="],
+      ["--notes", "--fast"],
+    ]) {
       expect(() => parseReleaseWizardArgs(args)).toThrow("requires a value")
     }
   })
 
-  test.each(["prod", "beta"] as const)("%s takes authored notes without invoking the editor", async (channel) => {
-    const directory = await mkdtemp(path.join(os.tmpdir(), "buddy-authored-notes-"))
-    const previous = process.env.BUDDY_CHANNEL
-    const rl = createInterface({ input: new PassThrough(), output: new PassThrough() })
-    try {
-      process.env.BUDDY_CHANNEL = channel
-      const file = path.join(directory, "notes with spaces.md")
-      const notes = "- Your notebook opens faster.\n- Sources preserve <details> & links.\n"
-      await Bun.write(file, notes)
-      const flags = parseReleaseWizardArgs(["--channel", channel, "--fs", "--notes", file, "--title", "A calmer Buddy"])
-      const draft = await editReleaseDraft(rl, "0.1.0", undefined, CURRENT_SOURCE_SHA, flags)
-      expect(draft).toMatchObject({ body: notes, title: "A calmer Buddy", tempDir: undefined })
-      const body = channel === "beta" ? resolveBetaDraftReleaseBody({ notes: draft.body, existingRelease: undefined }) : draft.body
-      expect(channel === "beta" ? readBetaReleaseBody(body) : body).toBe(notes)
-      const defaultTitle = await editReleaseDraft(rl, "0.1.0", undefined, CURRENT_SOURCE_SHA, { ...flags, title: undefined })
-      expect(defaultTitle.title).toBe(channel === "beta" ? "beta-v0.1.0" : "v0.1.0")
-      expect(await Bun.file(file).text()).toBe(notes)
-    } finally {
-      rl.close()
-      if (previous === undefined) delete process.env.BUDDY_CHANNEL
-      else process.env.BUDDY_CHANNEL = previous
-      await rm(directory, { recursive: true, force: true })
-    }
-  })
+  test.each(["prod", "beta"] as const)(
+    "%s takes authored notes without invoking the editor",
+    async (channel) => {
+      const directory = await mkdtemp(path.join(os.tmpdir(), "buddy-authored-notes-"))
+      const previous = process.env.BUDDY_CHANNEL
+      const rl = createInterface({ input: new PassThrough(), output: new PassThrough() })
+      try {
+        process.env.BUDDY_CHANNEL = channel
+        const file = path.join(directory, "notes with spaces.md")
+        const notes = "- Your notebook opens faster.\n- Sources preserve <details> & links.\n"
+        await Bun.write(file, notes)
+        const flags = parseReleaseWizardArgs([
+          "--channel",
+          channel,
+          "--fs",
+          "--notes",
+          file,
+          "--title",
+          "A calmer Buddy",
+        ])
+        const draft = await editReleaseDraft(rl, "0.1.0", undefined, CURRENT_SOURCE_SHA, flags)
+        expect(draft).toMatchObject({ body: notes, title: "A calmer Buddy", tempDir: undefined })
+        const body =
+          channel === "beta"
+            ? resolveBetaDraftReleaseBody({ notes: draft.body, existingRelease: undefined })
+            : draft.body
+        expect(channel === "beta" ? readBetaReleaseBody(body) : body).toBe(notes)
+        const defaultTitle = await editReleaseDraft(rl, "0.1.0", undefined, CURRENT_SOURCE_SHA, {
+          ...flags,
+          title: undefined,
+        })
+        expect(defaultTitle.title).toBe(channel === "beta" ? "beta-v0.1.0" : "v0.1.0")
+        expect(await Bun.file(file).text()).toBe(notes)
+      } finally {
+        rl.close()
+        if (previous === undefined) delete process.env.BUDDY_CHANNEL
+        else process.env.BUDDY_CHANNEL = previous
+        await rm(directory, { recursive: true, force: true })
+      }
+    },
+  )
 
   test("selects the Beta workflow run title on beta", () => {
     const run: WorkflowRun = {

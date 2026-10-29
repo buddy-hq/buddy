@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  latestReleaseVersionFromReleases,
-  changelogSourceRef,
-  limitReleaseBody,
-} from "./changelog"
+import { latestReleaseVersionFromReleases, changelogSourceRef, limitReleaseBody } from "./changelog"
 import { formatBetaReleaseBody, readBetaReleaseBody } from "@buddy/script/release-stream"
 
 describe("release body size limit", () => {

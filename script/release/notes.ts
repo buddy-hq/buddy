@@ -7,10 +7,7 @@ import {
 export const MAX_RELEASE_BODY_LENGTH = 120_000
 export const RAW_RELEASE_NOTES_HEADER = "# Raw release notes input — replace with user-facing notes"
 
-export function validateReleaseNotes(input: {
-  readonly notes: string
-  readonly body: string
-}) {
+export function validateReleaseNotes(input: { readonly notes: string; readonly body: string }) {
   const errors: string[] = []
   const warnings: string[] = []
   const items = parseReleaseNoteItems(input.notes)
@@ -33,7 +30,9 @@ export function validateReleaseNotes(input: {
       )
     }
     if (
-      /^(?:fix|feat|perf|refactor|docs|style|test|build|ci|chore|revert|release|ignore)(?:\([^)]*\))?!?:/iu.test(item)
+      /^(?:fix|feat|perf|refactor|docs|style|test|build|ci|chore|revert|release|ignore)(?:\([^)]*\))?!?:/iu.test(
+        item,
+      )
     ) {
       warnings.push(
         `Item ${index + 1} starts with a conventional-commit prefix; describe what changed for people using Buddy.`,

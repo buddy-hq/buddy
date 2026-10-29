@@ -146,7 +146,10 @@ function parts(node: Node) {
               child.text.slice(end - child.startIndex, item.startIndex - child.startIndex),
             ))
         ) {
-          previous.text = child.text.slice(start - child.startIndex, item.endIndex - child.startIndex)
+          previous.text = child.text.slice(
+            start - child.startIndex,
+            item.endIndex - child.startIndex,
+          )
           previous.values = powerShellTokens(previous.text)
         } else {
           start = item.startIndex

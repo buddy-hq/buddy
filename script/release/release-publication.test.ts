@@ -151,7 +151,11 @@ async function publicationFixture(
         isPrerelease: input.prerelease ?? input.channel !== "prod",
         tagName: input.channel === "prod" ? "v0.1.0" : "beta-v0.1.0",
         databaseId: 123,
-        body: input.notesBody ?? (input.channel === "prod" ? "- Your notebook opens faster." : formatBetaReleaseBody("Beta test notes")),
+        body:
+          input.notesBody ??
+          (input.channel === "prod"
+            ? "- Your notebook opens faster."
+            : formatBetaReleaseBody("Beta test notes")),
         url: `https://github.com/${REPOSITORY}/releases/tag/${input.channel === "prod" ? "v" : "beta-v"}0.1.0`,
         assets,
         highest: input.highest,
@@ -317,18 +321,31 @@ if (args[0] === "api") {
 }
 
 describe("Beta publication CLI", () => {
-  test.each(["prod", "beta"] as const)("version keeps the authored %s draft body verbatim", async (channel) => {
-    const notes = "- Your chat stays responsive.  \n- Opening Sources works again.\n"
-    const body = channel === "beta" ? formatBetaReleaseBody(notes).replaceAll("\n", "\r\n") : notes
-    const fixture = await publicationFixture({ script: "version", channel, notesBody: body })
-    expect(fixture.result.status).toBe(0)
-    expect(fixture.body).toBe(body)
-    expect(fixture.calls.some((call) => call[1] === "create" || call[1] === "edit")).toBe(false)
-    expect(fixture.calls.some((call) => call.includes("--json") && call.some((arg) => arg.split(",").includes("body")))).toBe(true)
-  })
+  test.each(["prod", "beta"] as const)(
+    "version keeps the authored %s draft body verbatim",
+    async (channel) => {
+      const notes = "- Your chat stays responsive.  \n- Opening Sources works again.\n"
+      const body =
+        channel === "beta" ? formatBetaReleaseBody(notes).replaceAll("\n", "\r\n") : notes
+      const fixture = await publicationFixture({ script: "version", channel, notesBody: body })
+      expect(fixture.result.status).toBe(0)
+      expect(fixture.body).toBe(body)
+      expect(fixture.calls.some((call) => call[1] === "create" || call[1] === "edit")).toBe(false)
+      expect(
+        fixture.calls.some(
+          (call) => call.includes("--json") && call.some((arg) => arg.split(",").includes("body")),
+        ),
+      ).toBe(true)
+    },
+  )
 
   test("version refuses an unedited raw-input draft", async () => {
-    const fixture = await publicationFixture({ script: "version", notesBody: formatBetaReleaseBody("# Raw release notes input — replace with user-facing notes\n- deadbee fix: raw") })
+    const fixture = await publicationFixture({
+      script: "version",
+      notesBody: formatBetaReleaseBody(
+        "# Raw release notes input — replace with user-facing notes\n- deadbee fix: raw",
+      ),
+    })
     expect(fixture.result.status).toBe(1)
     expect(fixture.result.stderr).toContain("Replace the raw input")
     expect(fixture.calls.some((call) => call[1] === "create" || call[1] === "edit")).toBe(false)
@@ -343,7 +360,9 @@ describe("Beta publication CLI", () => {
     expect(result.status).toBe(1)
     expect(result.stderr).toContain("No draft release")
     expect(calls.some((call) => call[1] === "create")).toBe(false)
-    const { body, raw } = z.object({ body: z.string(), raw: z.string() }).parse(JSON.parse(wizard?.stdout.trim() ?? ""))
+    const { body, raw } = z
+      .object({ body: z.string(), raw: z.string() })
+      .parse(JSON.parse(wizard?.stdout.trim() ?? ""))
     expect(raw).toContain("Range: `v0.0.79..HEAD`")
     expect(body.length).toBeLessThanOrEqual(120_000)
     expect(readBetaReleaseBody(body)).toBe(
@@ -362,7 +381,9 @@ describe("Beta publication CLI", () => {
     expect(wizard?.status).toBe(0)
     expect(result.status).toBe(1)
     expect(result.stderr).toContain("No draft release")
-    const { body, raw } = z.object({ body: z.string(), raw: z.string() }).parse(JSON.parse(wizard?.stdout.trim() ?? ""))
+    const { body, raw } = z
+      .object({ body: z.string(), raw: z.string() })
+      .parse(JSON.parse(wizard?.stdout.trim() ?? ""))
     expect(raw).toContain("Range: `beta-v0.0.9..HEAD`")
     expect(readBetaReleaseBody(body)).toBe("## Web\n- feat: Later Beta changes")
   })

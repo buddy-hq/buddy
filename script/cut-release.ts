@@ -9,11 +9,7 @@ import { createInterface } from "node:readline/promises"
 import { stdin as input, stdout as output } from "node:process"
 import { cancel, isCancel, multiselect } from "@clack/prompts"
 import { z } from "zod"
-import {
-  getLatestPublishedRelease,
-  getLatestRelease,
-  limitReleaseBody,
-} from "./changelog.ts"
+import { getLatestPublishedRelease, getLatestRelease, limitReleaseBody } from "./changelog.ts"
 import { RELEASE_GATE_COMMAND_PLAN } from "./release-required-gates.ts"
 import { parseReleasePlan, RELEASE_PLAN_FILENAME, type ReleasePlan } from "./release/plan"
 import { assertGreenReleaseSource } from "./release/preflight"
@@ -649,7 +645,8 @@ export async function upsertDraftRelease(
     releaseDistribution().id === "beta"
       ? resolveBetaDraftReleaseBody({ notes: body, existingRelease: existingDraft })
       : body
-  const notes = releaseDistribution().id === "beta" ? (readBetaReleaseBody(finalBody) ?? body) : body
+  const notes =
+    releaseDistribution().id === "beta" ? (readBetaReleaseBody(finalBody) ?? body) : body
   requireValidReleaseNotes({ notes, body: finalBody })
   const directory = mkdtempSync(path.join(os.tmpdir(), "buddy-release-body-"))
   const notesPath = path.join(directory, "notes.md")
@@ -799,8 +796,10 @@ export function parseReleaseWizardArgs(
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
     if (
-      arg === "--notes" || arg?.startsWith("--notes=") ||
-      arg === "--title" || arg?.startsWith("--title=")
+      arg === "--notes" ||
+      arg?.startsWith("--notes=") ||
+      arg === "--title" ||
+      arg?.startsWith("--title=")
     ) {
       const name = arg.startsWith("--notes") ? "--notes" : "--title"
       const value = arg === name ? args[++index] : arg.slice(name.length + 1)
@@ -1089,13 +1088,7 @@ async function main() {
         sourceSha: releaseTargetSha,
       })
     }
-    const editedDraft = await editReleaseDraft(
-      rl,
-      version,
-      existingDraft,
-      releaseTargetSha,
-      flags,
-    )
+    const editedDraft = await editReleaseDraft(rl, version, existingDraft, releaseTargetSha, flags)
     try {
       const shouldDispatch =
         flags.fast ||
