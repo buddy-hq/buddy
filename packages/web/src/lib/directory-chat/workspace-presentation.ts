@@ -1,7 +1,7 @@
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
-  resolveDockedBenchResizeIntent,
+  DOCKED_BENCH_AUTO_FLOAT_OVERDRAG_PX,
   resolveDockedBenchShellLayout,
   type BenchChatLayoutMode,
   type BenchLayoutProfileID,
@@ -145,6 +145,23 @@ function clampNumber(input: { value: number; min: number; max: number }): number
   return Math.min(input.max, Math.max(input.min, input.value))
 }
 
+function resolveChatOwnedLeftSidebarVisible(input: {
+  leftSidebarPreferredOpen: boolean
+  sidebarFitsAtMinimums: boolean
+  rawWorkspaceWidthPx: number | null
+  maxWorkspaceWidthWithSidebarPx: number
+}): boolean {
+  return (
+    input.leftSidebarPreferredOpen &&
+    input.sidebarFitsAtMinimums &&
+    !(
+      input.rawWorkspaceWidthPx != null &&
+      input.rawWorkspaceWidthPx >=
+        input.maxWorkspaceWidthWithSidebarPx + DOCKED_BENCH_AUTO_FLOAT_OVERDRAG_PX
+    )
+  )
+}
+
 export function resolveDockedChatShellWidthPx(input: {
   viewportWidthPx: number
   leftSidebarVisible: boolean
@@ -183,6 +200,54 @@ export function resolveDockedChatWorkspaceWidth(input: {
   )
 }
 
+function resolveShellLeftSidebarVisible(input: {
+  profile: BenchLayoutProfileID
+  viewport: BenchViewport
+  workspaceChromeWidthPx: number
+  leftSidebarPreferredOpen: boolean
+  leftSidebarWidthPx: number
+  rawWorkspaceWidthPx: number | null
+}): boolean {
+  const minimumLayout = resolveDockedBenchShellLayout({
+    profile: input.profile,
+    viewport: input.viewport,
+    workspaceChromeWidthPx: input.workspaceChromeWidthPx,
+    requestedWorkspaceWidthPx: 0,
+    leftSidebarPreferredOpen: input.leftSidebarPreferredOpen,
+    leftSidebarWidthPx: input.leftSidebarWidthPx,
+  })
+  return resolveChatOwnedLeftSidebarVisible({
+    leftSidebarPreferredOpen: input.leftSidebarPreferredOpen,
+    sidebarFitsAtMinimums: minimumLayout.leftSidebarVisible,
+    rawWorkspaceWidthPx: input.rawWorkspaceWidthPx,
+    maxWorkspaceWidthWithSidebarPx: minimumLayout.rightWorkspace.workspaceMaxWidthPx,
+  })
+}
+
+function resolveCollectionLeftSidebarVisible(input: {
+  viewport: BenchViewport
+  leftSidebarPreferredOpen: boolean
+  leftSidebarWidthPx: number
+  rawWorkspaceWidthPx: number | null
+}): boolean {
+  return resolveChatOwnedLeftSidebarVisible({
+    leftSidebarPreferredOpen: input.leftSidebarPreferredOpen,
+    sidebarFitsAtMinimums:
+      input.viewport.widthPx >=
+      input.leftSidebarWidthPx +
+        COLLECTION_CHAT_MIN_WIDTH_PX +
+        COLLECTION_PREVIEW_MIN_WIDTH_PX +
+        RIGHT_WORKSPACE_RAIL_WIDTH_PX,
+    rawWorkspaceWidthPx: input.rawWorkspaceWidthPx,
+    maxWorkspaceWidthWithSidebarPx: collectionWorkspaceLayout({
+      viewport: input.viewport,
+      requestedWidthPx: 0,
+      leftSidebarVisible: true,
+      leftSidebarWidthPx: input.leftSidebarWidthPx,
+    }).maxWidthPx,
+  })
+}
+
 export function resolveChatOwnedDockedShell(input: {
   profile: BenchLayoutProfileID
   viewport: BenchViewport
@@ -197,6 +262,32 @@ export function resolveChatOwnedDockedShell(input: {
       ? input.rememberedChatWidthPx
       : null
   const firstOpen = input.requestedWorkspaceWidthPx == null
+  if (rememberedChatWidthPx != null) {
+    const leftSidebarVisible = resolveShellLeftSidebarVisible({
+      ...input,
+      rawWorkspaceWidthPx: input.requestedWorkspaceWidthPx,
+    })
+    const fitted = resolveDockedBenchShellLayout({
+      profile: input.profile,
+      viewport: input.viewport,
+      workspaceChromeWidthPx: input.workspaceChromeWidthPx,
+      requestedWorkspaceWidthPx: input.requestedWorkspaceWidthPx,
+      leftSidebarPreferredOpen: input.leftSidebarPreferredOpen,
+      leftSidebarWidthPx: input.leftSidebarWidthPx,
+      leftSidebarVisible,
+    })
+    return {
+      ...fitted,
+      workspaceWidthPx: resolveDockedChatWorkspaceWidth({
+        shellWidthPx: fitted.availableShellWidthPx,
+        workspaceWidthPx: fitted.workspaceWidthPx,
+        workspaceMinWidthPx: fitted.rightWorkspace.workspaceMinWidthPx,
+        workspaceMaxWidthPx: fitted.rightWorkspace.workspaceMaxWidthPx,
+        rememberedChatWidthPx,
+        firstOpen,
+      }),
+    }
+  }
   const legacy = resolveDockedBenchShellLayout({
     profile: input.profile,
     viewport: input.viewport,
@@ -205,7 +296,7 @@ export function resolveChatOwnedDockedShell(input: {
     leftSidebarPreferredOpen: input.leftSidebarPreferredOpen,
     leftSidebarWidthPx: input.leftSidebarWidthPx,
   })
-  if (rememberedChatWidthPx == null && !firstOpen) return legacy
+  if (!firstOpen) return legacy
 
   const ownedWorkspaceWidthPx = resolveDockedChatWorkspaceWidth({
     shellWidthPx: legacy.availableShellWidthPx,
@@ -251,66 +342,44 @@ export function resolveChatOwnedDockedShell(input: {
   }
 }
 
+export function resolveDraggedWorkspaceWidthRecord(rawWorkspaceWidthPx: number): number {
+  return Math.max(1, rawWorkspaceWidthPx)
+}
+
 export function resolveDraggedDockedChatWidth(input: {
   viewport: BenchViewport
   profile: BenchLayoutProfileID
   workspaceChromeWidthPx: number
   layout: "shell" | "collection"
-  leftSidebarVisible: boolean
+  leftSidebarPreferredOpen: boolean
   leftSidebarWidthPx: number
   rawWorkspaceWidthPx: number
-  workspaceMinWidthPx: number
-  workspaceMaxWidthPx: number
-  hasVisibleBenchTarget: boolean
-  applyResizeIntent: boolean
 }): number {
-  if (!input.applyResizeIntent) {
-    return (
-      resolveDockedChatShellWidthPx({
-        viewportWidthPx: input.viewport.widthPx,
-        leftSidebarVisible: input.leftSidebarVisible,
-        leftSidebarWidthPx: input.leftSidebarWidthPx,
-      }) -
-      clampNumber({
-        value: input.rawWorkspaceWidthPx,
-        min: input.workspaceMinWidthPx,
-        max: input.workspaceMaxWidthPx,
-      })
-    )
-  }
-
-  const sidebarVisible =
-    resolveDockedBenchResizeIntent({
-      rawWorkspaceWidthPx: input.rawWorkspaceWidthPx,
-      maxWorkspaceWidthPx: input.workspaceMaxWidthPx,
-      hasVisibleBenchTarget: input.hasVisibleBenchTarget,
-      leftSidebarVisible: input.leftSidebarVisible,
-    }) === "suppress-left-sidebar"
-      ? false
-      : input.leftSidebarVisible
   if (input.layout === "shell") {
+    const leftSidebarVisible = resolveShellLeftSidebarVisible(input)
     const fitted = resolveDockedBenchShellLayout({
       profile: input.profile,
       viewport: input.viewport,
       workspaceChromeWidthPx: input.workspaceChromeWidthPx,
       requestedWorkspaceWidthPx: input.rawWorkspaceWidthPx,
-      leftSidebarPreferredOpen: sidebarVisible,
+      leftSidebarPreferredOpen: input.leftSidebarPreferredOpen,
       leftSidebarWidthPx: input.leftSidebarWidthPx,
-      leftSidebarVisible: sidebarVisible,
+      leftSidebarVisible,
     })
     return fitted.availableShellWidthPx - fitted.workspaceWidthPx
   }
 
+  const leftSidebarVisible = resolveCollectionLeftSidebarVisible(input)
   const layout = collectionWorkspaceLayout({
     viewport: input.viewport,
     requestedWidthPx: input.rawWorkspaceWidthPx,
-    leftSidebarVisible: sidebarVisible,
+    leftSidebarVisible,
     leftSidebarWidthPx: input.leftSidebarWidthPx,
   })
   return (
     resolveDockedChatShellWidthPx({
       viewportWidthPx: input.viewport.widthPx,
-      leftSidebarVisible: sidebarVisible,
+      leftSidebarVisible,
       leftSidebarWidthPx: input.leftSidebarWidthPx,
     }) - layout.widthPx
   )
@@ -417,6 +486,10 @@ export function resolveWorkspacePresentation(input: {
   const leftSidebarManagedByWorkspace =
     dockedFrameOpen || (collectionVisible && !floatingVisible && !transitionFloatingBenchOpen)
   const chatWidthPolicyActive = dockedFrameOpen || dockedEmptyVisible
+  const rememberedDockedChatWidthPx =
+    input.rememberedDockedChatWidthPx != null && Number.isFinite(input.rememberedDockedChatWidthPx)
+      ? input.rememberedDockedChatWidthPx
+      : null
   const shellChatLayout =
     chatWidthPolicyActive && !collectionVisible
       ? resolveChatOwnedDockedShell({
@@ -424,7 +497,7 @@ export function resolveWorkspacePresentation(input: {
           viewport: input.viewport,
           workspaceChromeWidthPx: RIGHT_WORKSPACE_RAIL_WIDTH_PX,
           requestedWorkspaceWidthPx: input.requestedBenchWidthPx,
-          rememberedChatWidthPx: input.rememberedDockedChatWidthPx ?? null,
+          rememberedChatWidthPx: rememberedDockedChatWidthPx,
           leftSidebarPreferredOpen: input.leftSidebarPreferredOpen,
           leftSidebarWidthPx: input.leftSidebarWidthPx,
         })
@@ -435,12 +508,15 @@ export function resolveWorkspacePresentation(input: {
       : shellChatLayout
         ? shellChatLayout.leftSidebarVisible
         : collectionVisible
-          ? input.leftSidebarPreferredOpen &&
-            input.viewport.widthPx >=
-              input.leftSidebarWidthPx +
-                COLLECTION_CHAT_MIN_WIDTH_PX +
-                COLLECTION_PREVIEW_MIN_WIDTH_PX +
-                RIGHT_WORKSPACE_RAIL_WIDTH_PX
+          ? resolveCollectionLeftSidebarVisible({
+              viewport: input.viewport,
+              leftSidebarPreferredOpen: input.leftSidebarPreferredOpen,
+              leftSidebarWidthPx: input.leftSidebarWidthPx,
+              rawWorkspaceWidthPx:
+                chatWidthPolicyActive && rememberedDockedChatWidthPx != null
+                  ? input.requestedBenchWidthPx
+                  : null,
+            })
           : input.leftSidebarPreferredOpen
   const selectorLayout = selectorWorkspaceLayout({
     viewport: input.viewport,
@@ -476,7 +552,7 @@ export function resolveWorkspacePresentation(input: {
             workspaceWidthPx: workspaceLayout.widthPx,
             workspaceMinWidthPx: workspaceLayout.minWidthPx,
             workspaceMaxWidthPx: workspaceLayout.maxWidthPx,
-            rememberedChatWidthPx: input.rememberedDockedChatWidthPx ?? null,
+            rememberedChatWidthPx: rememberedDockedChatWidthPx,
             firstOpen: input.requestedBenchWidthPx == null,
           }),
         }

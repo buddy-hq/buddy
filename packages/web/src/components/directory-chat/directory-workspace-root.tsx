@@ -88,6 +88,7 @@ import { RIGHT_WORKSPACE_RAIL_WIDTH_PX } from "@/lib/directory-chat/right-worksp
 import {
   resolveChatOwnedDockedShell,
   resolveDraggedDockedChatWidth,
+  resolveDraggedWorkspaceWidthRecord,
   resolveWorkspacePresentation,
   workspaceCollectionForDrawer,
   workspaceCollectionForTarget,
@@ -544,6 +545,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
 
   const handleDockedWorkspaceResizeIntent = useCallback(
     (intent: ResizeHandleIntent) => {
+      const rawWorkspaceWidthPx = resolveDraggedWorkspaceWidthRecord(intent.rawSize)
       const dockedEmptyDrag =
         presentation.workspaceOpen &&
         presentation.kind === "selector" &&
@@ -561,18 +563,14 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           profile: transientBenchActive ? BENCH_LAYOUT_PROFILE_VISUAL : layoutProfile,
           workspaceChromeWidthPx: transientBenchActive ? 0 : RIGHT_WORKSPACE_RAIL_WIDTH_PX,
           layout: collectionDrag ? "collection" : "shell",
-          leftSidebarVisible: dockedLeftSidebarVisible,
+          leftSidebarPreferredOpen: chatState.leftSidebarOpen,
           leftSidebarWidthPx: chatState.leftSidebarDisplayWidth,
-          rawWorkspaceWidthPx: intent.rawSize,
-          workspaceMinWidthPx: dockedWorkspaceMinWidthPx,
-          workspaceMaxWidthPx: dockedWorkspaceMaxWidthPx,
-          hasVisibleBenchTarget: transientBenchActive || presentation.dockedBenchVisible,
-          applyResizeIntent: !transientBenchActive,
+          rawWorkspaceWidthPx,
         })
         if (Number.isFinite(chatWidthPx) && chatWidthPx > 0) setDockedChatWidth(chatWidthPx)
       }
       if (transientBenchActive) {
-        setBenchPresentationWorkspaceWidth(intent.rawSize, "bench")
+        setBenchPresentationWorkspaceWidth(rawWorkspaceWidthPx, "bench")
         return
       }
       const widthOwner =
@@ -582,23 +580,23 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           ? "bench"
           : "drawer"
       const decision = resolveDockedBenchResizeIntent({
-        rawWorkspaceWidthPx: intent.rawSize,
+        rawWorkspaceWidthPx,
         maxWorkspaceWidthPx: dockedWorkspaceMaxWidthPx,
         hasVisibleBenchTarget: presentation.dockedBenchVisible,
         leftSidebarVisible: presentation.leftSidebar.visible,
       })
       if (decision === "clamp") {
-        setBenchPresentationWorkspaceWidth(intent.rawSize, widthOwner)
+        setBenchPresentationWorkspaceWidth(rawWorkspaceWidthPx, widthOwner)
         return
       }
 
       if (decision === "suppress-left-sidebar") {
         setLeftSidebarOverlayOpen(false)
-        setBenchPresentationWorkspaceWidth(intent.rawSize, widthOwner)
+        setBenchPresentationWorkspaceWidth(rawWorkspaceWidthPx, widthOwner)
         return
       }
 
-      setBenchPresentationWorkspaceWidth(intent.rawSize, widthOwner)
+      setBenchPresentationWorkspaceWidth(rawWorkspaceWidthPx, widthOwner)
       setBenchMode({
         mode: BENCH_CHAT_LAYOUT_FLOATING,
         origin: "user",
@@ -606,10 +604,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     },
     [
       chatState.leftSidebarDisplayWidth,
+      chatState.leftSidebarOpen,
       dockedBenchViewport,
-      dockedLeftSidebarVisible,
       dockedWorkspaceMaxWidthPx,
-      dockedWorkspaceMinWidthPx,
       layoutProfile,
       presentation,
       setBenchMode,
