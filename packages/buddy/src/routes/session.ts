@@ -41,6 +41,12 @@ import {
 } from "../session"
 import { getTeachingState } from "../learning/adapters/http/session/state-actions"
 import {
+  postSessionSmartNote,
+  sessionSmartNoteBodyOpenApiSchema,
+  sessionSmartNoteBodySchema,
+  sessionSmartNoteResponseSchema,
+} from "../session/orchestration/smart-note-actions"
+import {
   SVG_RENDER_MAX_SOURCE_BYTES,
   SVG_REPORTED_FENCE_MAX_BYTES,
   SVG_SOURCE_FORMATS,
@@ -828,4 +834,30 @@ export const SessionRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
     backgroundSessionHandler,
+  )
+  .post(
+    "/:sessionID/smart-note",
+    describeRoute({
+      operationId: "session.smartNote",
+      summary: "Draft a note from the current chat",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: sessionSmartNoteBodyOpenApiSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Editable note draft",
+          content: {
+            "application/json": { schema: resolver(sessionSmartNoteResponseSchema) },
+          },
+        },
+        ...routeErrors(400, 403, 404, 409, 500, 503),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    validator("json", sessionSmartNoteBodySchema),
+    (c) => postSessionSmartNote(c, c.req.valid("json").focus),
   )

@@ -98,6 +98,8 @@ import {
 import {
   getSlashMatch,
   NOTE_SLASH_COMMAND_NAME,
+  parseSlashCommandInput,
+  SMART_NOTE_SLASH_COMMAND_NAME,
   type SlashCommandOption,
   type SlashCommandSource,
 } from "./slash-autocomplete"
@@ -172,6 +174,7 @@ const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set([
   "mcp",
   "play",
   NOTE_SLASH_COMMAND_NAME,
+  SMART_NOTE_SLASH_COMMAND_NAME,
 ])
 const DRAFT_STORE_SYNC_DELAY_MS = 250
 /**
@@ -184,6 +187,13 @@ const DRAFT_STORE_SYNC_DELAY_MS = 250
  * and so reports the newest keystroke rather than the snapshot being committed.
  */
 const COMPOSER_ORIGINATED_DRAFTS = new WeakSet<PromptDraftState>()
+
+function isSmartNoteCommand(value: string) {
+  return (
+    parseSlashCommandInput(value.trim(), [{ name: SMART_NOTE_SLASH_COMMAND_NAME }]) !== undefined
+  )
+}
+
 const CURSOR_NAVIGATION_KEYS = new Set([
   "ArrowLeft",
   "ArrowRight",
@@ -244,6 +254,7 @@ type PromptComposerProps = {
   onThinkingChange: (thinking: string) => void
   onSubmit: (draft: Omit<PromptDraftState, "updatedAt">) => void | Promise<void>
   onSaveNote?: SaveComposerNote
+  onDraftSmartNote?: (input: { focus?: string; signal?: AbortSignal }) => Promise<string>
   onAbort: () => void
   onNewSession: () => void
   onOpenSettings?: () => void
@@ -294,6 +305,53 @@ type SelectionContextChipPart = Extract<
 
 function isSelectionContextChipPart(part: PromptComposerPart): part is SelectionContextChipPart {
   return part.type === READING_SELECTION_PART_TYPE || part.type === SELECTION_CONTEXT_PART_TYPE
+}
+
+type TPromptDraftSnapshot = Omit<PromptDraftState, "updatedAt">
+
+function draftReplacingEditorText(
+  current: TPromptDraftSnapshot,
+  text: string,
+  knownAgents: Set<string>,
+): TPromptDraftSnapshot {
+  const stagedParts = current.parts.filter(isSelectionContextChipPart)
+  const editorParts = createPromptPartsFromValue(text, knownAgents)
+  const parts = [...stagedParts, ...editorParts]
+  const value = serializePromptEditorParts(parts)
+  return {
+    value,
+    parts,
+    attachments: current.attachments,
+    cursor: value.length,
+  }
+}
+
+function restoreClearedCommand(
+  removed: TPromptDraftSnapshot,
+  current: TPromptDraftSnapshot,
+): TPromptDraftSnapshot {
+  const staged = new Map<string, SelectionContextChipPart>()
+  for (const part of removed.parts) {
+    if (!isSelectionContextChipPart(part)) continue
+    staged.set(buildSelectionContextEntryKey(part), part)
+  }
+  for (const part of current.parts) {
+    if (!isSelectionContextChipPart(part)) continue
+    staged.set(buildSelectionContextEntryKey(part), part)
+  }
+  const editorParts = removed.parts.filter((part) => !isSelectionContextChipPart(part))
+  const parts = [...staged.values(), ...editorParts]
+  const restoredAttachmentIDs = new Set(removed.attachments.map((attachment) => attachment.id))
+  const value = serializePromptEditorParts(parts)
+  return {
+    value,
+    parts,
+    attachments: [
+      ...removed.attachments,
+      ...current.attachments.filter((attachment) => !restoredAttachmentIDs.has(attachment.id)),
+    ],
+    cursor: value.length,
+  }
 }
 
 function buildSelectionContextEntryKey(part: SelectionContextChipPart) {
@@ -400,6 +458,18 @@ export function PromptComposer(props: PromptComposerProps) {
   )
   const activePromptKeyRef = useRef(promptKey)
   activePromptKeyRef.current = promptKey
+  const smartNoteAbortRef = useRef<AbortController | undefined>(undefined)
+  const smartNoteRequestRef = useRef(0)
+  const [draftingSmartNote, setDraftingSmartNote] = useState(false)
+  const isComposerInteractionLocked = useCallback(() => smartNoteAbortRef.current !== undefined, [])
+  useEffect(() => {
+    return () => {
+      smartNoteRequestRef.current += 1
+      smartNoteAbortRef.current?.abort()
+      smartNoteAbortRef.current = undefined
+      setDraftingSmartNote(false)
+    }
+  }, [promptKey])
   const skillPresentation = useSkillPresentationLookup(props.directory)
   const storeDraft = usePromptStore((state) => getPromptDraft(state, promptKey))
   const [draft, setDraft] = useState(() => storeDraft)
@@ -500,6 +570,7 @@ export function PromptComposer(props: PromptComposerProps) {
     directory: props.directory,
     promptKey,
     activePromptKey: activePromptKeyRef,
+    isInteractionLocked: isComposerInteractionLocked,
     quotedMessage: quotedMessagePart,
     saveNote: props.onSaveNote,
     clearDraft,
@@ -525,6 +596,11 @@ export function PromptComposer(props: PromptComposerProps) {
     }
     event.preventDefault()
     noteMode.changeActive(!noteMode.active)
+  }
+  function blockLockedComposerInteraction(event: React.SyntheticEvent) {
+    if (!isComposerInteractionLocked()) return
+    event.preventDefault()
+    event.stopPropagation()
   }
   const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
   const unsupportedImageAttachments = useMemo(
@@ -574,7 +650,8 @@ export function PromptComposer(props: PromptComposerProps) {
   const canSaveNote =
     (draftEditorValue.trim().length > 0 || draft.attachments.length > 0 || !!quotedMessagePart) &&
     parsedNoteImages?.status === "ok" &&
-    !noteMode.saving
+    !noteMode.saving &&
+    !draftingSmartNote
   const noteSaveDisabledReason =
     parsedNoteImages?.status === "error" ? parsedNoteImages.message : undefined
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
@@ -704,6 +781,8 @@ export function PromptComposer(props: PromptComposerProps) {
     modelOptions: props.modelOptions,
     skillPresentation,
     noteCommandAvailable: !!props.onSaveNote && !noteMode.active,
+    smartNoteCommandAvailable:
+      !!props.onSaveNote && !!props.onDraftSmartNote && !noteMode.active && !draftingSmartNote,
     onRefreshSlashCommands: props.onRefreshSlashCommands,
   })
   const queryClient = useQueryClient()
@@ -1614,6 +1693,10 @@ export function PromptComposer(props: PromptComposerProps) {
         noteMode.enter()
         setFocusRequestID((current) => current + 1)
         return true
+      case SMART_NOTE_SLASH_COMMAND_NAME:
+        if (!props.onSaveNote || !props.onDraftSmartNote) return false
+        void draftSmartNoteFromComposer(`/${SMART_NOTE_SLASH_COMMAND_NAME}`)
+        return true
       case "play":
         openArcade({ clearDraft: true })
         return true
@@ -1656,13 +1739,95 @@ export function PromptComposer(props: PromptComposerProps) {
     setFocusRequestID((current) => current + 1)
   }
 
+  function smartNoteStillCurrent(requestID: number, promptKeyAtStart: string) {
+    return (
+      smartNoteRequestRef.current === requestID && activePromptKeyRef.current === promptKeyAtStart
+    )
+  }
+
+  async function draftSmartNoteFromComposer(raw: string) {
+    const parsed = parseSlashCommandInput(raw.trim(), [{ name: SMART_NOTE_SLASH_COMMAND_NAME }])
+    if (!parsed || !props.onDraftSmartNote || !props.onSaveNote) return false
+    if (smartNoteAbortRef.current && !smartNoteAbortRef.current.signal.aborted) return true
+    const requestID = smartNoteRequestRef.current + 1
+    smartNoteRequestRef.current = requestID
+    smartNoteAbortRef.current?.abort()
+    const controller = new AbortController()
+    smartNoteAbortRef.current = controller
+    const promptKeyAtStart = activePromptKeyRef.current
+    const focus = parsed.arguments.trim()
+    const removedDraft = readEditorDraft()
+    clearComposer()
+    noteMode.enter()
+    setDraftingSmartNote(true)
+    const finishDraft = (text: string) => {
+      if (!smartNoteStillCurrent(requestID, promptKeyAtStart)) return
+      noteMode.enter()
+      replaceDraft(
+        promptKeyAtStart,
+        draftReplacingEditorText(
+          getPromptDraft(usePromptStore.getState(), promptKeyAtStart),
+          text,
+          viewState.knownAgents,
+        ),
+      )
+      setFocusRequestID((current) => current + 1)
+    }
+    const restoreCommand = () => {
+      if (!smartNoteStillCurrent(requestID, promptKeyAtStart)) return
+      replaceDraft(
+        promptKeyAtStart,
+        restoreClearedCommand(
+          removedDraft,
+          getPromptDraft(usePromptStore.getState(), promptKeyAtStart),
+        ),
+      )
+      noteMode.exit()
+      setFocusRequestID((current) => current + 1)
+    }
+    try {
+      const text = focus
+        ? await props.onDraftSmartNote({ focus, signal: controller.signal })
+        : await props.onDraftSmartNote({ signal: controller.signal })
+      if (!smartNoteStillCurrent(requestID, promptKeyAtStart)) return true
+      const draftText = text.trim()
+      if (!draftText) {
+        toast.error(language.t("notes.smartNote.empty"))
+        restoreCommand()
+        return true
+      }
+      finishDraft(draftText)
+      return true
+    } catch (error) {
+      if (!smartNoteStillCurrent(requestID, promptKeyAtStart)) return true
+      if (error instanceof Error && error.name === "AbortError") return true
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : language.t("notes.smartNote.failed"),
+      )
+      restoreCommand()
+      return true
+    } finally {
+      if (smartNoteRequestRef.current === requestID) {
+        setDraftingSmartNote(false)
+        if (smartNoteAbortRef.current === controller) smartNoteAbortRef.current = undefined
+      }
+    }
+  }
+
   async function submitDraft(currentDraft: Omit<PromptDraftState, "updatedAt">) {
     if (!noteMode.active && (hasUnsupportedImageAttachments || hasUnreadyNativeResources)) return
 
     if (await noteMode.submit(currentDraft)) return
 
-    // Intercept UI-only slash commands
     const text = currentDraft.value.trim()
+    if (isSmartNoteCommand(text)) {
+      await draftSmartNoteFromComposer(text)
+      return
+    }
+
+    // Intercept UI-only slash commands
     if (text.startsWith("/")) {
       const command = text.slice(1).split(/\s+/)[0]
       if (command === "play") {
@@ -1897,6 +2062,7 @@ export function PromptComposer(props: PromptComposerProps) {
               >
                 <form
                   id="prompt-composer-form"
+                  onSubmitCapture={blockLockedComposerInteraction}
                   data-component="prompt-composer"
                   className="relative"
                   onSubmit={(event) => {
@@ -1940,9 +2106,11 @@ export function PromptComposer(props: PromptComposerProps) {
                         className="pointer-events-none absolute left-3 top-3 right-20 text-text-weaker transition-opacity duration-250 ease-out"
                         style={{ opacity: viewState.placeholderOpacity }}
                       >
-                        {noteMode.active
-                          ? language.t("notes.composer.placeholder")
-                          : viewState.displayedPlaceholder}
+                        {draftingSmartNote
+                          ? language.t("notes.smartNote.drafting")
+                          : noteMode.active
+                            ? language.t("notes.composer.placeholder")
+                            : viewState.displayedPlaceholder}
                       </div>
                     ) : null}
 
@@ -1950,9 +2118,10 @@ export function PromptComposer(props: PromptComposerProps) {
                       ref={editorRef}
                       data-component="prompt-editor"
                       data-chat-typography
-                      contentEditable
+                      contentEditable={!draftingSmartNote}
                       suppressContentEditableWarning
                       role="textbox"
+                      aria-busy={draftingSmartNote || undefined}
                       aria-label={language.t("prompt.placeholder.simple")}
                       aria-multiline="true"
                       className={cn(
@@ -1996,6 +2165,7 @@ export function PromptComposer(props: PromptComposerProps) {
                         updateDraftCursorFromComposer(nextCursor, "debounced")
                       }}
                       onBlur={() => setEditorFocused(false)}
+                      onKeyDownCapture={blockLockedComposerInteraction}
                       onClick={() => {
                         syncEditorCursorToDraft()
                       }}
@@ -2205,7 +2375,11 @@ export function PromptComposer(props: PromptComposerProps) {
                   }
                   onAttach={() => fileInputRef.current?.click()}
                   noteMode={noteMode.active}
-                  {...(props.onSaveNote ? { onNoteModeChange: noteMode.changeActive } : {})}
+                  {...(props.onSaveNote
+                    ? {
+                        onNoteModeChange: noteMode.changeActive,
+                      }
+                    : {})}
                   onAbort={props.onAbort}
                   attachLabel={
                     noteMode.active

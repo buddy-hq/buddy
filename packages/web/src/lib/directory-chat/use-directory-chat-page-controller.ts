@@ -27,6 +27,7 @@ import {
   parseSlashCommandInput,
   QUIZ_SLASH_COMMAND_NAME,
   REDO_SLASH_COMMAND_NAME,
+  SMART_NOTE_SLASH_COMMAND_NAME,
   SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES,
   UNDO_SLASH_COMMAND_NAME,
 } from "@/components/prompt/slash-autocomplete"
@@ -162,6 +163,7 @@ import {
   startActiveChatDraft,
   startActiveChatSession,
 } from "@/lib/active-chat-transition-coordinator"
+import { draftSmartNote } from "@/features/notes/api"
 import { useNoteCaptureWorkflow } from "@/features/notes/use-note-capture-workflow"
 
 const SIDEBAR_MIN_WIDTH = 220
@@ -501,6 +503,7 @@ export function useDirectoryChatPageController(
       if (isHiddenSlashCommandName(command.name)) continue
       candidates.set(command.name, { name: command.name })
     }
+    candidates.set(SMART_NOTE_SLASH_COMMAND_NAME, { name: SMART_NOTE_SLASH_COMMAND_NAME })
     return Array.from(candidates.values())
   }, [slashCommands])
 
@@ -1448,6 +1451,11 @@ export function useDirectoryChatPageController(
     const slashCommand = parseSlashCommandInput(rawContent, slashCommandCandidates)
 
     if (slashCommand) {
+      if (slashCommand.command.name === SMART_NOTE_SLASH_COMMAND_NAME) {
+        restorePromptSnapshot(draftSnapshot)
+        return
+      }
+
       if (slashCommand.command.name === "new") {
         cs.clearPromptDraft(cs.promptKey)
         try {
@@ -1767,6 +1775,35 @@ export function useDirectoryChatPageController(
       void onSend(draft)
     },
     onSaveNote: saveComposerNote,
+    onDraftSmartNote: ({ focus, signal }) => {
+      if (!cs.sessionID) return Promise.reject(new Error(language.t("notes.smartNote.noChat")))
+      if (focus && signal) {
+        return draftSmartNote({
+          directory: decodedDirectory,
+          sessionID: cs.sessionID,
+          focus,
+          signal,
+        })
+      }
+      if (focus) {
+        return draftSmartNote({
+          directory: decodedDirectory,
+          sessionID: cs.sessionID,
+          focus,
+        })
+      }
+      if (signal) {
+        return draftSmartNote({
+          directory: decodedDirectory,
+          sessionID: cs.sessionID,
+          signal,
+        })
+      }
+      return draftSmartNote({
+        directory: decodedDirectory,
+        sessionID: cs.sessionID,
+      })
+    },
   } satisfies DirectoryChatMainPaneProps["promptComposerProps"]
 
   const queuedFollowups = sessionID

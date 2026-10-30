@@ -11,6 +11,7 @@ export const COMPACT_SLASH_COMMAND_ALIASES = ["summarize"] as const
 export const FORK_SLASH_COMMAND_NAME = "branch" as const
 export const FORK_SLASH_COMMAND_ALIASES = ["fork"] as const
 export const NOTE_SLASH_COMMAND_NAME = "note" as const
+export const SMART_NOTE_SLASH_COMMAND_NAME = "smart-note" as const
 export const QUIZ_SLASH_COMMAND_NAME = "quiz" as const
 export const REDO_SLASH_COMMAND_NAME = "redo" as const
 export const UNDO_SLASH_COMMAND_NAME = "undo" as const
@@ -113,7 +114,8 @@ export function parseSlashCommandInput(
 ) {
   if (!value.startsWith("/")) return undefined
 
-  const [commandToken, ...argumentTokens] = value.split(" ")
+  const boundary = value.search(/\s/u)
+  const commandToken = boundary === -1 ? value : value.slice(0, boundary)
   const commandName = commandToken.slice(1)
   if (!commandName) return undefined
 
@@ -125,7 +127,7 @@ export function parseSlashCommandInput(
 
   return {
     command,
-    arguments: argumentTokens.join(" "),
+    arguments: boundary === -1 ? "" : value.slice(boundary + 1),
   }
 }
 

@@ -9,6 +9,7 @@ import type {
   NotesRenameResponses,
   NotesSessionNoteResponses,
   NotesUpdateResponses,
+  SessionSmartNoteResponses,
 } from "@buddy/sdk"
 import { buddyResultMessage, getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { ProjectExplorerFileVersionConflictError } from "@/state/chat-actions"
@@ -138,4 +139,21 @@ export async function annotateChatMessage(input: {
       images: input.images,
     }),
   )
+}
+
+export async function draftSmartNote(input: {
+  directory: string
+  sessionID: string
+  focus?: string
+  signal?: AbortSignal
+}) {
+  const parameters = input.focus
+    ? { sessionID: input.sessionID, focus: input.focus }
+    : { sessionID: input.sessionID }
+  const response = input.signal
+    ? await getBuddyClient(input.directory).session.smartNote(parameters, {
+        signal: input.signal,
+      })
+    : await getBuddyClient(input.directory).session.smartNote(parameters)
+  return requireBuddyData<SessionSmartNoteResponses[200]>(response).text
 }

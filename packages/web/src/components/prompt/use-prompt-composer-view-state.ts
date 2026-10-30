@@ -23,6 +23,7 @@ import {
   getSlashMatch,
   isHiddenSlashCommandName,
   NOTE_SLASH_COMMAND_NAME,
+  SMART_NOTE_SLASH_COMMAND_NAME,
   QUIZ_SLASH_COMMAND_NAME,
   REDO_SLASH_COMMAND_NAME,
   UNDO_SLASH_COMMAND_NAME,
@@ -100,6 +101,13 @@ const NOTE_SLASH_COMMAND: SlashCommandOption = {
   description: language.t("prompt.slash.note.description"),
 }
 
+const SMART_NOTE_SLASH_COMMAND: SlashCommandOption = {
+  type: "builtin",
+  name: SMART_NOTE_SLASH_COMMAND_NAME,
+  title: language.t("prompt.slash.smartNote.title"),
+  description: language.t("prompt.slash.smartNote.description"),
+}
+
 function translatePromptPlaceholder(key: string, params?: Record<string, string>) {
   if (key === "prompt.placeholder.normal") {
     if (params?.example) return language.t(key, params)
@@ -160,6 +168,7 @@ type UsePromptComposerViewStateProps = {
   }>
   skillPresentation: SkillPresentationLookup
   noteCommandAvailable: boolean
+  smartNoteCommandAvailable: boolean
   onRefreshSlashCommands?: () => void
 }
 
@@ -203,22 +212,32 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
     const localNames = new Set([
       ...RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => command.name.toLowerCase()),
       COMPACT_SLASH_COMMAND_NAME.toLowerCase(),
+      ...(props.smartNoteCommandAvailable
+        ? [SMART_NOTE_SLASH_COMMAND_NAME.toLowerCase()]
+        : []),
     ])
     const filteredCustomCommands = customCommands.filter(
       (command) => !localNames.has(command.name.toLowerCase()),
     )
     const customNames = new Set(filteredCustomCommands.map((command) => command.name.toLowerCase()))
 
-    const builtinCommands = props.noteCommandAvailable
-      ? [...BUILTIN_SLASH_COMMANDS, NOTE_SLASH_COMMAND]
-      : BUILTIN_SLASH_COMMANDS
+    const builtinCommands = [
+      ...BUILTIN_SLASH_COMMANDS,
+      ...(props.noteCommandAvailable ? [NOTE_SLASH_COMMAND] : []),
+      ...(props.smartNoteCommandAvailable ? [SMART_NOTE_SLASH_COMMAND] : []),
+    ]
 
     return [
       ...filteredCustomCommands,
       ...builtinCommands.filter((command) => !customNames.has(command.name.toLowerCase())),
       ...RESOURCE_LOCAL_SLASH_COMMANDS,
     ]
-  }, [props.noteCommandAvailable, props.slashCommands, skillPresentation])
+  }, [
+    props.noteCommandAvailable,
+    props.smartNoteCommandAvailable,
+    props.slashCommands,
+    skillPresentation,
+  ])
 
   const mentionMatch = useMemo(
     () => getMentionMatch(props.draftValue, props.cursorOffset),

@@ -68,6 +68,26 @@ describe("slash autocomplete", () => {
     })
   })
 
+  test("parses a command at the first newline or tab and keeps the rest of the text", () => {
+    const commands = [{ name: "smart-note" }, { name: "review" }]
+    expect(parseSlashCommandInput("/smart-note\nlight reactions", commands)).toEqual({
+      command: { name: "smart-note" },
+      arguments: "light reactions",
+    })
+    expect(parseSlashCommandInput("/smart-note\tlight reactions", commands)).toEqual({
+      command: { name: "smart-note" },
+      arguments: "light reactions",
+    })
+    expect(parseSlashCommandInput("/smart-note\n", commands)).toEqual({
+      command: { name: "smart-note" },
+      arguments: "",
+    })
+    expect(parseSlashCommandInput("/review\n\nstaged", commands)).toEqual({
+      command: { name: "review" },
+      arguments: "\nstaged",
+    })
+  })
+
   test("builds a contextual quiz prompt from slash command arguments", () => {
     expect(buildQuizSlashPrompt("graphs")).toContain("Create a quiz about graphs.")
     expect(buildQuizSlashPrompt("")).toContain("current conversation and context")

@@ -22,6 +22,7 @@ type ComposerNoteModeInput = {
   directory: string
   promptKey: string
   activePromptKey: { readonly current: string }
+  isInteractionLocked?: () => boolean
   quotedMessage?: PromptMessageSelectionContextPart
   saveNote?: SaveComposerNote
   clearDraft: PromptStore["clearDraft"]
@@ -120,6 +121,7 @@ export function useComposerNoteMode(input: ComposerNoteModeInput) {
     directory,
     promptKey,
     activePromptKey,
+    isInteractionLocked,
     quotedMessage,
     saveNote,
     clearDraft,
@@ -133,6 +135,17 @@ export function useComposerNoteMode(input: ComposerNoteModeInput) {
   const readDraftRef = useRef(readDraft)
   readDraftRef.current = readDraft
 
+  const changeActive = useCallback(
+    (nextActive: boolean) => {
+      if (isInteractionLocked?.()) return
+      if (!nextActive && quotedMessage) removeQuotedMessage()
+      setActive(nextActive)
+    },
+    [isInteractionLocked, quotedMessage, removeQuotedMessage],
+  )
+  const changeActiveRef = useRef(changeActive)
+  changeActiveRef.current = changeActive
+
   useEffect(() => {
     setActive(false)
   }, [promptKey])
@@ -140,18 +153,12 @@ export function useComposerNoteMode(input: ComposerNoteModeInput) {
   useEffect(() => {
     const quoteRemoved = hadQuotedMessage.current && !quotedMessage
     hadQuotedMessage.current = !!quotedMessage
-    if (quotedMessage) setActive(true)
+    if (quotedMessage) changeActiveRef.current(true)
     // Quoting is what opened Note mode, so dropping the quote closes it unless a note is underway.
-    else if (quoteRemoved && isComposerNoteEmpty(readDraftRef.current())) setActive(false)
+    else if (quoteRemoved && isComposerNoteEmpty(readDraftRef.current())) {
+      changeActiveRef.current(false)
+    }
   }, [quotedMessage])
-
-  const changeActive = useCallback(
-    (nextActive: boolean) => {
-      if (!nextActive && quotedMessage) removeQuotedMessage()
-      setActive(nextActive)
-    },
-    [quotedMessage, removeQuotedMessage],
-  )
 
   const submit = useCallback(
     async (draft: ComposerNoteDraft) => {
@@ -224,6 +231,7 @@ export function useComposerNoteMode(input: ComposerNoteModeInput) {
     saving,
     changeActive,
     enter: () => setActive(true),
+    exit: () => setActive(false),
     submit,
   }
 }
