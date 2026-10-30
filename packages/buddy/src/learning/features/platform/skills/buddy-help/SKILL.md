@@ -1,11 +1,11 @@
 ---
 name: buddy-help
-description: "Buddy product help: setup, notebooks, Notes, Browser, Obsidian, Arcade, image generation, Practice, settings, providers, trust."
+description: "Buddy product help: setup, notebooks, Notes, Browser, Obsidian, Arcade, image generation, Practice, settings, providers, trust, voice input with Handy."
 ---
 
 # Buddy Help
 
-Use when the user asks how Buddy works, how to install/setup/customize it, or where something lives in the app (Bench, notebooks, Notes, Browser, Practice, flashcards, Settings, skills, providers, memory, permissions).
+Use when the user asks how Buddy works, how to install/setup/customize it, where something lives in the app (Bench, notebooks, Notes, Browser, Practice, flashcards, Settings, skills, providers, memory, permissions), or how to dictate into Buddy.
 
 Not for subject teaching (math, history, code lessons as content). Use pedagogy skills for that. This skill is product help only — except `references/basics-of-agents.md` (general agent vocabulary; not Buddy UI).
 
@@ -42,6 +42,7 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | Notes, note taking, chat notes, quoted messages, Notes library, Markdown notes | `references/notes.md` |
 | In-app Browser, web tabs, profiles, Incognito, open links in Buddy, cite webpages | `references/browser.md` |
 | Chat box, slash, @, follow-ups, agent questions | `references/chat.md` |
+| Dictate, voice input, speech to text, Handy | `references/handy-voice.md` |
 | Buddy Arcade, game breaks, Snake, Reflex, Pairs | `references/chat.md` |
 | Sources, PDF/EPUB, Files, Boards, Creations | `references/library.md` |
 | Generate or edit images, where generated images appear | `references/library.md` |
@@ -63,6 +64,7 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 - Not every action prompts. Do not say “approve every action” as absolute (`trust.md`).
 - Memory: opt-in / off by default unless `learner-memory.md` says otherwise; never claim Buddy remembers everything by default.
 - Notebook (UI) ≈ workspace folder. Chat (UI) ≈ session.
+- Voice input is not built into Buddy. Dictation uses Handy (`references/handy-voice.md`).
 
 ## User ↔ product map (not tool docs)
 
@@ -82,6 +84,7 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | Creations | widgets, diagrams, figures, media catalog |
 | Skills | right-rail Skills drawer or Settings → Skills; one catalog list |
 | chat input / composer | user message entry (not a tool) |
+| dictate / voice | Handy, outside Buddy; `references/handy-voice.md` |
 | slash commands | user input |
 
 ## References
