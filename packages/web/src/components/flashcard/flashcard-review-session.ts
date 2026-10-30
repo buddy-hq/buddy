@@ -20,6 +20,10 @@ import type {
   ObjectFlashcardDeckReadDeckResponse,
   ObjectFlashcardDeckSubmitReviewResponse,
 } from "@buddy/sdk/types"
+import {
+  readFlashcardResetAttempt,
+  startOrJoinFlashcardResetAttempt,
+} from "./flashcard-reset-attempt"
 
 /**
  * The review loop, owned once.
@@ -242,18 +246,23 @@ export function useFlashcardReviewSession(
 
       async function start() {
         try {
+          const persistResetError = onResetErrorChangedRef.current
           const deckPromise =
             options.action === "reset-progress"
-              ? getBuddyClient(directory)
-                  .objectFlashcardDeck.resetProgress({ directory, objectID })
-                  .then((response) => {
-                    const resetDeck = requireBuddyData(response)
-                    if (generationRef.current === generation) {
-                      resetRequiredRef.current = false
-                      onResetErrorChangedRef.current?.(undefined)
-                    }
-                    return resetDeck
-                  })
+              ? startOrJoinFlashcardResetAttempt({
+                  directory,
+                  objectID,
+                  onSettled: (outcome) => {
+                    persistResetError?.(
+                      outcome.status === "success" ? undefined : describeError(outcome.error),
+                    )
+                  },
+                }).then((resetDeck) => {
+                  if (generationRef.current === generation) {
+                    resetRequiredRef.current = false
+                  }
+                  return resetDeck
+                })
               : reloadDeck || !seedDeck
                 ? loadObjectFlashcardDeckPayload({ directory, objectID })
                 : Promise.resolve(seedDeck)
@@ -274,7 +283,6 @@ export function useFlashcardReviewSession(
         } catch (error) {
           if (generationRef.current !== generation) return
           const message = describeError(error)
-          if (resetRequiredRef.current) onResetErrorChangedRef.current?.(message)
           applyPhase({ kind: "error", message })
         }
       }
@@ -287,17 +295,19 @@ export function useFlashcardReviewSession(
   // (Re)start the session whenever the target deck changes.
   useEffect(() => {
     const initialTally = initialTallyRef.current ?? emptyFlashcardReviewTally()
+    const resetting = readFlashcardResetAttempt({ directory, objectID }) !== undefined
     beginSession({
       seedDeck: initialDeckRef.current,
       initialTally,
-      reloadDeck: false,
-      reviewMode: initialReviewModeRef.current,
-      resetError: initialResetErrorRef.current,
+      reloadDeck: resetting,
+      reviewMode: resetting ? "study-again" : initialReviewModeRef.current,
+      action: resetting ? "reset-progress" : "load",
+      resetError: resetting ? undefined : initialResetErrorRef.current,
     })
     return () => {
       generationRef.current += 1
     }
-  }, [beginSession, input.sessionKey])
+  }, [beginSession, directory, input.sessionKey, objectID])
 
   const restart = useCallback(
     (seedDeck?: ObjectFlashcardDeckReadDeckResponse) => {

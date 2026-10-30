@@ -181,6 +181,7 @@ describe("completed flashcard deck", () => {
   let resetFailure: boolean
   let releaseReset: (() => void) | undefined
   let resetGate: Promise<void> | undefined
+  let queueGate: Promise<void> | undefined
 
   beforeEach(() => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
@@ -209,6 +210,7 @@ describe("completed flashcard deck", () => {
     resetFailure = false
     releaseReset = undefined
     resetGate = undefined
+    queueGate = undefined
     useBenchSurfaceUiState.setState({ flashcardDeckByKey: {} })
     globalThis.fetch = withFetchPreconnect(async (input, init) => {
       const url = new URL(parseRequestUrl(input), "http://localhost")
@@ -265,6 +267,7 @@ describe("completed flashcard deck", () => {
         })
       }
       if (url.pathname.endsWith("/queued-cards")) {
+        if (url.searchParams.get("reviewMode") !== "study-again") await queueGate
         if (resetCount === 0 || resetFailure) return Response.json(initialQueue)
         const queue = emptyQueue()
         const cards =
@@ -312,8 +315,10 @@ describe("completed flashcard deck", () => {
   })
 
   afterEach(async () => {
-    releaseReset?.()
-    await act(async () => root.unmount())
+    await act(async () => {
+      root.unmount()
+      releaseReset?.()
+    })
     client.clear()
     container.remove()
     globalThis.fetch = originalFetch
@@ -424,6 +429,7 @@ describe("completed flashcard deck", () => {
     await act(async () => target.click())
   }
   const summary = () => container.querySelector('[data-component="flashcard-session-summary"]')
+  const reviewStage = () => container.querySelector('[data-component="flashcard-review-stage"]')
   const surface = () =>
     readFlashcardDeckSurfaceState(benchSurfaceUiKey({ directory: DIRECTORY, target: TARGET }))
 
@@ -575,5 +581,194 @@ describe("completed flashcard deck", () => {
     await waitFor(() => container.textContent?.includes("Card one is Paris") === true)
     expect(resetCount).toBe(2)
     expect(surface().mode).toBe("review")
+  })
+
+  test("preserves a reset failure that settles after eviction", async () => {
+    await render()
+    await click("Open search result")
+    await waitFor(() => !!summary())
+    resetFailure = true
+    resetGate = new Promise<void>((resolve) => {
+      releaseReset = resolve
+    })
+    await click("Study again")
+    expect(resetCount).toBe(1)
+    await act(async () => root.unmount())
+    await act(async () => {
+      releaseReset?.()
+    })
+    expect(surface().resetError).toBe("Reset unavailable")
+    root = createRoot(container)
+    await render()
+    await waitFor(
+      () => container.textContent?.includes("Reset unavailable") === true && !!button("Retry"),
+    )
+    expect(resetCount).toBe(1)
+    expect(surface().mode).toBe("review")
+  })
+
+  test("clears a failed reset when a successful Retry settles after eviction", async () => {
+    await render()
+    await click("Open search result")
+    await waitFor(() => !!summary())
+    resetFailure = true
+    await click("Study again")
+    await waitFor(
+      () => container.textContent?.includes("Reset unavailable") === true && !!button("Retry"),
+    )
+    resetFailure = false
+    resetGate = new Promise<void>((resolve) => {
+      releaseReset = resolve
+    })
+    await click("Retry")
+    expect(resetCount).toBe(2)
+    await act(async () => root.unmount())
+    await act(async () => {
+      releaseReset?.()
+    })
+    expect(surface().resetError).toBeUndefined()
+    root = createRoot(container)
+    await render()
+    await waitFor(() => reviewStage()?.textContent?.includes("Card one is Paris") === true)
+    expect(container.textContent).not.toContain("Reset unavailable")
+    expect(button("Retry")).toBeUndefined()
+    expect(resetCount).toBe(2)
+    expect(surface().mode).toBe("review")
+  })
+
+  test("joins a pending reset after eviction and deals card one with one reset request", async () => {
+    await render()
+    await click("Open search result")
+    await waitFor(() => !!summary())
+    resetGate = new Promise<void>((resolve) => {
+      releaseReset = resolve
+    })
+    await click("Study again")
+    expect(resetCount).toBe(1)
+    await act(async () => root.unmount())
+    root = createRoot(container)
+    await render()
+    expect(resetCount).toBe(1)
+    expect(container.querySelector('[aria-label="Tap the card to reveal"]')).toBeNull()
+    expect(button("Retry")).toBeUndefined()
+    await act(async () => {
+      releaseReset?.()
+    })
+    await waitFor(() => reviewStage()?.textContent?.includes("Card one is Paris") === true)
+    expect(resetCount).toBe(1)
+    expect(surface().mode).toBe("review")
+    expect(surface().reviewMode).toBe("study-again")
+  })
+
+  test("an explicit open during a pending reset keeps the sitting and deals card one", async () => {
+    await render()
+    await click("Open search result")
+    await waitFor(() => !!summary())
+    resetGate = new Promise<void>((resolve) => {
+      releaseReset = resolve
+    })
+    await click("Study again")
+    await click("Open search result")
+    await act(async () => {
+      releaseReset?.()
+    })
+    await waitFor(() => reviewStage()?.textContent?.includes("Card one is Paris") === true)
+    expect(resetCount).toBe(1)
+    expect(surface().mode).toBe("review")
+    expect(surface().reviewMode).toBe("study-again")
+  })
+
+  test("an explicit open during a pending reset does not erase its failure", async () => {
+    await render()
+    await click("Open search result")
+    await waitFor(() => !!summary())
+    resetFailure = true
+    resetGate = new Promise<void>((resolve) => {
+      releaseReset = resolve
+    })
+    await click("Study again")
+    await click("Open search result")
+    await act(async () => {
+      releaseReset?.()
+    })
+    await waitFor(
+      () => container.textContent?.includes("Reset unavailable") === true && !!button("Retry"),
+    )
+    expect(surface().resetError).toBe("Reset unavailable")
+    expect(resetCount).toBe(1)
+  })
+
+  test("Study again started during an explicit open survives that open finishing", async () => {
+    await render()
+    await click("Open search result")
+    await waitFor(() => !!summary())
+    let releaseQueue: (() => void) | undefined
+    queueGate = new Promise<void>((resolve) => {
+      releaseQueue = resolve
+    })
+    resetGate = new Promise<void>((resolve) => {
+      releaseReset = resolve
+    })
+    await click("Open search result")
+    await click("Study again")
+    await act(async () => {
+      releaseQueue?.()
+    })
+    expect(surface().mode).toBe("review")
+    expect(surface().reviewMode).toBe("study-again")
+    await act(async () => {
+      releaseReset?.()
+    })
+    await waitFor(() => reviewStage()?.textContent?.includes("Card one is Paris") === true)
+    expect(resetCount).toBe(1)
+  })
+
+  test("an explicit open that finishes after a reset succeeded keeps the dealt card", async () => {
+    await render()
+    await click("Open search result")
+    await waitFor(() => !!summary())
+    let releaseQueue: (() => void) | undefined
+    queueGate = new Promise<void>((resolve) => {
+      releaseQueue = resolve
+    })
+    await click("Open search result")
+    await click("Study again")
+    await waitFor(() => reviewStage()?.textContent?.includes("Card one is Paris") === true)
+    await act(async () => {
+      releaseQueue?.()
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(reviewStage()?.textContent).toContain("Card one is Paris")
+    expect(surface().mode).toBe("review")
+    expect(surface().reviewMode).toBe("study-again")
+    expect(resetCount).toBe(1)
+  })
+
+  test("an explicit open that finishes after a reset failed keeps Retry", async () => {
+    await render()
+    await click("Open search result")
+    await waitFor(() => !!summary())
+    resetFailure = true
+    let releaseQueue: (() => void) | undefined
+    queueGate = new Promise<void>((resolve) => {
+      releaseQueue = resolve
+    })
+    await click("Open search result")
+    await click("Study again")
+    await waitFor(
+      () => container.textContent?.includes("Reset unavailable") === true && !!button("Retry"),
+    )
+    await act(async () => {
+      releaseQueue?.()
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(surface().resetError).toBe("Reset unavailable")
+    expect(surface().mode).toBe("review")
+    expect(button("Retry")).toBeDefined()
+    expect(resetCount).toBe(1)
   })
 })

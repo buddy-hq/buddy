@@ -12,6 +12,10 @@ import {
 } from "@/state/workspace-objects-query"
 import { stringifyError } from "@/lib/api-client"
 import { resolveFlashcardStanding } from "./flashcard-deck-standing"
+import {
+  readFlashcardResetAttempt,
+  readFlashcardResetAttemptCount,
+} from "./flashcard-reset-attempt"
 import type { BenchTarget } from "@/lib/bench-navigation"
 
 /**
@@ -59,12 +63,21 @@ export async function prepareFlashcardBenchOpen(input: {
     return { status: "ready" }
   }
   const query = { directory: input.directory, objectID: input.target.ref.objectID }
+  const key = benchSurfaceUiKey(input)
+  const keepResetSitting = (): FlashcardBenchOpenResult => {
+    writeFlashcardDeckSurfaceState(key, { mode: "review", requestedMode: undefined })
+    return { status: "ready" }
+  }
+  if (readFlashcardResetAttempt(query)) return keepResetSitting()
+  const resetAttemptsBeforeLoad = readFlashcardResetAttemptCount(query)
   try {
     const [deck, queue] = await Promise.all([
       loadObjectFlashcardDeckPayload(query),
       loadObjectFlashcardDeckQueue(query),
     ])
-    const key = benchSurfaceUiKey(input)
+    if (readFlashcardResetAttemptCount(query) !== resetAttemptsBeforeLoad) {
+      return keepResetSitting()
+    }
     const current = readFlashcardDeckSurfaceState(key)
     const completed =
       deck.cards.length > 0 &&
