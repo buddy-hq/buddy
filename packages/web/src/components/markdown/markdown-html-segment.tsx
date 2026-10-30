@@ -72,7 +72,7 @@ if (browserWindow() !== undefined && DOMPurify.isSupported) {
   })
 }
 
-const MARKDOWN_ALLOWED_URI_PATTERN =
+export const MARKDOWN_ALLOWED_URI_PATTERN =
   /^(?:(?:(?:f|ht)tps?|file|mailto|tel|callto|sms|cid|xmpp|matrix):|[^a-z]|[a-z+.-]+(?:[^a-z+.:-]|$))/iu
 
 const sanitizeConfig = {

@@ -317,6 +317,53 @@ describe("markdown link decoration", () => {
     },
   )
 
+  test.each([
+    ["Read [drive](C:/docs/LICENSE).", "C:/docs/LICENSE"],
+    ["Read [file](file:///tmp/LICENSE).", "/tmp/LICENSE"],
+    ["- Read [drive](C:/docs/LICENSE).", "C:/docs/LICENSE"],
+    ["- Read [file](file:///tmp/LICENSE).", "/tmp/LICENSE"],
+  ])("opens a local file target from a question dock prompt: %s", async (text, expectedPath) => {
+    expect(
+      await openedMarkdownFilePaths(
+        text,
+        { directory: "/notebook", cacheKey: `question-local-file-link:${text}` },
+        <QuestionDock
+          directory="/notebook"
+          request={{
+            id: `question-local-file-link:${text}`,
+            sessionID: "session-markdown-links",
+            questions: [{ question: text, header: "Read notes", options: [] }],
+          }}
+          onReply={async () => {}}
+          onReject={async () => {}}
+        />,
+      ),
+    ).toEqual([expectedPath])
+  })
+
+  test("an inline question prompt keeps a local file link but drops a local image source", async () => {
+    const text = 'Read [file](file:///tmp/LICENSE) <img src="file:///tmp/secret.png" alt="secret">.'
+    expect(
+      await openedMarkdownFilePaths(
+        text,
+        { directory: "/notebook", cacheKey: "question-local-image" },
+        <QuestionDock
+          directory="/notebook"
+          request={{
+            id: "question-local-image",
+            sessionID: "session-markdown-links",
+            questions: [{ question: text, header: "Read notes", options: [] }],
+          }}
+          onReply={async () => {}}
+          onReject={async () => {}}
+        />,
+      ),
+    ).toEqual(["/tmp/LICENSE"])
+    const image = container.querySelector('img[alt="secret"]')
+    expect(image).not.toBeNull()
+    expect(image?.getAttribute("src")).toBeNull()
+  })
+
   test("opens a non-canonical file URL wrapped around an image", async () => {
     const requestedPaths = await openedMarkdownFilePaths(
       "[![preview](./preview.png)](file:/tmp/report.pdf)",

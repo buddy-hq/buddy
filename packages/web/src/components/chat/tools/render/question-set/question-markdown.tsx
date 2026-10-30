@@ -3,6 +3,7 @@ import DOMPurify from "dompurify"
 import { marked } from "marked"
 import { useEffect, useState, type MouseEvent } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
+import { MARKDOWN_ALLOWED_URI_PATTERN } from "@/components/markdown/markdown-html-segment"
 import { parseInlineMarkdownToHtml } from "@/components/markdown/markdown-parser"
 import { useMarkdownFileLinkOpen } from "@/components/markdown/use-markdown-file-link-open"
 import { resolveMarkdownFileLink } from "@/lib/markdown-file-links"
@@ -128,6 +129,7 @@ export function QuestionInlineMarkdown(props: {
       if (cancelled) return
       const sanitized = DOMPurify.sanitize(parsed, {
         USE_PROFILES: { html: true, mathMl: true, svg: true },
+        ALLOWED_URI_REGEXP: MARKDOWN_ALLOWED_URI_PATTERN,
         FORBID_TAGS: ["style"],
         FORBID_CONTENTS: ["style", "script"],
       })
