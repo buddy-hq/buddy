@@ -26,6 +26,7 @@ import {
   loadPermissions,
   recordQuestionAsked,
   recordQuestionSettled,
+  restoreObservedUserModelSelection,
   resyncDirectory,
   resyncDirectoryAfterReconnect,
 } from "@/state/chat-actions"
@@ -44,7 +45,6 @@ import {
 } from "@/state/transcript-repository"
 import { useNotifications } from "@/state/notifications"
 import { useNotificationPreferences } from "@/state/notification-preferences"
-import { getModelSelectionScopeKey, useModelSelectionStore } from "@/state/model-selection-store"
 import {
   readBrowserSvgRenderRequestEvent,
   synchronizeBrowserSvgRenderRequests,
@@ -589,14 +589,15 @@ export function useChatSync(props: UseChatSyncProps) {
             info.model.providerID &&
             info.model.modelID
           ) {
-            useModelSelectionStore
-              .getState()
-              .restoreSessionSelection(getModelSelectionScopeKey(directory, info.sessionID), {
-                agent: info.agent,
-                model: `${info.model.providerID}/${info.model.modelID}`,
-                variant: info.model.variant ?? null,
-                messageCreatedAt: info.time.created,
-              })
+            restoreObservedUserModelSelection({
+              directory,
+              sessionID: info.sessionID,
+              agent: info.agent,
+              providerID: info.model.providerID,
+              modelID: info.model.modelID,
+              variant: info.model.variant ?? null,
+              messageCreatedAt: info.time.created,
+            })
           }
           if (
             info.role === "assistant" &&

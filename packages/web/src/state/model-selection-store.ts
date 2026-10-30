@@ -3,8 +3,10 @@ import { persist } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import { z } from "zod"
 import { createPlatformJsonStorage } from "../context/platform"
+import { OPENAI_PROVIDER_ID } from "../lib/provider-ids"
 import { getPromptScopeKey } from "./prompt-store"
 import {
+  parseBooleanValue,
   parseBuddyConfigObject,
   parseFiniteNumber,
   parseFilteredStringArray,
@@ -21,7 +23,27 @@ type SelectionSource = "local" | "restored"
 export type WorkspaceModelSelectionSeed = {
   model?: string
   variant?: string | null
+  fast?: boolean | null
 }
+
+export type TFastModePromptModel = {
+  readonly providerID: string
+  readonly modelID: string
+}
+
+export type TFastModeSelection = {
+  readonly supported: boolean
+  readonly enabled: boolean
+  readonly displayModelKey: string
+  readonly requestModelKey: string
+}
+
+export type TFastModeRestore = {
+  readonly modelKey: string
+  readonly fast: boolean | undefined
+}
+
+const FAST_MODE_SUFFIX = "-fast"
 
 export type ModelSelectionStore = {
   selectionSourceByKey: Record<string, SelectionSource>
@@ -29,10 +51,12 @@ export type ModelSelectionStore = {
   selectedAgentByKey: Record<string, string>
   selectedModelByKey: Record<string, string>
   selectedVariantByKey: Record<string, string | null>
+  selectedFastByKey: Record<string, boolean>
   recentModelKeys: string[]
   setSelectedAgent: (key: string, agent: string | undefined) => void
   setSelectedModel: (key: string, model: string | undefined) => void
   setSelectedVariant: (key: string, variant: string | null | undefined) => void
+  setSelectedFast: (key: string, fast: boolean | null | undefined) => void
   pushRecentModelKey: (model: string) => void
   clearSelectedModel: (key: string) => void
   seedWorkspaceSelection: (directory: string, selection: WorkspaceModelSelectionSeed) => void
@@ -42,6 +66,7 @@ export type ModelSelectionStore = {
       agent?: string
       model?: string
       variant?: string | null
+      fast?: boolean | null
       messageCreatedAt?: number
     },
   ) => void
@@ -54,6 +79,7 @@ type PersistedModelSelectionState = {
   selectedAgentByKey?: Record<string, string>
   selectedModelByKey?: Record<string, string>
   selectedVariantByKey?: Record<string, string | null>
+  selectedFastByKey?: Record<string, boolean>
   recentModelKeys?: string[]
 }
 
@@ -62,6 +88,7 @@ const selectionSourceRecordSchema = z.record(z.string(), selectionSourceSchema)
 const numberRecordSchema = z.record(z.string(), z.number().finite())
 const stringRecordSchema = z.record(z.string(), z.string())
 const variantRecordSchema = z.record(z.string(), z.string().nullable())
+const fastRecordSchema = z.record(z.string(), z.boolean())
 
 function parseSelectionSourceRecord<TValue>(
   value: TValue,
@@ -103,6 +130,19 @@ function parseStringRecord<TValue>(value: TValue): Record<string, string> | unde
   return result
 }
 
+function parseFastRecord<TValue>(value: TValue): Record<string, boolean> | undefined {
+  const parsed = parseWithSchema(fastRecordSchema, value)
+  if (parsed) return parsed
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  const result: Record<string, boolean> = {}
+  for (const [key, entry] of Object.entries(record)) {
+    const flag = parseBooleanValue(entry)
+    if (flag !== undefined) result[key] = flag
+  }
+  return result
+}
+
 function parseVariantRecord<TValue>(value: TValue): Record<string, string | null> | undefined {
   const parsed = parseWithSchema(variantRecordSchema, value)
   if (parsed) return parsed
@@ -126,7 +166,8 @@ function readPersistedModelSelectionState<TValue>(value: TValue): PersistedModel
     return {}
   }
 
-  return {
+  const selectedFastByKey = parseFastRecord(record.selectedFastByKey)
+  const persisted: PersistedModelSelectionState = {
     selectionSourceByKey: parseSelectionSourceRecord(record.selectionSourceByKey),
     restoredSelectionCreatedAtByKey: parseNumberRecord(record.restoredSelectionCreatedAtByKey),
     selectedAgentByKey: parseStringRecord(record.selectedAgentByKey),
@@ -134,6 +175,8 @@ function readPersistedModelSelectionState<TValue>(value: TValue): PersistedModel
     selectedVariantByKey: parseVariantRecord(record.selectedVariantByKey),
     recentModelKeys: parseFilteredStringArray(record.recentModelKeys),
   }
+  if (selectedFastByKey) persisted.selectedFastByKey = selectedFastByKey
+  return persisted
 }
 
 export function getModelSelectionScopeKey(directory: string, sessionID?: string) {
@@ -161,6 +204,129 @@ export function getSelectedVariantKey(
   return state.selectedVariantByKey[key]
 }
 
+export function getSelectedFastKey(
+  state: Pick<ModelSelectionStore, "selectedFastByKey">,
+  key: string,
+) {
+  return state.selectedFastByKey?.[key]
+}
+
+export function fastModeModelKey(modelKey: string) {
+  return `${modelKey}${FAST_MODE_SUFFIX}`
+}
+
+function providerIDFromModelKey(modelKey: string) {
+  const separator = modelKey.indexOf("/")
+  if (separator <= 0) return ""
+  return modelKey.slice(0, separator)
+}
+
+function unchangedFastModeSelection(modelKey: string): TFastModeSelection {
+  return {
+    supported: false,
+    enabled: false,
+    displayModelKey: modelKey,
+    requestModelKey: modelKey,
+  }
+}
+
+function openAIFastBaseKey(modelKey: string) {
+  if (providerIDFromModelKey(modelKey) !== OPENAI_PROVIDER_ID) return undefined
+  if (!modelKey.endsWith(FAST_MODE_SUFFIX)) return undefined
+  const baseKey = modelKey.slice(0, -FAST_MODE_SUFFIX.length)
+  if (!baseKey || baseKey.endsWith("/")) return undefined
+  return baseKey
+}
+
+function isOpenAIFastSiblingKey(modelKey: string, availableModelKeys: ReadonlySet<string>) {
+  const baseKey = openAIFastBaseKey(modelKey)
+  return (
+    baseKey !== undefined && availableModelKeys.has(baseKey) && availableModelKeys.has(modelKey)
+  )
+}
+
+export function modelSupportsFastMode(modelKey: string, availableModelKeys: ReadonlySet<string>) {
+  if (providerIDFromModelKey(modelKey) !== OPENAI_PROVIDER_ID) return false
+  return availableModelKeys.has(fastModeModelKey(modelKey))
+}
+
+export function omitOpenAIFastSiblingOptions<TOption extends { readonly key: string }>(
+  options: readonly TOption[],
+): TOption[] {
+  const keys = new Set(options.map((option) => option.key))
+  return options.filter((option) => !isOpenAIFastSiblingKey(option.key, keys))
+}
+
+export function resolveFastModeSelection(input: {
+  readonly modelKey: string
+  readonly fast: boolean | undefined
+  readonly availableModelKeys: ReadonlySet<string>
+}): TFastModeSelection {
+  if (
+    !input.modelKey ||
+    providerIDFromModelKey(input.modelKey) !== OPENAI_PROVIDER_ID
+  ) {
+    return unchangedFastModeSelection(input.modelKey)
+  }
+
+  const baseKey = openAIFastBaseKey(input.modelKey)
+  const selectedIsFastSibling = isOpenAIFastSiblingKey(input.modelKey, input.availableModelKeys)
+  const displayModelKey = selectedIsFastSibling && baseKey ? baseKey : input.modelKey
+  const supported =
+    selectedIsFastSibling || modelSupportsFastMode(displayModelKey, input.availableModelKeys)
+  const enabled =
+    supported && (input.fast === true || (selectedIsFastSibling && input.fast !== false))
+  const requestModelKey = enabled ? fastModeModelKey(displayModelKey) : displayModelKey
+
+  return {
+    supported,
+    enabled,
+    displayModelKey,
+    requestModelKey,
+  }
+}
+
+export function resolveFastModePromptModel<TModel extends TFastModePromptModel>(input: {
+  readonly model: TModel | undefined
+  readonly fast: boolean | undefined
+  readonly availableModelKeys: ReadonlySet<string>
+}): TModel | undefined {
+  if (!input.model) return undefined
+  const modelKey = `${input.model.providerID}/${input.model.modelID}`
+  const selection = resolveFastModeSelection({
+    modelKey,
+    fast: input.fast,
+    availableModelKeys: input.availableModelKeys,
+  })
+  if (selection.requestModelKey === modelKey) return input.model
+  return {
+    ...input.model,
+    modelID: selection.requestModelKey.slice(input.model.providerID.length + 1),
+  }
+}
+
+export function fastModeRestoreSelection(input: {
+  readonly modelKey: string
+  readonly availableModelKeys: ReadonlySet<string>
+}): TFastModeRestore {
+  if (providerIDFromModelKey(input.modelKey) !== OPENAI_PROVIDER_ID) {
+    return { modelKey: input.modelKey, fast: false }
+  }
+  if (input.availableModelKeys.size === 0) {
+    return { modelKey: input.modelKey, fast: undefined }
+  }
+  const selection = resolveFastModeSelection({
+    modelKey: input.modelKey,
+    fast: undefined,
+    availableModelKeys: input.availableModelKeys,
+  })
+  if (!selection.supported) return { modelKey: input.modelKey, fast: false }
+  return {
+    modelKey: selection.displayModelKey,
+    fast: input.modelKey !== selection.displayModelKey,
+  }
+}
+
 export const useModelSelectionStore = create<ModelSelectionStore>()(
   persist(
     immer((set) => ({
@@ -169,6 +335,7 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
       selectedAgentByKey: {},
       selectedModelByKey: {},
       selectedVariantByKey: {},
+      selectedFastByKey: {},
       recentModelKeys: [],
       setSelectedAgent(key, agent) {
         const nextAgent = agent?.trim()
@@ -211,6 +378,22 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
           state.selectedVariantByKey[key] = nextVariant
         })
       },
+      setSelectedFast(key, fast) {
+        set((state) => {
+          state.selectionSourceByKey[key] = "local"
+          delete state.restoredSelectionCreatedAtByKey[key]
+          if (!state.selectedFastByKey) state.selectedFastByKey = {}
+          if (fast === true) {
+            state.selectedFastByKey[key] = true
+            return
+          }
+          if (fast === false) {
+            state.selectedFastByKey[key] = false
+            return
+          }
+          delete state.selectedFastByKey[key]
+        })
+      },
       pushRecentModelKey(model) {
         const nextModel = model.trim()
         if (!nextModel) return
@@ -234,6 +417,7 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
         const nextModel = selection.model?.trim()
         const nextVariant =
           selection.variant === null ? null : selection.variant?.trim() || undefined
+        const nextFast = selection.fast
 
         set((state) => {
           state.selectionSourceByKey[key] = "local"
@@ -253,12 +437,22 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
           } else {
             delete state.selectedVariantByKey[key]
           }
+
+          if (!state.selectedFastByKey) state.selectedFastByKey = {}
+          if (nextFast === true) {
+            state.selectedFastByKey[key] = true
+          } else if (nextFast === false) {
+            state.selectedFastByKey[key] = false
+          } else {
+            delete state.selectedFastByKey[key]
+          }
         })
       },
       restoreSessionSelection(key, selection) {
         const nextAgent = selection.agent?.trim()
         const nextModel = selection.model?.trim()
         const nextVariant = selection.variant === null ? null : selection.variant?.trim()
+        const nextFast = selection.fast
         const nextCreatedAt = selection.messageCreatedAt
 
         set((state) => {
@@ -284,6 +478,14 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
           }
           if (nextModel) {
             state.selectedModelByKey[key] = nextModel
+          }
+          if (!state.selectedFastByKey) state.selectedFastByKey = {}
+          if (nextFast === true) {
+            state.selectedFastByKey[key] = true
+          } else if (nextFast === false) {
+            state.selectedFastByKey[key] = false
+          } else if (nextFast === null) {
+            delete state.selectedFastByKey[key]
           }
           if (nextVariant === null) {
             state.selectedVariantByKey[key] = null
@@ -320,6 +522,14 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
           }
           delete state.selectedVariantByKey[sourceKey]
 
+          if (!state.selectedFastByKey) state.selectedFastByKey = {}
+          const sourceFast = state.selectedFastByKey[sourceKey]
+          const targetFast = state.selectedFastByKey[targetKey]
+          if (sourceFast !== undefined && targetFast === undefined) {
+            state.selectedFastByKey[targetKey] = sourceFast
+          }
+          delete state.selectedFastByKey[sourceKey]
+
           // Carry the explicit values into the session scope, but let session history
           // restore overwrite them later when the opened thread already has messages.
           delete state.selectionSourceByKey[sourceKey]
@@ -338,6 +548,7 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
           selectedAgentByKey: state.selectedAgentByKey,
           selectedModelByKey: state.selectedModelByKey,
           selectedVariantByKey: state.selectedVariantByKey,
+          selectedFastByKey: state.selectedFastByKey ?? {},
           recentModelKeys: state.recentModelKeys,
         }
       },
@@ -350,6 +561,7 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
           selectedAgentByKey: state?.selectedAgentByKey ?? {},
           selectedModelByKey: state?.selectedModelByKey ?? {},
           selectedVariantByKey: state?.selectedVariantByKey ?? {},
+          selectedFastByKey: state?.selectedFastByKey ?? {},
           recentModelKeys: state?.recentModelKeys ?? [],
         }
       },

@@ -16,13 +16,18 @@ import {
   XIcon,
   cn,
 } from "@buddy/ui"
-import { ImageIcon, NoteIcon } from "@/icons/app-icons"
+import { ImageIcon, NoteIcon, ZapIcon } from "@/icons/app-icons"
 import { hasFunctionValue } from "@/state/parse-external"
 import type { RefObject } from "react"
 import * as React from "react"
 import { language } from "@/context/language"
 import { ProviderIcon } from "@/components/provider-icon"
 import type { PromptSelectMode } from "../prompt-select-performance"
+
+export type PromptFastModeControl = {
+  readonly enabled: boolean
+  readonly onChange: (enabled: boolean) => void
+}
 
 type PromptComposerToolbarProps = {
   pendingSteerLabel?: string
@@ -43,6 +48,7 @@ type PromptComposerToolbarProps = {
   selectedThinking: string
   thinkingOptions: Array<{ key: string; label: string }>
   onThinkingChange: (thinking: string) => void
+  fastMode?: PromptFastModeControl
   isBusy?: boolean
   canSubmit?: boolean
   sendDisabledReason?: string
@@ -326,6 +332,29 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                   </SelectContent>
                 </Select>
               )}
+              {props.fastMode ? (
+                <button
+                  type="button"
+                  data-action="prompt-fast-mode"
+                  aria-pressed={props.fastMode.enabled}
+                  aria-label={language.t("prompt.toolbar.aria.fastMode")}
+                  title={
+                    props.fastMode.enabled
+                      ? language.t("prompt.toolbar.fastMode.onTitle")
+                      : language.t("prompt.toolbar.fastMode.offTitle")
+                  }
+                  onClick={() => props.fastMode?.onChange(!props.fastMode.enabled)}
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-text-weaker transition-colors hover:bg-surface-raised-base-hover hover:text-text-base focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:outline-none",
+                    props.fastMode.enabled && "text-text-base",
+                  )}
+                >
+                  <ZapIcon
+                    className={cn("size-3.5", props.fastMode.enabled && "text-text-warning-base")}
+                  />
+                  {language.t("prompt.toolbar.fastMode.label")}
+                </button>
+              ) : null}
             </>
           ) : null}
         </div>

@@ -20,7 +20,11 @@ import type { ReaderLocation, ReaderTrailEntry } from "@buddy/reader-contract"
 import { useChatStore } from "./chat-store"
 import { useHostedBrowserStore } from "./hosted-browser-store"
 import type { AnnotationSummaryEntry } from "./active-reading-state"
-import { getModelSelectionScopeKey, useModelSelectionStore } from "./model-selection-store"
+import {
+  fastModeRestoreSelection,
+  getModelSelectionScopeKey,
+  useModelSelectionStore,
+} from "./model-selection-store"
 import type {
   DirectoryActionError,
   MessageInfo,
@@ -530,6 +534,71 @@ function asStringArray<TValue>(value: TValue): string[] {
   return filterStringArray(value)
 }
 
+function availableModelKeysForDirectory(directory: string) {
+  const providers = useChatStore.getState().directories[directory]?.providers
+  const keys = new Set<string>()
+  if (!providers) return keys
+  for (const provider of providers) {
+    for (const model of provider.models) {
+      keys.add(`${provider.id}/${model.id}`)
+    }
+  }
+  return keys
+}
+
+function restoredFastModeSelection(directory: string, providerID: string, modelID: string) {
+  return fastModeRestoreSelection({
+    modelKey: `${providerID}/${modelID}`,
+    availableModelKeys: availableModelKeysForDirectory(directory),
+  })
+}
+
+function restoredSessionSelection(input: {
+  readonly agent: string
+  readonly modelKey: string
+  readonly variant: string | null
+  readonly fast: boolean | undefined
+  readonly messageCreatedAt: number
+}) {
+  if (input.fast === undefined) {
+    return {
+      agent: input.agent,
+      model: input.modelKey,
+      variant: input.variant,
+      messageCreatedAt: input.messageCreatedAt,
+    }
+  }
+  return {
+    agent: input.agent,
+    model: input.modelKey,
+    variant: input.variant,
+    fast: input.fast,
+    messageCreatedAt: input.messageCreatedAt,
+  }
+}
+
+export function restoreObservedUserModelSelection(input: {
+  readonly directory: string
+  readonly sessionID: string
+  readonly agent: string
+  readonly providerID: string
+  readonly modelID: string
+  readonly variant: string | null | undefined
+  readonly messageCreatedAt: number
+}) {
+  const restored = restoredFastModeSelection(input.directory, input.providerID, input.modelID)
+  useModelSelectionStore.getState().restoreSessionSelection(
+    getModelSelectionScopeKey(input.directory, input.sessionID),
+    restoredSessionSelection({
+      agent: input.agent,
+      modelKey: restored.modelKey,
+      variant: input.variant ?? null,
+      fast: restored.fast,
+      messageCreatedAt: input.messageCreatedAt,
+    }),
+  )
+}
+
 function restoreSessionSelectionFromMessages(
   directory: string,
   sessionID: string,
@@ -538,14 +607,31 @@ function restoreSessionSelectionFromMessages(
   const lastUserMessage = messages.findLast((message) => message.info.role === "user")
   if (!lastUserMessage || lastUserMessage.info.role !== "user") return
 
-  useModelSelectionStore
-    .getState()
-    .restoreSessionSelection(getModelSelectionScopeKey(directory, sessionID), {
-      agent: lastUserMessage.info.agent,
-      model: `${lastUserMessage.info.model.providerID}/${lastUserMessage.info.model.modelID}`,
-      variant: lastUserMessage.info.model.variant ?? null,
-      messageCreatedAt: lastUserMessage.info.time.created,
-    })
+  restoreObservedUserModelSelection({
+    directory,
+    sessionID,
+    agent: lastUserMessage.info.agent,
+    providerID: lastUserMessage.info.model.providerID,
+    modelID: lastUserMessage.info.model.modelID,
+    variant: lastUserMessage.info.model.variant ?? null,
+    messageCreatedAt: lastUserMessage.info.time.created,
+  })
+}
+
+function reconcileRestoredFastMode(directory: string) {
+  if (availableModelKeysForDirectory(directory).size === 0) return
+  const directoryState = useChatStore.getState().directories[directory]
+  const sessionIDs = new Set<string>()
+  if (directoryState?.sessionID) sessionIDs.add(directoryState.sessionID)
+  for (const session of directoryState?.sessions ?? []) sessionIDs.add(session.id)
+  for (const sessionID of sessionIDs) {
+    if (!hasTranscriptMessages(directory, sessionID)) continue
+    restoreSessionSelectionFromMessages(
+      directory,
+      sessionID,
+      getTranscriptMessages(directory, sessionID),
+    )
+  }
 }
 
 function promoteSessionMutation(input: {
@@ -598,14 +684,15 @@ function promoteSessionMutation(input: {
   }
   markTranscriptSessionOptimistic(input.directory, input.sessionID, false)
   if (input.response.info.role === "user") {
-    useModelSelectionStore
-      .getState()
-      .restoreSessionSelection(getModelSelectionScopeKey(input.directory, input.sessionID), {
-        agent: input.response.info.agent,
-        model: `${input.response.info.model.providerID}/${input.response.info.model.modelID}`,
-        variant: input.response.info.model.variant ?? null,
-        messageCreatedAt: input.response.info.time.created,
-      })
+    restoreObservedUserModelSelection({
+      directory: input.directory,
+      sessionID: input.sessionID,
+      agent: input.response.info.agent,
+      providerID: input.response.info.model.providerID,
+      modelID: input.response.info.model.modelID,
+      variant: input.response.info.model.variant ?? null,
+      messageCreatedAt: input.response.info.time.created,
+    })
   }
   if (isActiveSession) {
     store.clearDirectoryError(input.directory)
@@ -1469,6 +1556,7 @@ export async function loadProviderCatalog(
   try {
     const providers = await fetchProviderCatalog(directory)
     store.setProviders(directory, providers)
+    reconcileRestoredFastMode(directory)
     if (options?.manageDirectoryError !== false) store.setDirectoryError(directory, undefined)
     return providers
   } catch (error) {

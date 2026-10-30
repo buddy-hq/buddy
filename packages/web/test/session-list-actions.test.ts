@@ -73,6 +73,7 @@ describe("session list actions", () => {
       selectedAgentByKey: {},
       selectedModelByKey: {},
       selectedVariantByKey: {},
+      selectedFastByKey: {},
       recentModelKeys: [],
     })
     resetLiveDirectoryWorkspaceRegistryForTests()
@@ -124,6 +125,7 @@ describe("session list actions", () => {
     const childModelScope = getModelSelectionScopeKey(DIRECTORY, child.id)
     useModelSelectionStore.getState().setSelectedModel(childModelScope, MODEL_KEY)
     useModelSelectionStore.getState().setSelectedVariant(childModelScope, MODEL_VARIANT)
+    useModelSelectionStore.getState().setSelectedFast(childModelScope, true)
 
     const queryClient = new QueryClient()
     const refetchQueries = spyOn(queryClient, "refetchQueries")
@@ -153,6 +155,7 @@ describe("session list actions", () => {
     expect(useModelSelectionStore.getState()).toMatchObject({
       selectedModelByKey: { [workspaceModelScope]: MODEL_KEY },
       selectedVariantByKey: { [workspaceModelScope]: MODEL_VARIANT },
+      selectedFastByKey: { [workspaceModelScope]: true },
     })
 
     const refetchedQueryKeys = refetchQueries.mock.calls.map(([filters]) => filters?.queryKey)

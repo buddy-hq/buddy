@@ -675,6 +675,12 @@ export const dict = {
   "prompt.toolbar.aria.model": "Model",
   "prompt.toolbar.aria.persona": "Persona",
   "prompt.toolbar.aria.thinking": "Thinking",
+  "prompt.toolbar.aria.fastMode": "Fast mode",
+  "prompt.toolbar.fastMode.label": "Fast",
+  "prompt.toolbar.fastMode.onTitle":
+    "Fast mode is on: faster replies, using more of your ChatGPT limit",
+  "prompt.toolbar.fastMode.offTitle":
+    "Turn on Fast mode for faster replies, using more of your ChatGPT limit",
   "prompt.toolbar.clearPendingSteerAria": "Clear pending teaching steer",
   "prompt.toolbar.groups.freeModels": "Free models",
   "prompt.toolbar.placeholders.model": "Auto",

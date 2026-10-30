@@ -140,7 +140,14 @@ import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-di
 import { useOpenExistingNotebook } from "@/lib/use-open-existing-notebook"
 import { useOpenReadingResource } from "@/lib/use-open-reading-resource"
 import { useOpenSettings } from "@/lib/settings-navigation"
-import type { WorkspaceModelSelectionSeed } from "@/state/model-selection-store"
+import {
+  getSelectedFastKey,
+  omitOpenAIFastSiblingOptions,
+  resolveFastModePromptModel,
+  resolveFastModeSelection,
+  useModelSelectionStore,
+  type WorkspaceModelSelectionSeed,
+} from "@/state/model-selection-store"
 import {
   archiveSessionFromList,
   deleteSessionFromList,
@@ -357,6 +364,35 @@ export function useDirectoryChatPageController(
     seedWorkspaceSelection,
     validOpenProjects,
   } = cs
+  const selectedFast = useModelSelectionStore((state) =>
+    cs.promptKey ? getSelectedFastKey(state, cs.promptKey) : undefined,
+  )
+  const setSelectedFast = useModelSelectionStore((state) => state.setSelectedFast)
+  const availableModelKeys = useMemo(() => {
+    return new Set(cs.modelOptions.map((option) => option.key))
+  }, [cs.modelOptions])
+  const composerModelOptions = useMemo(
+    () => omitOpenAIFastSiblingOptions(cs.modelOptions),
+    [cs.modelOptions],
+  )
+  const fastMode = useMemo(
+    () =>
+      resolveFastModeSelection({
+        modelKey: cs.selectedModelKey,
+        fast: selectedFast,
+        availableModelKeys,
+      }),
+    [availableModelKeys, cs.selectedModelKey, selectedFast],
+  )
+  const promptModel = useMemo(
+    () =>
+      resolveFastModePromptModel({
+        model: cs.effectiveModelSelection,
+        fast: selectedFast,
+        availableModelKeys,
+      }),
+    [availableModelKeys, cs.effectiveModelSelection, selectedFast],
+  )
   activeSessionIDRef.current = sessionID
   benchActionLedgerDiagnosticRef.current = {
     decodedDirectory,
@@ -746,8 +782,22 @@ export function useDirectoryChatPageController(
 
   function composerModelSelectionSeed(): WorkspaceModelSelectionSeed {
     return {
-      model: cs.selectedModelKey || undefined,
+      model: fastMode.displayModelKey || undefined,
       variant: selectedThinking === "default" ? null : selectedThinking,
+      fast: fastMode.enabled,
+    }
+  }
+
+  function onFastModeChange(enabled: boolean) {
+    if (!cs.promptKey) return
+    const next = resolveFastModeSelection({
+      modelKey: cs.selectedModelKey,
+      fast: enabled,
+      availableModelKeys,
+    })
+    setSelectedFast(cs.promptKey, enabled)
+    if (cs.selectedModelKey !== next.displayModelKey) {
+      cs.setSelectedModel(cs.promptKey, next.displayModelKey)
     }
   }
 
@@ -1140,14 +1190,14 @@ export function useDirectoryChatPageController(
             persona: input.persona ?? cs.selectedPersona,
             focusGoalIds: input.focusGoalIds,
             agent: currentAgentName,
-            model: cs.effectiveModelSelection,
+            model: promptModel,
           },
           cs.effectiveModelInfo
             ? {
                 modelRuntime: Object.assign(
                   {
-                    providerID: cs.effectiveModelSelection?.providerID ?? "",
-                    modelID: cs.effectiveModelSelection?.modelID ?? "",
+                    providerID: promptModel?.providerID ?? "",
+                    modelID: promptModel?.modelID ?? "",
                     contextWindow: cs.effectiveModelInfo.limit.context,
                     outputWindow: cs.effectiveModelInfo.limit.output,
                   },
@@ -1222,6 +1272,7 @@ export function useDirectoryChatPageController(
       currentAgentName,
       decodedDirectory,
       includeReadingResourceForPrompt,
+      promptModel,
       selectedThinking,
       syncTeachingRuntimeSelection,
       teachingWs,
@@ -1555,7 +1606,7 @@ export function useDirectoryChatPageController(
             parts: attachmentParts,
             persona: cs.selectedPersona,
             agent: currentAgentName,
-            model: cs.effectiveModelSelection,
+            model: promptModel,
             variant,
           },
         )
@@ -1579,7 +1630,7 @@ export function useDirectoryChatPageController(
       (followupBehavior === FOLLOWUP_BEHAVIOR_QUEUE ||
         turnSelectionDiffers(turn, {
           agent: currentAgentName,
-          model: cs.effectiveModelSelection ?? undefined,
+          model: promptModel,
           variant,
         }))
     ) {
@@ -1677,13 +1728,16 @@ export function useDirectoryChatPageController(
     mentionableReferences,
     sessions: cs.sessionsByDirectory[decodedDirectory] ?? EMPTY_SESSIONS,
     slashCommands,
-    modelOptions: cs.modelOptions,
-    selectedModel: cs.selectedModelKey,
+    modelOptions: composerModelOptions,
+    selectedModel: fastMode.displayModelKey,
     selectedModelAcceptsImages: cs.selectedModelAcceptsImages,
     selectedPersona: cs.selectedPersona,
     pendingSteerLabel: pendingSuggestionOverride?.label,
     thinkingOptions: cs.thinkingOptions,
     selectedThinking,
+    fastMode: fastMode.supported
+      ? { enabled: fastMode.enabled, onChange: onFastModeChange }
+      : undefined,
     onClearPendingSteer: () => {
       setPendingSuggestionOverride(undefined)
     },
@@ -1692,6 +1746,7 @@ export function useDirectoryChatPageController(
     },
     onModelChange: (model: string) => {
       pushRecentModelKey(model)
+      if (selectedFast === undefined && fastMode.enabled) setSelectedFast(cs.promptKey, true)
       cs.setSelectedModel(cs.promptKey, model)
     },
     onThinkingChange: (thinking: string) => {

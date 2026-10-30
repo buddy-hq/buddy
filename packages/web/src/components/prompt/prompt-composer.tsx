@@ -102,7 +102,10 @@ import {
   type SlashCommandSource,
 } from "./slash-autocomplete"
 import { PromptAutocompleteMenu } from "./components/prompt-autocomplete-menu"
-import { PromptComposerToolbar } from "./components/prompt-composer-toolbar"
+import {
+  PromptComposerToolbar,
+  type PromptFastModeControl,
+} from "./components/prompt-composer-toolbar"
 import {
   PROMPT_PART_TYPE_TEXT,
   READING_SELECTION_PART_TYPE,
@@ -233,6 +236,7 @@ type PromptComposerProps = {
     label: string
   }>
   selectedThinking: string
+  fastMode?: PromptFastModeControl
   modelMenuOpenRequest?: number
   onClearPendingSteer?: () => void
   onPersonaChange: (persona: string) => void
@@ -2193,6 +2197,7 @@ export function PromptComposer(props: PromptComposerProps) {
                   selectedThinking={props.selectedThinking}
                   thinkingOptions={props.thinkingOptions}
                   onThinkingChange={props.onThinkingChange}
+                  fastMode={props.fastMode}
                   isBusy={props.isBusy}
                   canSubmit={noteMode.active ? canSaveNote : canSubmit}
                   sendDisabledReason={

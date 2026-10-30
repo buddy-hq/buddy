@@ -12,6 +12,7 @@ import {
 } from "@/state/directory-chat-query"
 import {
   getModelSelectionScopeKey,
+  getSelectedFastKey,
   getSelectedModelKey,
   getSelectedVariantKey,
   useModelSelectionStore,
@@ -53,6 +54,7 @@ function readStoredModelSelection(
   return {
     model: getSelectedModelKey(state, key),
     variant: getSelectedVariantKey(state, key),
+    fast: getSelectedFastKey(state, key),
   }
 }
 
