@@ -13,7 +13,11 @@ import {
   type MarkdownBenchFileData,
 } from "@/state/bench-surface-query"
 import { WorkspaceFileLargeWarning } from "@/components/files/workspace-file-actions"
-import { consumeWorkspaceFileLargeOpenApproval } from "@/state/workspace-file-open-dialog-store"
+import {
+  consumeWorkspaceFileLargeOpenApproval,
+  grantWorkspaceFileLargeOpenApproval,
+  hasWorkspaceFileLargeOpenSessionApproval,
+} from "@/state/workspace-file-open-dialog-store"
 
 const AGENTS_MD_PATH = "AGENTS.md"
 const AGENTS_MD_PLACEHOLDER = "Set rules and customize how Buddy responds in this notebook."
@@ -85,8 +89,10 @@ function LargeMarkdownBenchGate(props: {
 }) {
   // Approval is a per-open user decision, so it is consumed here rather than inside the cached
   // query: the query only reports that the file is over the limit.
-  const [approved, setApproved] = useState(() =>
-    consumeWorkspaceFileLargeOpenApproval(props.directory, props.path),
+  const [approved, setApproved] = useState(
+    () =>
+      consumeWorkspaceFileLargeOpenApproval(props.directory, props.path) ||
+      hasWorkspaceFileLargeOpenSessionApproval(props.directory, props.path),
   )
 
   if (props.fileData.status === "ready") {
@@ -120,7 +126,10 @@ function LargeMarkdownBenchGate(props: {
         <WorkspaceFileLargeWarning
           path={props.path}
           sizeBytes={props.fileData.sizeBytes}
-          onOpenAnyway={() => setApproved(true)}
+          onOpenAnyway={() => {
+            grantWorkspaceFileLargeOpenApproval(props.directory, props.path)
+            setApproved(true)
+          }}
         />
       </BenchStaticContextProvider>
     )

@@ -26,7 +26,11 @@ import { fileNameFromPath, workspaceFileInstanceKey } from "@/lib/workspace-file
 import { isSupportedReadingResourcePath } from "@/state/resources-query"
 import { workspaceFileMetadataQueryOptions } from "@/state/bench-surface-query"
 import { benchSurfaceUiKey } from "@/state/bench-surface-ui-state"
-import { consumeWorkspaceFileLargeOpenApproval } from "@/state/workspace-file-open-dialog-store"
+import {
+  consumeWorkspaceFileLargeOpenApproval,
+  grantWorkspaceFileLargeOpenApproval,
+  hasWorkspaceFileLargeOpenSessionApproval,
+} from "@/state/workspace-file-open-dialog-store"
 import { BENCH_WORKSPACE_ROOT_NOTEBOOK, type BenchTarget } from "@/lib/bench-navigation"
 
 function ProjectFileBenchPending() {
@@ -116,6 +120,7 @@ function ProjectFileBenchView(props: {
   const [approved, setApproved] = useState(
     () =>
       consumeWorkspaceFileLargeOpenApproval(props.directory, props.path) ||
+      hasWorkspaceFileLargeOpenSessionApproval(props.directory, props.path) ||
       !isWorkspaceFileOverSoftLimit({ path: props.path, ...props.metadata }),
   )
   const classification = classifyWorkspaceMedia({ path: props.path, ...props.metadata })
@@ -140,7 +145,10 @@ function ProjectFileBenchView(props: {
         <WorkspaceFileLargeWarning
           path={props.path}
           sizeBytes={props.metadata.sizeBytes}
-          onOpenAnyway={() => setApproved(true)}
+          onOpenAnyway={() => {
+            grantWorkspaceFileLargeOpenApproval(props.directory, props.path)
+            setApproved(true)
+          }}
         />
       </BenchStaticContextProvider>
     )

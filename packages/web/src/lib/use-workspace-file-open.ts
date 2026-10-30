@@ -1,12 +1,19 @@
 import { useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { useDirectoryWorkspaceOptional } from "@/components/directory-chat/directory-workspace-context"
 import { usePlatform } from "@/context/platform"
-import { type ResourceReadingTarget, type ResourceViewStatus } from "@/state/resources-query"
-import { fileExtensionFromPath, fileNameFromPath } from "./workspace-file-paths"
+import { canonicalProjectDirectory } from "@/lib/project-directory"
 import {
   findProcessedResourceByPath,
   processedResourcesQueryOptions,
+  type ResourceReadingTarget,
+  type ResourceViewStatus,
 } from "@/state/resources-query"
+import {
+  fileExtensionFromPath,
+  fileNameFromPath,
+  normalizeRelativePath,
+} from "./workspace-file-paths"
 import {
   resolveWorkspaceFileOpenPlan,
   WORKSPACE_FILE_OPEN_TARGET_COPY_PATH,
@@ -22,15 +29,69 @@ import {
 import {
   BENCH_MODE_REQUEST_POLICY,
   BENCH_WORKSPACE_ROOT_NOTEBOOK,
+  BENCH_WORKSPACE_ROOT_NOTES,
   useOpenBench,
   type BenchModeRequest,
+  type BenchTabTarget,
   type OpenBenchResult,
 } from "@/lib/bench-navigation"
+import { BENCH_ROUTE_STATUS_OPEN } from "@/state/directory-workspace-store"
 import {
   grantWorkspaceFileLargeOpenApproval,
+  hasWorkspaceFileLargeOpenSessionApproval,
+  releaseWorkspaceFileLargeOpenHandoff,
   revokeWorkspaceFileLargeOpenApproval,
   useWorkspaceFileOpenDialogStore,
 } from "@/state/workspace-file-open-dialog-store"
+
+function benchTargetsForDirectory(
+  workspace: ReturnType<typeof useDirectoryWorkspaceOptional>,
+  directory: string | undefined,
+): readonly BenchTabTarget[] {
+  if (!directory || !workspace) return []
+  const requestedDirectory = canonicalProjectDirectory(directory)
+  if (
+    !requestedDirectory ||
+    canonicalProjectDirectory(workspace.directory) !== requestedDirectory
+  ) {
+    return []
+  }
+  const targets: BenchTabTarget[] = []
+  for (const slot of Object.values(workspace.store.getState().slots)) {
+    if (!slot) continue
+    for (const tab of slot.tabs) targets.push(tab.target)
+    if (slot.route.status === BENCH_ROUTE_STATUS_OPEN) targets.push(slot.route.target)
+  }
+  return targets
+}
+
+function isWorkspaceFileAlreadyOpen(input: {
+  readonly path: string
+  readonly objectID: string | undefined
+  readonly targets: readonly BenchTabTarget[]
+}): boolean {
+  const path = normalizeRelativePath(input.path)
+  if (!path && !input.objectID) return false
+  for (const target of input.targets) {
+    if (
+      path &&
+      target.type === "workspace-file" &&
+      target.root !== BENCH_WORKSPACE_ROOT_NOTES &&
+      normalizeRelativePath(target.path) === path
+    ) {
+      return true
+    }
+    if (
+      input.objectID &&
+      target.type === "object" &&
+      target.ref.kind === "resource" &&
+      target.ref.objectID === input.objectID
+    ) {
+      return true
+    }
+  }
+  return false
+}
 
 export type WorkspaceResourceOpener = (
   directory: string,
@@ -55,6 +116,7 @@ export function useWorkspaceFileOpen(
   const openBenchRoute = useOpenBench()
   const queryClient = useQueryClient()
   const platform = usePlatform()
+  const workspace = useDirectoryWorkspaceOptional()
   const benchMode = options?.benchMode ?? BENCH_MODE_REQUEST_POLICY
 
   const resolvePlan = useCallback(
@@ -160,7 +222,20 @@ export function useWorkspaceFileOpen(
       const plan = resolvePlan(resolvedInput)
       const target = plan.primaryTarget
       if (!target) return false
-      if (plan.requiresLargeFileApproval && resolvedInput.sizeBytes !== undefined) {
+      const sessionApproved =
+        directory !== undefined &&
+        hasWorkspaceFileLargeOpenSessionApproval(directory, resolvedInput.path)
+      const alreadyOpen = isWorkspaceFileAlreadyOpen({
+        path: resolvedInput.path,
+        objectID: resolvedInput.objectID,
+        targets: benchTargetsForDirectory(workspace, directory),
+      })
+      if (
+        plan.requiresLargeFileApproval &&
+        resolvedInput.sizeBytes !== undefined &&
+        !sessionApproved &&
+        !alreadyOpen
+      ) {
         const choice = await useWorkspaceFileOpenDialogStore.getState().requestApproval({
           path: resolvedInput.path,
           sizeBytes: resolvedInput.sizeBytes,
@@ -181,10 +256,16 @@ export function useWorkspaceFileOpen(
         return result === undefined || result.outcome === "committed"
       }
 
+      if (directory && sessionApproved) {
+        grantWorkspaceFileLargeOpenApproval(directory, resolvedInput.path)
+      }
       const result = await executeTarget(resolvedInput, target)
+      if (result && result.outcome !== "committed" && directory && sessionApproved) {
+        releaseWorkspaceFileLargeOpenHandoff(directory, resolvedInput.path)
+      }
       return result === undefined || result.outcome === "committed"
     },
-    [directory, executeTarget, onOpenResource, queryClient, resolvePlan],
+    [directory, executeTarget, onOpenResource, queryClient, resolvePlan, workspace],
   )
 
   return {

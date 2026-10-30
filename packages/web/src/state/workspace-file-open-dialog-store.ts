@@ -1,4 +1,6 @@
 import { create } from "zustand"
+import { canonicalProjectDirectory } from "@/lib/project-directory"
+import { normalizeRelativePath } from "@/lib/workspace-file-paths"
 
 export type WorkspaceFileOpenApprovalChoice = "open" | "default-app" | "cancel"
 
@@ -42,23 +44,37 @@ export const useWorkspaceFileOpenDialogStore = create<WorkspaceFileOpenDialogSta
   },
 }))
 
-const largeFileApprovalKeys = new Set<string>()
+const sessionApprovalKeys = new Set<string>()
+const handoffApprovalKeys = new Set<string>()
 
 function largeFileApprovalKey(directory: string, path: string) {
-  return `${directory}\u0000${path}`
+  const canonicalDirectory = canonicalProjectDirectory(directory) ?? directory
+  return `${canonicalDirectory}\u0000${normalizeRelativePath(path)}`
 }
 
 export function grantWorkspaceFileLargeOpenApproval(directory: string, path: string): void {
-  largeFileApprovalKeys.add(largeFileApprovalKey(directory, path))
+  const key = largeFileApprovalKey(directory, path)
+  sessionApprovalKeys.add(key)
+  handoffApprovalKeys.add(key)
 }
 
 export function revokeWorkspaceFileLargeOpenApproval(directory: string, path: string): void {
-  largeFileApprovalKeys.delete(largeFileApprovalKey(directory, path))
+  const key = largeFileApprovalKey(directory, path)
+  sessionApprovalKeys.delete(key)
+  handoffApprovalKeys.delete(key)
+}
+
+export function hasWorkspaceFileLargeOpenSessionApproval(directory: string, path: string): boolean {
+  return sessionApprovalKeys.has(largeFileApprovalKey(directory, path))
 }
 
 export function consumeWorkspaceFileLargeOpenApproval(directory: string, path: string): boolean {
   const key = largeFileApprovalKey(directory, path)
-  if (!largeFileApprovalKeys.has(key)) return false
-  largeFileApprovalKeys.delete(key)
+  if (!handoffApprovalKeys.has(key)) return false
+  handoffApprovalKeys.delete(key)
   return true
+}
+
+export function releaseWorkspaceFileLargeOpenHandoff(directory: string, path: string): void {
+  handoffApprovalKeys.delete(largeFileApprovalKey(directory, path))
 }
