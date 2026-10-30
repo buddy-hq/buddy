@@ -18,7 +18,7 @@ import {
   WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH,
   WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
 } from "@/lib/workspace-file-open"
-import { workspaceRelativeFilePath } from "@/lib/workspace-file-paths"
+import { absoluteWorkspaceFilePath, workspaceRelativeFilePath } from "@/lib/workspace-file-paths"
 
 import { basename, dirname } from "../../utils/path"
 import { readNonEmptyString, type ToolState } from "../types"
@@ -116,7 +116,11 @@ export function activityEntryFilePath(entry: ToolActivityEntry): string | undefi
   if (entry.state.status !== "completed") return undefined
 
   const changes = previewedFileChanges(entry.state)
-  return changes.length === 1 ? openableFilePath(changes[0]) : undefined
+  if (changes.length > 0) {
+    return changes.length === 1 ? openableFilePath(changes[0]) : undefined
+  }
+  if (entry.presentation.renderer !== "read") return undefined
+  return readNonEmptyString(entry.state.summary?.subject)
 }
 
 export function hasActivityFileChangeDetails(entry: ToolActivityEntry): boolean {
@@ -159,20 +163,59 @@ function ActivityPatchFileAction({ file }: { file: FilePatch }) {
   return <ActivityDiffChanges additions={file.diff.additions} deletions={file.diff.deletions} />
 }
 
+function isAbsoluteFilePath(filePath: string): boolean {
+  return (
+    filePath.startsWith("/") || filePath.startsWith("\\") || /^[A-Za-z]:/u.test(filePath)
+  )
+}
+
+function isHomePath(filePath: string): boolean {
+  return filePath.trimStart().startsWith("~")
+}
+
+function resolvedNotebookRelativePath(filePath: string): string | undefined {
+  const normalized = filePath.trim().replaceAll("\\", "/")
+  if (!normalized || normalized.startsWith("/") || normalized.startsWith("~")) return undefined
+
+  const resolved: string[] = []
+  for (const segment of normalized.split("/")) {
+    if (segment.length === 0 || segment === ".") continue
+    if (segment === "..") {
+      if (resolved.length === 0) return undefined
+      resolved.pop()
+      continue
+    }
+    resolved.push(segment)
+  }
+  if (resolved.length === 0) return undefined
+  return resolved.join("/")
+}
+
+function benchRelativePath(directory: string, filePath: string): string | undefined {
+  if (isHomePath(filePath)) return undefined
+
+  const insideNotebook = workspaceRelativeFilePath({ directory, path: filePath })
+  if (insideNotebook) return insideNotebook
+  if (isAbsoluteFilePath(filePath)) return undefined
+  return resolvedNotebookRelativePath(filePath)
+}
+
 // Opens a changed file on the Bench. Undefined when the file is outside the notebook or the Bench
 // can't show it, so callers render a plain name instead of a link.
 export function useBenchFileOpener(
   directory: string | undefined,
-  absolutePath: string | undefined,
+  filePath: string | undefined,
 ): (() => void) | undefined {
   const platform = usePlatform()
   const { resolvePlan, executePrimary } = useWorkspaceFileOpen(directory)
-  const path =
-    directory && absolutePath
-      ? workspaceRelativeFilePath({ directory, path: absolutePath })
-      : undefined
+  if (!directory || !filePath) return undefined
+
+  const path = benchRelativePath(directory, filePath)
   if (!path) return undefined
 
+  const absolutePath = isAbsoluteFilePath(filePath)
+    ? filePath
+    : absoluteWorkspaceFilePath({ directory, path })
   const input: WorkspaceFileActionInput = {
     path,
     absolutePath,

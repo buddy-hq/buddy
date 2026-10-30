@@ -1,11 +1,13 @@
-import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject, ToolRowArg } from "../tool-row"
 import { resolveAssetUrl } from "../../../../lib/resource-url"
+import { ActivityFileNameLink, useBenchFileOpener } from "../activity-row/file-change-details"
 import { getReadPreviewImageAttachments, isReadImagePreview } from "../read-image-preview"
 import { getSkillReferenceRowAction, resolveSkillReferenceInfo } from "../skill-reference"
+import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject, ToolRowArg } from "../tool-row"
+import { readNonEmptyString } from "../types"
 import type { ToolPartProps } from "../registry"
 
-export function renderReadTool({ state, info, icon }: ToolPartProps) {
-  const filePath = state.summary?.subject ?? info.subtitle
+function ReadTool({ state, info, icon, directory }: ToolPartProps) {
+  const filePath = readNonEmptyString(state.summary?.subject) ?? info.subtitle
   const skillReference = resolveSkillReferenceInfo({
     filePath,
     title: info.title,
@@ -17,13 +19,28 @@ export function renderReadTool({ state, info, icon }: ToolPartProps) {
   const isImageRead = isReadImagePreview({ state, filePath })
   const action = skillReference ? `${getSkillReferenceRowAction(active)}:` : "read"
   const subject = skillReference?.displayName ?? info.subtitle
+  const openPath =
+    skillReference || isImageRead || state.status !== "completed"
+      ? undefined
+      : readNonEmptyString(state.summary?.subject)
+  const openFile = useBenchFileOpener(directory, openPath)
 
   return (
     <div className="flex flex-col gap-1.5">
       <ToolRow>
         <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
         <ToolRowAction>{isImageRead && info.subtitle ? info.subtitle : action}</ToolRowAction>
-        {!isImageRead && subject ? <ToolRowSubject>{subject}</ToolRowSubject> : null}
+        {!isImageRead && subject ? (
+          openFile ? (
+            <ActivityFileNameLink
+              name={subject}
+              onOpen={openFile}
+              className="min-w-0 flex-1 truncate text-xs text-text-weaker"
+            />
+          ) : (
+            <ToolRowSubject>{subject}</ToolRowSubject>
+          )
+        ) : null}
         {info.args?.map((arg) => (
           <ToolRowArg key={arg}>{arg}</ToolRowArg>
         ))}
@@ -50,4 +67,8 @@ export function renderReadTool({ state, info, icon }: ToolPartProps) {
       ) : null}
     </div>
   )
+}
+
+export function renderReadTool(props: ToolPartProps) {
+  return <ReadTool {...props} />
 }
