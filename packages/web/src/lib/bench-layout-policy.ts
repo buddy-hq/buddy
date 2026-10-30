@@ -287,6 +287,7 @@ function resolveDockedBenchShellLayout(input: {
   requestedWorkspaceWidthPx: number | null
   leftSidebarPreferredOpen: boolean
   leftSidebarWidthPx: number
+  leftSidebarVisible?: boolean
 }): ResolvedDockedBenchShellLayout {
   const defaults = resolveBenchLayoutDefaults({
     profile: input.profile,
@@ -302,7 +303,10 @@ function resolveDockedBenchShellLayout(input: {
     input.leftSidebarPreferredOpen &&
     input.viewport.widthPx >=
       input.leftSidebarWidthPx + defaults.dockedChatMinWidthPx + requestedWorkspaceWidthPx
-  const leftSidebarVisible = input.leftSidebarPreferredOpen && leftSidebarFits
+  const leftSidebarVisible =
+    input.leftSidebarVisible !== undefined
+      ? input.leftSidebarVisible
+      : input.leftSidebarPreferredOpen && leftSidebarFits
   const availableShellWidthPx = Math.max(
     0,
     input.viewport.widthPx - (leftSidebarVisible ? input.leftSidebarWidthPx : 0),

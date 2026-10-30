@@ -612,7 +612,7 @@ describe("DirectoryWorkspaceClientActionLedger", () => {
         type: "present-background",
         chatKey: `session:${SESSION_ID}`,
         target: WHITEBOARD_TARGET,
-        mode: "floating",
+        mode: "docked",
       },
       {
         type: "present",

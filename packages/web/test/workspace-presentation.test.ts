@@ -214,7 +214,7 @@ describe("workspace presentation", () => {
     expect(presentation.workspace.widthPx).toBeLessThan(requestedWorkspaceWidthPx)
   })
 
-  test("opens an untouched docked Bench at its profile default and drawers at their own default", () => {
+  test("opens an untouched docked Bench at the wider chat default and drawers at their own default", () => {
     const docked = resolveWorkspacePresentation({
       projection: effectiveWorkspaceProjection(
         { status: "open", target: TARGET, mode: BENCH_CHAT_LAYOUT_DOCKED },
@@ -245,7 +245,7 @@ describe("workspace presentation", () => {
     })
 
     expect(docked.kind).toBe("docked-bench")
-    expect(docked.workspace.widthPx).toBe(540 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
+    expect(docked.workspace.widthPx).toBe(504)
     expect(docked.workspace.minWidthPx).toBe(360 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
     expect(selector.kind).toBe("selector")
     expect(selector.workspace.widthPx).toBe(540 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
@@ -263,7 +263,7 @@ describe("workspace presentation", () => {
       requestedBenchWidthPx: null,
     })
 
-    expect(presentation.workspace.widthPx).toBe(540 + RIGHT_WORKSPACE_RAIL_WIDTH_PX)
+    expect(presentation.workspace.widthPx).toBe(504)
   })
 
   test("keeps a saved docked width below the profile default", () => {

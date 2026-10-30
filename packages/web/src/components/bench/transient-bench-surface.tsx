@@ -95,10 +95,12 @@ function useTransientBenchSurface() {
 
 function resolveTransientBenchSurfaceLayoutMode(
   surface: TransientBenchSurface | null,
+  currentLayoutMode: BenchChatLayoutMode,
 ): BenchChatLayoutMode | null {
   if (surface === null) return null
   if (surface === TRANSIENT_BENCH_SURFACE_SKETCH) return BENCH_CHAT_LAYOUT_DOCKED
-  return BENCH_CHAT_LAYOUT_FLOATING
+  if (currentLayoutMode === BENCH_CHAT_LAYOUT_FLOATING) return BENCH_CHAT_LAYOUT_FLOATING
+  return BENCH_CHAT_LAYOUT_DOCKED
 }
 
 function closeTransientBenchSurface(

@@ -65,7 +65,6 @@ import {
   benchTargetKey as exactBenchTargetKey,
   isBenchContentTarget,
   readBenchOpenPolicyStateFromLocation,
-  resolveDockedBenchShellLayout,
   resolveDockedBenchResizeIntent,
   setBenchPresentationWorkspaceWidth,
   useBenchPresentationPreferences,
@@ -85,11 +84,19 @@ import { toast, type ResizeHandleIntent } from "@buddy/ui"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStore } from "zustand"
 import { useShallow } from "zustand/react/shallow"
+import { RIGHT_WORKSPACE_RAIL_WIDTH_PX } from "@/lib/directory-chat/right-workspace-layout"
 import {
+  resolveChatOwnedDockedShell,
+  resolveDraggedDockedChatWidth,
   resolveWorkspacePresentation,
   workspaceCollectionForDrawer,
   workspaceCollectionForTarget,
 } from "@/lib/directory-chat/workspace-presentation"
+import { useUiPreferences } from "@/state/ui-preferences"
+import {
+  useHighlightWhiteboardImmersive,
+  visibleWhiteboardImmersiveHint,
+} from "@/state/whiteboard-immersive-hint"
 import { requestPromptComposerFocus } from "@/components/prompt/prompt-composer-focus"
 import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer-live-draft"
 import { createTextPromptDraft } from "@/state/prompt-store"
@@ -269,7 +276,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     closeTransientBenchSurface(setTransientBenchSurface, surface)
   }, [])
   const transientBenchActive = transientBenchSurface !== null
-  const transientBenchLayoutMode = resolveTransientBenchSurfaceLayoutMode(transientBenchSurface)
   const benchPolicyState = useMemo(
     () =>
       readBenchOpenPolicyStateFromLocation({
@@ -283,6 +289,10 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     benchPolicyState.status === "open" ? benchTabKey(benchPolicyState.target) : null
   const routeChatLayoutMode =
     benchPolicyState.status === "open" ? benchPolicyState.mode : BENCH_CHAT_LAYOUT_DOCKED
+  const transientBenchLayoutMode = resolveTransientBenchSurfaceLayoutMode(
+    transientBenchSurface,
+    routeChatLayoutMode,
+  )
   const chatLayoutMode = transientBenchLayoutMode ?? routeChatLayoutMode
   const workspaceRenderedSurface = workspace.projection.renderedSurface
   const workspacePending = workspace.projection.pending
@@ -323,6 +333,8 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     (state) => state.workspaceWidthPx,
   )
   const requestedBenchWidthPx = useBenchPresentationPreferences((state) => state.benchWidthPx)
+  const dockedChatWidth = useUiPreferences((state) => state.dockedChatWidth)
+  const setDockedChatWidth = useUiPreferences((state) => state.setDockedChatWidth)
   const presentation = useMemo(
     () =>
       resolveWorkspacePresentation({
@@ -332,6 +344,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         viewport: dockedBenchViewport,
         requestedWorkspaceWidthPx,
         requestedBenchWidthPx,
+        rememberedDockedChatWidthPx: dockedChatWidth,
         leftSidebarPreferredOpen: chatState.leftSidebarOpen,
         leftSidebarWidthPx: chatState.leftSidebarDisplayWidth,
       }),
@@ -339,6 +352,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       chatState.leftSidebarDisplayWidth,
       chatState.leftSidebarOpen,
       dockedBenchViewport,
+      dockedChatWidth,
       layoutProfile,
       requestedBenchWidthPx,
       requestedWorkspaceWidthPx,
@@ -348,11 +362,12 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   )
   const transientDockedShellLayout = useMemo(
     () =>
-      resolveDockedBenchShellLayout({
+      resolveChatOwnedDockedShell({
         profile: BENCH_LAYOUT_PROFILE_VISUAL,
         viewport: dockedBenchViewport,
         workspaceChromeWidthPx: 0,
         requestedWorkspaceWidthPx: requestedBenchWidthPx,
+        rememberedChatWidthPx: dockedChatWidth,
         leftSidebarPreferredOpen: chatState.leftSidebarOpen,
         leftSidebarWidthPx: chatState.leftSidebarDisplayWidth,
       }),
@@ -360,6 +375,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       chatState.leftSidebarDisplayWidth,
       chatState.leftSidebarOpen,
       dockedBenchViewport,
+      dockedChatWidth,
       requestedBenchWidthPx,
     ],
   )
@@ -528,6 +544,33 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
 
   const handleDockedWorkspaceResizeIntent = useCallback(
     (intent: ResizeHandleIntent) => {
+      const dockedEmptyDrag =
+        presentation.workspaceOpen &&
+        presentation.kind === "selector" &&
+        presentation.selector === null &&
+        presentation.mode === BENCH_CHAT_LAYOUT_DOCKED
+      if (transientBenchActive || presentation.dockedBenchVisible || dockedEmptyDrag) {
+        const collectionDrag =
+          !transientBenchActive &&
+          (dockedEmptyDrag ||
+            workspaceCollectionForDrawer(presentation.selector) !== null ||
+            (presentation.dockedBenchVisible &&
+              workspaceCollectionForTarget(presentation.benchTarget) !== null))
+        const chatWidthPx = resolveDraggedDockedChatWidth({
+          viewport: dockedBenchViewport,
+          profile: transientBenchActive ? BENCH_LAYOUT_PROFILE_VISUAL : layoutProfile,
+          workspaceChromeWidthPx: transientBenchActive ? 0 : RIGHT_WORKSPACE_RAIL_WIDTH_PX,
+          layout: collectionDrag ? "collection" : "shell",
+          leftSidebarVisible: dockedLeftSidebarVisible,
+          leftSidebarWidthPx: chatState.leftSidebarDisplayWidth,
+          rawWorkspaceWidthPx: intent.rawSize,
+          workspaceMinWidthPx: dockedWorkspaceMinWidthPx,
+          workspaceMaxWidthPx: dockedWorkspaceMaxWidthPx,
+          hasVisibleBenchTarget: transientBenchActive || presentation.dockedBenchVisible,
+          applyResizeIntent: !transientBenchActive,
+        })
+        if (Number.isFinite(chatWidthPx) && chatWidthPx > 0) setDockedChatWidth(chatWidthPx)
+      }
       if (transientBenchActive) {
         setBenchPresentationWorkspaceWidth(intent.rawSize, "bench")
         return
@@ -561,7 +604,18 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         origin: "user",
       })
     },
-    [dockedWorkspaceMaxWidthPx, presentation, setBenchMode, transientBenchActive],
+    [
+      chatState.leftSidebarDisplayWidth,
+      dockedBenchViewport,
+      dockedLeftSidebarVisible,
+      dockedWorkspaceMaxWidthPx,
+      dockedWorkspaceMinWidthPx,
+      layoutProfile,
+      presentation,
+      setBenchMode,
+      setDockedChatWidth,
+      transientBenchActive,
+    ],
   )
 
   const setFloatingChatSubstate = useCallback(
@@ -1110,6 +1164,16 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED
       ? handleFloatChat
       : undefined
+  const highlightEnterImmersive = useHighlightWhiteboardImmersive(
+    visibleWhiteboardImmersiveHint({
+      directory: currentDirectory,
+      target: persistentBenchVisible ? presentation.benchTarget : null,
+      layoutMode: effectiveWorkspaceLayoutMode,
+      workspaceHydrated,
+      transientBenchActive,
+      immersiveControlMounted: enterImmersiveFromTabs !== undefined,
+    }),
+  )
   const titlebarBenchTabs = !transientBenchActive ? (
     <BenchTabs
       placement="titlebar"
@@ -1127,6 +1191,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       onActivateEmptyTab={(emptyTabID) => void openEmptyBenchTab(emptyTabID)}
       onCloseEmptyTab={closeEmptyBenchTab}
       onEnterImmersive={enterImmersiveFromTabs}
+      highlightEnterImmersive={highlightEnterImmersive}
     />
   ) : null
 

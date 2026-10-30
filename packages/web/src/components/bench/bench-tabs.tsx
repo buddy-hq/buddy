@@ -80,6 +80,7 @@ type BenchTabsProps = {
   onCloseEmptyTab?: (emptyTabID: string) => void
   /** Takes the Bench full-window. Absent while the Bench is already immersive. */
   onEnterImmersive?: () => void
+  highlightEnterImmersive?: boolean
   /** Whether holding Cmd/Ctrl shows each tab's key; off while the tab keys are. */
   shortcutHints?: boolean
 }
@@ -613,7 +614,11 @@ export function BenchTabs(props: BenchTabsProps) {
             size="icon-sm"
             data-action="bench-enter-immersive"
             aria-label={IMMERSIVE_LABEL}
-            className="composer-surface-tab composer-grain relative size-6 shrink-0 text-icon-base hover:text-text-strong [-webkit-app-region:no-drag]"
+            className={cn(
+              "composer-surface-tab composer-grain relative size-6 shrink-0 text-icon-base hover:text-text-strong [-webkit-app-region:no-drag]",
+              props.highlightEnterImmersive &&
+                "animate-pulse text-text-base ring-1 ring-border-interactive-base/60",
+            )}
             onClick={props.onEnterImmersive}
           >
             <ArrowExpand02Icon className={IMMERSIVE_ICON_CLASS} />

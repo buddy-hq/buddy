@@ -23,6 +23,8 @@ function resetUiPreferences() {
     teacherStandardsAutoSetupComplete: false,
     openExternalFilesWithoutAsking: false,
     seenNotices: {},
+    whiteboardImmersiveHintDirectories: [],
+    activeWhiteboardImmersiveHint: null,
   })
 }
 
@@ -193,6 +195,31 @@ describe("ui preference persistence parity", () => {
       pinnedByDirectory: { "/repo": ["session_1"] },
       pinnedDirectories: [],
     })
+  })
+
+  test("loads stored preferences that omit the whiteboard hint list", async () => {
+    localStorage.setItem(
+      UI_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          pinnedDirectories: ["/kept"],
+          leftSidebarOpen: false,
+          dockedChatWidth: 640,
+          notesScope: "all",
+        },
+        version: 24,
+      }),
+    )
+
+    await useUiPreferences.persist.rehydrate()
+
+    const next = useUiPreferences.getState()
+    expect(next.pinnedDirectories).toEqual(["/kept"])
+    expect(next.leftSidebarOpen).toBe(false)
+    expect(next.dockedChatWidth).toBe(640)
+    expect(next.notesScope).toBe("all")
+    expect(next.whiteboardImmersiveHintDirectories).toEqual([])
+    expect(next.activeWhiteboardImmersiveHint).toBeNull()
   })
 })
 

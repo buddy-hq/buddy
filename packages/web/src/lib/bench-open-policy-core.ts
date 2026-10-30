@@ -89,7 +89,7 @@ const BENCH_SURFACE_DEFAULTS = {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
   },
   whiteboard: {
-    mode: BENCH_CHAT_LAYOUT_FLOATING,
+    mode: BENCH_CHAT_LAYOUT_DOCKED,
   },
   markdown: {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
@@ -121,10 +121,8 @@ const BENCH_SURFACE_DEFAULTS = {
 } satisfies Record<BenchSurfaceKey, Pick<BenchSurfaceDefaults, "mode">>
 
 // An auto-open policy may claim the surface's default mode when it brings a new target forward.
-// Whiteboards are authored to open immersive; the transient opening preview shows them that way, so
-// the committed route must agree or the layout snaps when the preview tears down.
 const BENCH_AUTO_OPEN_MODE_AUTHORITY = {
-  [BENCH_AUTO_OPEN_POLICY_WHITEBOARD]: true,
+  [BENCH_AUTO_OPEN_POLICY_WHITEBOARD]: false,
   [BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET]: false,
 } satisfies Record<BenchAutoOpenPolicyID, boolean>
 

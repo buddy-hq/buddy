@@ -124,11 +124,6 @@ const DOCKED_WHITEBOARD_ROUTE = {
   target: WHITEBOARD_TARGET,
   mode: BENCH_CHAT_LAYOUT_DOCKED,
 } satisfies BenchRouteSnapshot
-const FLOATING_WHITEBOARD_ROUTE = {
-  status: BENCH_ROUTE_STATUS_OPEN,
-  target: WHITEBOARD_TARGET,
-  mode: BENCH_CHAT_LAYOUT_FLOATING,
-} satisfies BenchRouteSnapshot
 const DOCKED_HTML_WIDGET_ROUTE = {
   status: BENCH_ROUTE_STATUS_OPEN,
   target: HTML_WIDGET_TARGET,
@@ -2145,7 +2140,7 @@ describe("DirectoryWorkspaceController", () => {
       target: WHITEBOARD_TARGET,
       mode: BENCH_CHAT_LAYOUT_DOCKED,
     })
-    harness.setNextRoute(FLOATING_WHITEBOARD_ROUTE)
+    harness.setNextRoute(DOCKED_WHITEBOARD_ROUTE)
 
     const result = await harness.controller.execute(
       {
@@ -2169,9 +2164,10 @@ describe("DirectoryWorkspaceController", () => {
       decision: {
         action: "open",
         target: WHITEBOARD_TARGET,
-        mode: BENCH_CHAT_LAYOUT_FLOATING,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+        policyID: "preserved-current-mode",
       },
     })
-    expect(harness.readRoute()).toEqual(FLOATING_WHITEBOARD_ROUTE)
+    expect(harness.readRoute()).toEqual(DOCKED_WHITEBOARD_ROUTE)
   })
 })

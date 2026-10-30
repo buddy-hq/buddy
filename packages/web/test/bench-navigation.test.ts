@@ -402,7 +402,7 @@ describe("bench navigation policy", () => {
       layoutProfile: BENCH_LAYOUT_PROFILE_READING,
     })
     expect(resolveBenchSurfaceDefaults(WHITEBOARD_OBJECT_TARGET)).toEqual({
-      mode: BENCH_CHAT_LAYOUT_FLOATING,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
       layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
     })
     expect(resolveBenchSurfaceDefaults(HTML_WIDGET_OBJECT_TARGET)).toEqual({
@@ -414,8 +414,29 @@ describe("bench navigation policy", () => {
   test("uses target default mode when entering bench from closed state", () => {
     expect(resolveOpenPolicy({ request: openRequest(WHITEBOARD_OBJECT_TARGET) })).toMatchObject({
       action: "open",
-      mode: BENCH_CHAT_LAYOUT_FLOATING,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
       layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
+      policyID: "target-default-mode",
+    })
+  })
+
+  test("whiteboard auto-open from a closed bench opens docked", () => {
+    expect(
+      resolveOpenPolicy({
+        request: {
+          directory: DIRECTORY,
+          target: WHITEBOARD_OBJECT_TARGET,
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: {
+            policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+            eventKey: "message-1:part-1",
+          },
+        },
+      }),
+    ).toMatchObject({
+      action: "open",
+      target: WHITEBOARD_OBJECT_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
       policyID: "target-default-mode",
     })
   })
@@ -512,8 +533,8 @@ describe("bench navigation policy", () => {
     ).toMatchObject({
       action: "open",
       target: WHITEBOARD_OBJECT_TARGET,
-      mode: BENCH_CHAT_LAYOUT_FLOATING,
-      policyID: "auto-open-surface-mode",
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+      policyID: "preserved-current-mode",
     })
   })
 
@@ -551,8 +572,8 @@ describe("bench navigation policy", () => {
     ).toMatchObject({
       action: "open",
       target: WHITEBOARD_OBJECT_TARGET,
-      mode: BENCH_CHAT_LAYOUT_FLOATING,
-      policyID: "auto-open-surface-mode",
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+      policyID: "preserved-current-mode",
     })
   })
 
@@ -582,7 +603,7 @@ describe("bench navigation policy", () => {
     })
   })
 
-  test("whiteboard auto-open immerses a different whiteboard object", () => {
+  test("whiteboard auto-open focuses a different whiteboard without changing layout", () => {
     const currentTarget = {
       type: "object",
       ref: {
@@ -615,8 +636,8 @@ describe("bench navigation policy", () => {
     ).toMatchObject({
       action: "open",
       target: WHITEBOARD_OBJECT_TARGET,
-      mode: BENCH_CHAT_LAYOUT_FLOATING,
-      policyID: "auto-open-surface-mode",
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+      policyID: "preserved-current-mode",
     })
   })
 

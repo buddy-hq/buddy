@@ -10,6 +10,12 @@ import type { OneTimeNoticeID, SeenOneTimeNotices } from "@/state/one-time-notic
 import { parseFiniteNumber, parseWithSchema } from "./parse-external"
 
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
+export const WHITEBOARD_IMMERSIVE_HINT_NOTEBOOK_LIMIT = 3
+
+export type TActiveWhiteboardImmersiveHint = {
+  directory: string
+  objectID: string
+}
 
 type TPersistedUiPreferences = {
   pinnedByDirectory?: Record<string, string[]>
@@ -21,11 +27,13 @@ type TPersistedUiPreferences = {
   leftSidebarWidth?: number
   chatLeftSidebarWidth?: number
   settingsSidebarWidth?: number
+  dockedChatWidth?: number | null
   teacherStandardsAutoSetupComplete?: boolean
   notesScope?: "notebook" | "all"
   notesLocationIntroSeen?: boolean
   seenNotices?: Record<string, true>
   openExternalFilesWithoutAsking?: boolean
+  whiteboardImmersiveHintDirectories?: string[]
 }
 
 const persistedUiPreferencesSchema = z.object({
@@ -38,11 +46,13 @@ const persistedUiPreferencesSchema = z.object({
   leftSidebarWidth: z.number().finite().optional(),
   chatLeftSidebarWidth: z.number().finite().optional(),
   settingsSidebarWidth: z.number().finite().optional(),
+  dockedChatWidth: z.number().finite().nullable().optional(),
   teacherStandardsAutoSetupComplete: z.boolean().optional(),
   notesScope: z.enum(["notebook", "all"]).optional(),
   notesLocationIntroSeen: z.boolean().optional(),
   seenNotices: z.record(z.string(), z.literal(true)).optional(),
   openExternalFilesWithoutAsking: z.boolean().optional(),
+  whiteboardImmersiveHintDirectories: z.array(z.string()).optional(),
 })
 
 function parsePersistedUiPreferences<TValue>(value: TValue): TPersistedUiPreferences | undefined {
@@ -74,11 +84,16 @@ export type UiPreferencesStore = {
   leftSidebarOpen: boolean
   chatLeftSidebarWidth: number
   settingsSidebarWidth: number
+  dockedChatWidth: number | null
   teacherStandardsAutoSetupComplete: boolean
   notesScope: "notebook" | "all"
   setNotesScope: (scope: "notebook" | "all") => void
   seenNotices: SeenOneTimeNotices
   openExternalFilesWithoutAsking: boolean
+  whiteboardImmersiveHintDirectories: string[]
+  activeWhiteboardImmersiveHint: TActiveWhiteboardImmersiveHint | null
+  beginWhiteboardImmersiveHint: (directory: string, objectID: string) => void
+  endWhiteboardImmersiveHint: () => void
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -93,6 +108,7 @@ export type UiPreferencesStore = {
   setLeftSidebarOpen: (open: boolean) => void
   setChatLeftSidebarWidth: (width: number) => void
   setSettingsSidebarWidth: (width: number) => void
+  setDockedChatWidth: (width: number) => void
   setTeacherStandardsAutoSetupComplete: (complete: boolean) => void
   markNoticeSeen: (id: OneTimeNoticeID) => void
   setOpenExternalFilesWithoutAsking: (allowed: boolean) => void
@@ -168,6 +184,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         | "leftSidebarOpen"
         | "chatLeftSidebarWidth"
         | "settingsSidebarWidth"
+        | "dockedChatWidth"
         | "setChatSidebarDirectoryOpen"
         | "togglePinnedDirectory"
         | "setPinnedDirectories"
@@ -175,6 +192,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         | "setLeftSidebarOpen"
         | "setChatLeftSidebarWidth"
         | "setSettingsSidebarWidth"
+        | "setDockedChatWidth"
       > = {
         collapsedChatSidebarDirectories: {},
         pinnedDirectories: [],
@@ -183,6 +201,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         // Settings shows the same directory/thread list, so both start at the same width.
         chatLeftSidebarWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
         settingsSidebarWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+        dockedChatWidth: null,
         setChatSidebarDirectoryOpen(directory, open) {
           set((state) => {
             if (open) {
@@ -228,6 +247,12 @@ export const useUiPreferences = create<UiPreferencesStore>()(
             state.settingsSidebarWidth = width
           })
         },
+        setDockedChatWidth(width) {
+          if (!Number.isFinite(width) || width <= 0) return
+          set((state) => {
+            state.dockedChatWidth = width
+          })
+        },
       }
 
       const discoverySlice: Pick<
@@ -257,6 +282,32 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         },
       }
 
+      const whiteboardImmersiveHintSlice: Pick<
+        UiPreferencesStore,
+        | "whiteboardImmersiveHintDirectories"
+        | "activeWhiteboardImmersiveHint"
+        | "beginWhiteboardImmersiveHint"
+        | "endWhiteboardImmersiveHint"
+      > = {
+        whiteboardImmersiveHintDirectories: [],
+        activeWhiteboardImmersiveHint: null,
+        beginWhiteboardImmersiveHint(directory, objectID) {
+          set((state) => {
+            const directories = state.whiteboardImmersiveHintDirectories
+            if (directories.includes(directory)) return
+            if (directories.length >= WHITEBOARD_IMMERSIVE_HINT_NOTEBOOK_LIMIT) return
+            state.whiteboardImmersiveHintDirectories = [...directories, directory]
+            state.activeWhiteboardImmersiveHint = { directory, objectID }
+          })
+        },
+        endWhiteboardImmersiveHint() {
+          set((state) => {
+            if (state.activeWhiteboardImmersiveHint === null) return
+            state.activeWhiteboardImmersiveHint = null
+          })
+        },
+      }
+
       const fileLinkSlice: Pick<
         UiPreferencesStore,
         "openExternalFilesWithoutAsking" | "setOpenExternalFilesWithoutAsking"
@@ -274,11 +325,12 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         ...layoutSlice,
         ...discoverySlice,
         ...fileLinkSlice,
+        ...whiteboardImmersiveHintSlice,
       }
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 23,
+      version: 25,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = parsePersistedUiPreferences(persistedState)
@@ -292,10 +344,12 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           leftSidebarOpen: state?.leftSidebarOpen ?? true,
           chatLeftSidebarWidth: state?.chatLeftSidebarWidth ?? legacyLeftSidebarWidth,
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
+          dockedChatWidth: parseFiniteNumber(state?.dockedChatWidth) ?? null,
           teacherStandardsAutoSetupComplete: state?.teacherStandardsAutoSetupComplete ?? false,
           notesScope: state?.notesScope ?? "notebook",
           seenNotices: migrateSeenNotices(state),
           openExternalFilesWithoutAsking: state?.openExternalFilesWithoutAsking ?? false,
+          whiteboardImmersiveHintDirectories: state?.whiteboardImmersiveHintDirectories ?? [],
         }
       },
       partialize(state) {
@@ -308,10 +362,12 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           leftSidebarOpen: state.leftSidebarOpen,
           chatLeftSidebarWidth: state.chatLeftSidebarWidth,
           settingsSidebarWidth: state.settingsSidebarWidth,
+          dockedChatWidth: state.dockedChatWidth,
           teacherStandardsAutoSetupComplete: state.teacherStandardsAutoSetupComplete,
           notesScope: state.notesScope,
           seenNotices: state.seenNotices,
           openExternalFilesWithoutAsking: state.openExternalFilesWithoutAsking,
+          whiteboardImmersiveHintDirectories: state.whiteboardImmersiveHintDirectories,
         }
       },
     },
