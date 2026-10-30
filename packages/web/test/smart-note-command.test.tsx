@@ -182,6 +182,124 @@ describe("smart note command", () => {
     },
   )
 
+  test.each([
+    ["empty", "before"],
+    ["failure", "before"],
+    ["empty", "with"],
+    ["failure", "with"],
+  ] as const)(
+    "retrying after a %s draft with a quote staged %s the result drafts again instead of saving the command",
+    async (outcome, quoteTiming) => {
+      const sessionID = "ses_note"
+      const promptKey = getPromptScopeKey(TEST_DIRECTORY, sessionID)
+      const command = "/smart-note light reactions"
+      usePromptStore.getState().replaceDraft(promptKey, createTextPromptDraft(command))
+      const pendingDrafts: Array<{
+        resolve: (text: string) => void
+        reject: (error: Error) => void
+      }> = []
+      let savedNoteCount = 0
+      let submitted = false
+      const submitForm = async () => {
+        await act(async () => {
+          container
+            .querySelector("#prompt-composer-form")
+            ?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+          await flushEffects()
+        })
+      }
+      const stageQuote = () => {
+        quoteMessageIntoPromptDraft({
+          directory: TEST_DIRECTORY,
+          sessionID,
+          messageID: "message-1",
+          text: QUOTE_TEXT,
+          replaceDraft: usePromptStore.getState().replaceDraft,
+        })
+      }
+      const settleDraft = () => {
+        if (outcome === "failure") pendingDrafts[0]?.reject(new Error("provider down"))
+        else pendingDrafts[0]?.resolve("")
+      }
+
+      await act(async () => {
+        root.render(
+          renderComposer({
+            sessionID,
+            onSubmit: () => {
+              submitted = true
+            },
+            onSaveNote: () => {
+              savedNoteCount += 1
+              return Promise.resolve({ sessionID })
+            },
+            onDraftSmartNote: () =>
+              new Promise<string>((resolve, reject) => {
+                pendingDrafts.push({ resolve, reject })
+              }),
+          }),
+        )
+        await flushEffects()
+      })
+      await submitForm()
+      if (quoteTiming === "before") {
+        await act(async () => {
+          stageQuote()
+          await flushEffects()
+        })
+        await act(async () => {
+          settleDraft()
+          await flushEffects()
+        })
+      } else {
+        await act(async () => {
+          stageQuote()
+          settleDraft()
+          await flushEffects()
+        })
+      }
+
+      expect(getPromptDraft(usePromptStore.getState(), promptKey).parts).toContainEqual(QUOTE_PART)
+      await submitForm()
+
+      expect(pendingDrafts).toHaveLength(2)
+      expect(savedNoteCount).toBe(0)
+      expect(submitted).toBe(false)
+    },
+  )
+
+  test("Tab leaves focus free to move while a note is drafting", async () => {
+    const sessionID = "ses_note"
+    const promptKey = getPromptScopeKey(TEST_DIRECTORY, sessionID)
+    usePromptStore.getState().replaceDraft(promptKey, createTextPromptDraft("/smart-note"))
+    await act(async () => {
+      root.render(
+        renderComposer({
+          sessionID,
+          onSubmit: () => {},
+          onSaveNote: () => Promise.resolve({ sessionID }),
+          onDraftSmartNote: () => new Promise<string>(() => {}),
+        }),
+      )
+      await flushEffects()
+    })
+    await act(async () => {
+      container
+        .querySelector("#prompt-composer-form")
+        ?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+      await flushEffects()
+    })
+    const editor = container.querySelector('[data-component="prompt-editor"]')
+    const press = (key: string) => {
+      const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true })
+      editor?.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+
+    expect(press("Tab")).toBe(false)
+    expect(press("Enter")).toBe(true)
+  })
+
   test.each(["success", "empty", "failure"] as const)(
     "keeps a quote staged before a late %s result",
     async (outcome) => {

@@ -605,6 +605,11 @@ export function PromptComposer(props: PromptComposerProps) {
     event.preventDefault()
     event.stopPropagation()
   }
+  function blockLockedComposerKeyDown(event: React.KeyboardEvent) {
+    if (!isComposerInteractionLocked()) return
+    if (event.key !== "Tab") event.preventDefault()
+    event.stopPropagation()
+  }
   const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
   const unsupportedImageAttachments = useMemo(
     () =>
@@ -1822,13 +1827,13 @@ export function PromptComposer(props: PromptComposerProps) {
   async function submitDraft(currentDraft: Omit<PromptDraftState, "updatedAt">) {
     if (!noteMode.active && (hasUnsupportedImageAttachments || hasUnreadyNativeResources)) return
 
-    if (await noteMode.submit(currentDraft)) return
-
     const text = currentDraft.value.trim()
     if (isSmartNoteCommand(text)) {
       await draftSmartNoteFromComposer(text)
       return
     }
+
+    if (await noteMode.submit(currentDraft)) return
 
     // Intercept UI-only slash commands
     if (text.startsWith("/")) {
@@ -2168,7 +2173,7 @@ export function PromptComposer(props: PromptComposerProps) {
                         updateDraftCursorFromComposer(nextCursor, "debounced")
                       }}
                       onBlur={() => setEditorFocused(false)}
-                      onKeyDownCapture={blockLockedComposerInteraction}
+                      onKeyDownCapture={blockLockedComposerKeyDown}
                       onClick={() => {
                         syncEditorCursorToDraft()
                       }}
