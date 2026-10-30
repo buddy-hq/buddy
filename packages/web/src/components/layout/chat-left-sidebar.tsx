@@ -15,6 +15,7 @@ import { FolderAddIcon, Globe, NoteAddIcon, PresentationIcon } from "@/icons/app
 import { useShortcutCommand } from "@/lib/use-shortcut-command"
 import { useRubberBandOverscroll } from "@/lib/use-rubber-band-overscroll"
 import { language } from "@/context/language"
+import { stringifyError } from "@/lib/api-client"
 import { usePlatform } from "@/context/platform"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
 import type { GetStartedChat } from "@/lib/get-started-chats"
@@ -188,6 +189,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [showMode, setShowMode] = useState<ShowMode>("all")
   const [notebookCreationOpen, setNotebookCreationOpen] = useState(false)
   const [notebookName, setNotebookName] = useState("")
+  const [notebookCreationError, setNotebookCreationError] = useState<string | undefined>(undefined)
   const [notebookSaving, setNotebookSaving] = useState(false)
   const [notebookSettingsDirectory, setNotebookSettingsDirectory] = useState<string>()
   const [learnerMemoryEnabled, setLearnerMemoryEnabled] = useState(true)
@@ -487,13 +489,15 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     if (!name || !props.onCreateNotebook) return
 
     setNotebookSaving(true)
+    setNotebookCreationError(undefined)
     try {
       await props.onCreateNotebook(name, learnerMemoryEnabled, autoExtractEnabled)
       setNotebookCreationOpen(false)
       setNotebookName("")
+      setNotebookCreationError(undefined)
       void resetNotebookCreationDefaults()
-    } catch {
-      // Parent-level handlers own error surfacing.
+    } catch (error) {
+      setNotebookCreationError(stringifyError(error))
     } finally {
       setNotebookSaving(false)
     }
@@ -517,6 +521,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
   async function openNotebookCreationDialog() {
     await resetNotebookCreationDefaults()
+    setNotebookCreationError(undefined)
     setNotebookCreationOpen(true)
   }
 
@@ -782,14 +787,19 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         title={language.t("sidebar.newNotebookDialogTitle")}
         confirmLabel={language.t("sidebar.createNotebook")}
         placeholder={language.t("sidebar.newNotebookPlaceholder")}
+        error={notebookCreationError}
         onOpenChange={(open) => {
           setNotebookCreationOpen(open)
           if (!open) {
             setNotebookName("")
+            setNotebookCreationError(undefined)
             void resetNotebookCreationDefaults()
           }
         }}
-        onNotebookNameChange={setNotebookName}
+        onNotebookNameChange={(name) => {
+          setNotebookName(name)
+          setNotebookCreationError(undefined)
+        }}
         onCreate={() => {
           void submitNotebookCreation()
         }}

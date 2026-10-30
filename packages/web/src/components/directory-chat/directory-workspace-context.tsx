@@ -34,7 +34,11 @@ import { workspaceChatKeyForSession, type WorkspaceChatKey } from "@/lib/workspa
 import { useChatStore } from "@/state/chat-store"
 import { useHostedBrowserStore } from "@/state/hosted-browser-store"
 import { useUiPreferences } from "@/state/ui-preferences"
-import { v1ImportMayBeIncomplete, v1ImportQueryOptions } from "@/state/v1-import-query"
+import {
+  directoryWorkspaceHydrationQueryKey,
+  loadDirectoryWorkspaceHydration,
+  type DirectoryWorkspaceHydrationData,
+} from "@/state/directory-workspace-query"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import {
   inAppBrowserTabContextRuntime,
@@ -54,12 +58,12 @@ import {
   defaultWorkspacePresentationSlot,
   effectiveWorkspaceProjection,
   persistedDirectoryWorkspaceStateFromStore,
-  readPersistedDirectoryWorkspace,
   removeSessionBenchTargetsFromSlots,
   withRestoredEmptyPageTab,
   workspacePresentationSlotForChat,
   writePersistedDirectoryWorkspace,
   type DirectoryWorkspacePersistenceStorage,
+  type DirectoryWorkspaceStoreState,
   type NotesBenchTargetMatcher,
   type WorkspacePresentationSlot,
 } from "@/state/directory-workspace-store"
@@ -142,6 +146,75 @@ function BenchObjectTitleSynchronizer(props: {
   return null
 }
 
+type RestoredDirectoryWorkspace = {
+  route: BenchRouteSnapshot
+  state: Parameters<DirectoryWorkspaceStoreState["finishHydration"]>[0]
+}
+
+function restoredDirectoryWorkspace(input: {
+  directory: string
+  currentRoute: BenchRouteSnapshot
+  data: DirectoryWorkspaceHydrationData
+}): RestoredDirectoryWorkspace {
+  const { directory, currentRoute, data } = input
+  const result = data.persisted
+  const persistedState = result.status === WORKSPACE_HYDRATION_READY ? result.state : null
+  const activeChatKey = workspaceChatKeyForRoute(directory, currentRoute)
+  const persistedSlots =
+    useHostedBrowserStore.getState().slotsByDirectory[directory] ?? persistedState?.slots ?? {}
+  const directoryState = useChatStore.getState().directories[directory]
+  const unresolvedSessionIDs =
+    directoryState && !data.importMayBeIncomplete
+      ? unresolvedSessionBenchTargetIDs({
+          slots: persistedSlots,
+          route: currentRoute,
+          sessions: directoryState.sessions,
+        })
+      : new Set<string>()
+  const restoredPersistedSlots = removeSessionBenchTargetsFromSlots({
+    slots: persistedSlots,
+    sessionIDs: unresolvedSessionIDs,
+  })
+  const persistedSlot = workspacePresentationSlotForChat(restoredPersistedSlots, activeChatKey)
+  const routeWins =
+    currentRoute.status === BENCH_ROUTE_STATUS_OPEN &&
+    (currentRoute.target.type !== "session" ||
+      !unresolvedSessionIDs.has(currentRoute.target.sessionID))
+  const restoredRoute = routeWins ? currentRoute : persistedSlot.route
+  const restoredTabs =
+    restoredRoute.status === BENCH_ROUTE_STATUS_OPEN
+      ? upsertBenchTab(persistedSlot.tabs, restoredRoute.target).tabs
+      : persistedSlot.tabs
+  const restoredDocked =
+    routeWins && !isSameBenchRouteSnapshot(currentRoute, persistedSlot.route)
+      ? initialDockedState(currentRoute)
+      : persistedSlot.docked
+  const restoredLastDrawer = persistedSlot.lastDrawer
+  const slots = {
+    ...restoredPersistedSlots,
+    [activeChatKey]: withRestoredEmptyPageTab({
+      ...persistedSlot,
+      route: restoredRoute,
+      tabs: restoredTabs,
+      docked: restoredDocked,
+      lastDrawer: restoredLastDrawer,
+    }),
+  }
+  return {
+    route: restoredRoute,
+    state: {
+      activeChatKey,
+      slots,
+      docked: restoredDocked,
+      lastDrawer: restoredLastDrawer,
+      hydration:
+        result.status === WORKSPACE_HYDRATION_FAILED
+          ? { status: WORKSPACE_HYDRATION_FAILED, message: result.message }
+          : { status: WORKSPACE_HYDRATION_READY },
+    },
+  }
+}
+
 export function DirectoryWorkspaceProvider(props: {
   directory: string
   children: ReactNode
@@ -199,6 +272,19 @@ export function DirectoryWorkspaceProvider(props: {
     const slots = {
       [activeChatKey]: initialSlot,
     } satisfies Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
+    const hydrationData = queryClient.getQueryData<DirectoryWorkspaceHydrationData>(
+      directoryWorkspaceHydrationQueryKey(props.directory),
+    )
+    if (hydrationData) {
+      return createDirectoryWorkspaceStore({
+        directory: props.directory,
+        initialState: restoredDirectoryWorkspace({
+          directory: props.directory,
+          currentRoute: routeRef.current,
+          data: hydrationData,
+        }).state,
+      })
+    }
     return createDirectoryWorkspaceStore({
       directory: props.directory,
       initialState: {
@@ -427,97 +513,46 @@ export function DirectoryWorkspaceProvider(props: {
     })
     void (async () => {
       try {
-        const result = await readPersistedDirectoryWorkspace(
+        const queryKey = directoryWorkspaceHydrationQueryKey(props.directory)
+        if (store.getState().hydration.status !== WORKSPACE_HYDRATION_PENDING) {
+          const restoredRoute = workspacePresentationSlotForChat(
+            store.getState().slots,
+            store.getState().activeChatKey,
+          ).route
+          queryClient.removeQueries({ queryKey, exact: true })
+          if (!isSameBenchRouteSnapshot(routeRef.current, restoredRoute)) {
+            await navigateRef.current(
+              buildWorkspaceRouteNavigation({ directory: props.directory, route: restoredRoute }),
+            )
+          }
+          return
+        }
+        const data = await loadDirectoryWorkspaceHydration(
           Object.assign(
-            {
-              directory: props.directory,
-            },
+            { directory: props.directory, queryClient },
             props.persistenceStorage ? { storage: props.persistenceStorage } : undefined,
           ),
         )
-        const importReport = await queryClient
-          .fetchQuery(v1ImportQueryOptions())
-          .catch(() => undefined)
         logBenchToggleStep("directory-workspace-provider-read-persisted-result", {
           directory: props.directory,
           disposed,
-          result,
+          result: data.persisted,
           currentState: store.getState(),
         })
+        queryClient.removeQueries({ queryKey, exact: true })
         if (disposed) return
-        const persistedState = result.status === WORKSPACE_HYDRATION_READY ? result.state : null
-        const activeChatKey = workspaceChatKeyForRoute(props.directory, routeRef.current)
-        const persistedSlots =
-          useHostedBrowserStore.getState().slotsByDirectory[props.directory] ??
-          persistedState?.slots ??
-          {}
-        const currentRoute = routeRef.current
-        const directoryState = useChatStore.getState().directories[props.directory]
-        const unresolvedSessionIDs =
-          directoryState && !v1ImportMayBeIncomplete(importReport)
-            ? unresolvedSessionBenchTargetIDs({
-                slots: persistedSlots,
-                route: currentRoute,
-                sessions: directoryState.sessions,
-              })
-            : new Set<string>()
-        const restoredPersistedSlots = removeSessionBenchTargetsFromSlots({
-          slots: persistedSlots,
-          sessionIDs: unresolvedSessionIDs,
+        const restored = restoredDirectoryWorkspace({
+          directory: props.directory,
+          currentRoute: routeRef.current,
+          data,
         })
-        const persistedSlot = workspacePresentationSlotForChat(
-          restoredPersistedSlots,
-          activeChatKey,
-        )
-        const routeWins =
-          currentRoute.status === BENCH_ROUTE_STATUS_OPEN &&
-          (currentRoute.target.type !== "session" ||
-            !unresolvedSessionIDs.has(currentRoute.target.sessionID))
-        const restoredRoute = routeWins ? currentRoute : persistedSlot.route
-        // A closed route keeps its tabs: the New tab page sits in front of them.
-        const restoredTabs =
-          restoredRoute.status === BENCH_ROUTE_STATUS_OPEN
-            ? upsertBenchTab(persistedSlot.tabs, restoredRoute.target).tabs
-            : persistedSlot.tabs
-        // The URL is authoritative for *which* target is open, never for whether the workspace is
-        // expanded or which drawer is showing — those belong to the chat's saved slot. Reloading a
-        // collapsed Bench leaves the same route in the URL, so deriving docked state from the route
-        // would silently reopen a workspace the user closed.
-        const restoredDocked =
-          routeWins && !isSameBenchRouteSnapshot(currentRoute, persistedSlot.route)
-            ? initialDockedState(currentRoute)
-            : persistedSlot.docked
-        const restoredLastDrawer = persistedSlot.lastDrawer
-        if (!routeWins && !isSameBenchRouteSnapshot(currentRoute, restoredRoute)) {
+        if (!isSameBenchRouteSnapshot(routeRef.current, restored.route)) {
           await navigateRef.current(
-            buildWorkspaceRouteNavigation({
-              directory: props.directory,
-              route: restoredRoute,
-            }),
+            buildWorkspaceRouteNavigation({ directory: props.directory, route: restored.route }),
           )
           if (disposed) return
         }
-        const slots = {
-          ...restoredPersistedSlots,
-          [activeChatKey]: withRestoredEmptyPageTab({
-            // Carries the chat's New tabs.
-            ...persistedSlot,
-            route: restoredRoute,
-            tabs: restoredTabs,
-            docked: restoredDocked,
-            lastDrawer: restoredLastDrawer,
-          }),
-        }
-        store.getState().finishHydration({
-          activeChatKey,
-          slots,
-          docked: restoredDocked,
-          lastDrawer: restoredLastDrawer,
-          hydration:
-            result.status === WORKSPACE_HYDRATION_FAILED
-              ? { status: WORKSPACE_HYDRATION_FAILED, message: result.message }
-              : { status: WORKSPACE_HYDRATION_READY },
-        })
+        store.getState().finishHydration(restored.state)
       } catch (error) {
         if (disposed) return
         const activeChatKey = workspaceChatKeyForRoute(props.directory, routeRef.current)

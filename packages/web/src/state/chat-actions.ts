@@ -994,15 +994,22 @@ export async function openProject(directory: string) {
   return canonicalDirectory
 }
 
-export async function createManagedNotebook(name: string) {
+export async function createManagedNotebook(
+  name: string,
+  options?: {
+    reuseExisting?: boolean
+  },
+) {
   const notebookName = name.trim()
   if (!notebookName) {
     throw new Error("Notebook name is required")
   }
 
-  const opened = requireBuddyData(
-    await getBuddyClient().openProjects.create({ name: notebookName }),
-  )
+  const createNotebookBody = options?.reuseExisting
+    ? { name: notebookName, reuseExisting: true }
+    : { name: notebookName }
+
+  const opened = requireBuddyData(await getBuddyClient().openProjects.create(createNotebookBody))
   const canonicalDirectory = normalizeProjectDirectory(opened.directory)
   if (!canonicalDirectory) {
     throw new Error("Invalid notebook directory")
@@ -1013,7 +1020,7 @@ export async function createManagedNotebook(name: string) {
 }
 
 export async function openInboxNotebook() {
-  return createManagedNotebook(DEFAULT_INBOX_NOTEBOOK_NAME)
+  return createManagedNotebook(DEFAULT_INBOX_NOTEBOOK_NAME, { reuseExisting: true })
 }
 
 export async function loadNotebookHome() {

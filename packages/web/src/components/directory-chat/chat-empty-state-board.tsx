@@ -1,7 +1,7 @@
 "use client"
 
 import "./chat-empty-state-board.css"
-import { useMemo } from "react"
+import { useLayoutEffect, useMemo, useState } from "react"
 import {
   BookIcon,
   Combobox,
@@ -17,6 +17,11 @@ import { getFilename } from "@/components/layout/sidebar-helpers"
 import type { GetStartedChat } from "@/lib/get-started-chats"
 import type { ProviderInfo } from "@/state/chat-types"
 import { useGetStartedFlow } from "@/state/use-get-started-flow"
+import {
+  markActiveChatDestinationLayoutReady,
+  readActiveChatTransitionID,
+  registerActiveChatDestinationLayout,
+} from "@/lib/active-chat-transition-state"
 import buddyMascotWaveUrl from "../../../../../assets/mascot/buddy-mascot-wave.png"
 import buddyMascotIdeaUrl from "../../../../../assets/mascot/buddy-mascot-idea.png"
 
@@ -134,6 +139,11 @@ function formatBoardDate(now: Date) {
 }
 
 export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
+  const [transitionID] = useState(readActiveChatTransitionID)
+  useLayoutEffect(() => {
+    if (!registerActiveChatDestinationLayout(transitionID)) return
+    markActiveChatDestinationLayoutReady(transitionID)
+  }, [transitionID])
   const isInbox = isInboxDirectory(props.directory)
   const getStartedFlow = useGetStartedFlow(props.directory, props.selectedModel, props.providers)
   const showGetStarted = isInbox && getStartedFlow.isActive && Boolean(props.onStartGetStartedChat)

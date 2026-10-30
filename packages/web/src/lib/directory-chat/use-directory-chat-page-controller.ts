@@ -2,6 +2,10 @@ import { useLocation, useNavigate } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
+import {
+  directoryWorkspaceHydrationQueryKey,
+  directoryWorkspaceHydrationQueryOptions,
+} from "@/state/directory-workspace-query"
 import { useDirectoryWorkspace } from "@/components/directory-chat/directory-workspace-context"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import {
@@ -613,14 +617,31 @@ export function useDirectoryChatPageController(
       closingDirectoryRef.current = undefined
       return
     }
+  }, [decodedDirectory, hasRegisteredProject, navigate, validOpenProjects])
 
-    // Session discovery can change this directory from the draft identity to an already-existing
-    // durable session. It must go through the same coordinator as an explicit chat selection so the
-    // destination slot is restored instead of treating that change as draft promotion.
-    const ensureActiveDirectory = runPreparedActiveChatMutation({
-      directory: decodedDirectory,
-      mutate: () => ensureDirectorySession(decodedDirectory),
-    })
+  const unresolvedSessionIdentity =
+    cs.isReady && (!sessionID || cs.sessions.some((session) => session.id === sessionID))
+      ? undefined
+      : (sessionID ?? "")
+
+  useEffect(() => {
+    if (!decodedDirectory || decodedDirectory === "/") return
+    if (closingDirectoryRef.current === decodedDirectory) return
+    const directoryState = useChatStore.getState().directories[decodedDirectory]
+    const ready =
+      directoryState?.isReady &&
+      (!directoryState.sessionID ||
+        directoryState.sessions.some((session) => session.id === directoryState.sessionID))
+    if (ready) useChatStore.getState().setActiveDirectory(decodedDirectory)
+    const ensureActiveDirectory = ready
+      ? ensureDirectorySession(decodedDirectory).then((value) => ({
+          outcome: "committed" as const,
+          value,
+        }))
+      : runPreparedActiveChatMutation({
+          directory: decodedDirectory,
+          mutate: () => ensureDirectorySession(decodedDirectory),
+        })
     void ensureActiveDirectory
       .then(async (transition) => {
         if (transition.outcome === "failed") throw transition.error
@@ -654,11 +675,10 @@ export function useDirectoryChatPageController(
       })
   }, [
     decodedDirectory,
-    hasRegisteredProject,
     navigate,
     navigateToWorkspaceRoute,
     reportNotebookFolderMissing,
-    validOpenProjects,
+    unresolvedSessionIdentity,
   ])
 
   useEffect(() => {
@@ -875,17 +895,26 @@ export function useDirectoryChatPageController(
     try {
       const nextDirectory = await createManagedNotebook(name)
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      const result = await startActiveChatDraft({
-        directory: nextDirectory,
-        navigate: nextDirectory === decodedDirectory ? undefined : navigateToWorkspaceRoute,
-      })
-      if (result.outcome !== "committed" && result.outcome !== "noop") return
-      seedDraftModelSelection(nextDirectory)
-      void bootstrapLearnerMemoryForNotebookBestEffort({
-        directory: nextDirectory,
-        enabled: enableLearnerMemory,
-        autoExtract: enableAutoExtract,
-      })
+      const hydrationQuery = directoryWorkspaceHydrationQueryOptions(nextDirectory)
+      try {
+        await queryClient.fetchQuery(hydrationQuery)
+        const result = await startActiveChatDraft({
+          directory: nextDirectory,
+          navigate: nextDirectory === decodedDirectory ? undefined : navigateToWorkspaceRoute,
+        })
+        if (result.outcome !== "committed" && result.outcome !== "noop") return
+        seedDraftModelSelection(nextDirectory)
+        void bootstrapLearnerMemoryForNotebookBestEffort({
+          directory: nextDirectory,
+          enabled: enableLearnerMemory,
+          autoExtract: enableAutoExtract,
+        })
+      } finally {
+        queryClient.removeQueries({
+          queryKey: directoryWorkspaceHydrationQueryKey(nextDirectory),
+          exact: true,
+        })
+      }
     } catch (error) {
       reportCurrentDirectoryError(error)
       throw error

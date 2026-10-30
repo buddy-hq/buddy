@@ -23,6 +23,7 @@ const WINDOWS_RESERVED_NOTEBOOK_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..
 const WINDOWS_INVALID_NOTEBOOK_CHARACTER = /[<>:"/\\|?*]/u
 const WINDOWS_TRAILING_NOTEBOOK_CHARACTER = /[. ]$/u
 const NOTEBOOK_CREATE_FAILED_ERROR = "Could not create notebook"
+const NOTEBOOK_PATH_EXISTS_ERROR = "EEXIST"
 
 function hasWindowsControlCharacter(value: string) {
   for (const character of value) {
@@ -83,26 +84,37 @@ function mapNotebookCreationError<TValue>(error: TValue) {
 export async function createManagedNotebookByName(input: {
   name: string
   buddyHome?: string | null
+  reuseExisting?: boolean
 }) {
   const homeState = resolveBuddyHomeState(input.buddyHome)
   const notebookName = normalizeNotebookName(input.name)
   const notebookDirectory = path.join(homeState.resolvedPath, notebookName)
+  const reuseExisting = input.reuseExisting === true
 
   try {
     await fsp.mkdir(homeState.resolvedPath, { recursive: true })
-    await fsp.mkdir(notebookDirectory, { recursive: true })
   } catch (error) {
+    throw mapNotebookCreationError(error)
+  }
+
+  try {
+    await fsp.mkdir(notebookDirectory, { recursive: reuseExisting })
+  } catch (error) {
+    if (!reuseExisting && parseProjectNodeErrnoCode(error) === NOTEBOOK_PATH_EXISTS_ERROR) {
+      throw new ManagedNotebookError(`A notebook named ${notebookName} already exists`)
+    }
     throw mapNotebookCreationError(error)
   }
 
   return openProjectRegistryEntry(notebookDirectory)
 }
 
-export async function createManagedNotebook(name: string) {
+export async function createManagedNotebook(input: { name: string; reuseExisting?: boolean }) {
   const config = await Config.getGlobal()
   return createManagedNotebookByName({
-    name,
+    name: input.name,
     buddyHome: config.notebook_home,
+    reuseExisting: input.reuseExisting,
   })
 }
 

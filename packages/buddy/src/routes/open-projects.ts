@@ -32,6 +32,7 @@ const openProjectBodySchema = z.object({
 })
 const createManagedNotebookBodySchema = z.object({
   name: z.string(),
+  reuseExisting: z.boolean().optional(),
 })
 
 const openProjectQuerySchema = z.object({
@@ -201,8 +202,15 @@ export const OpenProjectsRoutes = new Hono()
     validator("json", createManagedNotebookBodySchema),
     async (c) =>
       runRouteTask({
-        task: async () =>
-          c.json({ directory: await createManagedNotebook(c.req.valid("json").name) }),
+        task: async () => {
+          const body = c.req.valid("json")
+          return c.json({
+            directory: await createManagedNotebook({
+              name: body.name,
+              reuseExisting: body.reuseExisting,
+            }),
+          })
+        },
         mapError: mapRouteError,
       }),
   )

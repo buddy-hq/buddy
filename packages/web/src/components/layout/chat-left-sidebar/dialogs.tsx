@@ -77,6 +77,7 @@ import {
 import { EMPTY_BUDDY_CONFIG, parseBuddyConfigObject } from "@/state/parse-external"
 
 const EMPTY_MCP_STATUS: McpStatusMap = {}
+const CREATE_NOTEBOOK_ERROR_ID = "create-notebook-name-error"
 
 type NotebookCreationDialogProps = {
   open: boolean
@@ -85,6 +86,7 @@ type NotebookCreationDialogProps = {
   title: string
   confirmLabel: string
   placeholder: string
+  error?: string
   onOpenChange: (open: boolean) => void
   onNotebookNameChange: (name: string) => void
   onCreate: () => void
@@ -896,9 +898,22 @@ export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
           }}
           placeholder={props.placeholder}
           aria-label={props.placeholder}
+          aria-invalid={props.error ? true : undefined}
+          aria-describedby={props.error ? CREATE_NOTEBOOK_ERROR_ID : undefined}
           autoComplete="off"
           className="h-11 px-3.5 text-sm"
         />
+
+        {props.error ? (
+          <p
+            id={CREATE_NOTEBOOK_ERROR_ID}
+            data-action="left-sidebar-create-notebook-error"
+            role="alert"
+            className="text-text-critical-base bg-surface-critical-weak/10 border-border-critical-weak/30 mt-4 rounded-lg border p-2.5 text-sm"
+          >
+            {props.error}
+          </p>
+        ) : null}
 
         {props.enableLearnerMemory !== undefined && (
           <div className="border-border-weak-base mt-5 space-y-3.5 rounded-lg border p-3.5">

@@ -24,6 +24,10 @@ import {
   activateChatDirectory,
   startActiveChatDraft,
 } from "@/lib/active-chat-transition-coordinator"
+import {
+  directoryWorkspaceHydrationQueryKey,
+  directoryWorkspaceHydrationQueryOptions,
+} from "@/state/directory-workspace-query"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import { useOpenExistingNotebook } from "@/lib/use-open-existing-notebook"
 import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
@@ -184,20 +188,32 @@ function ChatEntryPage() {
     const trimmed = name.trim()
     if (!trimmed) return
 
-    await runEntryAction(ENTRY_ACTION.NEW_NOTEBOOK, async () => {
+    setEntryError(undefined)
+    setBusyAction(ENTRY_ACTION.NEW_NOTEBOOK)
+    try {
       const nextDirectory = await createManagedNotebook(trimmed)
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      const result = await startActiveChatDraft({
-        directory: nextDirectory,
-        navigate: navigateToDirectory,
-      })
-      if (result.outcome === "failed") throw result.error
-      void bootstrapLearnerMemoryForNotebookBestEffort({
-        directory: nextDirectory,
-        enabled: enableLearnerMemory,
-        autoExtract: enableAutoExtract,
-      })
-    })
+      try {
+        await queryClient.fetchQuery(directoryWorkspaceHydrationQueryOptions(nextDirectory))
+        const result = await startActiveChatDraft({
+          directory: nextDirectory,
+          navigate: navigateToDirectory,
+        })
+        if (result.outcome === "failed") throw result.error
+        void bootstrapLearnerMemoryForNotebookBestEffort({
+          directory: nextDirectory,
+          enabled: enableLearnerMemory,
+          autoExtract: enableAutoExtract,
+        })
+      } finally {
+        queryClient.removeQueries({
+          queryKey: directoryWorkspaceHydrationQueryKey(nextDirectory),
+          exact: true,
+        })
+      }
+    } finally {
+      setBusyAction(undefined)
+    }
   }
 
   async function openPickedDirectory() {
@@ -539,6 +555,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
   const [directory, setDirectory] = useState("")
   const [notebookName, setNotebookName] = useState("")
   const [notebookDialogOpen, setNotebookDialogOpen] = useState(false)
+  const [notebookCreationError, setNotebookCreationError] = useState<string | undefined>(undefined)
   const [learnerMemoryEnabled, setLearnerMemoryEnabled] = useState(true)
   const [autoExtractEnabled, setAutoExtractEnabled] = useState(true)
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
@@ -571,9 +588,19 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
   }
 
   async function openNotebookDialog() {
+    setNotebookCreationError(undefined)
     setNotebookName(language.t("sidebar.newNotebookDefaultName"))
     await resetNotebookCreationDefaults()
     setNotebookDialogOpen(true)
+  }
+
+  async function submitNotebookCreation() {
+    setNotebookCreationError(undefined)
+    try {
+      await props.onCreateNotebook(notebookName, learnerMemoryEnabled, autoExtractEnabled)
+    } catch (error) {
+      setNotebookCreationError(stringifyError(error))
+    }
   }
 
   return (
@@ -700,16 +727,21 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
         title={language.t("sidebar.newNotebookDialogTitle")}
         confirmLabel={language.t("sidebar.createNotebook")}
         placeholder={language.t("sidebar.newNotebookPlaceholder")}
+        error={notebookCreationError}
         onOpenChange={(open) => {
           setNotebookDialogOpen(open)
           if (!open) {
             setNotebookName("")
+            setNotebookCreationError(undefined)
             void resetNotebookCreationDefaults()
           }
         }}
-        onNotebookNameChange={setNotebookName}
+        onNotebookNameChange={(name) => {
+          setNotebookName(name)
+          setNotebookCreationError(undefined)
+        }}
         onCreate={() => {
-          void props.onCreateNotebook(notebookName, learnerMemoryEnabled, autoExtractEnabled)
+          void submitNotebookCreation()
         }}
         enableLearnerMemory={learnerMemoryExperimentEnabled ? learnerMemoryEnabled : undefined}
         onLearnerMemoryChange={setLearnerMemoryEnabled}
