@@ -342,43 +342,43 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       title={title}
       subtitle={status === "Saved" ? location.path : `${location.path} · ${status}`}
       actions={actions}
+      headerLeading={
+        <ReaderTocPopover
+          items={contents.items}
+          activeItemId={contents.activeItemId}
+          emptyMessage="No headings in this document."
+          open={contentsOpen}
+          onOpenChange={setContentsOpen}
+          onSelect={(id) => {
+            editorRef.current?.scrollToHeading(id)
+            setContentsOpen(false)
+          }}
+        />
+      }
       toolbar={
-        <>
-          <ReaderTocPopover
-            items={contents.items}
-            activeItemId={contents.activeItemId}
-            emptyMessage="No headings in this document."
-            open={contentsOpen}
-            onOpenChange={setContentsOpen}
-            onSelect={(id) => {
-              editorRef.current?.scrollToHeading(id)
-              setContentsOpen(false)
-            }}
-          />
-          <MarkdownBenchToolbar
-            advancedToolsOpen={advancedToolsOpen}
-            canDecreaseFontScale={
-              !isPrintView && contentFontScale > MIN_MARKDOWN_BENCH_CONTENT_FONT_SCALE
-            }
-            canIncreaseFontScale={
-              !isPrintView && contentFontScale < MAX_MARKDOWN_BENCH_CONTENT_FONT_SCALE
-            }
-            canRedo={historyControls.canRedo}
-            canUndo={historyControls.canUndo}
-            contentThemeMode={contentThemeMode}
-            fileInfoOpen={fileInfoOpen}
-            fontScaleLabel={`${Math.round(contentFontScale * 100)}%`}
-            printView={isPrintView}
-            onContentThemeModeChange={changeContentThemeMode}
-            onDecreaseFontScale={decreaseContentFontScale}
-            onIncreaseFontScale={increaseContentFontScale}
-            onRedo={redo}
-            onResetFontScale={resetContentFontScale}
-            onToggleAdvancedTools={toggleAdvancedTools}
-            onToggleFileInfo={toggleFileInfo}
-            onUndo={undo}
-          />
-        </>
+        <MarkdownBenchToolbar
+          advancedToolsOpen={advancedToolsOpen}
+          canDecreaseFontScale={
+            !isPrintView && contentFontScale > MIN_MARKDOWN_BENCH_CONTENT_FONT_SCALE
+          }
+          canIncreaseFontScale={
+            !isPrintView && contentFontScale < MAX_MARKDOWN_BENCH_CONTENT_FONT_SCALE
+          }
+          canRedo={historyControls.canRedo}
+          canUndo={historyControls.canUndo}
+          contentThemeMode={contentThemeMode}
+          fileInfoOpen={fileInfoOpen}
+          fontScaleLabel={`${Math.round(contentFontScale * 100)}%`}
+          printView={isPrintView}
+          onContentThemeModeChange={changeContentThemeMode}
+          onDecreaseFontScale={decreaseContentFontScale}
+          onIncreaseFontScale={increaseContentFontScale}
+          onRedo={redo}
+          onResetFontScale={resetContentFontScale}
+          onToggleAdvancedTools={toggleAdvancedTools}
+          onToggleFileInfo={toggleFileInfo}
+          onUndo={undo}
+        />
       }
       controlsPlacement="dock"
       hideHeader={contextTarget.type !== "workspace-file"}

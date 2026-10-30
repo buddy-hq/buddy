@@ -46,6 +46,7 @@ type BenchViewerShellProps = {
   toolbar?: ReactNode
   /** Controls that remain in the header when the main toolbar is docked. */
   headerToolbar?: ReactNode
+  headerLeading?: ReactNode
   zoomControls?: BenchZoomControls
   controlsPlacement?: "header" | "dock"
   hideHeader?: boolean
@@ -387,11 +388,20 @@ export function BenchViewerShell(props: BenchViewerShellProps) {
   const inCollectionChrome = useInBenchCollectionChrome()
   const controlsPlacement = props.controlsPlacement ?? (inCollectionChrome ? "dock" : "header")
   const showHeader = props.hideHeader !== true && !inCollectionChrome
+  const toolbar =
+    props.headerLeading && !showHeader ? (
+      <>
+        {props.headerLeading}
+        {props.toolbar}
+      </>
+    ) : (
+      props.toolbar
+    )
   const headerControls =
     controlsPlacement === "header" && showHeader ? (
       <BenchViewerControls
         actions={props.actions}
-        toolbar={props.toolbar}
+        toolbar={toolbar}
         zoomControls={props.zoomControls}
         placement="header"
       />
@@ -400,7 +410,7 @@ export function BenchViewerShell(props: BenchViewerShellProps) {
     controlsPlacement === "dock" ? (
       <BenchViewerControls
         actions={props.actions}
-        toolbar={props.toolbar}
+        toolbar={toolbar}
         zoomControls={props.zoomControls}
         placement="dock"
       />
@@ -421,6 +431,9 @@ export function BenchViewerShell(props: BenchViewerShellProps) {
       >
         {showHeader ? (
           <header className="flex shrink-0 items-center gap-3 border-b border-border-base/70 bg-surface-base/85 px-4 py-2.5 backdrop-blur md:px-5">
+            {props.headerLeading ? (
+              <div className="-ml-1.5 flex shrink-0 items-center">{props.headerLeading}</div>
+            ) : null}
             <div className={cn("min-w-0", props.headerToolbar ? "max-w-[55%]" : "flex-1")}>
               <h1 className="truncate text-sm font-semibold text-text-strong">{props.title}</h1>
               {props.subtitle ? (
