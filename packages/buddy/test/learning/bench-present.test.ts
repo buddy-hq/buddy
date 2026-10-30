@@ -1308,7 +1308,11 @@ describe("bench_present", () => {
     const seenActionIDs = new Set<string>()
     const permissionRequested = Promise.withResolvers<void>()
     const permissionGranted = Promise.withResolvers<void>()
-    const presentFile = (input: { messageID: string; path: string; ask: BuddyToolContext["ask"] }) =>
+    const presentFile = (input: {
+      messageID: string
+      path: string
+      ask: BuddyToolContext["ask"]
+    }) =>
       presentOnBench({
         directory: project.path,
         sessionID: SESSION_ID,
@@ -1455,7 +1459,11 @@ describe("bench_present", () => {
       path: "other.md",
       viewer: "markdown",
     } satisfies BenchTarget
-    const presentFile = (input: { messageID: string; path: string; ask?: BuddyToolContext["ask"] }) =>
+    const presentFile = (input: {
+      messageID: string
+      path: string
+      ask?: BuddyToolContext["ask"]
+    }) =>
       presentOnBench({
         directory: project.path,
         sessionID: SESSION_ID,
@@ -1531,7 +1539,11 @@ describe("bench_present", () => {
       path: "user-choice.md",
       viewer: "markdown",
     } satisfies BenchTarget
-    const presentFile = (input: { messageID: string; path: string; ask?: BuddyToolContext["ask"] }) =>
+    const presentFile = (input: {
+      messageID: string
+      path: string
+      ask?: BuddyToolContext["ask"]
+    }) =>
       presentOnBench({
         directory: project.path,
         sessionID: SESSION_ID,
@@ -1602,7 +1614,11 @@ describe("bench_present", () => {
       path: "user-choice.md",
       viewer: "markdown",
     } satisfies BenchTarget
-    const presentFile = (input: { messageID: string; path: string; ask?: BuddyToolContext["ask"] }) =>
+    const presentFile = (input: {
+      messageID: string
+      path: string
+      ask?: BuddyToolContext["ask"]
+    }) =>
       presentOnBench({
         directory: project.path,
         sessionID: SESSION_ID,

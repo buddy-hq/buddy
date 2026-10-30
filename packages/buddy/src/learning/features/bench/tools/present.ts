@@ -1187,7 +1187,9 @@ type TRequiredBenchAction = {
   presentationSettleTimeoutMs: number
 }
 
-async function deliverRequiredBenchAction(input: TRequiredBenchAction): Promise<BenchPresentOutput> {
+async function deliverRequiredBenchAction(
+  input: TRequiredBenchAction,
+): Promise<BenchPresentOutput> {
   input.abort.throwIfAborted()
   const enqueued = benchClientActionBroker.enqueueRequiredAction({
     directory: input.directory,

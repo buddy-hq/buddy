@@ -53,7 +53,11 @@ function FlashcardDeckTaskPreview(props: {
     <motion.button
       type="button"
       onClick={() =>
-        props.onStartReview({ objectID: props.deck.objectID, title: props.deck.title, mode: reviewAvailable ? "review" : "deck" })
+        props.onStartReview({
+          objectID: props.deck.objectID,
+          title: props.deck.title,
+          mode: reviewAvailable ? "review" : "deck",
+        })
       }
       whileHover={{ backgroundColor: "var(--surface-weak)" }}
       whileTap={{ scale: 0.995 }}

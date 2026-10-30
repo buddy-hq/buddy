@@ -90,7 +90,9 @@ describe("markdown link decoration", () => {
           const path = record ? parseTString(record.path) : undefined
           if (path) {
             requestedPaths.push(path)
-            requestedDirectories.push(new URL(url, "http://localhost").searchParams.get("directory"))
+            requestedDirectories.push(
+              new URL(url, "http://localhost").searchParams.get("directory"),
+            )
           }
         }
         return Response.json({ error: "File not found" }, { status: 404 })
@@ -231,11 +233,14 @@ describe("markdown link decoration", () => {
   })
 
   test("opens a notebook markdown link from that file's own folder", async () => {
-    const requestedPaths = await openedMarkdownFilePaths("[notes](../notes/a.md)\n\n[shot](./img.png)", {
-      directory: "/notebook",
-      documentPath: "docs/guide.md",
-      cacheKey: "document-relative-links",
-    })
+    const requestedPaths = await openedMarkdownFilePaths(
+      "[notes](../notes/a.md)\n\n[shot](./img.png)",
+      {
+        directory: "/notebook",
+        documentPath: "docs/guide.md",
+        cacheKey: "document-relative-links",
+      },
+    )
 
     expect(requestedPaths).toEqual(["notes/a.md", "docs/img.png"])
   })

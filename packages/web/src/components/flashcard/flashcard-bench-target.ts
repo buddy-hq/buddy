@@ -38,7 +38,10 @@ export function prepareFlashcardBenchTarget(input: {
 class FlashcardBenchOpenError extends Error {
   readonly _tag = "FlashcardBenchOpenError"
 
-  constructor(readonly objectID: string, cause: unknown) {
+  constructor(
+    readonly objectID: string,
+    cause: unknown,
+  ) {
     super(stringifyError(cause), { cause })
     this.name = "FlashcardBenchOpenError"
   }
@@ -67,7 +70,7 @@ export async function prepareFlashcardBenchOpen(input: {
       deck.cards.length > 0 &&
       resolveFlashcardStanding({ deck, queue, now: Date.now() }).id === "clear"
     writeFlashcardDeckSurfaceState(key, {
-      mode: completed ? "done" : current.requestedMode ?? "deck",
+      mode: completed ? "done" : (current.requestedMode ?? "deck"),
       requestedMode: undefined,
       reviewMode: "scheduled",
       resetError: undefined,

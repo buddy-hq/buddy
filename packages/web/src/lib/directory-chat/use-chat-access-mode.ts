@@ -82,7 +82,7 @@ export function useChatAccessMode(input: {
   ]
 
   return {
-    mode: sessionID ? query.data?.mode ?? "default" : lastMode,
+    mode: sessionID ? (query.data?.mode ?? "default") : lastMode,
     options,
     onModeChange(mode) {
       if (isChild || !directory) return

@@ -262,10 +262,7 @@ export function resolveFastModeSelection(input: {
   readonly fast: boolean | undefined
   readonly availableModelKeys: ReadonlySet<string>
 }): TFastModeSelection {
-  if (
-    !input.modelKey ||
-    providerIDFromModelKey(input.modelKey) !== OPENAI_PROVIDER_ID
-  ) {
+  if (!input.modelKey || providerIDFromModelKey(input.modelKey) !== OPENAI_PROVIDER_ID) {
     return unchangedFastModeSelection(input.modelKey)
   }
 

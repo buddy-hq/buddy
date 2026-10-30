@@ -52,11 +52,13 @@ describe("retry state model", () => {
     { type: "APIError", status: 503, category: "overloaded" },
     { type: "APIError", status: 401, category: "unknown" },
   ])("keeps $type/$status ahead of rate limit text", ({ type, status, category }) => {
-    expect(buildRetryStateModel({
-      ...retryStatus(3),
-      message: "Provider rate limit exceeded",
-      error: { type, status },
-    }).category).toBe(category)
+    expect(
+      buildRetryStateModel({
+        ...retryStatus(3),
+        message: "Provider rate limit exceeded",
+        error: { type, status },
+      }).category,
+    ).toBe(category)
   })
 
   test("uses attempt-only stages and promotes structured actions immediately", () => {
@@ -227,25 +229,36 @@ const NOW = Date.parse("2026-10-02T12:00:00.000Z")
 const RESET = Date.parse("2026-10-02T13:00:00.000Z")
 
 function limitTranscript(providerID: string, limit?: MessageError["limit"]) {
-  const user = createMessageWithParts(createUserMessageInfo({ id: "msg_limit_user", sessionID: "ses_limit_banner" }))
-  const assistant = createMessageWithParts(createAssistantMessageInfo({
-    id: "msg_limit",
-    sessionID: "ses_limit_banner",
-    parentID: user.info.id,
-    providerID,
-    error: { name: "provider.quota", code: "quota_exceeded", limit },
-  }))
+  const user = createMessageWithParts(
+    createUserMessageInfo({ id: "msg_limit_user", sessionID: "ses_limit_banner" }),
+  )
+  const assistant = createMessageWithParts(
+    createAssistantMessageInfo({
+      id: "msg_limit",
+      sessionID: "ses_limit_banner",
+      parentID: user.info.id,
+      providerID,
+      error: { name: "provider.quota", code: "quota_exceeded", limit },
+    }),
+  )
   return [user, assistant]
 }
 
 function successfulTurn(providerID: string) {
-  const user = createMessageWithParts(createUserMessageInfo({ id: "msg_success_user", sessionID: "ses_limit_banner" }))
-  return [user, createMessageWithParts(createAssistantMessageInfo({
-    id: "msg_success",
-    sessionID: "ses_limit_banner",
-    parentID: user.info.id,
-    providerID,
-  }))]
+  const user = createMessageWithParts(
+    createUserMessageInfo({ id: "msg_success_user", sessionID: "ses_limit_banner" }),
+  )
+  return [
+    user,
+    createMessageWithParts(
+      createAssistantMessageInfo({
+        id: "msg_success",
+        sessionID: "ses_limit_banner",
+        parentID: user.info.id,
+        providerID,
+      }),
+    ),
+  ]
 }
 
 function planUsage(usedPercent: number): Extract<OpenAIUsageSnapshot, { status: "ready" }> {
@@ -266,15 +279,24 @@ describe("docked limit banner", () => {
   test("hides on another provider and reappears on the still-limited provider", () => {
     const messages = limitTranscript("openai")
     const input = { providers: [], usage: planUsage(100), now: NOW }
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, selectedProviderID: "openai",
-    })).toMatchObject({ assistantMessageID: "msg_limit", expiresAt: RESET })
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, selectedProviderID: "anthropic",
-    })).toBeUndefined()
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, selectedProviderID: "openai",
-    })?.assistantMessageID).toBe("msg_limit")
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        selectedProviderID: "openai",
+      }),
+    ).toMatchObject({ assistantMessageID: "msg_limit", expiresAt: RESET })
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        selectedProviderID: "anthropic",
+      }),
+    ).toBeUndefined()
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        selectedProviderID: "openai",
+      })?.assistantMessageID,
+    ).toBe("msg_limit")
   })
 
   test("finds the selected provider's limit past a successful turn on another provider", () => {
@@ -283,9 +305,14 @@ describe("docked limit banner", () => {
       ...successfulTurn("openai"),
     ]
     expect(resolveLatestTerminalAssistantError(messages)).toBeUndefined()
-    expect(resolveDockedTerminalAssistantError(messages, {
-      providers: [], selectedProviderID: "anthropic", usage: undefined, now: NOW,
-    })).toMatchObject({ assistantMessageID: "msg_limit", expiresAt: RESET })
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        providers: [],
+        selectedProviderID: "anthropic",
+        usage: undefined,
+        now: NOW,
+      }),
+    ).toMatchObject({ assistantMessageID: "msg_limit", expiresAt: RESET })
   })
 
   test("follows live ChatGPT account usage across account switches and successful turns", () => {
@@ -294,33 +321,56 @@ describe("docked limit banner", () => {
       ...successfulTurn("anthropic"),
     ]
     const input = { providers: [], selectedProviderID: "openai", now: NOW }
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, usage: planUsage(100),
-    })?.assistantMessageID).toBe("msg_limit")
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, usage: planUsage(20),
-    })).toBeUndefined()
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, usage: planUsage(100),
-    })?.assistantMessageID).toBe("msg_limit")
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        usage: planUsage(100),
+      })?.assistantMessageID,
+    ).toBe("msg_limit")
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        usage: planUsage(20),
+      }),
+    ).toBeUndefined()
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        usage: planUsage(100),
+      })?.assistantMessageID,
+    ).toBe("msg_limit")
   })
 
   test("finds a selected provider's active limit past another provider's terminal error", () => {
-    const user = createMessageWithParts(createUserMessageInfo({
-      id: "msg_auth_user", sessionID: "ses_limit_banner",
-    }))
-    const failed = createMessageWithParts(createAssistantMessageInfo({
-      id: "msg_auth", sessionID: "ses_limit_banner", parentID: user.info.id,
-      providerID: "anthropic", error: { name: "provider.auth", code: "auth" },
-    }))
+    const user = createMessageWithParts(
+      createUserMessageInfo({
+        id: "msg_auth_user",
+        sessionID: "ses_limit_banner",
+      }),
+    )
+    const failed = createMessageWithParts(
+      createAssistantMessageInfo({
+        id: "msg_auth",
+        sessionID: "ses_limit_banner",
+        parentID: user.info.id,
+        providerID: "anthropic",
+        error: { name: "provider.auth", code: "auth" },
+      }),
+    )
     const messages = [...limitTranscript("openai"), user, failed]
     const input = { providers: [], selectedProviderID: "openai", now: NOW }
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, usage: planUsage(100),
-    })?.assistantMessageID).toBe("msg_limit")
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, usage: planUsage(20),
-    })?.assistantMessageID).toBe("msg_auth")
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        usage: planUsage(100),
+      })?.assistantMessageID,
+    ).toBe("msg_limit")
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        usage: planUsage(20),
+      })?.assistantMessageID,
+    ).toBe("msg_auth")
   })
 
   test.each([
@@ -334,21 +384,29 @@ describe("docked limit banner", () => {
       ...successfulTurn("anthropic"),
     ]
     const input = { providers: [], selectedProviderID: "openai", usage }
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, now: NOW,
-    })).toMatchObject({ assistantMessageID: "msg_limit", expiresAt: RESET })
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, now: RESET,
-    })).toBeUndefined()
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        now: NOW,
+      }),
+    ).toMatchObject({ assistantMessageID: "msg_limit", expiresAt: RESET })
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        now: RESET,
+      }),
+    ).toBeUndefined()
   })
 
   test("shows a limit with no reset only while it is the latest terminal error", () => {
     const messages = limitTranscript("anthropic")
     const input = { providers: [], selectedProviderID: "anthropic", usage: undefined, now: NOW }
-    expect(resolveDockedTerminalAssistantError(messages, input)?.assistantMessageID).toBe("msg_limit")
-    expect(resolveDockedTerminalAssistantError([
-      ...messages, ...successfulTurn("openai"),
-    ], input)).toBeUndefined()
+    expect(resolveDockedTerminalAssistantError(messages, input)?.assistantMessageID).toBe(
+      "msg_limit",
+    )
+    expect(
+      resolveDockedTerminalAssistantError([...messages, ...successfulTurn("openai")], input),
+    ).toBeUndefined()
   })
 
   test("uses a live secondary window and stops when its last exhausted window resets", () => {
@@ -357,29 +415,48 @@ describe("docked limit banner", () => {
       ...usage,
       rateLimit: {
         ...usage.rateLimit,
-        secondary: { usedPercent: 100, resetsAt: "2026-10-02T13:00:00.000Z", windowSeconds: 604_800 },
+        secondary: {
+          usedPercent: 100,
+          resetsAt: "2026-10-02T13:00:00.000Z",
+          windowSeconds: 604_800,
+        },
       },
     }
     const messages = limitTranscript("openai", { resetsAt: RESET / 1_000 + 86_400 })
     const input = { providers: [], selectedProviderID: "openai", usage: liveUsage }
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, now: NOW,
-    })).toMatchObject({ assistantMessageID: "msg_limit", expiresAt: RESET })
-    expect(resolveDockedTerminalAssistantError(messages, {
-      ...input, now: RESET,
-    })).toBeUndefined()
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        now: NOW,
+      }),
+    ).toMatchObject({ assistantMessageID: "msg_limit", expiresAt: RESET })
+    expect(
+      resolveDockedTerminalAssistantError(messages, {
+        ...input,
+        now: RESET,
+      }),
+    ).toBeUndefined()
   })
 })
 
 describe("retry status normalization", () => {
   test("detects structured retry changes even when text and timing stay the same", () => {
-    const left: RetryStatus = { ...retryStatus(3), error: { type: "provider.rate-limit", status: 429 } }
-    expect(sessionStatusEquals(left, {
-      ...left, error: { type: "provider.internal", status: 429 },
-    })).toBe(false)
-    expect(sessionStatusEquals(left, {
-      ...left, error: { type: "provider.rate-limit", status: 503 },
-    })).toBe(false)
+    const left: RetryStatus = {
+      ...retryStatus(3),
+      error: { type: "provider.rate-limit", status: 429 },
+    }
+    expect(
+      sessionStatusEquals(left, {
+        ...left,
+        error: { type: "provider.internal", status: 429 },
+      }),
+    ).toBe(false)
+    expect(
+      sessionStatusEquals(left, {
+        ...left,
+        error: { type: "provider.rate-limit", status: 503 },
+      }),
+    ).toBe(false)
   })
 
   test("preserves a complete structured retry action", () => {

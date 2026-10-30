@@ -1,4 +1,8 @@
-import type { PermissionHookEffect, PermissionHookInput, SessionAccess } from "@buddy/agent-runtime/extension"
+import type {
+  PermissionHookEffect,
+  PermissionHookInput,
+  SessionAccess,
+} from "@buddy/agent-runtime/extension"
 import type { MetadataPatch } from "@buddy/agent-runtime/conversations"
 import type { JsonObject } from "@buddy/agent-runtime/common"
 import {

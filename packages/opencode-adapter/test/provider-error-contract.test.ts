@@ -315,11 +315,19 @@ test.each([
     error: { type: "APIError", status: 400, message: "Quota lookup failed" },
     code: "unknown",
   },
-])("classifies $error.type/$error.status before conflicting provider details", ({ error, code }) => {
-  expect(
-    Schema.decodeUnknownSync(MessageError)(toBuddyMessageError(error, "openai")),
-  ).toMatchObject({ code, name: error.type, message: error.message, data: { statusCode: error.status } })
-})
+])(
+  "classifies $error.type/$error.status before conflicting provider details",
+  ({ error, code }) => {
+    expect(
+      Schema.decodeUnknownSync(MessageError)(toBuddyMessageError(error, "openai")),
+    ).toMatchObject({
+      code,
+      name: error.type,
+      message: error.message,
+      data: { statusCode: error.status },
+    })
+  },
+)
 
 test("preserves retry error kind and HTTP status in the web event contract", () => {
   const translator = createEventTranslator({ directory })

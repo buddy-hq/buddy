@@ -185,7 +185,10 @@ describe("opening a file from a Read step", () => {
   })
 
   test("opens a notebook-relative Read path", async () => {
-    await renderExpandedRow(readPart({ filePath: "notes/tracker.md", detail: "tracker.md" }), directory)
+    await renderExpandedRow(
+      readPart({ filePath: "notes/tracker.md", detail: "tracker.md" }),
+      directory,
+    )
 
     await act(async () => buttonNamed("Open tracker.md on Bench")?.click())
 
@@ -205,16 +208,19 @@ describe("opening a file from a Read step", () => {
     },
   )
 
-  test.each(["../secret.md", "notes/../../secret.md", "..\\secret.md", "C:..\\secret.md", "C:secret.md"])(
-    "leaves a Read plain when dot segments resolve outside the notebook: %s",
-    async (filePath) => {
-      await renderExpandedRow(readPart({ filePath, detail: "secret.md" }), directory)
+  test.each([
+    "../secret.md",
+    "notes/../../secret.md",
+    "..\\secret.md",
+    "C:..\\secret.md",
+    "C:secret.md",
+  ])("leaves a Read plain when dot segments resolve outside the notebook: %s", async (filePath) => {
+    await renderExpandedRow(readPart({ filePath, detail: "secret.md" }), directory)
 
-      expect(container.textContent).toContain("Read secret.md")
-      expect(buttonNamed("Open secret.md on Bench")).toBeUndefined()
-      expect(openBench).not.toHaveBeenCalled()
-    },
-  )
+    expect(container.textContent).toContain("Read secret.md")
+    expect(buttonNamed("Open secret.md on Bench")).toBeUndefined()
+    expect(openBench).not.toHaveBeenCalled()
+  })
 
   test.each(["~/notes/tracker.md", "~\\notes\\tracker.md"])(
     "leaves a home-relative Read plain: %s",
@@ -239,7 +245,10 @@ describe("opening a file from a Read step", () => {
   })
 
   test("leaves the step name plain for a file outside the notebook", async () => {
-    await renderExpandedRow(readPart({ filePath: "/tmp/tracker.md", detail: "tracker.md" }), directory)
+    await renderExpandedRow(
+      readPart({ filePath: "/tmp/tracker.md", detail: "tracker.md" }),
+      directory,
+    )
 
     expect(container.textContent).toContain("Read tracker.md")
     expect(buttonNamed("Open tracker.md on Bench")).toBeUndefined()

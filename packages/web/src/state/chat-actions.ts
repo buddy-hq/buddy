@@ -90,10 +90,7 @@ import {
   type PermissionRequest,
 } from "./permission-types"
 import { appQueryClient } from "./query-client"
-import {
-  useChatAccessModeStore,
-  waitForChatAccessModeHydration,
-} from "./chat-access-mode-store"
+import { useChatAccessModeStore, waitForChatAccessModeHydration } from "./chat-access-mode-store"
 import { chatAccessQueryKeys, setChatAccessMode } from "../lib/directory-chat/chat-access-query"
 import { v1ImportMayBeIncomplete, v1ImportQueryOptions } from "./v1-import-query"
 import {

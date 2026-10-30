@@ -121,63 +121,66 @@ describe("smart note command", () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
-  test.each([" ", "\n", "\t"])("drafts a note after %j without sending a chat turn", async (separator) => {
-    const promptKey = getPromptScopeKey(TEST_DIRECTORY)
-    usePromptStore
-      .getState()
-      .replaceDraft(promptKey, createTextPromptDraft(`/smart-note${separator}light reactions`))
-    let submitted = false
-    let focus: string | undefined
-    let resolveDraft: ((text: string) => void) | undefined
+  test.each([" ", "\n", "\t"])(
+    "drafts a note after %j without sending a chat turn",
+    async (separator) => {
+      const promptKey = getPromptScopeKey(TEST_DIRECTORY)
+      usePromptStore
+        .getState()
+        .replaceDraft(promptKey, createTextPromptDraft(`/smart-note${separator}light reactions`))
+      let submitted = false
+      let focus: string | undefined
+      let resolveDraft: ((text: string) => void) | undefined
 
-    await act(async () => {
-      root.render(
-        renderComposer({
-          onSubmit: () => {
-            submitted = true
-          },
-          onSaveNote: () => Promise.resolve({ sessionID: "ses_note" }),
-          onDraftSmartNote: (request) => {
-            focus = request.focus
-            return new Promise<string>((resolve) => {
-              resolveDraft = resolve
-            })
-          },
-        }),
+      await act(async () => {
+        root.render(
+          renderComposer({
+            onSubmit: () => {
+              submitted = true
+            },
+            onSaveNote: () => Promise.resolve({ sessionID: "ses_note" }),
+            onDraftSmartNote: (request) => {
+              focus = request.focus
+              return new Promise<string>((resolve) => {
+                resolveDraft = resolve
+              })
+            },
+          }),
+        )
+        await flushEffects()
+      })
+
+      await act(async () => {
+        container
+          .querySelector("#prompt-composer-form")
+          ?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+        await flushEffects()
+      })
+
+      expect(submitted).toBe(false)
+      expect(focus).toBe("light reactions")
+      expect(
+        container
+          .querySelector<HTMLButtonElement>('[data-action="prompt-note-mode"]')
+          ?.getAttribute("aria-pressed"),
+      ).toBe("true")
+
+      await act(async () => {
+        resolveDraft?.(DRAFT_TEXT)
+        await flushEffects()
+      })
+
+      expect(submitted).toBe(false)
+      expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe(
+        DRAFT_TEXT,
       )
-      await flushEffects()
-    })
-
-    await act(async () => {
-      container
-        .querySelector("#prompt-composer-form")
-        ?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
-      await flushEffects()
-    })
-
-    expect(submitted).toBe(false)
-    expect(focus).toBe("light reactions")
-    expect(
-      container.querySelector<HTMLButtonElement>('[data-action="prompt-note-mode"]')?.getAttribute(
-        "aria-pressed",
-      ),
-    ).toBe("true")
-
-    await act(async () => {
-      resolveDraft?.(DRAFT_TEXT)
-      await flushEffects()
-    })
-
-    expect(submitted).toBe(false)
-    expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe(
-      DRAFT_TEXT,
-    )
-    expect(
-      container.querySelector<HTMLButtonElement>('[data-action="prompt-note-mode"]')?.getAttribute(
-        "aria-pressed",
-      ),
-    ).toBe("true")
-  })
+      expect(
+        container
+          .querySelector<HTMLButtonElement>('[data-action="prompt-note-mode"]')
+          ?.getAttribute("aria-pressed"),
+      ).toBe("true")
+    },
+  )
 
   test.each(["success", "empty", "failure"] as const)(
     "keeps a quote staged before a late %s result",
@@ -215,7 +218,9 @@ describe("smart note command", () => {
       })
 
       expect(
-        container.querySelector('[data-component="prompt-editor"]')?.getAttribute("contenteditable"),
+        container
+          .querySelector('[data-component="prompt-editor"]')
+          ?.getAttribute("contenteditable"),
       ).toBe("false")
       expect(container.textContent).toContain("Drafting a note from this chat…")
 
@@ -227,7 +232,9 @@ describe("smart note command", () => {
           text: QUOTE_TEXT,
           replaceDraft: usePromptStore.getState().replaceDraft,
         })
-        expect(getPromptDraft(usePromptStore.getState(), promptKey).parts).toContainEqual(QUOTE_PART)
+        expect(getPromptDraft(usePromptStore.getState(), promptKey).parts).toContainEqual(
+          QUOTE_PART,
+        )
         if (outcome === "failure") rejectDraft?.(new Error("provider down"))
         else resolveDraft?.(outcome === "success" ? DRAFT_TEXT : "")
         await flushEffects()
@@ -239,11 +246,13 @@ describe("smart note command", () => {
         type: PROMPT_PART_TYPE_TEXT,
         text: outcome === "success" ? DRAFT_TEXT : command,
       })
+      expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe(
+        outcome === "success" ? DRAFT_TEXT : command,
+      )
       expect(
-        container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim(),
-      ).toBe(outcome === "success" ? DRAFT_TEXT : command)
-      expect(
-        container.querySelector('[data-component="prompt-editor"]')?.getAttribute("contenteditable"),
+        container
+          .querySelector('[data-component="prompt-editor"]')
+          ?.getAttribute("contenteditable"),
       ).toBe("true")
       expect(submitted).toBe(false)
     },
@@ -289,9 +298,8 @@ describe("smart note command", () => {
     ).toBe("true")
     await act(async () => {
       const mac = detectPlatform() === "mac"
-      container
-        .querySelector('[data-component="prompt-editor"]')
-        ?.dispatchEvent(new KeyboardEvent("keydown", {
+      container.querySelector('[data-component="prompt-editor"]')?.dispatchEvent(
+        new KeyboardEvent("keydown", {
           key: "Enter",
           code: "Enter",
           shiftKey: true,
@@ -299,7 +307,8 @@ describe("smart note command", () => {
           ctrlKey: !mac,
           bubbles: true,
           cancelable: true,
-        }))
+        }),
+      )
       await flushEffects()
     })
     expect(
@@ -375,11 +384,13 @@ describe("smart note command", () => {
     expect(stagedDraft.parts).toContainEqual(QUOTE_PART)
 
     await act(async () => {
-      editor.dispatchEvent(new KeyboardEvent("keydown", {
-        key: "Enter",
-        bubbles: true,
-        cancelable: true,
-      }))
+      editor.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
       await flushEffects()
     })
     expect(saved).toBe(false)
@@ -393,11 +404,13 @@ describe("smart note command", () => {
 
     for (const key of ["ArrowUp", "ArrowDown"]) {
       await act(async () => {
-        editor.dispatchEvent(new KeyboardEvent("keydown", {
-          key,
-          bubbles: true,
-          cancelable: true,
-        }))
+        editor.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key,
+            bubbles: true,
+            cancelable: true,
+          }),
+        )
         await flushEffects()
       })
       expect(editor.textContent?.trim()).toBe("")
@@ -414,7 +427,9 @@ describe("smart note command", () => {
       removeQuote.click()
       await flushEffects()
     })
-    expect(getPromptDraft(usePromptStore.getState(), promptKey).parts).not.toContainEqual(QUOTE_PART)
+    expect(getPromptDraft(usePromptStore.getState(), promptKey).parts).not.toContainEqual(
+      QUOTE_PART,
+    )
     expect(
       container.querySelector('[data-action="prompt-note-mode"]')?.getAttribute("aria-pressed"),
     ).toBe("true")

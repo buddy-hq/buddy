@@ -306,7 +306,10 @@ async function getQueuedFlashcardObjectsForReview(input: {
 class FlashcardProgressResetError extends Error {
   readonly _tag = "FlashcardProgressResetError"
 
-  constructor(readonly objectID: string, cause: unknown) {
+  constructor(
+    readonly objectID: string,
+    cause: unknown,
+  ) {
     super(`Could not reset flashcard deck '${objectID}'.`, { cause })
     this.name = "FlashcardProgressResetError"
   }

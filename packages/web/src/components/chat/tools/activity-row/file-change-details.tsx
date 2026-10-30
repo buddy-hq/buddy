@@ -164,9 +164,7 @@ function ActivityPatchFileAction({ file }: { file: FilePatch }) {
 }
 
 function isAbsoluteFilePath(filePath: string): boolean {
-  return (
-    filePath.startsWith("/") || filePath.startsWith("\\") || /^[A-Za-z]:/u.test(filePath)
-  )
+  return filePath.startsWith("/") || filePath.startsWith("\\") || /^[A-Za-z]:/u.test(filePath)
 }
 
 function isHomePath(filePath: string): boolean {

@@ -212,9 +212,7 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
     const localNames = new Set([
       ...RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => command.name.toLowerCase()),
       COMPACT_SLASH_COMMAND_NAME.toLowerCase(),
-      ...(props.smartNoteCommandAvailable
-        ? [SMART_NOTE_SLASH_COMMAND_NAME.toLowerCase()]
-        : []),
+      ...(props.smartNoteCommandAvailable ? [SMART_NOTE_SLASH_COMMAND_NAME.toLowerCase()] : []),
     ])
     const filteredCustomCommands = customCommands.filter(
       (command) => !localNames.has(command.name.toLowerCase()),

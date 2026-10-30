@@ -107,7 +107,8 @@ test("cold load sets fast from the message once the catalog arrives", async () =
     selectedModelByKey: { [scopeKey]: "openai/gpt-5.5-fast" },
   })
   installTestFetch(async (input) => {
-    const url = input instanceof Request ? input.url : input instanceof URL ? input.toString() : input
+    const url =
+      input instanceof Request ? input.url : input instanceof URL ? input.toString() : input
     const path = new URL(url, "http://buddy.test").pathname
     if (path === "/api/provider") {
       return Response.json({
@@ -186,7 +187,8 @@ test("a local fast choice survives catalog reconciliation", async () => {
   useModelSelectionStore.getState().setSelectedModel(scopeKey, "openai/gpt-5.5")
   useModelSelectionStore.getState().setSelectedFast(scopeKey, true)
   installTestFetch(async (input) => {
-    const url = input instanceof Request ? input.url : input instanceof URL ? input.toString() : input
+    const url =
+      input instanceof Request ? input.url : input instanceof URL ? input.toString() : input
     const path = new URL(url, "http://buddy.test").pathname
     if (path === "/api/provider") {
       return Response.json({

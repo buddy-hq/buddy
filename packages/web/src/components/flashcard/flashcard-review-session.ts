@@ -219,7 +219,8 @@ export function useFlashcardReviewSession(
       const generation = generationRef.current
       const reviewMode = options.reviewMode ?? "scheduled"
       reviewModeRef.current = reviewMode
-      resetRequiredRef.current = options.action === "reset-progress" || options.resetError !== undefined
+      resetRequiredRef.current =
+        options.action === "reset-progress" || options.resetError !== undefined
 
       cardsReviewedRef.current = initialTally.reviewed
       tallyRef.current = initialTally
@@ -243,8 +244,8 @@ export function useFlashcardReviewSession(
         try {
           const deckPromise =
             options.action === "reset-progress"
-              ? getBuddyClient(directory).objectFlashcardDeck
-                  .resetProgress({ directory, objectID })
+              ? getBuddyClient(directory)
+                  .objectFlashcardDeck.resetProgress({ directory, objectID })
                   .then((response) => {
                     const resetDeck = requireBuddyData(response)
                     if (generationRef.current === generation) {
@@ -375,10 +376,10 @@ export function useFlashcardReviewSession(
         const refreshPromise = Promise.all([
           loadObjectFlashcardDeckPayload({ directory, objectID }),
           loadObjectFlashcardDeckQueue({
-          directory,
-          objectID,
-          reviewMode: reviewModeRef.current,
-        }),
+            directory,
+            objectID,
+            reviewMode: reviewModeRef.current,
+          }),
         ])
 
         if (result.isLeech) {
@@ -431,10 +432,10 @@ export function useFlashcardReviewSession(
     void Promise.all([
       deck ? Promise.resolve(deck) : loadObjectFlashcardDeckPayload({ directory, objectID }),
       loadObjectFlashcardDeckQueue({
-          directory,
-          objectID,
-          reviewMode: reviewModeRef.current,
-        }),
+        directory,
+        objectID,
+        reviewMode: reviewModeRef.current,
+      }),
     ])
       .then(([loadedDeck, loadedQueue]) => {
         if (generationRef.current !== generation) return

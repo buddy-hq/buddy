@@ -8,9 +8,11 @@ import { createRuntimeHarness, scenario } from "./harness"
 
 function watchShell(host: ReturnType<typeof runtimeHost>) {
   const abort = new AbortController()
-  const updates = host.event.subscribe({
-    signal: AbortSignal.any([abort.signal, AbortSignal.timeout(20_000)]),
-  })[Symbol.asyncIterator]()
+  const updates = host.event
+    .subscribe({
+      signal: AbortSignal.any([abort.signal, AbortSignal.timeout(20_000)]),
+    })
+    [Symbol.asyncIterator]()
   return {
     updates,
     async stop() {
@@ -96,9 +98,11 @@ test("full access runs a shell command outside the notebook without a permission
   const command =
     process.platform === "win32" ? `New-Item -ItemType File -Path "${target}"` : `touch '${target}'`
   const abort = new AbortController()
-  const updates = host.event.subscribe({
-    signal: AbortSignal.any([abort.signal, AbortSignal.timeout(20_000)]),
-  })[Symbol.asyncIterator]()
+  const updates = host.event
+    .subscribe({
+      signal: AbortSignal.any([abort.signal, AbortSignal.timeout(20_000)]),
+    })
+    [Symbol.asyncIterator]()
   try {
     expect((await updates.next()).value?.type).toBe("server.connected")
     const session = await api.create()
@@ -147,9 +151,11 @@ test("supervised mode asks before a plain shell command", async () => {
   const host = runtimeHost(await getAgentRuntime())
   const command = "echo buddy-supervised-asks"
   const abort = new AbortController()
-  const updates = host.event.subscribe({
-    signal: AbortSignal.any([abort.signal, AbortSignal.timeout(20_000)]),
-  })[Symbol.asyncIterator]()
+  const updates = host.event
+    .subscribe({
+      signal: AbortSignal.any([abort.signal, AbortSignal.timeout(20_000)]),
+    })
+    [Symbol.asyncIterator]()
   try {
     expect((await updates.next()).value?.type).toBe("server.connected")
     const session = await api.create()
@@ -255,7 +261,9 @@ test("a saved always allow still runs a supervised shell command", async () => {
     expect((await shell.updates.next()).value?.type).toBe("server.connected")
     const session = await api.create()
     await setAccess(api, session.id, "supervised")
-    expect(await shell.run(api, session.id, "echo buddy-supervised-remembered", "always")).toBe(true)
+    expect(await shell.run(api, session.id, "echo buddy-supervised-remembered", "always")).toBe(
+      true,
+    )
     expect(await shell.run(api, session.id, "echo buddy-supervised-remembered")).toBe(false)
   } finally {
     await shell.stop()
@@ -286,11 +294,9 @@ test("a persona delegate root keeps supervised mode after a prompt", async () =>
   await using api = await createRuntimeHarness({ permission: { bash: "allow" } })
   const root = await api.create({ agent: "general" })
   await setAccess(api, root.id, "supervised")
-  const response = await api.prompt(
-    root.id,
-    scenario({ kind: "reply", text: "Ready" }),
-    { agent: "general" },
-  )
+  const response = await api.prompt(root.id, scenario({ kind: "reply", text: "Ready" }), {
+    agent: "general",
+  })
   expect(response.status).toBe(200)
   expect(await api.json(`/session/${root.id}/access`)).toEqual({ mode: "supervised" })
   const request = await runtimeHost(await getAgentRuntime()).permission.create({

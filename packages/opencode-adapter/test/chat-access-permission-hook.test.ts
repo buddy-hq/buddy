@@ -7,7 +7,10 @@ import type { PermissionEvaluation } from "@opencode/plugin/promise/permission"
 import type { Context as PluginContext } from "@opencode/plugin/promise/plugin"
 import { registerExtensionHooks } from "../src/extension/hooks"
 
-function evaluation(effect: PermissionEvaluation["effect"], action = "shell"): PermissionEvaluation {
+function evaluation(
+  effect: PermissionEvaluation["effect"],
+  action = "shell",
+): PermissionEvaluation {
   return {
     sessionID: Schema.decodeUnknownSync(Session.ID)("ses_access"),
     action,

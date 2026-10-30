@@ -109,9 +109,11 @@ test("switching to full access replies once to pending requests of the root and 
   expect(rootPending.effect).toBe("ask")
   expect(childPending.effect).toBe("ask")
   const abort = new AbortController()
-  const updates = host.event.subscribe({
-    signal: AbortSignal.any([abort.signal, AbortSignal.timeout(20_000)]),
-  })[Symbol.asyncIterator]()
+  const updates = host.event
+    .subscribe({
+      signal: AbortSignal.any([abort.signal, AbortSignal.timeout(20_000)]),
+    })
+    [Symbol.asyncIterator]()
   try {
     expect((await updates.next()).value?.type).toBe("server.connected")
     const updated = await putAccess(project.path, parent.id, "full")
@@ -122,7 +124,8 @@ test("switching to full access replies once to pending requests of the root and 
       const next = await updates.next()
       if (next.done) throw new Error("Runtime ended before both permission replies")
       if (next.value.type !== "permission.replied") continue
-      if (next.value.data.sessionID !== parent.id && next.value.data.sessionID !== child.id) continue
+      if (next.value.data.sessionID !== parent.id && next.value.data.sessionID !== child.id)
+        continue
       replies.push(next.value.data)
     }
     expect(replies).toEqual(

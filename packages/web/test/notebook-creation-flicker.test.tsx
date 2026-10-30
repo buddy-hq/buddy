@@ -73,9 +73,24 @@ async function until(check: () => boolean, description: string): Promise<void> {
 }
 
 for (const directories of [
-  { label: "Unix", source: "/creation/source", destination: "/creation/new-notebook", entry: false },
-  { label: "Windows", source: "C:/creation/source", destination: "C:/creation/new-notebook", entry: false },
-  { label: "No open notebook", source: "/creation/source", destination: "/creation/new-notebook", entry: true },
+  {
+    label: "Unix",
+    source: "/creation/source",
+    destination: "/creation/new-notebook",
+    entry: false,
+  },
+  {
+    label: "Windows",
+    source: "C:/creation/source",
+    destination: "C:/creation/new-notebook",
+    entry: false,
+  },
+  {
+    label: "No open notebook",
+    source: "/creation/source",
+    destination: "/creation/new-notebook",
+    entry: true,
+  },
 ]) {
   for (const hydrationDelay of [0, 3_000]) {
     test(`${directories.label}: creation keeps the dialog until hydration (${hydrationDelay}ms) and commits one transition`, async () => {
@@ -92,10 +107,21 @@ for (const directories of [
         title: "Source chat",
         time: { created: 1, updated: 1 },
       }
-      const messages = [{ info: createUserMessageInfo({ id: "creation-message", sessionID: session.id }), parts: [] }]
+      const messages = [
+        {
+          info: createUserMessageInfo({ id: "creation-message", sessionID: session.id }),
+          parts: [],
+        },
+      ]
       const model = createProviderModelInfo({ id: "test-model", providerID: "test" })
       const provider = createProviderInfo({ id: "test", connected: true, models: [model] })
-      const importReport = { upgrade: { state: "idle" }, import: null, importRan: false, skipped: [], content: [] } satisfies V1ImportReport
+      const importReport = {
+        upgrade: { state: "idle" },
+        import: null,
+        importRan: false,
+        skipped: [],
+        content: [],
+      } satisfies V1ImportReport
       setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
       const transport = installTestFetch(async (input) => {
         const request = input instanceof Request ? input : new Request(input)
@@ -111,12 +137,15 @@ for (const directories of [
           await hydration.promise
           return Response.json(importReport)
         }
-        if (pathname === "/api/session") return Response.json(directory === destination ? [] : [session])
+        if (pathname === "/api/session")
+          return Response.json(directory === destination ? [] : [session])
         if (pathname === `/api/session/${session.id}`) return Response.json(session)
         if (pathname === `/api/session/${session.id}/message`) return Response.json(messages)
         if (pathname === "/api/session/status") return Response.json({})
-        if (pathname === "/api/provider") return Response.json({ all: [], connected: [], default: {} })
-        if (pathname === "/api/config") return Response.json({ default_agent: "buddy", model: "test/test-model" })
+        if (pathname === "/api/provider")
+          return Response.json({ all: [], connected: [], default: {} })
+        if (pathname === "/api/config")
+          return Response.json({ default_agent: "buddy", model: "test/test-model" })
         if (pathname === "/api/global/experimental-features") return Response.json({ features: [] })
         if (pathname === "/api/global/config") return Response.json({})
         if (pathname === "/api/objects/resource") return Response.json({ resources: [] })
@@ -128,11 +157,14 @@ for (const directories of [
         if (pathname === "/api/mcp") return Response.json({})
         if (pathname === "/api/reference") return Response.json({ data: [] })
         if (pathname === "/api/event") {
-          return new Response(new ReadableStream({
-            start(controller) {
-              request.signal.addEventListener("abort", () => controller.close(), { once: true })
-            },
-          }), { headers: { "content-type": "text/event-stream" } })
+          return new Response(
+            new ReadableStream({
+              start(controller) {
+                request.signal.addEventListener("abort", () => controller.close(), { once: true })
+              },
+            }),
+            { headers: { "content-type": "text/event-stream" } },
+          )
         }
         return Response.json([])
       })
@@ -142,8 +174,12 @@ for (const directories of [
         fetch: transport,
         storage: () => ({
           getItem: (key: string) => storage.get(key) ?? null,
-          setItem: (key: string, value: string) => { storage.set(key, value) },
-          removeItem: (key: string) => { storage.delete(key) },
+          setItem: (key: string, value: string) => {
+            storage.set(key, value)
+          },
+          removeItem: (key: string) => {
+            storage.delete(key)
+          },
         }),
       }
       setRuntimePlatform(platform)
@@ -154,10 +190,15 @@ for (const directories of [
         lastSessionByDirectory: {},
       })
       useUiPreferences.setState({ leftSidebarOpen: true })
-      if (!directories.entry) seedDirectoryChatState(source, {
-        sessionID: session.id, sessions: [session], providers: [provider],
-        providerDefault: { test: model.id }, isReady: true, messages,
-      })
+      if (!directories.entry)
+        seedDirectoryChatState(source, {
+          sessionID: session.id,
+          sessions: [session],
+          providers: [provider],
+          providerDefault: { test: model.id },
+          isReady: true,
+          messages,
+        })
       seedSkillPresentations(queryClient, source)
       seedSkillPresentations(queryClient, destination)
       const rootRoute = createRootRoute()
@@ -167,7 +208,10 @@ for (const directories of [
         component: () => {
           const params = route.useParams()
           return (
-            <DirectoryWorkspaceProvider key={params.directory} directory={decodeDirectory(params.directory)}>
+            <DirectoryWorkspaceProvider
+              key={params.directory}
+              directory={decodeDirectory(params.directory)}
+            >
               <DirectoryNotebookRouteProvider directoryToken={params.directory}>
                 <DirectoryWorkspaceRoot />
               </DirectoryNotebookRouteProvider>
@@ -191,20 +235,32 @@ for (const directories of [
       const pendingUpdates: Array<() => Promise<void>> = []
       const observedHydrating: Element[] = []
       const observer = new MutationObserver((records) => {
-        for (const record of records) for (const node of record.addedNodes) {
-          if (!(node instanceof Element)) continue
-          if (node.matches('[data-component="directory-workspace-hydrating"]')) observedHydrating.push(node)
-          observedHydrating.push(...node.querySelectorAll('[data-component="directory-workspace-hydrating"]'))
-        }
+        for (const record of records)
+          for (const node of record.addedNodes) {
+            if (!(node instanceof Element)) continue
+            if (node.matches('[data-component="directory-workspace-hydrating"]'))
+              observedHydrating.push(node)
+            observedHydrating.push(
+              ...node.querySelectorAll('[data-component="directory-workspace-hydrating"]'),
+            )
+          }
       })
-      const delayedTimers: Array<{ callback: () => void; delay: number; timer: number | ReturnType<typeof setTimeout> }> = []
+      const delayedTimers: Array<{
+        callback: () => void
+        delay: number
+        timer: number | ReturnType<typeof setTimeout>
+      }> = []
       let clock: ReturnType<typeof spyOn<typeof globalThis, "setTimeout">> | undefined
       try {
         await router.load()
         await act(async () => {
           root.render(
             <PlatformProvider value={platform}>
-              <QueryClientProvider client={queryClient}><TooltipProvider><RouterProvider router={router} /></TooltipProvider></QueryClientProvider>
+              <QueryClientProvider client={queryClient}>
+                <TooltipProvider>
+                  <RouterProvider router={router} />
+                </TooltipProvider>
+              </QueryClientProvider>
             </PlatformProvider>,
           )
         })
@@ -212,16 +268,34 @@ for (const directories of [
           ? '[data-action="entry-create-notebook"]'
           : '[data-action="left-sidebar-new-notebook"]'
         await until(() => Boolean(container.querySelector(createSelector)), "source screen")
-        await act(async () => { element(createSelector, HTMLElement).click() })
-        await until(() => Boolean(document.querySelector('[data-action="left-sidebar-create-notebook-input"]')), "create dialog")
-        const input = element('[data-action="left-sidebar-create-notebook-input"]', HTMLInputElement)
         await act(async () => {
-          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, "New notebook")
+          element(createSelector, HTMLElement).click()
+        })
+        await until(
+          () =>
+            Boolean(document.querySelector('[data-action="left-sidebar-create-notebook-input"]')),
+          "create dialog",
+        )
+        const input = element(
+          '[data-action="left-sidebar-create-notebook-input"]',
+          HTMLInputElement,
+        )
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+            input,
+            "New notebook",
+          )
           input.dispatchEvent(new Event("input", { bubbles: true }))
           input.dispatchEvent(new Event("change", { bubbles: true }))
         })
-        const dialog = element('[data-component="left-sidebar-create-notebook-dialog"]', HTMLElement)
-        const confirm = element('[data-action="left-sidebar-create-notebook-confirm"]', HTMLButtonElement)
+        const dialog = element(
+          '[data-component="left-sidebar-create-notebook-dialog"]',
+          HTMLElement,
+        )
+        const confirm = element(
+          '[data-action="left-sidebar-create-notebook-confirm"]',
+          HTMLButtonElement,
+        )
         expect(confirm.disabled).toBe(false)
         if (!directories.entry) {
           expect(useChatStore.getState().directories[source]?.sessionID).toBe(session.id)
@@ -259,9 +333,17 @@ for (const directories of [
           )
         }
         deferHydration = true
-        await act(async () => { confirm.click(); await createStarted.promise })
-        await act(async () => { created.resolve(Response.json({ directory: destination })) })
-        await until(() => pendingUpdates.length > 0 || hydrationRequested, "creation hydration or transition")
+        await act(async () => {
+          confirm.click()
+          await createStarted.promise
+        })
+        await act(async () => {
+          created.resolve(Response.json({ directory: destination }))
+        })
+        await until(
+          () => pendingUpdates.length > 0 || hydrationRequested,
+          "creation hydration or transition",
+        )
         for (let turn = 0; turn < 3 && pendingUpdates.length > 0; turn += 1) {
           await act(async () => {
             for (const update of pendingUpdates.splice(0)) void update()
@@ -281,24 +363,38 @@ for (const directories of [
         expect(router.state.location.pathname).toBe(sourcePath)
         expect(useChatStore.getState().activeDirectory).toBe(directories.entry ? undefined : source)
         expect(dialog.isConnected).toBe(true)
-        expect(element('[data-component="left-sidebar-create-notebook-dialog"]', HTMLElement)).toBe(dialog)
+        expect(element('[data-component="left-sidebar-create-notebook-dialog"]', HTMLElement)).toBe(
+          dialog,
+        )
         expect(confirm.disabled).toBe(true)
         expect(observedHydrating).toEqual([])
-        await act(async () => { hydration.resolve() })
+        await act(async () => {
+          hydration.resolve()
+        })
         await until(() => pendingUpdates.length > 0, "native creation update")
         for (let turn = 0; turn < 3 && pendingUpdates.length > 0; turn += 1) {
           const updates = pendingUpdates.splice(0)
           let finished = false
-          const updating = Promise.all(updates.map((update) => update())).then(() => { finished = true })
+          const updating = Promise.all(updates.map((update) => update())).then(() => {
+            finished = true
+          })
           await until(() => finished, "native destination layout")
           await updating
         }
-        await until(() => router.state.location.pathname === `/${encodeDirectory(destination)}/chat`, "new notebook route")
+        await until(
+          () => router.state.location.pathname === `/${encodeDirectory(destination)}/chat`,
+          "new notebook route",
+        )
         expect(useChatStore.getState().activeDirectory).toBe(destination)
-        expect(useChatStore.getState().directories[destination]).toMatchObject({ isReady: true, isDraft: true })
+        expect(useChatStore.getState().directories[destination]).toMatchObject({
+          isReady: true,
+          isDraft: true,
+        })
         expect(readActiveChatTransitionID() - before).toBe(1)
         expect(container.querySelector('[data-component="chat-empty-state-board"]')).not.toBeNull()
-        expect(container.querySelector('[data-component="directory-workspace-hydrating"]')).toBeNull()
+        expect(
+          container.querySelector('[data-component="directory-workspace-hydrating"]'),
+        ).toBeNull()
         expect(observedHydrating).toEqual([])
         expect(dialog.isConnected).toBe(false)
       } finally {
@@ -310,7 +406,9 @@ for (const directories of [
         await act(async () => {
           await Promise.all(pendingUpdates.splice(0).map((update) => update()))
         })
-        await act(async () => { root.unmount() })
+        await act(async () => {
+          root.unmount()
+        })
         queryClient.clear()
         container.remove()
       }

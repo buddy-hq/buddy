@@ -192,9 +192,7 @@ test("a failed change preserves the chat and notebook modes and exposes the requ
 
 test("a child reads its inherited mode and cannot change or remember a mode", async () => {
   seedDirectoryChatState(DIRECTORY, {
-    sessions: [
-      { id: "child", parentID: "root", title: "Child", time: { created: 1, updated: 1 } },
-    ],
+    sessions: [{ id: "child", parentID: "root", title: "Child", time: { created: 1, updated: 1 } }],
   })
   handler = async () => Response.json({ mode: "full" })
   await render({ directory: DIRECTORY, sessionID: "child" })
@@ -246,7 +244,10 @@ test("in-flight and queued changes stay with their original chat when the hook n
     if (!firstChange) throw new Error("Expected the first access change")
     await act(async () => state().onModeChange("supervised"))
     await waitForState(() =>
-      queryClient.getMutationCache().getAll().some((mutation) => mutation.state.isPaused),
+      queryClient
+        .getMutationCache()
+        .getAll()
+        .some((mutation) => mutation.state.isPaused),
     )
     await render({ directory: "/other", sessionID: "other-root" })
     await act(async () => {
