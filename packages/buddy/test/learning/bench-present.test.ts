@@ -84,6 +84,50 @@ async function readNextAction(client: TestBenchClient): Promise<BenchClientActio
   throw new Error("Expected a Bench client action.")
 }
 
+function takeUnseenAction(
+  client: TestBenchClient,
+  seenActionIDs: Set<string>,
+): BenchClientAction | undefined {
+  while (client.actions.length > 0) {
+    const action = client.actions.shift()
+    if (!action || seenActionIDs.has(action.actionID)) continue
+    seenActionIDs.add(action.actionID)
+    return action
+  }
+  return undefined
+}
+
+async function readNextUnseenAction(
+  client: TestBenchClient,
+  seenActionIDs: Set<string>,
+): Promise<BenchClientAction> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const action = takeUnseenAction(client, seenActionIDs)
+    if (action) return action
+    await sleep(0)
+  }
+  throw new Error("Expected a Bench client action.")
+}
+
+async function readOverlappingPresent(
+  client: TestBenchClient,
+  seenActionIDs: Set<string>,
+): Promise<BenchClientAction | undefined> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const action = takeUnseenAction(client, seenActionIDs)
+    if (action) return action
+    await sleep(0)
+  }
+  return undefined
+}
+
+function presentTargetPath(action: BenchClientAction): string {
+  if (action.command.type !== "present" || action.command.target.type !== "workspace-file") {
+    throw new Error("Expected a workspace file presentation.")
+  }
+  return action.command.target.path
+}
+
 function nextPublicationSequence(client: TestBenchClient): number {
   client.publicationSequence += 1
   return client.publicationSequence
@@ -1141,6 +1185,479 @@ describe("bench_present", () => {
         path: "notes.md",
         viewer: "markdown",
       },
+    })
+  })
+
+  test("concurrent presentations of different files both land in order", async () => {
+    await using project = await tmpdir({
+      git: true,
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "grouping-and-order.md"), "# Grouping\n")
+        await fs.writeFile(path.join(directory, "muddled-sources.md"), "# Sources\n")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+    const seenActionIDs = new Set<string>()
+    const presentFile = (filePath: string) =>
+      presentOnBenchWithTestContext({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        action: "present_file",
+        path: filePath,
+        resourceKey: null,
+        objectID: null,
+        presentationSettleTimeoutMs: 0,
+      })
+
+    const first = presentFile("grouping-and-order.md")
+    const firstAction = await readNextUnseenAction(client, seenActionIDs)
+    const second = presentFile("muddled-sources.md")
+    const overlapped = await readOverlappingPresent(client, seenActionIDs)
+    const presentedPaths: string[] = []
+    if (overlapped?.command.type === "present") {
+      completeSupersededAction({
+        client,
+        action: firstAction,
+        observedTarget: overlapped.command.target,
+      })
+      completeCommittedAction({ client, action: overlapped, changed: true })
+    } else {
+      presentedPaths.push(presentTargetPath(firstAction))
+      completeCommittedAction({ client, action: firstAction, changed: true })
+      const followed = await readNextUnseenAction(client, seenActionIDs)
+      presentedPaths.push(presentTargetPath(followed))
+      completeCommittedAction({ client, action: followed, changed: true })
+    }
+
+    const results = await Promise.all([first, second])
+    expect(presentedPaths).toEqual(["grouping-and-order.md", "muddled-sources.md"])
+    expect(results[0]).toMatchObject({
+      status: "presented",
+      reason: "presented_file",
+      target: { type: "workspace-file", path: "grouping-and-order.md" },
+    })
+    expect(results[1]).toMatchObject({
+      status: "presented",
+      reason: "presented_file",
+      target: { type: "workspace-file", path: "muddled-sources.md" },
+    })
+  })
+
+  test("a replacement of the in-flight presentation does not open the one waiting behind it", async () => {
+    await using project = await tmpdir({
+      git: true,
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "notes.md"), "# Notes\n")
+        await fs.writeFile(path.join(directory, "other.md"), "# Other\n")
+        await fs.writeFile(path.join(directory, "queued.md"), "# Queued\n")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+    const seenActionIDs = new Set<string>()
+    const presentFile = (filePath: string) =>
+      presentOnBenchWithTestContext({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        action: "present_file",
+        path: filePath,
+        resourceKey: null,
+        objectID: null,
+        presentationSettleTimeoutMs: 0,
+      })
+    const observedTarget = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "other.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+
+    const first = presentFile("notes.md")
+    const firstAction = await readNextUnseenAction(client, seenActionIDs)
+    const second = presentFile("queued.md")
+    const overlapped = await readOverlappingPresent(client, seenActionIDs)
+    if (overlapped) {
+      completeSupersededAction({ client, action: firstAction, observedTarget })
+      completeCommittedAction({ client, action: overlapped, changed: true })
+    } else {
+      completeSupersededAction({ client, action: firstAction, observedTarget })
+    }
+    const followed = overlapped ? undefined : await readOverlappingPresent(client, seenActionIDs)
+    if (followed) completeCommittedAction({ client, action: followed, changed: true })
+
+    const results = await Promise.all([first, second])
+    expect(overlapped).toBeUndefined()
+    expect(followed).toBeUndefined()
+    expect(results[0]).toMatchObject({ status: "error", reason: "action_superseded" })
+    expect(results[1]).toMatchObject({ status: "error", reason: "action_superseded" })
+    expect(results[0].message).toContain("other.md")
+  })
+
+  test("a presentation held for external permission still opens before the later call", async () => {
+    await using project = await tmpdir({
+      git: true,
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "later.md"), "# Later\n")
+      },
+    })
+    await using external = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "earlier.svg"), "<svg></svg>")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+    const seenActionIDs = new Set<string>()
+    const permissionRequested = Promise.withResolvers<void>()
+    const permissionGranted = Promise.withResolvers<void>()
+    const presentFile = (input: { messageID: string; path: string; ask: BuddyToolContext["ask"] }) =>
+      presentOnBench({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        messageID: input.messageID,
+        callID: null,
+        abort: new AbortController().signal,
+        action: "present_file",
+        path: input.path,
+        resourceKey: null,
+        objectID: null,
+        tabKey: null,
+        presentationSettleTimeoutMs: 0,
+        ask: input.ask,
+      })
+
+    const earlier = presentFile({
+      messageID: "earlier",
+      path: path.join(external.path, "earlier.svg"),
+      ask: async () => {
+        permissionRequested.resolve()
+        await permissionGranted.promise
+      },
+    })
+    await permissionRequested.promise
+    const later = presentFile({
+      messageID: "later",
+      path: "later.md",
+      ask: async () => undefined,
+    })
+    const premature = await readOverlappingPresent(client, seenActionIDs)
+    if (premature) {
+      permissionGranted.resolve()
+      completeCommittedAction({ client, action: premature, changed: true })
+      const rest = await readNextUnseenAction(client, seenActionIDs)
+      completeCommittedAction({ client, action: rest, changed: true })
+      await Promise.all([earlier, later])
+    }
+    expect(premature).toBeUndefined()
+    permissionGranted.resolve()
+    const firstAction = await readNextUnseenAction(client, seenActionIDs)
+    completeCommittedAction({ client, action: firstAction, changed: true })
+    const secondAction = await readNextUnseenAction(client, seenActionIDs)
+    completeCommittedAction({ client, action: secondAction, changed: true })
+    const results = await Promise.all([earlier, later])
+
+    expect(firstAction.messageID).toBe("earlier")
+    expect(secondAction.messageID).toBe("later")
+    expect(presentTargetPath(secondAction)).toBe("later.md")
+    expect(results[0]).toMatchObject({ status: "presented", reason: "presented_file" })
+    expect(results[1]).toMatchObject({
+      status: "presented",
+      reason: "presented_file",
+      target: { type: "workspace-file", path: "later.md" },
+    })
+  })
+
+  test("a later presentation held for permission is cancelled when the earlier one is replaced", async () => {
+    await using project = await tmpdir({
+      git: true,
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "first.md"), "# First\n")
+      },
+    })
+    await using external = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "queued.svg"), "<svg></svg>")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+    const seenActionIDs = new Set<string>()
+    const permissionRequested = Promise.withResolvers<void>()
+    const permissionGranted = Promise.withResolvers<void>()
+    const observedTarget = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "user-choice.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+
+    const first = presentOnBench({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "first",
+      callID: null,
+      abort: new AbortController().signal,
+      action: "present_file",
+      path: "first.md",
+      resourceKey: null,
+      objectID: null,
+      tabKey: null,
+      presentationSettleTimeoutMs: 0,
+      ask: async () => undefined,
+    })
+    const firstAction = await readNextUnseenAction(client, seenActionIDs)
+    const second = presentOnBench({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "second",
+      callID: null,
+      abort: new AbortController().signal,
+      action: "present_file",
+      path: path.join(external.path, "queued.svg"),
+      resourceKey: null,
+      objectID: null,
+      tabKey: null,
+      presentationSettleTimeoutMs: 0,
+      ask: async () => {
+        permissionRequested.resolve()
+        await permissionGranted.promise
+      },
+    })
+    await permissionRequested.promise
+    completeSupersededAction({ client, action: firstAction, observedTarget })
+    const firstResult = await first
+    permissionGranted.resolve()
+    const escaped = await readOverlappingPresent(client, seenActionIDs)
+    if (escaped) completeCommittedAction({ client, action: escaped, changed: true })
+    const secondResult = await second
+
+    expect(firstResult).toMatchObject({ status: "error", reason: "action_superseded" })
+    expect(firstResult.message).toContain("user-choice.md")
+    expect(escaped).toBeUndefined()
+    expect(secondResult).toMatchObject({ status: "error", reason: "action_superseded" })
+  })
+
+  test("a rejected external permission does not let the next presentation pass the one still open", async () => {
+    await using project = await tmpdir({
+      git: true,
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "notes.md"), "# Notes\n")
+        await fs.writeFile(path.join(directory, "later.md"), "# Later\n")
+      },
+    })
+    await using external = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "denied.svg"), "<svg></svg>")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+    const seenActionIDs = new Set<string>()
+    const observedTarget = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "other.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    const presentFile = (input: { messageID: string; path: string; ask?: BuddyToolContext["ask"] }) =>
+      presentOnBench({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        messageID: input.messageID,
+        callID: null,
+        abort: new AbortController().signal,
+        action: "present_file",
+        path: input.path,
+        resourceKey: null,
+        objectID: null,
+        tabKey: null,
+        presentationSettleTimeoutMs: 0,
+        ask: input.ask ?? (async () => undefined),
+      })
+
+    const first = presentFile({ messageID: "first", path: "notes.md" })
+    const firstAction = await readNextUnseenAction(client, seenActionIDs)
+    const denied = presentFile({
+      messageID: "denied",
+      path: path.join(external.path, "denied.svg"),
+      ask: async () => {
+        throw new Error("permission rejected")
+      },
+    })
+    await expect(denied).rejects.toThrow("permission rejected")
+    const third = presentFile({ messageID: "later", path: "later.md" })
+    const premature = await readOverlappingPresent(client, seenActionIDs)
+    if (premature) {
+      completeSupersededAction({ client, action: firstAction, observedTarget })
+      completeCommittedAction({ client, action: premature, changed: true })
+      await Promise.all([first, third])
+    }
+    expect(premature).toBeUndefined()
+    completeCommittedAction({ client, action: firstAction, changed: true })
+    const thirdAction = await readNextUnseenAction(client, seenActionIDs)
+    completeCommittedAction({ client, action: thirdAction, changed: true })
+    const results = await Promise.all([first, third])
+
+    expect(thirdAction.messageID).toBe("later")
+    expect(presentTargetPath(thirdAction)).toBe("later.md")
+    expect(results[0]).toMatchObject({
+      status: "presented",
+      reason: "presented_file",
+      target: { type: "workspace-file", path: "notes.md" },
+    })
+    expect(results[1]).toMatchObject({
+      status: "presented",
+      reason: "presented_file",
+      target: { type: "workspace-file", path: "later.md" },
+    })
+  })
+
+  test("a rejected external permission keeps the next held presentation on the replaced order", async () => {
+    await using project = await tmpdir({
+      git: true,
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "notes.md"), "# Notes\n")
+      },
+    })
+    await using external = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "denied.svg"), "<svg></svg>")
+        await fs.writeFile(path.join(directory, "queued.svg"), "<svg></svg>")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+    const seenActionIDs = new Set<string>()
+    const permissionRequested = Promise.withResolvers<void>()
+    const permissionGranted = Promise.withResolvers<void>()
+    const observedTarget = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "user-choice.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    const presentFile = (input: { messageID: string; path: string; ask?: BuddyToolContext["ask"] }) =>
+      presentOnBench({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        messageID: input.messageID,
+        callID: null,
+        abort: new AbortController().signal,
+        action: "present_file",
+        path: input.path,
+        resourceKey: null,
+        objectID: null,
+        tabKey: null,
+        presentationSettleTimeoutMs: 0,
+        ask: input.ask ?? (async () => undefined),
+      })
+
+    const first = presentFile({ messageID: "first", path: "notes.md" })
+    const firstAction = await readNextUnseenAction(client, seenActionIDs)
+    const denied = presentFile({
+      messageID: "denied",
+      path: path.join(external.path, "denied.svg"),
+      ask: async () => {
+        throw new Error("permission rejected")
+      },
+    })
+    await expect(denied).rejects.toThrow("permission rejected")
+    const third = presentFile({
+      messageID: "queued",
+      path: path.join(external.path, "queued.svg"),
+      ask: async () => {
+        permissionRequested.resolve()
+        await permissionGranted.promise
+      },
+    })
+    await permissionRequested.promise
+    completeSupersededAction({ client, action: firstAction, observedTarget })
+    const firstResult = await first
+    permissionGranted.resolve()
+    const escaped = await readOverlappingPresent(client, seenActionIDs)
+    if (escaped) completeCommittedAction({ client, action: escaped, changed: true })
+    const thirdResult = await third
+
+    expect(firstResult).toMatchObject({ status: "error", reason: "action_superseded" })
+    expect(firstResult.message).toContain("user-choice.md")
+    expect(escaped).toBeUndefined()
+    expect(thirdResult).toMatchObject({ status: "error", reason: "action_superseded" })
+  })
+
+  test("a presentation requested after a replacement opens on a fresh order", async () => {
+    await using project = await tmpdir({
+      git: true,
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "notes.md"), "# Notes\n")
+        await fs.writeFile(path.join(directory, "later.md"), "# Later\n")
+      },
+    })
+    await using external = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "queued.svg"), "<svg></svg>")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+    const seenActionIDs = new Set<string>()
+    const permissionRequested = Promise.withResolvers<void>()
+    const permissionGranted = Promise.withResolvers<void>()
+    const observedTarget = {
+      type: "workspace-file",
+      root: "notebook",
+      path: "user-choice.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    const presentFile = (input: { messageID: string; path: string; ask?: BuddyToolContext["ask"] }) =>
+      presentOnBench({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        messageID: input.messageID,
+        callID: null,
+        abort: new AbortController().signal,
+        action: "present_file",
+        path: input.path,
+        resourceKey: null,
+        objectID: null,
+        tabKey: null,
+        presentationSettleTimeoutMs: 0,
+        ask: input.ask ?? (async () => undefined),
+      })
+
+    const first = presentFile({ messageID: "first", path: "notes.md" })
+    const firstAction = await readNextUnseenAction(client, seenActionIDs)
+    const held = presentFile({
+      messageID: "held",
+      path: path.join(external.path, "queued.svg"),
+      ask: async () => {
+        permissionRequested.resolve()
+        await permissionGranted.promise
+      },
+    })
+    await permissionRequested.promise
+    completeSupersededAction({ client, action: firstAction, observedTarget })
+    const firstResult = await first
+    const third = presentFile({ messageID: "later", path: "later.md" })
+    const delivered = await readOverlappingPresent(client, seenActionIDs)
+    if (!delivered) {
+      permissionGranted.resolve()
+      const escaped = await readOverlappingPresent(client, seenActionIDs)
+      if (escaped) completeCommittedAction({ client, action: escaped, changed: true })
+      await Promise.all([held, third])
+    }
+    expect(delivered?.messageID).toBe("later")
+    if (!delivered || delivered.command.type !== "present") {
+      throw new Error("Expected the fresh presentation to be delivered.")
+    }
+    expect(presentTargetPath(delivered)).toBe("later.md")
+    completeCommittedAction({ client, action: delivered, changed: true })
+    const thirdResult = await third
+    permissionGranted.resolve()
+    const escaped = await readOverlappingPresent(client, seenActionIDs)
+    if (escaped) completeCommittedAction({ client, action: escaped, changed: true })
+    const heldResult = await held
+
+    expect(firstResult).toMatchObject({ status: "error", reason: "action_superseded" })
+    expect(heldResult).toMatchObject({ status: "error", reason: "action_superseded" })
+    expect(escaped).toBeUndefined()
+    expect(thirdResult).toMatchObject({
+      status: "presented",
+      reason: "presented_file",
+      target: { type: "workspace-file", path: "later.md" },
     })
   })
 

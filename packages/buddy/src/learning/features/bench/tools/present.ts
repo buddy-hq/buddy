@@ -1176,7 +1176,7 @@ function brokerTerminalResult(input: {
   })
 }
 
-async function dispatchRequiredBenchAction(input: {
+type TRequiredBenchAction = {
   directory: string
   sessionID: string
   messageID: string
@@ -1185,7 +1185,9 @@ async function dispatchRequiredBenchAction(input: {
   command: BenchClientActionCommand
   requested: BenchPresentOutput
   presentationSettleTimeoutMs: number
-}): Promise<BenchPresentOutput> {
+}
+
+async function deliverRequiredBenchAction(input: TRequiredBenchAction): Promise<BenchPresentOutput> {
   input.abort.throwIfAborted()
   const enqueued = benchClientActionBroker.enqueueRequiredAction({
     directory: input.directory,
@@ -1259,7 +1261,7 @@ async function presentOnBench(input: {
       message: "Requested closing Bench.",
       objectResult: null,
     } satisfies BenchPresentOutput
-    return dispatchRequiredBenchAction({
+    return deliverRequiredBenchAction({
       directory: input.directory,
       sessionID: input.sessionID,
       messageID: input.messageID,
@@ -1322,7 +1324,7 @@ async function presentOnBench(input: {
       message: `Focused Bench tab ${tab.title}.`,
       objectResult: null,
     } satisfies BenchPresentOutput
-    return dispatchRequiredBenchAction({
+    return deliverRequiredBenchAction({
       directory: input.directory,
       sessionID: input.sessionID,
       messageID: input.messageID,
@@ -1338,51 +1340,59 @@ async function presentOnBench(input: {
     })
   }
 
-  let requested: BenchPresentOutput
-  switch (input.action) {
-    case "present_file":
-      requested = await presentFile({
-        directory: input.directory,
-        sessionID: input.sessionID,
-        path: input.path ?? "",
-        ask: input.ask,
-      })
-      break
-    case "present_resource":
-      requested = await presentResource({
-        directory: input.directory,
-        sessionID: input.sessionID,
-        resourceKey: input.resourceKey ?? "",
-      })
-      break
-    case "present_object":
-      requested = await presentObject({
-        directory: input.directory,
-        sessionID: input.sessionID,
-        objectID: input.objectID ?? "",
-      })
-      break
-  }
+  const claim = benchClientActionBroker.claimPresentationOrder(input.directory, input.sessionID)
+  try {
+    input.abort.throwIfAborted()
+    let requested: BenchPresentOutput
+    switch (input.action) {
+      case "present_file":
+        requested = await presentFile({
+          directory: input.directory,
+          sessionID: input.sessionID,
+          path: input.path ?? "",
+          ask: input.ask,
+        })
+        break
+      case "present_resource":
+        requested = await presentResource({
+          directory: input.directory,
+          sessionID: input.sessionID,
+          resourceKey: input.resourceKey ?? "",
+        })
+        break
+      case "present_object":
+        requested = await presentObject({
+          directory: input.directory,
+          sessionID: input.sessionID,
+          objectID: input.objectID ?? "",
+        })
+        break
+    }
+    await claim.turn
+    input.abort.throwIfAborted()
+    if (claim.order.cancelled) return supersededActionResult()
+    if (requested.status !== "presented" || !requested.benchTarget) return requested
 
-  if (requested.status !== "presented" || !requested.benchTarget) {
-    return requested
+    const result = await deliverRequiredBenchAction({
+      directory: input.directory,
+      sessionID: input.sessionID,
+      messageID: input.messageID,
+      callID: input.callID,
+      abort: input.abort,
+      command: {
+        type: "present",
+        target: requested.benchTarget,
+        autoOpen: null,
+      },
+      requested,
+      presentationSettleTimeoutMs:
+        input.presentationSettleTimeoutMs ?? BENCH_PRESENTATION_SETTLE_TIMEOUT_MS,
+    })
+    if (result.reason === "action_superseded") claim.order.cancelled = true
+    return result
+  } finally {
+    claim.release()
   }
-
-  return dispatchRequiredBenchAction({
-    directory: input.directory,
-    sessionID: input.sessionID,
-    messageID: input.messageID,
-    callID: input.callID,
-    abort: input.abort,
-    command: {
-      type: "present",
-      target: requested.benchTarget,
-      autoOpen: null,
-    },
-    requested,
-    presentationSettleTimeoutMs:
-      input.presentationSettleTimeoutMs ?? BENCH_PRESENTATION_SETTLE_TIMEOUT_MS,
-  })
 }
 
 function buildBenchPresentToolMetadata(input: {

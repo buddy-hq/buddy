@@ -259,6 +259,17 @@ type BenchBrokerDirectoryState = {
   tombstones: Map<string, BenchClientActionTombstone>
 }
 
+type TPresentationOrder = {
+  tail: Promise<void>
+  cancelled: boolean
+}
+
+type TPresentationClaim = {
+  order: TPresentationOrder
+  turn: Promise<void>
+  release: () => void
+}
+
 type EnqueueRequiredActionInput = {
   directory: string
   sessionID: string
@@ -437,6 +448,7 @@ function benchClientLeaseEvent(input: {
 export class BenchClientActionBroker {
   readonly #clock: BenchBrokerClock
   #directories = new Map<string, BenchBrokerDirectoryState>()
+  #presentationOrder = new Map<string, TPresentationOrder>()
 
   constructor(input?: { clock?: BenchBrokerClock }) {
     this.#clock = input?.clock ?? defaultBenchBrokerClock()
@@ -449,6 +461,38 @@ export class BenchClientActionBroker {
       }
     }
     this.#directories.clear()
+    this.#presentationOrder = new Map()
+  }
+
+  claimPresentationOrder(directory: string, sessionID: string): TPresentationClaim {
+    const key = `${directoryKey(directory)}\u0000${sessionID}`
+    let currentOrder = this.#presentationOrder.get(key)
+    if (!currentOrder || currentOrder.cancelled) {
+      currentOrder = { tail: Promise.resolve(), cancelled: false }
+      this.#presentationOrder.set(key, currentOrder)
+    }
+    const order = currentOrder
+    const previous = order.tail
+    const { promise: current, resolve: releaseLock } = Promise.withResolvers<void>()
+    const ownedTail = previous.finally(() => current)
+    order.tail = ownedTail
+    let released = false
+    const removeIfStillOwned = () => {
+      const latest = this.#presentationOrder.get(key)
+      if (latest === order && latest.tail === ownedTail) {
+        this.#presentationOrder.delete(key)
+      }
+    }
+    return {
+      order,
+      turn: previous.catch(() => undefined),
+      release: () => {
+        if (released) return
+        released = true
+        releaseLock()
+        void ownedTail.then(removeIfStillOwned, removeIfStillOwned)
+      },
+    }
   }
 
   connectLease(input: ConnectLeaseInput): BenchClientLease {
