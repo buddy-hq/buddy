@@ -142,6 +142,10 @@ export const dict = {
   "chat.permissionDock.toolLabel": "Tool",
   "chat.compaction.compacted": "Session compacted",
   "chat.sessionContextUsage.ariaLabel": "Session context usage",
+  "chat.sessionContextUsage.nearLimit.fiveHour":
+    "ChatGPT 5-hour limit {{percent}}% used, resets {{time}}",
+  "chat.sessionContextUsage.nearLimit.weekly":
+    "ChatGPT weekly limit {{percent}}% used, resets {{time}}",
   "chat.sessionContextUsage.contextUsage": "Context Usage",
   "chat.sessionContextUsage.sessionCost": "Session Cost",
   "chat.sessionContextUsage.tokensUsed": "Tokens Used",

@@ -35,6 +35,12 @@ const retryStatusFieldsSchema = z.object({
   attempt: z.number().finite().optional(),
   message: z.string().optional(),
   next: z.number().finite().optional(),
+  error: z
+    .object({
+      type: z.string(),
+      status: z.number().int().min(100).max(599).optional(),
+    })
+    .optional(),
   action: z.unknown().optional(),
 })
 
@@ -63,6 +69,7 @@ export function normalizeSessionStatusValue<TValue>(value: TValue): SessionStatu
         message: parseRetryMessage(retryFields.data.message, DEFAULT_RETRY_MESSAGE),
         next: retryFields.data.next ?? Date.now(),
       } as const,
+      retryFields.data.error ? { error: retryFields.data.error } : undefined,
       action ? { action } : undefined,
     )
   }
@@ -127,6 +134,8 @@ export function sessionStatusEquals(left: SessionStatusInfo, right: SessionStatu
     left.attempt === right.attempt &&
     left.message === right.message &&
     left.next === right.next &&
+    left.error?.type === right.error?.type &&
+    left.error?.status === right.error?.status &&
     retryActionEquals(left.action, right.action)
   )
 }

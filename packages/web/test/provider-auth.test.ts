@@ -1,6 +1,7 @@
 import "../happydom"
 import { afterEach, expect, test } from "bun:test"
 import type { ProviderAuthMethod } from "@buddy/sdk"
+import { QueryObserver } from "@tanstack/react-query"
 import {
   authorizeProviderOAuth,
   cancelProviderOAuth,
@@ -9,6 +10,11 @@ import {
   resolveProviderAuthAnswers,
 } from "../src/lib/provider-auth"
 import { openAIAccountQueryKeys } from "../src/state/openai-account-query"
+import {
+  openAIUsageQueryKeys,
+  openAIUsageQueryOptions,
+  type OpenAIUsageSnapshot,
+} from "../src/state/openai-usage-query"
 import { appQueryClient } from "../src/state/query-client"
 import { installTestFetch, restoreTestFetch } from "./test-utils"
 
@@ -38,11 +44,53 @@ test("successful OAuth completion clears the previous ChatGPT account", async ()
   expect(appQueryClient.getQueryData(openAIAccountQueryKeys.current())).toBeUndefined()
 })
 
+test("switching ChatGPT accounts refetches usage for an already mounted observer", async () => {
+  const previous: OpenAIUsageSnapshot = {
+    status: "ready",
+    plan: "plus",
+    rateLimit: {
+      primary: { usedPercent: 100, resetsAt: "2026-10-02T13:00:00.000Z", windowSeconds: 18_000 },
+      secondary: null,
+    },
+    additionalRateLimits: [],
+    credits: null,
+    fetchedAt: "2026-10-02T12:00:00.000Z",
+  }
+  const current: OpenAIUsageSnapshot = {
+    ...previous,
+    rateLimit: {
+      ...previous.rateLimit,
+      primary: { usedPercent: 20, resetsAt: "2026-10-02T13:00:00.000Z", windowSeconds: 18_000 },
+    },
+  }
+  appQueryClient.setQueryData(openAIUsageQueryKeys.current(), previous)
+  installTestFetch(async (input) => {
+    const url = String(input)
+    if (url.includes("/provider/openai/oauth/callback")) return Response.json(true)
+    expect(url).toContain("/provider/openai/usage")
+    return Response.json(current)
+  })
+  const observer = new QueryObserver(appQueryClient, openAIUsageQueryOptions(true))
+  const unsubscribe = observer.subscribe(() => {})
+  try {
+    expect(observer.getCurrentResult().data).toEqual(previous)
+    await completeProviderOAuth({
+      providerID: "openai",
+      methodID: "chatgpt-browser",
+      attemptID: "con_switch",
+    })
+    expect(observer.getCurrentResult().data).toEqual(current)
+  } finally {
+    unsubscribe()
+  }
+})
+
 test("removing ChatGPT auth clears the previous account", async () => {
   appQueryClient.setQueryData(openAIAccountQueryKeys.current(), {
     status: "ready",
     email: "previous@example.com",
   })
+  appQueryClient.setQueryData(openAIUsageQueryKeys.current(), { status: "ready" })
   installTestFetch(async (input) => {
     expect(String(input)).toContain("/auth/openai")
     return Response.json(true)
@@ -51,6 +99,7 @@ test("removing ChatGPT auth clears the previous account", async () => {
   await removeProviderAuth({ providerID: "openai" })
 
   expect(appQueryClient.getQueryData(openAIAccountQueryKeys.current())).toBeUndefined()
+  expect(appQueryClient.getQueryData(openAIUsageQueryKeys.current())).toBeUndefined()
 })
 
 test("OAuth completion and cancellation send the specific attempt IDs", async () => {

@@ -28,6 +28,7 @@ import {
   resetOpenAIUsageQuery,
 } from "@/state/openai-usage-query"
 import { openAIAccountQueryOptions, resetOpenAIAccountQuery } from "@/state/openai-account-query"
+import { selectNearLimitPlanUsage } from "@/state/near-limit-plan-usage"
 import { ChatGptAccountEmail } from "@/components/usage/chatgpt-account-email"
 import { ChatGptConnectionWaitingDialog } from "@/components/usage/chatgpt-connection-waiting-dialog"
 import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
@@ -122,6 +123,20 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
     currency: "USD",
   }).format(metrics.totalCost)
 
+  const nearLimit = selectNearLimitPlanUsage({ usage, activeProviderID: currentProviderID })
+    .toSorted((first, second) => second.usedPercent - first.usedPercent)
+    .at(0)
+  const nearLimitLabel = nearLimit
+    ? language.t(
+        nearLimit.window === "weekly"
+          ? "chat.sessionContextUsage.nearLimit.weekly"
+          : "chat.sessionContextUsage.nearLimit.fiveHour",
+        {
+          percent: String(Math.round(nearLimit.usedPercent)),
+          time: formatRelativeTime(nearLimit.resetsAt),
+        },
+      )
+    : undefined
   const readyUsage = usage?.status === "ready" ? usage : undefined
   const windows = readyUsage
     ? [readyUsage.rateLimit.primary, readyUsage.rateLimit.secondary].filter(
@@ -210,9 +225,19 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label={language.t("chat.sessionContextUsage.ariaLabel")}
-            className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }), "text-text-weak")}
+            aria-label={nearLimitLabel ?? language.t("chat.sessionContextUsage.ariaLabel")}
+            title={nearLimitLabel}
+            className={cn(
+              buttonVariants({ variant: "ghost", size: nearLimit ? "xs" : "icon-xs" }),
+              "text-text-weak",
+              nearLimit && "gap-1 px-1.5",
+            )}
           >
+            {nearLimit ? (
+              <span className="text-[11px] font-medium tabular-nums text-text-warning-base">
+                {Math.round(nearLimit.usedPercent)}%
+              </span>
+            ) : null}
             <ContextRing usage={contextPercent} />
           </button>
         </PopoverTrigger>

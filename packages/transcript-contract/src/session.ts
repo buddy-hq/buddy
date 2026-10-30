@@ -8,6 +8,12 @@ export const SessionStatus = Schema.Union([
     attempt: Schema.Finite,
     message: Schema.String,
     next: Schema.Finite,
+    error: Schema.optional(
+      Schema.Struct({
+        type: Schema.String,
+        status: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 100, maximum: 599 }))),
+      }),
+    ),
     action: Schema.optional(
       Schema.Struct({
         reason: Schema.String,

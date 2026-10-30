@@ -8,6 +8,7 @@ import {
 } from "@opencode/client"
 import { providerListSchema, type ProviderInfo } from "@buddy/agent-runtime/providers"
 import { MessageError } from "@buddy/transcript-contract/message"
+import { SessionStatus } from "@buddy/transcript-contract/session"
 import { listProviderCatalog } from "../src/gateway/provider"
 import { toBuddyMessage, toBuddyMessageError } from "../src/gateway/message"
 import { createEventTranslator } from "../src/gateway/event"
@@ -149,6 +150,7 @@ const errorCases: readonly {
       api({ type: "MonthlyLimitError" }),
       api({ type: "UserLimitError" }),
       api({ code: "usage_limit_reached" }),
+      { type: "provider.quota", message: "Limit reached", status: 429 },
     ],
     code: "quota_exceeded",
   },
@@ -160,7 +162,6 @@ const errorCases: readonly {
       api({ type: "GoUsageLimitError" }),
       api({ type: "BlackUsageLimitError" }),
       { type: "provider.rate-limit", message: "Slow down" },
-      { type: "provider.quota", message: "Limit reached", status: 429 },
     ],
     code: "rate_limited",
   },
@@ -187,7 +188,7 @@ const errorCases: readonly {
     code: "temporarily_unavailable",
   },
   {
-    family: "usage text before native rate limit",
+    family: "native rate limit before usage text",
     errors: [
       {
         type: "provider.rate-limit",
@@ -196,7 +197,7 @@ const errorCases: readonly {
         response: { body: "insufficient credits" },
       },
     ],
-    code: "quota_exceeded",
+    code: "rate_limited",
   },
   {
     family: "region",
@@ -226,9 +227,9 @@ const errorCases: readonly {
     code: "content_blocked",
   },
   {
-    family: "forbidden response before native content filter",
+    family: "native content filter before forbidden response",
     errors: [{ type: "provider.content-filter", message: "Blocked", status: 403 }],
-    code: "auth",
+    code: "content_blocked",
   },
   {
     family: "format",
@@ -279,6 +280,73 @@ test.each([...errorCases])(
     }
   },
 )
+
+test.each([
+  {
+    error: { type: "provider.internal", status: 503, message: "Provider rate limit exceeded" },
+    code: "temporarily_unavailable",
+  },
+  {
+    error: { type: "provider.auth", status: 401, message: "Quota lookup failed" },
+    code: "auth",
+  },
+  {
+    error: {
+      type: "provider.auth",
+      status: 401,
+      message: "Request rejected",
+      response: { body: JSON.stringify({ error: { type: "rate_limit_error" } }) },
+    },
+    code: "auth",
+  },
+  {
+    error: { type: "provider.internal", status: 429, message: "Request failed" },
+    code: "temporarily_unavailable",
+  },
+  {
+    error: { type: "APIError", status: 503, message: "Provider rate limit exceeded" },
+    code: "temporarily_unavailable",
+  },
+  {
+    error: { type: "APIError", status: 401, message: "Quota lookup failed" },
+    code: "auth",
+  },
+  {
+    error: { type: "APIError", status: 400, message: "Quota lookup failed" },
+    code: "unknown",
+  },
+])("classifies $error.type/$error.status before conflicting provider details", ({ error, code }) => {
+  expect(
+    Schema.decodeUnknownSync(MessageError)(toBuddyMessageError(error, "openai")),
+  ).toMatchObject({ code, name: error.type, message: error.message, data: { statusCode: error.status } })
+})
+
+test("preserves retry error kind and HTTP status in the web event contract", () => {
+  const translator = createEventTranslator({ directory })
+  const result = translator.translate({
+    id: "evt_retry",
+    created: 1,
+    durable: { aggregateID: sessionID, seq: 1, version: 1 },
+    type: "session.retry.scheduled",
+    data: {
+      sessionID,
+      assistantMessageID: "msg_retry",
+      attempt: 3,
+      at: 1_000,
+      error: { type: "provider.rate-limit", status: 429, message: "Request failed" },
+    },
+  })
+  const status = result.events.find((event) => event.payload.type === "session.status")?.payload
+  expect(status?.type).toBe("session.status")
+  if (status?.type !== "session.status") throw new Error("Missing retry status event")
+  expect(Schema.decodeUnknownSync(SessionStatus)(status.properties.status)).toEqual({
+    type: "retry",
+    attempt: 3,
+    next: 1_000,
+    message: "Request failed",
+    error: { type: "provider.rate-limit", status: 429 },
+  })
+})
 
 test.each([
   { providerID: "opencode", code: "model_unavailable" },

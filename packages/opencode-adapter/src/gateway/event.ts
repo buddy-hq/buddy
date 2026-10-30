@@ -417,6 +417,7 @@ export function createEventTranslator(input: {
                 attempt: event.data.attempt,
                 next: event.data.at,
                 message: event.data.error.message,
+                error: { type: event.data.error.type, status: event.data.error.status },
               },
             }),
           ],

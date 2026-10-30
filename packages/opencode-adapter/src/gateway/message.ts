@@ -654,34 +654,6 @@ function providerErrorClassification(
       case "RegionError":
         return { code: "region_blocked" }
     }
-  const identifiers = [type, nonEmptyString(payload?.code)?.trim()].map((value) =>
-    value?.toLowerCase(),
-  )
-  const structured = providerErrorIdentifiers.find(([, values]) =>
-    identifiers.some((value) => value !== undefined && values.includes(value)),
-  )
-  if (structured) return { code: structured[0] }
-  const searchable = `${message}\n${error.message}\n${error.response?.body ?? ""}`
-  const pattern = providerErrorPatterns.find(([, pattern]) => pattern.test(searchable))
-  if (pattern) return { code: pattern[0] }
-  if (
-    /invalid api key|missing api key|authentication failed|unauthorized|sign-in expired|token expired/iu.test(
-      searchable,
-    )
-  ) {
-    return { code: "auth", anonymousCode: "model_unavailable" }
-  }
-  if (error.status === 402) return { code: "quota_exceeded" }
-  if (error.status === 429) return { code: "rate_limited" }
-  if (error.status !== undefined && error.status >= 500) return { code: "temporarily_unavailable" }
-  if (error.status === 401) return { code: "auth", anonymousCode: "temporarily_unavailable" }
-  if (error.status === 403) return { code: "auth" }
-  if (
-    /network|connection|econn|socket|timeout|timed out|unreachable|dns|fetch failed/iu.test(
-      searchable,
-    )
-  )
-    return { code: "network" }
   switch (error.type) {
     case "provider.auth":
       return { code: "auth", anonymousCode: "model_unavailable" }
@@ -699,12 +671,39 @@ function providerErrorClassification(
     case "provider.invalid-output":
       return { code: "invalid_output" }
     case "provider.no-route":
-    case "provider.unknown":
     case "provider.unsupported-operation":
       return { code: "model_unavailable" }
-    default:
-      return { code: "unknown" }
   }
+  const identifiers = [type, nonEmptyString(payload?.code)?.trim()].map((value) =>
+    value?.toLowerCase(),
+  )
+  const structured = providerErrorIdentifiers.find(([, values]) =>
+    identifiers.some((value) => value !== undefined && values.includes(value)),
+  )
+  if (structured) return { code: structured[0] }
+  if (error.status === 402) return { code: "quota_exceeded" }
+  if (error.status === 429) return { code: "rate_limited" }
+  if (error.status !== undefined && error.status >= 500) return { code: "temporarily_unavailable" }
+  if (error.status === 401) return { code: "auth", anonymousCode: "temporarily_unavailable" }
+  if (error.status === 403) return { code: "auth" }
+  if (error.status !== undefined) return { code: "unknown" }
+  const searchable = `${message}\n${error.message}\n${error.response?.body ?? ""}`
+  const pattern = providerErrorPatterns.find(([, pattern]) => pattern.test(searchable))
+  if (pattern) return { code: pattern[0] }
+  if (
+    /invalid api key|missing api key|authentication failed|unauthorized|sign-in expired|token expired/iu.test(
+      searchable,
+    )
+  ) {
+    return { code: "auth", anonymousCode: "model_unavailable" }
+  }
+  if (
+    /network|connection|econn|socket|timeout|timed out|unreachable|dns|fetch failed/iu.test(
+      searchable,
+    )
+  )
+    return { code: "network" }
+  return { code: error.type === "provider.unknown" ? "model_unavailable" : "unknown" }
 }
 
 function messageErrorClassification(

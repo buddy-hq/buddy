@@ -1,4 +1,6 @@
 import { isAnonymousBundledProvider } from "@/lib/provider-catalog"
+import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
+import type { OpenAIUsageSnapshot } from "./openai-usage-query"
 import type {
   MessageError,
   MessageErrorCode,
@@ -74,15 +76,45 @@ export type TerminalAssistantError = {
   model: AssistantErrorModel
 }
 
+export type DockedTerminalAssistantError = TerminalAssistantError & { expiresAt?: number }
+
 function readNonEmptyString(value: string | undefined): string | undefined {
   const trimmed = value?.trim()
   return trimmed && trimmed.length > 0 ? trimmed : undefined
 }
 
-function retryCategory(message: string): RetryCategory {
-  if (RATE_LIMIT_PATTERN.test(message)) return "rate-limit"
-  if (OVERLOADED_PATTERN.test(message)) return "overloaded"
-  if (NETWORK_PATTERN.test(message)) return "network"
+function retryCategory(status: RetryStatus): RetryCategory {
+  switch (status.error?.type) {
+    case "provider.quota":
+    case "provider.rate-limit":
+      return "rate-limit"
+    case "provider.internal":
+      return "overloaded"
+    case "provider.transport":
+    case "provider.timeout":
+      return "network"
+    case "provider.auth":
+    case "ProviderAuthError":
+    case "provider.content-filter":
+    case "ContentFilterError":
+    case "ContextOverflowError":
+    case "provider.invalid-output":
+    case "StructuredOutputError":
+    case "provider.no-route":
+    case "provider.unsupported-operation":
+    case "MessageOutputLengthError":
+    case "MessageAbortedError":
+    case "aborted":
+      return "unknown"
+  }
+  if (status.error?.status === 402 || status.error?.status === 429) return "rate-limit"
+  if (status.error?.status !== undefined) {
+    if (status.error.status >= 500) return "overloaded"
+    return "unknown"
+  }
+  if (RATE_LIMIT_PATTERN.test(status.message)) return "rate-limit"
+  if (OVERLOADED_PATTERN.test(status.message)) return "overloaded"
+  if (NETWORK_PATTERN.test(status.message)) return "network"
   return "unknown"
 }
 
@@ -96,7 +128,7 @@ export function retryStage(status: RetryStatus): RetryStage {
 export function buildRetryStateModel(status: RetryStatus): RetryStateModel {
   return {
     stage: retryStage(status),
-    category: retryCategory(status.message),
+    category: retryCategory(status),
     attempt: status.attempt,
     next: status.next,
     rawMessage: status.message,
@@ -193,6 +225,27 @@ function messageHasVisibleText(message: MessageWithParts): boolean {
   })
 }
 
+function terminalAssistantError(
+  message: MessageWithParts,
+  providers: readonly ProviderInfo[],
+): TerminalAssistantError | undefined {
+  if (message.info.role !== "assistant" || !message.info.error) return undefined
+  const providerID = message.info.providerID
+  const model = buildAssistantErrorModel(message.info.error, {
+    hasVisibleText: messageHasVisibleText(message),
+    provider: providers.find((item) => item.id === providerID),
+  })
+  if (model.disposition !== "terminal") return undefined
+  return {
+    assistantMessageID: message.info.id,
+    userMessageID: message.info.parentID,
+    providerID,
+    modelID: message.info.modelID,
+    error: message.info.error,
+    model,
+  }
+}
+
 export function resolveLatestTerminalAssistantError(
   messages: readonly MessageWithParts[],
   providers: readonly ProviderInfo[] = [],
@@ -209,27 +262,49 @@ export function resolveLatestTerminalAssistantError(
       (message) =>
         message.info.role === "assistant" && message.info.parentID === userMessage.info.id,
     )
-  if (
-    !latestAssistant ||
-    latestAssistant.info.role !== "assistant" ||
-    !latestAssistant.info.error
-  ) {
-    return undefined
-  }
+  return latestAssistant ? terminalAssistantError(latestAssistant, providers) : undefined
+}
 
-  const providerID = latestAssistant.info.providerID
-  const model = buildAssistantErrorModel(latestAssistant.info.error, {
-    hasVisibleText: messageHasVisibleText(latestAssistant),
-    provider: providers.find((item) => item.id === providerID),
-  })
-  if (model.disposition !== "terminal") return undefined
+function isLimitError(error: TerminalAssistantError): boolean {
+  return error.model.category === "usage-limit" || error.model.category === "rate-limit"
+}
 
-  return {
-    assistantMessageID: latestAssistant.info.id,
-    userMessageID: userMessage.info.id,
-    providerID,
-    modelID: latestAssistant.info.modelID,
-    error: latestAssistant.info.error,
-    model,
+export function resolveDockedTerminalAssistantError(
+  messages: readonly MessageWithParts[],
+  input: {
+    providers: readonly ProviderInfo[]
+    selectedProviderID: string | undefined
+    usage: OpenAIUsageSnapshot | undefined
+    now: number
+  },
+): DockedTerminalAssistantError | undefined {
+  const latest = resolveLatestTerminalAssistantError(messages, input.providers)
+  const nonLimitError = latest && !isLimitError(latest) ? latest : undefined
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message?.info.role !== "assistant" || message.info.providerID !== input.selectedProviderID)
+      continue
+    const error = terminalAssistantError(message, input.providers)
+    if (!error || !isLimitError(error)) continue
+
+    if (input.selectedProviderID === OPENAI_PROVIDER_ID && input.usage?.status === "ready") {
+      const resets = [input.usage.rateLimit.primary, input.usage.rateLimit.secondary].flatMap(
+        (window) => {
+          if (!window || window.usedPercent < 100) return []
+          const resetsAt = Date.parse(window.resetsAt)
+          return resetsAt > input.now ? [resetsAt] : []
+        },
+      )
+      return resets.length > 0 ? { ...error, expiresAt: Math.max(...resets) } : nonLimitError
+    }
+
+    const resetsAt = error.model.details.limit?.resetsAt
+    if (resetsAt !== undefined) {
+      const expiresAt = resetsAt * 1_000
+      return expiresAt > input.now ? { ...error, expiresAt } : nonLimitError
+    }
+    return error.assistantMessageID === latest?.assistantMessageID ? error : nonLimitError
   }
+  return nonLimitError
 }

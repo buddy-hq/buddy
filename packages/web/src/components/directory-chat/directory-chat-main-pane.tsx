@@ -60,7 +60,8 @@ import {
   type AssistantErrorActionID,
 } from "@/components/chat/assistant-error-card"
 import { isHiddenFromUserMessage } from "@/components/chat/utils/message-visibility"
-import { resolveLatestTerminalAssistantError } from "@/state/chat-error-model"
+import { resolveDockedTerminalAssistantError } from "@/state/chat-error-model"
+import { openAIUsageQueryOptions } from "@/state/openai-usage-query"
 import type { RetryActionID } from "@/components/chat/session-retry-notice"
 import { usePlatform } from "@/context/platform"
 import {
@@ -162,6 +163,7 @@ type DirectoryChatMainPaneProps = {
 const COMPACTION_BUFFER_TOKENS = 20_000
 const OUTPUT_TOKEN_MAX = 32_000
 const CHAT_LAYOUT_RESIZE_SETTLE_DELAY_MS = 100
+const MAX_ERROR_TIMER_DELAY_MS = 2_147_483_647
 
 type ChatLayoutMeasurements = {
   paneHeight: number
@@ -449,10 +451,24 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       (message) => !isHiddenFromUserMessage(message) && isBeforeRevert(message),
     )
   }, [chatState.messages, revertMessageID, transcriptComplete])
-  const terminalError = useMemo(
-    () => resolveLatestTerminalAssistantError(visibleMessages, chatState.providers),
-    [chatState.providers, visibleMessages],
-  )
+  const selectedProviderID = chatState.effectiveModelSelection?.providerID
+  const usageQuery = useQuery(openAIUsageQueryOptions(selectedProviderID === OPENAI_PROVIDER_ID))
+  const [errorTime, setErrorTime] = useState(Date.now)
+  const terminalError = resolveDockedTerminalAssistantError(visibleMessages, {
+    providers: chatState.providers,
+    selectedProviderID,
+    usage: usageQuery.isSuccess ? usageQuery.data : undefined,
+    now: Math.max(errorTime, Date.now()),
+  })
+  const errorExpiresAt = terminalError?.expiresAt
+  useEffect(() => {
+    if (errorExpiresAt === undefined) return
+    const timer = window.setTimeout(
+      () => setErrorTime(Date.now()),
+      Math.min(Math.max(0, errorExpiresAt - Date.now()), MAX_ERROR_TIMER_DELAY_MS),
+    )
+    return () => window.clearTimeout(timer)
+  }, [errorExpiresAt, errorTime])
   const terminalErrorProvider = terminalError
     ? chatState.providers.find((provider) => provider.id === terminalError.providerID)
     : undefined
