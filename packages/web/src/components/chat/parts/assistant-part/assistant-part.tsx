@@ -119,7 +119,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   }
 
   if (isChatReasoningPart(part)) {
-    return <ReasoningPart part={part} streaming={streaming} />
+    return <ReasoningPart part={part} streaming={streaming} directory={directory} />
   }
 
   if (part.type === "patch") {

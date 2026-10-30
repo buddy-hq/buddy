@@ -20,6 +20,7 @@ import { language } from "@/context/language"
 import type { QuestionRequest } from "@/state/chat-types"
 
 type QuestionDockProps = {
+  directory?: string
   request: QuestionRequest
   pendingCount?: number
   onReply: (answers: string[][]) => Promise<void>
@@ -390,6 +391,7 @@ export function QuestionDock(props: QuestionDockProps) {
             <div className="min-w-0 flex-1">
               {question && questionCacheKey && isQuestionMarkdownBlock(question.question) ? (
                 <QuestionMarkdown
+                  directory={props.directory}
                   text={question.question}
                   cacheKey={`${questionCacheKey}:prompt`}
                   variant="compact"
@@ -398,6 +400,7 @@ export function QuestionDock(props: QuestionDockProps) {
               ) : question && questionCacheKey ? (
                 <p className="text-sm font-medium leading-tight text-text-strong">
                   <QuestionInlineMarkdown
+                    directory={props.directory}
                     text={question.question}
                     cacheKey={`${questionCacheKey}:prompt`}
                     className="align-middle"
@@ -480,6 +483,7 @@ export function QuestionDock(props: QuestionDockProps) {
                       <div className="min-w-0 flex-1 text-sm text-text-base">
                         {values.map((value) => (
                           <QuestionMarkdown
+                            directory={props.directory}
                             key={`${requestID}:${reviewQuestion.header}:${value}`}
                             text={value}
                             cacheKey={`${requestID}:${reviewQuestion.header}:${value}`}
@@ -489,6 +493,7 @@ export function QuestionDock(props: QuestionDockProps) {
                       </div>
                     ) : (
                       <QuestionInlineMarkdown
+                        directory={props.directory}
                         text={values.join(" · ")}
                         cacheKey={`${requestID}:${reviewQuestion.header}:answers`}
                         className="min-w-0 text-sm text-text-base"
@@ -536,6 +541,7 @@ export function QuestionDock(props: QuestionDockProps) {
                     {hasBlockContent ? (
                       <div className="min-w-0 flex-1 text-left">
                         <QuestionMarkdown
+                          directory={props.directory}
                           text={option.label}
                           cacheKey={`${optionCacheKey}:label`}
                           variant="compact"
@@ -543,6 +549,7 @@ export function QuestionDock(props: QuestionDockProps) {
                         />
                         {option.description ? (
                           <QuestionMarkdown
+                            directory={props.directory}
                             text={option.description}
                             cacheKey={`${optionCacheKey}:description`}
                             variant="compact"
@@ -553,6 +560,7 @@ export function QuestionDock(props: QuestionDockProps) {
                     ) : (
                       <span data-slot={OPTION_TEXT_SLOT} className="min-w-0 flex-1 truncate">
                         <QuestionInlineMarkdown
+                          directory={props.directory}
                           text={option.label}
                           cacheKey={`${optionCacheKey}:label`}
                           className="text-sm font-medium text-text-base"
@@ -560,6 +568,7 @@ export function QuestionDock(props: QuestionDockProps) {
                         {option.description ? (
                           <span className="ml-1.5 text-sm text-text-weaker">
                             <QuestionInlineMarkdown
+                              directory={props.directory}
                               text={option.description}
                               cacheKey={`${optionCacheKey}:description`}
                               wrapContent

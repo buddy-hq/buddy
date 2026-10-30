@@ -123,6 +123,7 @@ export function orderedChoicesForQuestion(input: {
 
 export function QuestionSetInlineView(props: {
   questionSet: QuestionSetObject
+  directory?: string
   onSubmit: (
     answers: Record<string, string[]>,
     submissionID: string,
@@ -378,6 +379,7 @@ export function QuestionSetInlineView(props: {
                             <div className="flex min-w-0 items-start gap-2 text-text-stronger">
                               <span className="mt-0.5 text-text-weak">{questionIndex + 1}.</span>
                               <QuestionMarkdown
+                                directory={props.directory}
                                 text={question.prompt}
                                 cacheKey={`${questionCacheKey}:prompt`}
                                 className="min-w-0 flex-1 text-text-stronger"
@@ -517,6 +519,7 @@ export function QuestionSetInlineView(props: {
                                       ) : null}
                                     </div>
                                     <QuestionMarkdown
+                                      directory={props.directory}
                                       text={choice.content}
                                       cacheKey={`${questionCacheKey}:choice:${choice.id}:content`}
                                       variant="compact"
@@ -534,6 +537,7 @@ export function QuestionSetInlineView(props: {
                                       )}
                                     >
                                       <QuestionMarkdown
+                                        directory={props.directory}
                                         text={choiceEvaluation?.rationale ?? ""}
                                         cacheKey={`${questionCacheKey}:choice:${choice.id}:rationale`}
                                         variant="compact"
@@ -551,6 +555,7 @@ export function QuestionSetInlineView(props: {
                                 Explanation:
                               </p>
                               <QuestionMarkdown
+                                directory={props.directory}
                                 text={evaluation?.explanation ?? question.explanation ?? ""}
                                 cacheKey={`${questionCacheKey}:explanation`}
                                 variant="compact"

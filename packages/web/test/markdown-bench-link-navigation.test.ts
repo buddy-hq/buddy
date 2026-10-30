@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { resolveMarkdownBenchLink } from "../src/components/bench/markdown/link-navigation"
+import {
+  markdownBenchOutsideFileOpen,
+  resolveMarkdownBenchLink,
+} from "../src/components/bench/markdown/link-navigation"
 import {
   findMarkdownBenchFragmentTarget,
   readMarkdownBenchHeadings,
@@ -197,12 +200,113 @@ describe("Markdown Bench link navigation", () => {
   })
 
   test("rejects unsafe and unsupported external URL schemes", () => {
-    expect(resolveMarkdownBenchLink("Notes/Current.md", "file:///etc/passwd")).toBeUndefined()
     expect(resolveMarkdownBenchLink("Notes/Current.md", "javascript:alert(1)")).toBeUndefined()
     expect(resolveMarkdownBenchLink("Notes/Current.md", "custom-protocol:payload")).toBeUndefined()
   })
 
-  test("rejects relative links that escape the notebook", () => {
-    expect(resolveMarkdownBenchLink("Current.md", "../Outside.md")).toBeUndefined()
+  test("resolves a relative link against the markdown file's own folder", () => {
+    expect(resolveMarkdownBenchLink("docs/guide.md", "../notes/a.md")).toEqual({
+      type: "workspace-file",
+      root: "notebook",
+      path: "notes/a.md",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "./img.png")).toEqual({
+      type: "workspace-file",
+      root: "notebook",
+      path: "docs/img.png",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "workshop-objectives.md")).toEqual({
+      type: "workspace-file",
+      root: "notebook",
+      path: "docs/workshop-objectives.md",
+    })
+    expect(resolveMarkdownBenchLink("Notes/Current.md", "Note:%20sub.md")).toEqual({
+      type: "workspace-file",
+      root: "notebook",
+      path: "Notes/Note: sub.md",
+    })
+  })
+
+  test("follows outside-file rules when a link leaves the notebook", () => {
+    expect(resolveMarkdownBenchLink("Notes/Current.md", "file:///etc/passwd")).toEqual({
+      type: "outside-file",
+      path: "/etc/passwd",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "file:///tmp/LICENSE")).toEqual({
+      type: "outside-file",
+      path: "/tmp/LICENSE",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "file:///C:/docs/LICENSE")).toEqual({
+      type: "outside-file",
+      path: "C:/docs/LICENSE",
+    })
+    expect(resolveMarkdownBenchLink("Current.md", "../Outside.md")).toEqual({
+      type: "outside-file",
+      path: "../Outside.md",
+    })
+    expect(resolveMarkdownBenchLink("docs/deep/guide.md", "../../../secret.md")).toEqual({
+      type: "outside-file",
+      path: "../secret.md",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "/Users/example/notes.md")).toEqual({
+      type: "outside-file",
+      path: "/Users/example/notes.md",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "file:///Users/example/notes.md")).toEqual({
+      type: "outside-file",
+      path: "/Users/example/notes.md",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "file:/tmp/report.pdf")).toEqual({
+      type: "outside-file",
+      path: "/tmp/report.pdf",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "FILE:///tmp/x.pdf")).toEqual({
+      type: "outside-file",
+      path: "/tmp/x.pdf",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "~\\Desktop\\report.pdf")).toEqual({
+      type: "outside-file",
+      path: "~\\Desktop\\report.pdf",
+    })
+  })
+
+  test("resolves extensionless relative files", () => {
+    expect(resolveMarkdownBenchLink("docs/guide.md", "../LICENSE")).toEqual({
+      type: "workspace-file",
+      root: "notebook",
+      path: "LICENSE",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "./README")).toEqual({
+      type: "workspace-file",
+      root: "notebook",
+      path: "docs/README",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", ".env")).toEqual({
+      type: "workspace-file",
+      root: "notebook",
+      path: "docs/.env",
+    })
+    expect(resolveMarkdownBenchLink("docs/guide.md", "backup.001")).toEqual({
+      type: "workspace-file",
+      root: "notebook",
+      path: "docs/backup.001",
+    })
+  })
+
+  test("keeps the notebook when a Notes file links outside its library", () => {
+    expect(
+      markdownBenchOutsideFileOpen({
+        notebookDirectory: "/notebook",
+        storageDirectory: "/notes",
+        outsidePath: "/tmp/report.pdf",
+      }),
+    ).toEqual({ directory: "/notebook", path: "/tmp/report.pdf" })
+    expect(
+      markdownBenchOutsideFileOpen({
+        notebookDirectory: "/notebook",
+        storageDirectory: "/notes",
+        outsidePath: "../Outside.md",
+      }),
+    ).toEqual({ directory: "/notebook", path: "/Outside.md" })
   })
 })

@@ -19,7 +19,10 @@ import {
 } from "@/components/bench/markdown/editor"
 import { BenchFileMissing } from "@/components/bench/bench-file-missing"
 import { markdownBenchDirty } from "@/components/bench/markdown/file-rules"
-import { resolveMarkdownBenchLink } from "@/components/bench/markdown/link-navigation"
+import {
+  markdownBenchOutsideFileOpen,
+  resolveMarkdownBenchLink,
+} from "@/components/bench/markdown/link-navigation"
 import { resolveMarkdownBenchNoteTitle } from "@/components/bench/markdown/note-title"
 import {
   MarkdownBenchAdvancedToolbarSlot,
@@ -46,6 +49,7 @@ import { useMarkdownBenchWikiLinkContext } from "@/components/bench/markdown/use
 import type { ObsidianWikiLinkContext } from "@/components/bench/markdown/plugins/obsidian"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { useOpenLink, type OpenLinkOptions } from "@/components/directory-chat/use-open-link"
+import { useMarkdownFileLinkOpen } from "@/components/markdown/use-markdown-file-link-open"
 import { workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
 import {
   BENCH_MODE_REQUEST_POLICY,
@@ -119,6 +123,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const { controller } = useDirectoryNotebookRouteContext()
   const openBenchRoute = useOpenBench()
   const openLink = useOpenLink(props.directory)
+  const openOutsideFile = useMarkdownFileLinkOpen(props.directory)
   const editorRef = useRef<MarkdownBenchEditorHandle>(null)
   const [contents, setContents] = useState<MarkdownBenchContentsState>({
     items: [],
@@ -289,6 +294,16 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         openLink(target.url, options)
         return
       }
+      if (target.type === "outside-file") {
+        openOutsideFile(
+          markdownBenchOutsideFileOpen({
+            notebookDirectory: props.directory,
+            storageDirectory: location.directory,
+            outsidePath: target.path,
+          }).path,
+        )
+        return
+      }
       void openBenchRoute({
         directory: props.directory,
         target: Object.assign(
@@ -304,7 +319,15 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         autoOpen: null,
       })
     },
-    [benchDocument, location.path, openBenchRoute, openLink, props.directory],
+    [
+      benchDocument,
+      location.directory,
+      location.path,
+      openBenchRoute,
+      openLink,
+      openOutsideFile,
+      props.directory,
+    ],
   )
 
   const isPrintView = contentThemeMode === "print"

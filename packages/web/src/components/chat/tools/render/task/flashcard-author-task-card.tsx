@@ -145,6 +145,7 @@ export function FlashcardAuthorTaskCard({
   return (
     <>
       <SubagentCard
+        directory={directory}
         taskTitle={taskTitle}
         status={status}
         onOpenSession={openChildSession}

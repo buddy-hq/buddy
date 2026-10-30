@@ -6,7 +6,11 @@ import "@/components/chat/tools/text-shimmer.css"
 import { createFileTypeIconElement } from "@/components/files/file-type-icon"
 import { createAppIconElement, githubIconData, globeIconData } from "@/icons/app-icons"
 import { inAppBrowserOriginFaviconUrl, publicWebsiteFaviconUrl } from "@/lib/in-app-browser-favicon"
-import { markdownFileLinkPath } from "@/lib/markdown-file-links"
+import {
+  markdownFileLinkPath,
+  resolveLiteralMarkdownFileLink,
+  resolveMarkdownFileLink,
+} from "@/lib/markdown-file-links"
 import {
   findPresentedMediaCandidateMatches,
   normalizePresentedMediaCandidatePath,
@@ -801,6 +805,7 @@ type MarkdownHtmlSegmentProps = {
   cacheKey?: string
   className?: string
   directory?: string
+  documentPath?: string
   onOpenResource?: WorkspaceResourceOpener
   streaming?: boolean
   interrupted?: boolean
@@ -895,10 +900,13 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
       if (link.classList.contains("external-link")) return
 
       const chipPath = link.getAttribute("data-presented-media-path")?.trim()
-      const path = chipPath ? chipPath : markdownFileLinkPath(link.getAttribute("href") ?? "")
-      if (!path) return
+      const resolved = chipPath
+        ? resolveLiteralMarkdownFileLink(props.documentPath, chipPath)
+        : resolveMarkdownFileLink(props.documentPath, link.getAttribute("href") ?? "")
+      if (!resolved || resolved.kind === "external") return
       event.preventDefault()
-      openFileLink(path)
+      event.stopPropagation()
+      openFileLink(resolved.path)
     }
 
     root.addEventListener("click", handleClick)
@@ -976,6 +984,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
     props.cacheKey,
     decorateRenderedRoot,
     props.directory,
+    props.documentPath,
     props.text,
     props.streaming,
     preserveRenderedFallback,
@@ -1120,6 +1129,7 @@ export function MarkdownHtmlSegment(props: MarkdownHtmlSegmentProps) {
             cacheKey={blockKey}
             className=""
             directory={props.directory}
+            documentPath={props.documentPath}
             onOpenResource={props.onOpenResource}
             streaming={block.mode === "live"}
             interrupted={props.interrupted}

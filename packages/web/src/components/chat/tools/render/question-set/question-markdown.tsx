@@ -1,9 +1,11 @@
 import { cn } from "@buddy/ui"
 import DOMPurify from "dompurify"
 import { marked } from "marked"
-import { useEffect, useState } from "react"
+import { useEffect, useState, type MouseEvent } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
 import { parseInlineMarkdownToHtml } from "@/components/markdown/markdown-parser"
+import { useMarkdownFileLinkOpen } from "@/components/markdown/use-markdown-file-link-open"
+import { resolveMarkdownFileLink } from "@/lib/markdown-file-links"
 
 const QUESTION_MARKDOWN_CACHE_KEY_PREFIX = "question"
 const QUESTION_MARKDOWN_EMPTY_PART = "_"
@@ -86,10 +88,23 @@ function cacheInlineQuestionMarkdown(key: string, source: string, html: string) 
 
 export function QuestionInlineMarkdown(props: {
   text: string
+  directory?: string
   cacheKey: string
   className?: string
   wrapContent?: boolean
 }) {
+  const openFileLink = useMarkdownFileLinkOpen(props.directory)
+  const onClick = (event: MouseEvent<HTMLSpanElement>) => {
+    if (!props.directory || event.defaultPrevented) return
+    const target = event.target
+    const link = target instanceof Element ? target.closest("a") : null
+    if (!link || !event.currentTarget.contains(link)) return
+    const resolved = resolveMarkdownFileLink(undefined, link.getAttribute("href") ?? "")
+    if (!resolved || resolved.kind === "external") return
+    event.preventDefault()
+    event.stopPropagation()
+    openFileLink(resolved.path)
+  }
   const cached = questionInlineMarkdownCache.get(props.cacheKey)
   const [rendered, setRendered] = useState<QuestionInlineMarkdownRender | undefined>(() =>
     cached?.source === props.text
@@ -132,11 +147,19 @@ export function QuestionInlineMarkdown(props: {
   )
 
   if (props.wrapContent) {
-    return <span className={props.className}>{content}</span>
+    return (
+      <span className={props.className} onClick={onClick}>
+        {content}
+      </span>
+    )
   }
 
   return (
-    <span className={props.className} dangerouslySetInnerHTML={html ? { __html: html } : undefined}>
+    <span
+      className={props.className}
+      onClick={onClick}
+      dangerouslySetInnerHTML={html ? { __html: html } : undefined}
+    >
       {html ? undefined : props.text}
     </span>
   )
@@ -144,6 +167,7 @@ export function QuestionInlineMarkdown(props: {
 
 export function QuestionMarkdown(props: {
   text: string
+  directory?: string
   cacheKey: string
   variant?: QuestionMarkdownVariant
   className?: string
@@ -152,6 +176,7 @@ export function QuestionMarkdown(props: {
 
   return (
     <Markdown
+      directory={props.directory}
       text={props.text}
       cacheKey={props.cacheKey}
       className={cn(QUESTION_MARKDOWN_VARIANT_CLASS_NAME[variant], props.className)}

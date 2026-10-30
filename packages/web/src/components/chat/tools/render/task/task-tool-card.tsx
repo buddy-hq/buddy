@@ -8,6 +8,7 @@ export function TaskToolCard({ subagent, state, onOpenSession, directory }: Suba
 
   return (
     <SubagentCard
+      directory={directory}
       taskTitle={taskTitle}
       status={status}
       onOpenSession={openChildSession}

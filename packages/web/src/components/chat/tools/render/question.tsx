@@ -21,9 +21,11 @@ type ToolQuestion = {
 function QuestionAnswerList({
   questions,
   answers,
+  directory,
 }: {
   questions: ToolQuestion[]
   answers: string[][]
+  directory?: string
 }) {
   const questionEntries = enumerateQuestionMarkdownText(questions.map((entry) => entry.question))
 
@@ -39,6 +41,7 @@ function QuestionAnswerList({
             className="flex min-w-0 flex-col gap-0.5 px-4 py-3"
           >
             <QuestionMarkdown
+              directory={directory}
               text={question}
               cacheKey={`${cacheKey}:prompt`}
               variant="compact"
@@ -46,6 +49,7 @@ function QuestionAnswerList({
             />
             {answer ? (
               <QuestionMarkdown
+                directory={directory}
                 text={answer}
                 cacheKey={`${cacheKey}:answer:${answer}`}
                 variant="compact"
@@ -63,7 +67,7 @@ function QuestionAnswerList({
   )
 }
 
-export function renderQuestionTool({ state, info, icon }: ToolPartProps) {
+export function renderQuestionTool({ state, info, icon, directory }: ToolPartProps) {
   const toolQuestions = state.questions ?? []
   const questions = toolQuestions.map((entry) => ({ question: entry.text }))
   const questionAnswers = toolQuestions.map((entry) => [...(entry.answers ?? [])])
@@ -133,7 +137,11 @@ export function renderQuestionTool({ state, info, icon }: ToolPartProps) {
             <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
             <ToolRowAction className="normal-case text-text-weaker">{chromeLabel}</ToolRowAction>
           </ToolRow>
-          <QuestionAnswerList questions={questions} answers={questionAnswers} />
+          <QuestionAnswerList
+            questions={questions}
+            answers={questionAnswers}
+            directory={directory}
+          />
         </motion.div>
       )}
     </AnimatePresence>

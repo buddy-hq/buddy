@@ -1,71 +1,42 @@
 import { BENCH_WORKSPACE_ROOT_NOTEBOOK, type BenchWorkspaceRoot } from "@/lib/bench-targets"
+import { anchorMarkdownOutsidePath, resolveMarkdownFileLink } from "@/lib/markdown-file-links"
 
-const URI_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/u
-const SAFE_EXTERNAL_LINK_SCHEMES = new Set(["http:", "https:", "mailto:", "obsidian:"])
+export type TMarkdownBenchOutsideOpen = {
+  readonly directory: string
+  readonly path: string
+}
 
 export type MarkdownBenchLinkTarget =
   | { type: "external"; url: string }
   | { type: "workspace-file"; path: string; root: BenchWorkspaceRoot; fragment?: string }
-
-function decodeLinkPart(value: string): string {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value
-  }
-}
-
-function normalizedWorkspaceLinkPath(documentPath: string, hrefPath: string): string | undefined {
-  const normalizedHref = decodeLinkPart(hrefPath).replaceAll("\\", "/")
-  const segments = normalizedHref.startsWith("/")
-    ? []
-    : documentPath.replaceAll("\\", "/").split("/").slice(0, -1)
-
-  for (const segment of normalizedHref.split("/")) {
-    if (!segment || segment === ".") continue
-    if (segment === "..") {
-      if (segments.length === 0) return undefined
-      segments.pop()
-      continue
-    }
-    segments.push(segment)
-  }
-
-  return segments.length > 0 ? segments.join("/") : undefined
-}
+  | { type: "outside-file"; path: string }
 
 export function resolveMarkdownBenchLink(
   documentPath: string,
   href: string,
   root?: BenchWorkspaceRoot,
 ): MarkdownBenchLinkTarget | undefined {
-  const normalizedHref = href.trim()
-  if (!normalizedHref) return undefined
-  if (normalizedHref.startsWith("//")) {
-    return { type: "external", url: `https:${normalizedHref}` }
-  }
-  if (URI_SCHEME_PATTERN.test(normalizedHref)) {
-    const schemeEnd = normalizedHref.indexOf(":") + 1
-    const scheme = normalizedHref.slice(0, schemeEnd).toLocaleLowerCase()
-    return SAFE_EXTERNAL_LINK_SCHEMES.has(scheme)
-      ? { type: "external", url: normalizedHref }
-      : undefined
-  }
-
-  const fragmentStart = normalizedHref.indexOf("#")
-  const hrefPath = fragmentStart < 0 ? normalizedHref : normalizedHref.slice(0, fragmentStart)
-  const rawFragment = fragmentStart < 0 ? "" : normalizedHref.slice(fragmentStart + 1)
-  const path = hrefPath
-    ? normalizedWorkspaceLinkPath(documentPath, hrefPath)
-    : documentPath.replaceAll("\\", "/")
-  if (!path) return undefined
-  const fragment = decodeLinkPart(rawFragment).trim()
+  const resolved = resolveMarkdownFileLink(documentPath, href)
+  if (!resolved) return undefined
+  if (resolved.kind === "external") return { type: "external", url: resolved.url }
+  if (resolved.kind === "outside") return { type: "outside-file", path: resolved.path }
   return Object.assign(
     {
       type: "workspace-file" as const,
-      path,
+      path: resolved.path,
       root: root ?? BENCH_WORKSPACE_ROOT_NOTEBOOK,
     },
-    fragment ? { fragment } : undefined,
+    resolved.fragment ? { fragment: resolved.fragment } : undefined,
   )
+}
+
+export function markdownBenchOutsideFileOpen(input: {
+  notebookDirectory: string
+  storageDirectory: string
+  outsidePath: string
+}): TMarkdownBenchOutsideOpen {
+  return {
+    directory: input.notebookDirectory,
+    path: anchorMarkdownOutsidePath(input.storageDirectory, input.outsidePath),
+  }
 }

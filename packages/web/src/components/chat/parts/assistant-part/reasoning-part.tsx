@@ -7,11 +7,13 @@ import { reasoningBodyWithoutLeadingHeading } from "../../utils/markdown"
 type ReasoningPartProps = {
   part: ChatReasoningPart
   streaming?: boolean
+  directory?: string
 }
 
 export const ReasoningPart = memo(function ReasoningPart({
   part,
   streaming = false,
+  directory,
 }: ReasoningPartProps) {
   const active = parseTNumber(part.time?.end) === undefined
   const text = active ? part.text : reasoningBodyWithoutLeadingHeading(part.text)
@@ -22,7 +24,7 @@ export const ReasoningPart = memo(function ReasoningPart({
   return (
     <div className="min-w-0 w-full max-w-full opacity-60">
       <div data-chat-typography className="min-w-0 w-full max-w-full px-4">
-        <Markdown text={text} cacheKey={part.id} isStreaming={isStreaming} />
+        <Markdown text={text} cacheKey={part.id} isStreaming={isStreaming} directory={directory} />
       </div>
     </div>
   )

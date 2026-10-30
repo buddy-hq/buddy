@@ -31,6 +31,7 @@ const BREATH_PHASE_STEP_S = BREATH_DURATION_S / BREATH_PHASES
 
 type SubagentCardProps = {
   taskTitle?: string
+  directory?: string
   status: SubagentCardStatus
   onOpenSession?: () => void
   /** Activity text for the live line beneath the task title. */
@@ -48,7 +49,7 @@ type HeaderAreaProps = {
   children: ReactNode
 }
 
-function ExpandableMarkdown({ text }: { text: string }) {
+function ExpandableMarkdown({ text, directory }: { text: string; directory?: string }) {
   const [expanded, setExpanded] = useState(false)
   const [isOverflowing, setIsOverflowing] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -78,7 +79,11 @@ function ExpandableMarkdown({ text }: { text: string }) {
         className="overflow-hidden"
       >
         <div ref={contentRef}>
-          <Markdown text={text} className="px-3 py-2.5 text-sm text-text-base" />
+          <Markdown
+            text={text}
+            directory={directory}
+            className="px-3 py-2.5 text-sm text-text-base"
+          />
         </div>
       </motion.div>
 
@@ -175,6 +180,7 @@ function CardHeader({ status, taskTitle, activityLine, activityContent }: CardHe
 
 export function SubagentCard({
   taskTitle,
+  directory,
   status,
   onOpenSession,
   activityLine,
@@ -238,7 +244,11 @@ export function SubagentCard({
             transition={TASK_CARD_TRANSITION}
             className="flex flex-col"
           >
-            {childText !== undefined ? <ExpandableMarkdown text={childText} /> : children}
+            {childText !== undefined ? (
+              <ExpandableMarkdown text={childText} directory={directory} />
+            ) : (
+              children
+            )}
           </motion.div>
         ) : null}
       </AnimatePresence>

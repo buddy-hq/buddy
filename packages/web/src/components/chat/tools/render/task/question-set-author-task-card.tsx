@@ -128,6 +128,7 @@ export function QuestionSetAuthorTaskCard({
 
   return (
     <SubagentCard
+      directory={directory}
       taskTitle={taskTitle}
       status={status}
       onOpenSession={openChildSession}

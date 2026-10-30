@@ -1,8 +1,12 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, mock, setSystemTime, test } from "bun:test"
-import { act } from "react"
+import { act, type ReactNode } from "react"
 import type { Root } from "react-dom/client"
 import { createQueryTestRoot } from "./query-test-root"
+import { AssistantPartRenderer } from "../src/components/chat/parts/assistant-part/assistant-part"
+import { SubagentCard } from "../src/components/chat/tools/render/task/subagent-card"
+import { QuestionDock } from "../src/components/directory-chat/question-dock"
+import { parseTJsonObject, parseTString } from "../src/components/chat/tools/types"
 import { ExternalFileOpenDialog } from "../src/components/files/external-file-open-dialog"
 import { MarkdownHtmlSegment } from "../src/components/markdown/markdown-html-segment"
 import { resetMarkdownWorkerForTests } from "../src/components/markdown/markdown-worker"
@@ -53,6 +57,65 @@ describe("markdown link decoration", () => {
       root.render(<MarkdownHtmlSegment text={text} cacheKey={text} />)
       await flushEffects()
     })
+  }
+
+  async function openedMarkdownFilePaths(
+    text: string,
+    props: { directory: string; documentPath?: string; cacheKey: string },
+    content?: ReactNode,
+  ) {
+    const requestedPaths: string[] = []
+    const requestedDirectories: Array<string | null> = []
+    const platform: Platform = {
+      platform: "desktop",
+      os: "macos",
+      openLink() {},
+      async restart() {},
+      back() {},
+      forward() {},
+      async notify() {},
+    }
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input)
+        if (url.includes("/api/objects/media-presentation/files/resolve")) {
+          const request =
+            input instanceof Request
+              ? input.clone()
+              : new Request("http://localhost/resolve", {
+                  method: "POST",
+                  body: init?.body ?? null,
+                })
+          const record = parseTJsonObject(JSON.parse(await request.text()))
+          const path = record ? parseTString(record.path) : undefined
+          if (path) {
+            requestedPaths.push(path)
+            requestedDirectories.push(new URL(url, "http://localhost").searchParams.get("directory"))
+          }
+        }
+        return Response.json({ error: "File not found" }, { status: 404 })
+      }),
+      originalFetch,
+    )
+
+    await act(async () => {
+      root.render(
+        <PlatformProvider value={platform}>
+          {content ?? <MarkdownHtmlSegment text={text} {...props} />}
+          <ExternalFileOpenDialog />
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    for (const link of container.querySelectorAll<HTMLAnchorElement>("a")) {
+      await act(async () => {
+        link.click()
+        await flushEffects()
+      })
+    }
+    expect(requestedDirectories).toEqual(requestedPaths.map(() => props.directory))
+    return requestedPaths
   }
 
   test("puts the site favicon before a web link", async () => {
@@ -138,6 +201,124 @@ describe("markdown link decoration", () => {
     const link = container.querySelector("a.presented-media-link")
     expect(link?.getAttribute("data-presented-media-path")).toBe("./artifacts/notes.md")
     expect(link?.textContent).toBe("notes.md")
+  })
+
+  test("opens a bare relative markdown link from chat against the notebook", async () => {
+    const requestedPaths = await openedMarkdownFilePaths(
+      "Created [workshop-objectives.md](workshop-objectives.md) in this workspace.",
+      { directory: "/notebook", cacheKey: "bare-relative-link" },
+    )
+
+    expect(requestedPaths).toEqual(["workshop-objectives.md"])
+  })
+
+  test("a handled file link click does not reach an enclosing button", async () => {
+    const parentClicks: string[] = []
+    const requestedPaths = await openedMarkdownFilePaths(
+      "- Read [notes](notes/a.md).",
+      { directory: "/notebook", cacheKey: "file-link-inside-option" },
+      <div role="button" tabIndex={0} onClick={() => parentClicks.push("option")}>
+        <MarkdownHtmlSegment
+          text="- Read [notes](notes/a.md)."
+          directory="/notebook"
+          cacheKey="file-link-inside-option"
+        />
+      </div>,
+    )
+
+    expect(requestedPaths).toEqual(["notes/a.md"])
+    expect(parentClicks).toEqual([])
+  })
+
+  test("opens a notebook markdown link from that file's own folder", async () => {
+    const requestedPaths = await openedMarkdownFilePaths("[notes](../notes/a.md)\n\n[shot](./img.png)", {
+      directory: "/notebook",
+      documentPath: "docs/guide.md",
+      cacheKey: "document-relative-links",
+    })
+
+    expect(requestedPaths).toEqual(["notes/a.md", "docs/img.png"])
+  })
+
+  test("opens a decoded hash and a literal percent in a file name once", async () => {
+    const requestedPaths = await openedMarkdownFilePaths(
+      "[draft](./report%23draft.md)\n\n[percent](./report%2520draft.md)\n\n[hash](%23draft.md)",
+      { directory: "/notebook", cacheKey: "encoded-file-names" },
+    )
+
+    expect(requestedPaths).toEqual(["./report#draft.md", "./report%20draft.md", "#draft.md"])
+    expect(
+      await openedMarkdownFilePaths("[hash](%23draft.md)", {
+        directory: "/notebook",
+        documentPath: "docs/guide.md",
+        cacheKey: "document-encoded-file-name",
+      }),
+    ).toEqual(["docs/#draft.md"])
+  })
+
+  test("opens a notebook file linked from an assistant reasoning part", async () => {
+    const text = "Read [notes](notes/a.md)."
+    expect(
+      await openedMarkdownFilePaths(
+        text,
+        { directory: "/notebook", cacheKey: "reasoning-file-link" },
+        <AssistantPartRenderer
+          directory="/notebook"
+          part={{
+            id: "reasoning-file-link",
+            sessionID: "session-markdown-links",
+            messageID: "message-markdown-links",
+            type: "reasoning",
+            text,
+            time: { start: 1, end: 2 },
+          }}
+        />,
+      ),
+    ).toEqual(["notes/a.md"])
+  })
+
+  test("opens a notebook file linked from a subagent result", async () => {
+    const text = "Read [notes](notes/a.md)."
+    expect(
+      await openedMarkdownFilePaths(
+        text,
+        { directory: "/notebook", cacheKey: "subagent-file-link" },
+        <SubagentCard directory="/notebook" status="completed">
+          {text}
+        </SubagentCard>,
+      ),
+    ).toEqual(["notes/a.md"])
+  })
+
+  test.each(["Read [notes](notes/a.md).", "- Read [notes](notes/a.md)."])(
+    "opens a notebook file from a question dock prompt: %s",
+    async (text) => {
+      expect(
+        await openedMarkdownFilePaths(
+          text,
+          { directory: "/notebook", cacheKey: `question-file-link:${text}` },
+          <QuestionDock
+            directory="/notebook"
+            request={{
+              id: `question-file-link:${text}`,
+              sessionID: "session-markdown-links",
+              questions: [{ question: text, header: "Read notes", options: [] }],
+            }}
+            onReply={async () => {}}
+            onReject={async () => {}}
+          />,
+        ),
+      ).toEqual(["notes/a.md"])
+    },
+  )
+
+  test("opens a non-canonical file URL wrapped around an image", async () => {
+    const requestedPaths = await openedMarkdownFilePaths(
+      "[![preview](./preview.png)](file:/tmp/report.pdf)",
+      { directory: "/notebook", cacheKey: "image-wrapped-file-url" },
+    )
+
+    expect(requestedPaths).toEqual(["/tmp/report.pdf"])
   })
 
   test("renders a plain external file path as a file chip", async () => {

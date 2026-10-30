@@ -77,6 +77,7 @@ function CompletedQuestionSetTool(props: {
       status={props.toolProps.state.status}
     >
       <QuestionSetInlineView
+        directory={directory}
         questionSet={parsed.questionSet}
         onOpenBench={
           directory

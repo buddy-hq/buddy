@@ -464,6 +464,7 @@ function ObsidianEmbeddedNote(props: {
             text={preview}
             cacheKey={`${props.context.directory}:${path}`}
             directory={props.context.directory}
+            documentPath={path || undefined}
             className="text-[0.875em]"
           />
         ) : (

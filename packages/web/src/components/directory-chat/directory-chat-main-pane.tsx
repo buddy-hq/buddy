@@ -923,6 +923,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             <div className="mx-auto w-full max-w-200 shrink-0 px-4 pb-4 pt-2">
               <QuestionDock
                 key={activeQuestion.id}
+                directory={directory}
                 request={activeQuestion}
                 pendingCount={Math.max(0, currentSessionQuestions.length - 1)}
                 onReply={(answers) => onQuestionReply(activeQuestion.id, answers)}
