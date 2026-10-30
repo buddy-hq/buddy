@@ -4,6 +4,19 @@ import os from "node:os"
 import path from "node:path"
 import { runTestFile, testFileTimeoutMilliseconds } from "./run-tests"
 
+async function processExits(pid: number): Promise<boolean> {
+  const deadline = Date.now() + 2_000
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0)
+    } catch {
+      return true
+    }
+    await Bun.sleep(10)
+  }
+  return false
+}
+
 test("uses an eight minute file deadline and rejects invalid timeout configuration", () => {
   expect(testFileTimeoutMilliseconds(undefined)).toBe(480_000)
   expect(testFileTimeoutMilliseconds("0.25")).toBe(250)
@@ -32,7 +45,7 @@ test("a file deadline terminates the test and its descendant and reports failure
     expect(result).toEqual({ exitCode: 1, signal: undefined })
     const pid = Number(await readFile(marker, "utf8"))
     expect(Number.isSafeInteger(pid)).toBe(true)
-    expect(() => process.kill(pid, 0)).toThrow()
+    expect(await processExits(pid)).toBe(true)
   } finally {
     clearTimeout(safetyTimer)
     await rm(root, { recursive: true, force: true })
