@@ -26,13 +26,68 @@ describe("notebook file ranking", () => {
     ).toEqual(["notes/nbs.md", "src/notebook-search.ts"])
   })
 
-  test("keeps deep literal path matches ahead of loose abbreviations", () => {
+  test("ranks a separator-equivalent file name ahead of a longer name, a path, and a fuzzy match", () => {
+    const paths = [
+      "archive/workshop objectives/overview.md",
+      "notes/workshop-objectives.md",
+      "pkg/workshop_objectives_extra.ts",
+      "src/unrelated.ts",
+    ]
+    const expected = [
+      "notes/workshop-objectives.md",
+      "pkg/workshop_objectives_extra.ts",
+      "archive/workshop objectives/overview.md",
+    ]
+    for (const query of [
+      "workshop-objectives",
+      "workshop_objectives",
+      "workshop objectives",
+      "workshop/objectives",
+      "Workshop_Objectives",
+    ]) {
+      expect(rankNotebookFilePaths({ query, paths })).toEqual(expected)
+    }
+    expect(rankNotebookFilePaths({ query: "workshop objectives", paths, limit: 2 })).toEqual([
+      "notes/workshop-objectives.md",
+      "pkg/workshop_objectives_extra.ts",
+    ])
+    expect(
+      rankNotebookFilePaths({
+        query: "workshop_objectives",
+        paths: ["notes/workshop-objectives.md", "notes/workshop-objectives"],
+      }),
+    ).toEqual(["notes/workshop-objectives", "notes/workshop-objectives.md"])
+    expect(
+      rankNotebookFilePaths({
+        query: "snake_case",
+        paths: ["pkg/snake/case/index.ts", "src/SnakeCase.ts", "docs/snake-case.md"],
+      }),
+    ).toEqual(["docs/snake-case.md", "src/SnakeCase.ts", "pkg/snake/case/index.ts"])
     expect(
       rankNotebookFilePaths({
         query: "xyz",
         paths: ["x-y-z.md", `${"deep/".repeat(40)}xyz-notes.md`, "x-many-letters-y-z.md"],
       }),
-    ).toEqual([`${"deep/".repeat(40)}xyz-notes.md`, "x-y-z.md"])
+    ).toEqual(["x-y-z.md", `${"deep/".repeat(40)}xyz-notes.md`])
+  })
+
+  test("finds reordered tokens and abbreviations for every separator", () => {
+    const paths = ["notes/snake-case.md", "src/notebook-search.ts", "src/unrelated.ts"]
+    for (const query of ["case snake", "case-snake", "case_snake", "case/snake", "case\\snake"]) {
+      expect(rankNotebookFilePaths({ query, paths })).toEqual(["notes/snake-case.md"])
+    }
+    for (const query of ["nb search", "nb-search", "nb_search", "nb/search", "nb\\search"]) {
+      expect(rankNotebookFilePaths({ query, paths })).toEqual(["src/notebook-search.ts"])
+    }
+  })
+
+  test("keeps a deep literal path match ahead of a loose abbreviation", () => {
+    expect(
+      rankNotebookFilePaths({
+        query: "nbs",
+        paths: ["notebook-search.ts", `${"deep/".repeat(40)}nbs/readme.md`],
+      }),
+    ).toEqual([`${"deep/".repeat(40)}nbs/readme.md`, "notebook-search.ts"])
   })
 
   test("matches names stored with decomposed accents", () => {

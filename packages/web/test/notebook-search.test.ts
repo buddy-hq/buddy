@@ -121,17 +121,82 @@ describe("notebook search", () => {
     ])
   })
 
-  test("ranks literal path hits ahead of loose title abbreviations", () => {
-    const literal = scoreNotebookSearchText({
+  test("ranks a separator-equivalent file name ahead of a path match", () => {
+    const obvious = {
+      ...searchResult({ id: "objectives", kind: "file", title: "workshop-objectives.md" }),
+      keywords: "notes/workshop-objectives.md",
+    }
+    const pathMatch = {
+      ...searchResult({ id: "chat", kind: "thread", title: "Planning notes" }),
+      metadata: "Chat · archive/workshop objectives",
+    }
+    for (const query of ["workshop objectives", "workshop_objectives", "workshop/objectives"]) {
+      expect(
+        searchNotebookResults({
+          query,
+          filter: "all",
+          results: [pathMatch, obvious],
+        }).map((result) => result.id),
+      ).toEqual(["objectives", "chat"])
+    }
+    const separatorName = scoreNotebookSearchText({ query: "xyz", title: "x-y-z.md" })
+    const deepLiteral = scoreNotebookSearchText({
       query: "xyz",
       title: "Other file",
       keywords: `${"deep/".repeat(40)}xyz-notes.md`,
     })
-    const abbreviation = scoreNotebookSearchText({ query: "xyz", title: "x-y-z.md" })
-    expect(literal).toBeLessThan(abbreviation ?? Number.POSITIVE_INFINITY)
+    expect(separatorName).toBeLessThan(deepLiteral ?? Number.POSITIVE_INFINITY)
     expect(
       scoreNotebookSearchText({ query: "xyz", title: "x-many-letters-y-z.md" }),
     ).toBeUndefined()
+  })
+
+  test("ranks a filename prefix ahead of a provider-only note", () => {
+    const file = searchResult({
+      id: "file",
+      kind: "file",
+      title: "workshop-objectives.md",
+    })
+    const note = {
+      ...searchResult({ id: "note", kind: "note", title: "Meeting recap" }),
+      providerMatchedQuery: "workshop objectives",
+    }
+    expect(
+      searchNotebookResults({
+        query: "workshop objectives",
+        filter: "all",
+        results: [note, file],
+      }).map((result) => result.id),
+    ).toEqual(["file", "note"])
+  })
+
+  test("matches reordered tokens and abbreviations for every separator", () => {
+    const tokenScore = scoreNotebookSearchText({
+      query: "case snake",
+      title: "notes/snake-case.md",
+    })
+    expect(tokenScore).toBeDefined()
+    for (const query of ["case snake", "case-snake", "case_snake", "case/snake", "case\\snake"]) {
+      expect(scoreNotebookSearchText({ query, title: "notes/snake-case.md" })).toBe(tokenScore)
+    }
+    const abbreviation = scoreNotebookSearchText({
+      query: "nb-search",
+      title: "src/notebook-search.ts",
+    })
+    expect(abbreviation).toBeDefined()
+    for (const query of ["nb search", "nb-search", "nb_search", "nb/search", "nb\\search"]) {
+      expect(scoreNotebookSearchText({ query, title: "src/notebook-search.ts" })).toBe(abbreviation)
+    }
+  })
+
+  test("ranks a literal path hit ahead of a loose title abbreviation", () => {
+    const literal = scoreNotebookSearchText({
+      query: "nbs",
+      title: "Other file",
+      keywords: `${"deep/".repeat(40)}nbs/readme.md`,
+    })
+    const abbreviation = scoreNotebookSearchText({ query: "nbs", title: "notebook-search.ts" })
+    expect(literal).toBeLessThan(abbreviation ?? Number.POSITIVE_INFINITY)
   })
 
   test("balances mixed results before filling unused capacity from a dominant kind", () => {

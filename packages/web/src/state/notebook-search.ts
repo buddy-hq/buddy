@@ -5,7 +5,11 @@ import type { BenchTabTarget } from "@/lib/bench-targets"
 import type { ResourceFileExtension, ResourceViewStatus } from "@/state/resources-query"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { parseSubagentSession } from "@/lib/session-family"
-import { abbreviationScore, normalizeNotebookSearchText } from "@/state/notebook-file-ranking"
+import {
+  normalizeNotebookSearchText,
+  SCORE_PROVIDER,
+  scoreNormalizedNotebookSearch,
+} from "@/state/notebook-file-ranking"
 
 export const NOTEBOOK_SEARCH_MIN_QUERY_LENGTH = 2
 export const NOTEBOOK_SEARCH_MAX_QUERY_LENGTH = 200
@@ -131,26 +135,10 @@ export function scoreNotebookSearchText(input: {
   if (!query) return 0
 
   const title = normalizeNotebookSearchText(input.title)
-  if (title === query) return 0
-  if (title.startsWith(query)) return 10 + title.length - query.length
-
-  const titleIndex = title.indexOf(query)
-  if (titleIndex >= 0) return 30 + titleIndex
-
   const searchableText = normalizeNotebookSearchText(
     `${input.title} ${input.metadata ?? ""} ${input.keywords ?? ""}`,
   )
-  const textIndex = searchableText.indexOf(query)
-  if (textIndex >= 0) return 60 + textIndex
-
-  const tokens = query.split(/\s+/u).filter(Boolean)
-  let tokenScore = 100
-  for (const token of tokens) {
-    const tokenIndex = searchableText.indexOf(token)
-    if (tokenIndex < 0) return abbreviationScore(query, title)
-    tokenScore += tokenIndex
-  }
-  return tokenScore
+  return scoreNormalizedNotebookSearch({ query, name: title, path: searchableText })
 }
 
 function compareScoredResults(
@@ -224,7 +212,7 @@ export function searchNotebookResults(input: {
       keywords: result.keywords,
     })
     const score =
-      textScore ?? (result.providerMatchedQuery === input.query.trim() ? 200 : undefined)
+      textScore ?? (result.providerMatchedQuery === input.query.trim() ? SCORE_PROVIDER : undefined)
     if (score === undefined) continue
     scored.push({ result, score })
   }
