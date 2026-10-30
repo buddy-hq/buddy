@@ -46,6 +46,7 @@ export function FlashcardSessionSummary(props: {
   tally: FlashcardSessionTally
   standing: FlashcardStanding
   upNext: FlashcardUpNextDeck[]
+  onStudyAgain?: () => void
   onBackToDeck: () => void
   onPractice: () => void
   onOpenDeck: (objectID: string) => void
@@ -53,6 +54,7 @@ export function FlashcardSessionSummary(props: {
   const { tally } = props
   const total = Math.max(1, tally.reviewed)
   const ratings = RATING_ORDER.filter((rating) => tally.ratings[rating] > 0)
+  const reviewedNothing = tally.reviewed === 0
 
   return (
     <div
@@ -63,9 +65,11 @@ export function FlashcardSessionSummary(props: {
         <span className="min-w-0 flex-1 truncate text-[10px] uppercase tracking-[0.14em] text-text-weaker">
           {props.deckTitle}
         </span>
-        <span className="shrink-0 font-mono text-[11px] tabular-nums text-text-weaker">
-          {tally.reviewed}
-        </span>
+        {reviewedNothing ? null : (
+          <span className="shrink-0 font-mono text-[11px] tabular-nums text-text-weaker">
+            {tally.reviewed}
+          </span>
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-5">
@@ -81,42 +85,56 @@ export function FlashcardSessionSummary(props: {
               sit 10–12px under it while the next block sits 28px away. */}
           <span className={EYEBROW}>{language.t("flashcardDeck.eyebrowSession")}</span>
           <p className="mt-3.5 text-[24px] font-semibold leading-tight tracking-tight text-text-stronger">
-            {language.t("flashcardDeck.sessionHeadline", {
-              count: tally.reviewed,
-              duration: formatDuration(tally.elapsedMs),
-            })}
+            {reviewedNothing
+              ? language.t("workspaceFlashcard.reviewComplete")
+              : language.t("flashcardDeck.sessionHeadline", {
+                  count: tally.reviewed,
+                  duration: formatDuration(tally.elapsedMs),
+                })}
           </p>
           {/* The strip carries the colour; the counts read plainly rather than
               repeating it word for word in four accents. */}
-          <div className="mt-3 flex h-1 w-full overflow-hidden">
-            {ratings.map((rating) => (
-              <span
-                key={rating}
-                className={REVIEW_RATING_TONE[rating].rule}
-                style={{ width: `${(tally.ratings[rating] / total) * 100}%` }}
-                aria-hidden
-              />
-            ))}
-          </div>
-          <p className="mt-2.5 text-[11px] text-text-weaker">
-            {ratings
-              .map(
-                (rating) =>
-                  `${tally.ratings[rating]} ${language.t(
-                    `workspaceFlashcard.rating${rating.charAt(0).toUpperCase()}${rating.slice(1)}`,
-                  )}`,
-              )
-              .join(" · ")}
-          </p>
+          {reviewedNothing ? null : (
+            <>
+              <div className="mt-3 flex h-1 w-full overflow-hidden">
+                {ratings.map((rating) => (
+                  <span
+                    key={rating}
+                    className={REVIEW_RATING_TONE[rating].rule}
+                    style={{ width: `${(tally.ratings[rating] / total) * 100}%` }}
+                    aria-hidden
+                  />
+                ))}
+              </div>
+              <p className="mt-2.5 text-[11px] text-text-weaker">
+                {ratings
+                  .map(
+                    (rating) =>
+                      `${tally.ratings[rating]} ${language.t(
+                        `workspaceFlashcard.rating${rating.charAt(0).toUpperCase()}${rating.slice(1)}`,
+                      )}`,
+                  )
+                  .join(" · ")}
+              </p>
+            </>
+          )}
 
           {/* Why it stopped — the deck's own sentence. */}
           <p className="mt-7 max-w-[42ch] text-[13.5px] leading-relaxed text-text-weak">
             {props.standing.sessionLine}
           </p>
 
-          {/* One verb, one button. Practice is the quiet alternative. */}
           <div className="mt-5 flex flex-wrap items-center gap-4">
-            <Button size="sm" onClick={props.onBackToDeck}>
+            {props.onStudyAgain ? (
+              <Button size="sm" onClick={props.onStudyAgain}>
+                {language.t("flashcardDeck.studyAgain")}
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant={props.onStudyAgain ? "outline" : "default"}
+              onClick={props.onBackToDeck}
+            >
               {language.t("flashcardDeck.backToDeck")}
             </Button>
             <button

@@ -24,7 +24,7 @@ import { useRefetchObjectsOnWorkerFinish } from "./use-subagent-objects"
 function FlashcardDeckTaskPreview(props: {
   directory: string
   deck: ObjectFlashcardDeckReadDeckResponse
-  onStartReview: (deck: { objectID: string; title: string }) => void
+  onStartReview: (deck: { objectID: string; title: string; mode: "review" | "deck" }) => void
 }) {
   const queueQuery = useQuery(
     objectFlashcardDeckQueueQueryOptions({
@@ -36,7 +36,7 @@ function FlashcardDeckTaskPreview(props: {
   const reviewAvailable = isFlashcardReviewAvailable(queueQuery.data)
   const totalDue = getFlashcardDueCount(queueQuery.data)
 
-  if (!reviewAvailable) {
+  if (queueQuery.isPending || queueQuery.isError) {
     return (
       <div className="flex items-center justify-between gap-4 px-3 py-2.5">
         <div className="min-w-0 flex-1">
@@ -53,7 +53,7 @@ function FlashcardDeckTaskPreview(props: {
     <motion.button
       type="button"
       onClick={() =>
-        props.onStartReview({ objectID: props.deck.objectID, title: props.deck.title })
+        props.onStartReview({ objectID: props.deck.objectID, title: props.deck.title, mode: reviewAvailable ? "review" : "deck" })
       }
       whileHover={{ backgroundColor: "var(--surface-weak)" }}
       whileTap={{ scale: 0.995 }}
@@ -180,7 +180,7 @@ export function FlashcardAuthorTaskCard({
                         target: prepareFlashcardBenchTarget({
                           directory,
                           objectID: selectedDeck.objectID,
-                          mode: "review",
+                          mode: selectedDeck.mode,
                         }),
                         mode: BENCH_MODE_REQUEST_POLICY,
                         autoOpen: null,

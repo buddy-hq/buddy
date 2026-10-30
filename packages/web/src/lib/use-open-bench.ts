@@ -1,4 +1,6 @@
 import { useMemo } from "react"
+import { toast } from "@buddy/ui"
+import { prepareFlashcardBenchOpen } from "@/components/flashcard/flashcard-bench-target"
 import { useDirectoryWorkspaceOptional } from "@/components/directory-chat/directory-workspace-context"
 import type { DirectoryWorkspaceOpenResult } from "./directory-workspace-controller"
 import { type BenchOpenRequest } from "./bench-targets"
@@ -41,6 +43,18 @@ function useOpenBench(): OpenBench {
           reason: "session_inactive",
           projection: NO_WORKSPACE_OPEN_PROJECTION,
         }
+      }
+      if (
+        !request.autoOpen &&
+        options.origin === "user" &&
+        request.target.type === "object" &&
+        request.target.ref.kind === "flashcard-deck"
+      ) {
+        const result = await prepareFlashcardBenchOpen({
+          directory: request.directory,
+          target: request.target,
+        })
+        if (result.status === "error") toast.error(result.error.message)
       }
       return workspace.controller.executeOpen(request, {
         origin: request.autoOpen ? "auto-open" : options.origin,

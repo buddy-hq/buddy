@@ -1,4 +1,6 @@
-import { generateObjectID } from "../../../../objects"
+import { BuddyObjectPath, generateObjectID } from "../../../../objects"
+import { writeJsonFileAtomic } from "../../../../storage/atomic-file"
+import { flashcardDeckObjectStatePath } from "./save-deck"
 import { assertIdempotencyRequestHash } from "../../../../http/idempotency"
 import { scheduleReview } from "./scheduler"
 import {
@@ -6,6 +8,8 @@ import {
   ReviewRecordSchema,
   type CardRating,
   type FlashcardCard,
+  type FlashcardDeck,
+  type FlashcardReviewMode,
   type FlashcardQueueLease,
   type FlashcardQueuedCards,
   type ReviewRecord,
@@ -151,7 +155,7 @@ async function submitFlashcardObjectReview(input: {
     const card = deck.cards[cardIndex]
     if (
       input.queueLease.card.cardID !== input.cardID ||
-      !flashcardQueueLeaseMatchesCard(input.queueLease, card)
+      !flashcardQueueLeaseMatchesCard(input.queueLease, card, deck.progressGeneration)
     ) {
       throw new FlashcardCardNotQueuedError(input.cardID)
     }
@@ -172,10 +176,12 @@ async function submitFlashcardObjectReview(input: {
     const queuedTiming = schedulerTiming(queuedAt, config.rolloverHour)
     const queue = buildFlashcardQueue({
       cards: deck.cards,
+      progressGeneration: deck.progressGeneration,
       config,
       reviewedToday: queuedReviewedToday,
       timing: queuedTiming,
       fetchLimit: 2,
+      reviewMode: input.queueLease.reviewMode,
     })
     if (queue.cards[0]?.cardID !== input.cardID) {
       throw new FlashcardCardNotQueuedError(input.cardID)
@@ -269,6 +275,7 @@ async function getQueuedFlashcardObjectsForReview(input: {
   directory: string
   objectID: string
   fetchLimit: number
+  reviewMode?: FlashcardReviewMode
 }): Promise<FlashcardQueuedCards> {
   return runFlashcardObjectReviewMutation(input, async () => {
     await recoverPendingFlashcardObjectReview(input.directory, input.objectID)
@@ -286,17 +293,79 @@ async function getQueuedFlashcardObjectsForReview(input: {
 
     return buildFlashcardQueue({
       cards: deck.cards,
+      progressGeneration: deck.progressGeneration,
       config,
       reviewedToday,
       timing: schedulerTiming(now, config.rolloverHour),
       fetchLimit: input.fetchLimit,
+      reviewMode: input.reviewMode,
     })
   })
+}
+
+class FlashcardProgressResetError extends Error {
+  readonly _tag = "FlashcardProgressResetError"
+
+  constructor(readonly objectID: string, cause: unknown) {
+    super(`Could not reset flashcard deck '${objectID}'.`, { cause })
+    this.name = "FlashcardProgressResetError"
+  }
+}
+
+type ResetFlashcardObjectProgressResult =
+  | { status: "reset"; deck: FlashcardDeck }
+  | { status: "error"; error: FlashcardProgressResetError }
+
+async function resetFlashcardObjectProgress(input: {
+  directory: string
+  objectID: string
+}): Promise<ResetFlashcardObjectProgressResult> {
+  try {
+    const deck = await runFlashcardObjectReviewMutation(input, async () => {
+      await recoverPendingFlashcardObjectReview(input.directory, input.objectID)
+      await reconcilePendingFlashcardReviewIngestions(input)
+      const deck = await readFlashcardDeckObject(input.directory, input.objectID)
+      const reset: FlashcardDeck = {
+        ...deck,
+        progressGeneration: (deck.progressGeneration ?? 0) + 1,
+        cards: deck.cards.map(({ lastReviewAt: _lastReviewAt, ...card }) => ({
+          ...card,
+          state: "new",
+          queue: "new",
+          due: 0,
+          interval: 0,
+          reps: 0,
+          lapses: 0,
+          remainingSteps: 0,
+          easeFactor: deck.config.initialEaseFactor,
+        })),
+        dailyReviewCounts: {
+          schedulingDay: schedulingDayKey(Date.now(), deck.config.rolloverHour),
+          newCount: 0,
+          reviewCount: 0,
+        },
+      }
+      await writeJsonFileAtomic(
+        BuddyObjectPath.objectFile(
+          input.directory,
+          "flashcard-deck",
+          input.objectID,
+          flashcardDeckObjectStatePath(),
+        ),
+        reset,
+      )
+      return reset
+    })
+    return { status: "reset", deck }
+  } catch (cause) {
+    return { status: "error", error: new FlashcardProgressResetError(input.objectID, cause) }
+  }
 }
 
 export {
   FlashcardCardNotFoundError,
   FlashcardCardNotQueuedError,
   getQueuedFlashcardObjectsForReview,
+  resetFlashcardObjectProgress,
   submitFlashcardObjectReview,
 }

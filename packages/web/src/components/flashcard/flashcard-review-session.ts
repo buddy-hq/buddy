@@ -7,6 +7,7 @@ import {
   loadObjectFlashcardDeckQueue,
   objectFlashcardDeckPayloadQueryOptions,
   objectFlashcardDeckQueueQueryOptions,
+  type FlashcardReviewMode,
 } from "@/state/workspace-objects-query"
 import { FLASHCARD_QUEUE_REFETCH_FLOOR_MS, getFlashcardDueCount } from "@/lib/flashcard"
 import { createIdempotencyKey, IDEMPOTENCY_KEY_PARAMETER } from "@/lib/idempotency"
@@ -79,11 +80,16 @@ export type FlashcardReviewSession = {
   retry: () => void
   /** Start a fresh sitting without requiring the owning surface to remount. */
   restart: (seedDeck?: ObjectFlashcardDeckReadDeckResponse) => void
+  studyAgain: () => void
 }
 
 type UseFlashcardReviewSessionInput = {
   directory: string
   objectID: string
+  initialReviewMode?: FlashcardReviewMode
+  initialResetError?: string
+  onResetErrorChanged?: (message: string | undefined) => void
+  sessionKey?: number
   /** Surfaces that already hold the payload (Bench) can seed it. */
   initialDeck?: ObjectFlashcardDeckReadDeckResponse
   /** Called with the freshly reloaded deck after each rating lands. */
@@ -120,6 +126,18 @@ export function useFlashcardReviewSession(
   const queueLeaseRef = useRef<ObjectFlashcardDeckQueuedCardsResponse["queueLease"]>(null)
   /** Bumped on every (re)init so a late response from a previous deck is dropped. */
   const generationRef = useRef(0)
+  const reviewModeRef = useRef<FlashcardReviewMode>(input.initialReviewMode ?? "scheduled")
+  const initialReviewModeRef = useRef(input.initialReviewMode)
+  const initialDeckRef = useRef(initialDeck)
+  initialDeckRef.current = initialDeck
+  initialReviewModeRef.current = input.initialReviewMode
+  const initialResetErrorRef = useRef(input.initialResetError)
+  initialResetErrorRef.current = input.initialResetError
+  const resetRequiredRef = useRef(input.initialResetError !== undefined)
+  const onResetErrorChangedRef = useRef(input.onResetErrorChanged)
+  useEffect(() => {
+    onResetErrorChangedRef.current = input.onResetErrorChanged
+  }, [input.onResetErrorChanged])
 
   const onDeckRefreshedRef = useRef(input.onDeckRefreshed)
   const initialTallyRef = useRef(input.initialTally)
@@ -142,9 +160,19 @@ export function useFlashcardReviewSession(
       setQueue(nextQueue)
       queueLeaseRef.current = nextQueue.queueLease
       queryClient.setQueryData(
-        objectFlashcardDeckQueueQueryOptions({ directory, objectID }).queryKey,
+        objectFlashcardDeckQueueQueryOptions({
+          directory,
+          objectID,
+          reviewMode: reviewModeRef.current,
+        }).queryKey,
         nextQueue,
       )
+      if (reviewModeRef.current === "study-again") {
+        void queryClient.invalidateQueries({
+          queryKey: objectFlashcardDeckQueueQueryOptions({ directory, objectID }).queryKey,
+          exact: true,
+        })
+      }
       const nextCard = nextQueue.cards[0]
       if (!nextCard) {
         applyPhase(cardsReviewedRef.current > 0 ? { kind: "complete" } : { kind: "no-due" })
@@ -162,7 +190,11 @@ export function useFlashcardReviewSession(
   const fetchQueue = useCallback(
     async (generation: number): Promise<void> => {
       try {
-        const response = await loadObjectFlashcardDeckQueue({ directory, objectID })
+        const response = await loadObjectFlashcardDeckQueue({
+          directory,
+          objectID,
+          reviewMode: reviewModeRef.current,
+        })
         if (generationRef.current !== generation) return
         applyQueue(response)
       } catch (error) {
@@ -178,10 +210,16 @@ export function useFlashcardReviewSession(
       seedDeck?: ObjectFlashcardDeckReadDeckResponse
       initialTally: FlashcardSessionTally
       reloadDeck: boolean
+      reviewMode?: FlashcardReviewMode
+      action?: "load" | "reset-progress"
+      resetError?: string
     }) => {
       const { seedDeck, initialTally, reloadDeck } = options
       generationRef.current += 1
       const generation = generationRef.current
+      const reviewMode = options.reviewMode ?? "scheduled"
+      reviewModeRef.current = reviewMode
+      resetRequiredRef.current = options.action === "reset-progress" || options.resetError !== undefined
 
       cardsReviewedRef.current = initialTally.reviewed
       tallyRef.current = initialTally
@@ -196,14 +234,34 @@ export function useFlashcardReviewSession(
       setPhase({ kind: "loading" })
       setDeck(seedDeck ?? null)
       setQueue(null)
+      if (options.resetError !== undefined) {
+        applyPhase({ kind: "error", message: options.resetError })
+        return
+      }
 
       async function start() {
         try {
           const deckPromise =
-            reloadDeck || !seedDeck
-              ? loadObjectFlashcardDeckPayload({ directory, objectID })
-              : Promise.resolve(seedDeck)
-          const queuePromise = loadObjectFlashcardDeckQueue({ directory, objectID })
+            options.action === "reset-progress"
+              ? getBuddyClient(directory).objectFlashcardDeck
+                  .resetProgress({ directory, objectID })
+                  .then((response) => {
+                    const resetDeck = requireBuddyData(response)
+                    if (generationRef.current === generation) {
+                      resetRequiredRef.current = false
+                      onResetErrorChangedRef.current?.(undefined)
+                    }
+                    return resetDeck
+                  })
+              : reloadDeck || !seedDeck
+                ? loadObjectFlashcardDeckPayload({ directory, objectID })
+                : Promise.resolve(seedDeck)
+          const queuePromise =
+            options.action === "reset-progress"
+              ? deckPromise.then(() =>
+                  loadObjectFlashcardDeckQueue({ directory, objectID, reviewMode }),
+                )
+              : loadObjectFlashcardDeckQueue({ directory, objectID, reviewMode })
           const [loadedDeck, loadedQueue] = await Promise.all([deckPromise, queuePromise])
           if (generationRef.current !== generation) return
           setDeck(loadedDeck)
@@ -214,7 +272,9 @@ export function useFlashcardReviewSession(
           applyQueue(loadedQueue)
         } catch (error) {
           if (generationRef.current !== generation) return
-          applyPhase({ kind: "error", message: describeError(error) })
+          const message = describeError(error)
+          if (resetRequiredRef.current) onResetErrorChangedRef.current?.(message)
+          applyPhase({ kind: "error", message })
         }
       }
 
@@ -226,11 +286,17 @@ export function useFlashcardReviewSession(
   // (Re)start the session whenever the target deck changes.
   useEffect(() => {
     const initialTally = initialTallyRef.current ?? emptyFlashcardReviewTally()
-    beginSession({ seedDeck: initialDeck, initialTally, reloadDeck: false })
+    beginSession({
+      seedDeck: initialDeckRef.current,
+      initialTally,
+      reloadDeck: false,
+      reviewMode: initialReviewModeRef.current,
+      resetError: initialResetErrorRef.current,
+    })
     return () => {
       generationRef.current += 1
     }
-  }, [beginSession, initialDeck])
+  }, [beginSession, input.sessionKey])
 
   const restart = useCallback(
     (seedDeck?: ObjectFlashcardDeckReadDeckResponse) => {
@@ -240,6 +306,18 @@ export function useFlashcardReviewSession(
     },
     [beginSession],
   )
+
+  const studyAgain = useCallback(() => {
+    if (resetRequiredRef.current || submissionInFlightRef.current) return
+    const initialTally = emptyFlashcardReviewTally()
+    onTallyChangedRef.current?.(initialTally)
+    beginSession({
+      initialTally,
+      reloadDeck: true,
+      reviewMode: "study-again",
+      action: "reset-progress",
+    })
+  }, [beginSession])
 
   useEffect(() => {
     if (phase.kind !== "no-due" && phase.kind !== "complete") return
@@ -296,7 +374,11 @@ export function useFlashcardReviewSession(
 
         const refreshPromise = Promise.all([
           loadObjectFlashcardDeckPayload({ directory, objectID }),
-          loadObjectFlashcardDeckQueue({ directory, objectID }),
+          loadObjectFlashcardDeckQueue({
+          directory,
+          objectID,
+          reviewMode: reviewModeRef.current,
+        }),
         ])
 
         if (result.isLeech) {
@@ -333,13 +415,26 @@ export function useFlashcardReviewSession(
   )
 
   const retry = useCallback(() => {
+    if (resetRequiredRef.current) {
+      beginSession({
+        initialTally: tallyRef.current,
+        reloadDeck: true,
+        reviewMode: "study-again",
+        action: "reset-progress",
+      })
+      return
+    }
     generationRef.current += 1
     const generation = generationRef.current
     setPhase({ kind: "loading" })
     setLastRating(null)
     void Promise.all([
       deck ? Promise.resolve(deck) : loadObjectFlashcardDeckPayload({ directory, objectID }),
-      loadObjectFlashcardDeckQueue({ directory, objectID }),
+      loadObjectFlashcardDeckQueue({
+          directory,
+          objectID,
+          reviewMode: reviewModeRef.current,
+        }),
     ])
       .then(([loadedDeck, loadedQueue]) => {
         if (generationRef.current !== generation) return
@@ -354,7 +449,7 @@ export function useFlashcardReviewSession(
         if (generationRef.current !== generation) return
         applyPhase({ kind: "error", message: describeError(error) })
       })
-  }, [applyPhase, applyQueue, deck, directory, objectID, queryClient])
+  }, [applyPhase, applyQueue, beginSession, deck, directory, objectID, queryClient])
 
   const toggleReveal = useCallback(() => {
     setRevealed((current) => !current)
@@ -384,6 +479,7 @@ export function useFlashcardReviewSession(
     rate: (rating) => void rate(rating),
     retry,
     restart,
+    studyAgain,
   }
 }
 

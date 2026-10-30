@@ -1596,6 +1596,7 @@ export const dict = {
   "flashcardDeck.showAnswer": "Show answer",
   "flashcardDeck.hideAnswer": "Hide answer",
   "flashcardDeck.nextCard": "Next card",
+  "flashcardDeck.studyAgain": "Study again",
   "flashcardDeck.backToDeck": "Back to deck",
   "flashcardDeck.exitToDeck": "Deck",
   "flashcardDeck.sessionHeadline": "{{count}} reviewed in {{duration}}",

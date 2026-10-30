@@ -14,6 +14,7 @@ import { BuddyObjectIDSchema } from "../objects"
 import { readFlashcardDeckObject } from "../learning/features/flashcards/storage/read-deck"
 import {
   getQueuedFlashcardObjectsForReview,
+  resetFlashcardObjectProgress,
   submitFlashcardObjectReview,
 } from "../learning/features/flashcards/storage/review"
 import {
@@ -23,6 +24,7 @@ import {
 import {
   FlashcardDeckSchema,
   FlashcardQueuedCardsSchema,
+  FlashcardReviewModeSchema,
   SubmitReviewInputSchema,
   SubmitReviewOutputSchema,
 } from "../learning/features/flashcards/types"
@@ -34,6 +36,7 @@ const objectIDParamSchema = z
   .strict()
 
 const queuedCardsQuerySchema = directoryQuerySchema.extend({
+  reviewMode: FlashcardReviewModeSchema.default("scheduled"),
   fetchLimit: z.coerce
     .number()
     .int()
@@ -104,8 +107,41 @@ export const ObjectFlashcardDeckRoutes = new Hono()
               directory: context.directory,
               objectID: c.req.valid("param").objectID,
               fetchLimit: query.fetchLimit,
+              reviewMode: query.reviewMode,
             })
             return c.json(queue)
+          },
+          mapError: mapRouteError,
+        }),
+      ),
+  )
+  .post(
+    "/:objectID/reset-progress",
+    describeRoute({
+      operationId: "objectFlashcardDeck.resetProgress",
+      summary: "Reset every card and today's counts for a fresh flashcard sitting",
+      responses: {
+        200: {
+          description: "Flashcard deck with reset progress",
+          content: {
+            "application/json": { schema: resolver(FlashcardDeckSchema) },
+          },
+        },
+        ...routeErrors(400, 403, 404, 410, 500),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", objectIDParamSchema),
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () => {
+            const result = await resetFlashcardObjectProgress({
+              directory: context.directory,
+              objectID: c.req.valid("param").objectID,
+            })
+            if (result.status === "error") throw result.error
+            return c.json(result.deck)
           },
           mapError: mapRouteError,
         }),

@@ -185,14 +185,23 @@ export function FlashcardBenchDeck(props: FlashcardBenchDeckProps) {
     [patchSurface],
   )
 
+  const handleResetErrorChanged = useCallback(
+    (resetError: string | undefined) => patchSurface({ resetError }),
+    [patchSurface],
+  )
+
   const session = useFlashcardReviewSession({
     directory: props.directory,
     objectID: props.objectID,
     initialDeck: props.deck,
     initialTally: surfaceState.reviewTally,
+    initialReviewMode: surfaceState.reviewMode,
+    initialResetError: surfaceState.resetError,
+    onResetErrorChanged: handleResetErrorChanged,
+    sessionKey: surfaceState.openSequence,
     onTallyChanged: handleTallyChanged,
   })
-  const { deck, phase, queue, revealed, cardsReviewed, tally, restart } = session
+  const { deck, phase, queue, revealed, cardsReviewed, restart, studyAgain } = session
 
   /* The session owns the active deck's queue in every surface mode. Mounting a
      second observer here used the same cache key but still raced the session's
@@ -272,7 +281,7 @@ export function FlashcardBenchDeck(props: FlashcardBenchDeckProps) {
   const handleDeckAction = useCallback(() => {
     if (standing?.action.mode === "study") {
       restart(activeDeck)
-      patchSurface({ mode: "review" })
+      patchSurface({ mode: "review", reviewMode: "scheduled" })
       return
     }
     patchSurface({ mode: "practice", practiceIndex: 0, practiceRevealed: false })
@@ -357,9 +366,17 @@ export function FlashcardBenchDeck(props: FlashcardBenchDeckProps) {
       ) : mode === "done" && standing ? (
         <FlashcardSessionSummary
           deckTitle={activeDeck.title}
-          tally={tally}
+          tally={surfaceState.reviewTally}
           standing={standing}
           upNext={upNext}
+          onStudyAgain={
+            standing.id === "clear"
+              ? () => {
+                  studyAgain()
+                  patchSurface({ mode: "review", reviewMode: "study-again" })
+                }
+              : undefined
+          }
           onBackToDeck={() => patchSurface({ mode: "deck" })}
           onPractice={() =>
             patchSurface({ mode: "practice", practiceIndex: 0, practiceRevealed: false })

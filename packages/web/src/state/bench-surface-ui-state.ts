@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import type { FlashcardReviewMode } from "./workspace-objects-query"
 import { benchTargetKey, type BenchTabTarget } from "@/lib/bench-navigation"
 
 /**
@@ -55,6 +56,10 @@ export type FlashcardDeckSurfaceState = {
   practiceIndex: number
   practiceRevealed: boolean
   reviewTally: FlashcardReviewTallyState
+  requestedMode?: FlashcardDeckSurfaceMode
+  reviewMode?: FlashcardReviewMode
+  resetError?: string
+  openSequence?: number
 }
 
 const FLASHCARD_DECK_SURFACE_DEFAULT: FlashcardDeckSurfaceState = {

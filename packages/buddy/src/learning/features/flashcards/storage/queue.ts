@@ -5,6 +5,7 @@ import type {
   FlashcardQueueCardSnapshot,
   FlashcardQueueLease,
   FlashcardQueuedCards,
+  FlashcardReviewMode,
 } from "../types"
 import { computeRemainingLimits, type ReviewedTodayCounts } from "./limits"
 import { MINUTES_TO_MS, type SchedulerTiming } from "./timing"
@@ -19,6 +20,8 @@ type BuildFlashcardQueueInput = {
   reviewedToday: ReviewedTodayCounts
   timing: SchedulerTiming
   fetchLimit: number
+  reviewMode?: FlashcardReviewMode
+  progressGeneration?: number
 }
 
 function effectiveCardQueue(card: FlashcardCard): CardQueue {
@@ -50,16 +53,28 @@ function flashcardQueueCardSnapshot(card: FlashcardCard): FlashcardQueueCardSnap
   )
 }
 
-function createFlashcardQueueLease(card: FlashcardCard, queuedAt: number): FlashcardQueueLease {
+function createFlashcardQueueLease(
+  card: FlashcardCard,
+  queuedAt: number,
+  progressGeneration = 0,
+  reviewMode: FlashcardReviewMode = "scheduled",
+): FlashcardQueueLease {
   return {
+    progressGeneration,
+    reviewMode,
     queuedAt,
     card: flashcardQueueCardSnapshot(card),
   }
 }
 
-function flashcardQueueLeaseMatchesCard(lease: FlashcardQueueLease, card: FlashcardCard): boolean {
+function flashcardQueueLeaseMatchesCard(
+  lease: FlashcardQueueLease,
+  card: FlashcardCard,
+  progressGeneration: number | undefined,
+): boolean {
   const snapshot = flashcardQueueCardSnapshot(card)
   return (
+    (lease.progressGeneration ?? 0) === (progressGeneration ?? 0) &&
     lease.card.cardID === snapshot.cardID &&
     lease.card.state === snapshot.state &&
     lease.card.queue === snapshot.queue &&
@@ -230,12 +245,18 @@ function buildFlashcardQueue(input: BuildFlashcardQueueInput): FlashcardQueuedCa
   const sortedIntradayAhead = intradayAhead.toSorted(compareIntradayLearningCards)
   const sortedInterdayDue = interdayDue.toSorted(compareDueCards)
   const sortedReviewDue = reviewDue.toSorted(compareDueCards)
-  const sortedNewCards = newCards.toSorted(
-    (left, right) =>
-      left.templateIdx - right.templateIdx || left.cardID.localeCompare(right.cardID),
-  )
+  const sortedNewCards =
+    input.reviewMode === "study-again"
+      ? newCards
+      : newCards.toSorted(
+          (left, right) =>
+            left.templateIdx - right.templateIdx || left.cardID.localeCompare(right.cardID),
+        )
 
-  const limits = computeRemainingLimits(input.config, input.reviewedToday)
+  const limits =
+    input.reviewMode === "study-again"
+      ? { new: input.cards.length, review: input.cards.length, capNewToReview: false }
+      : computeRemainingLimits(input.config, input.reviewedToday)
   const admittedInterday = sortedInterdayDue.slice(0, limits.review)
   let remainingReview = Math.max(0, limits.review - admittedInterday.length)
   const admittedReview = sortedReviewDue.slice(0, remainingReview)
@@ -277,7 +298,12 @@ function buildFlashcardQueue(input: BuildFlashcardQueueInput): FlashcardQueuedCa
     queuedCardIDs: ordered.map((card) => card.cardID),
     cards: ordered.slice(0, boundedFetchLimit),
     queueLease: firstQueuedCard
-      ? createFlashcardQueueLease(firstQueuedCard, input.timing.now)
+      ? createFlashcardQueueLease(
+          firstQueuedCard,
+          input.timing.now,
+          input.progressGeneration,
+          input.reviewMode,
+        )
       : null,
     newCount: admittedNew.length,
     learningCount,

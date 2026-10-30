@@ -162,7 +162,11 @@ const FlashcardQueueCardSnapshotSchema = FlashcardCardSchema.pick({
   lastReviewAt: true,
 })
 
+const FlashcardReviewModeSchema = z.enum(["scheduled", "study-again"])
+
 const FlashcardQueueLeaseSchema = z.object({
+  progressGeneration: z.number().int().nonnegative().optional(),
+  reviewMode: FlashcardReviewModeSchema.optional(),
   queuedAt: timestampMs,
   card: FlashcardQueueCardSnapshotSchema,
 })
@@ -184,6 +188,7 @@ const FlashcardDeckSchema = z.object({
   config: DeckConfigSchema,
   notes: z.array(FlashcardNoteSchema),
   cards: z.array(FlashcardCardSchema),
+  progressGeneration: z.number().int().nonnegative().optional(),
   /** Anki-style persisted daily counters; review logs remain the event history. */
   dailyReviewCounts: FlashcardDailyReviewCountsSchema.optional(),
   source: nonEmptyString.optional(),
@@ -308,6 +313,7 @@ type FlashcardCard = z.infer<typeof FlashcardCardSchema>
 type FlashcardDeck = z.infer<typeof FlashcardDeckSchema>
 type FlashcardDailyReviewCounts = z.infer<typeof FlashcardDailyReviewCountsSchema>
 type FlashcardQueueCardSnapshot = z.infer<typeof FlashcardQueueCardSnapshotSchema>
+type FlashcardReviewMode = z.infer<typeof FlashcardReviewModeSchema>
 type FlashcardQueueLease = z.infer<typeof FlashcardQueueLeaseSchema>
 type ReviewRecord = z.infer<typeof ReviewRecordSchema>
 type FlashcardQueueCompletion = z.infer<typeof FlashcardQueueCompletionSchema>
@@ -336,6 +342,7 @@ export {
   FlashcardQueueCardSnapshotSchema,
   FlashcardQueueCompletionSchema,
   FlashcardQueueLeaseSchema,
+  FlashcardReviewModeSchema,
   FlashcardQueuedCardsSchema,
   NoteTypeSchema,
   ReviewRecordSchema,
@@ -357,6 +364,7 @@ export type {
   FlashcardQueueCardSnapshot,
   FlashcardQueueCompletion,
   FlashcardQueueLease,
+  FlashcardReviewMode,
   FlashcardQueuedCards,
   NoteType,
   ReviewRecord,

@@ -1,6 +1,7 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import type {
   ObjectFlashcardDeckQueuedCardsResponse,
+  ObjectFlashcardDeckQueuedCardsData,
   ObjectFlashcardDeckReadDeckResponse,
   ObjectMediaPresentationAvailabilityResponse,
   ObjectMermaidReadSourceResponse,
@@ -35,6 +36,12 @@ type ObjectPayloadQueryInput = {
   directory: string
   objectID: string
 }
+export type FlashcardReviewMode = NonNullable<
+  NonNullable<ObjectFlashcardDeckQueuedCardsData["query"]>["reviewMode"]
+>
+
+type ObjectFlashcardQueueInput = ObjectPayloadQueryInput & { reviewMode?: FlashcardReviewMode }
+
 type ObjectMediaAvailabilityQueryInput = ObjectPayloadQueryInput & {
   itemID: string
 }
@@ -115,12 +122,13 @@ export const workspaceObjectsQueryKeys = {
       FLASHCARD_DECK_OBJECT_PAYLOAD_QUERY_KEY,
       input.objectID,
     ] as const,
-  flashcardDeckQueue: (input: ObjectPayloadQueryInput) =>
+  flashcardDeckQueue: (input: ObjectFlashcardQueueInput) =>
     [
       WORKSPACE_OBJECTS_QUERY_SCOPE,
       input.directory,
       FLASHCARD_DECK_QUEUE_QUERY_KEY,
       input.objectID,
+      ...(input.reviewMode === "study-again" ? [input.reviewMode] : []),
     ] as const,
   mediaAvailability: (input: ObjectMediaAvailabilityQueryInput) =>
     [
@@ -277,17 +285,18 @@ export function objectFlashcardDeckPayloadQueryOptions(input: ObjectPayloadQuery
 }
 
 export async function loadObjectFlashcardDeckQueue(
-  input: ObjectPayloadQueryInput,
+  input: ObjectFlashcardQueueInput,
 ): Promise<ObjectFlashcardDeckQueuedCardsResponse> {
   return requireBuddyData(
     await getBuddyClient(input.directory).objectFlashcardDeck.queuedCards({
+      reviewMode: input.reviewMode,
       directory: input.directory,
       objectID: input.objectID,
     }),
   )
 }
 
-export function objectFlashcardDeckQueueQueryOptions(input: ObjectPayloadQueryInput) {
+export function objectFlashcardDeckQueueQueryOptions(input: ObjectFlashcardQueueInput) {
   return queryOptions({
     queryKey: workspaceObjectsQueryKeys.flashcardDeckQueue(input),
     queryFn: () => loadObjectFlashcardDeckQueue(input),
