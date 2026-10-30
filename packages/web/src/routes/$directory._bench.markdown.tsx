@@ -3,6 +3,7 @@ import { z } from "zod"
 import { BenchTargetDeclaration } from "@/components/bench/bench-target-declaration"
 
 type MarkdownBenchSearch = {
+  editOnOpen?: boolean
   fragment?: string
   id?: string
   path?: string
@@ -21,6 +22,7 @@ function parseTSearchString<T>(value: T): string | undefined {
 
 export const Route = createFileRoute("/$directory/_bench/markdown")({
   validateSearch: (search: TIncomingSearch): MarkdownBenchSearch => ({
+    editOnOpen: search.editOnOpen === true ? true : undefined,
     fragment: parseTSearchString(search.fragment),
     id: parseTSearchString(search.id),
     path: parseTSearchString(search.path),

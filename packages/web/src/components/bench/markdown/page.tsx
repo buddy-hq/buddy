@@ -57,6 +57,7 @@ import { BENCH_WORKSPACE_ROOT_NOTES, benchTargetKey } from "@/lib/bench-targets"
 import type { ProjectExplorerEditableFileState } from "@/state/chat-actions"
 import { benchSurfaceUiKey } from "@/state/bench-surface-ui-state"
 import {
+  DEFAULT_MARKDOWN_BENCH_CONTENT_THEME_MODE,
   MAX_MARKDOWN_BENCH_CONTENT_FONT_SCALE,
   MIN_MARKDOWN_BENCH_CONTENT_FONT_SCALE,
   useMarkdownBenchPreferences,
@@ -84,6 +85,7 @@ export type MarkdownBenchDocument = {
 type MarkdownBenchPageProps = {
   directory: string
   fragment?: string
+  editOnOpen?: boolean
   document: MarkdownBenchDocument
 }
 
@@ -209,6 +211,21 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   )
   const resetContentFontScale = useMarkdownBenchPreferences((state) => state.resetContentFontScale)
   const setContentThemeMode = useMarkdownBenchPreferences((state) => state.setContentThemeMode)
+  const editedOnOpen = useRef(false)
+  useEffect(() => {
+    if (!props.editOnOpen || editedOnOpen.current || !surfaceActive || !exists) return
+    if (contentThemeMode === "print") {
+      setContentThemeMode(DEFAULT_MARKDOWN_BENCH_CONTENT_THEME_MODE)
+      return
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const editor = editorRef.current
+      if (!editor) return
+      editedOnOpen.current = true
+      editor.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [contentThemeMode, exists, props.editOnOpen, setContentThemeMode, surfaceActive])
 
   useMarkdownBenchContext({
     file,

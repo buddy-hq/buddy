@@ -191,6 +191,7 @@ function readBenchTargetFromLocation<TSearch>(input: {
           },
           id ? { id } : undefined,
           fragment ? { fragment } : undefined,
+          search.editOnOpen === true ? { editOnOpen: true } : undefined,
         )
       : undefined
   }
@@ -319,6 +320,7 @@ function buildBenchNavigation(input: {
           target.root === BENCH_WORKSPACE_ROOT_NOTES ? { root: target.root } : undefined,
           target.id ? { id: target.id } : undefined,
           target.fragment ? { fragment: target.fragment } : undefined,
+          target.viewer === "markdown" && target.editOnOpen ? { editOnOpen: true } : undefined,
         ),
         mode,
       ),

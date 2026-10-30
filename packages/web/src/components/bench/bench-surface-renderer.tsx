@@ -42,6 +42,7 @@ export function BenchSurfaceRenderer(props: {
     if (props.target.viewer === "markdown") {
       return (
         <MarkdownBenchSurface
+          editOnOpen={props.target.editOnOpen}
           {...Object.assign(
             {
               directory: props.directory,

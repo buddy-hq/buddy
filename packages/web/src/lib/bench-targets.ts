@@ -55,6 +55,7 @@ export type BenchTarget =
       id?: string
       viewer: "markdown" | "file"
       fragment?: string
+      editOnOpen?: boolean
     }
   | {
       type: "browser"

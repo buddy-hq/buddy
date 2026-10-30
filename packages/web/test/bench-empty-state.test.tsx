@@ -26,6 +26,8 @@ import { withFetchPreconnect, type FetchImplementation } from "../src/lib/fetch-
 import { notebookFileIndexQueryKey } from "../src/state/notebook-file-search"
 import { processedResourcesQueryKey } from "../src/state/resources-query"
 import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
+import type { ProjectExplorerFileNode } from "../src/state/chat-actions"
+import { subscribeNotebookFilesChanged } from "../src/state/notebook-files-changed"
 
 const DIRECTORY = "/workspace"
 const originalFetch = globalThis.fetch
@@ -92,6 +94,43 @@ function mockPaperPdfFetch(headStatus: number): string[] {
     throw new Error(`Unexpected request: ${method} ${url}`)
   }, originalFetch)
   return headRequests
+}
+
+function mockDocumentNotebook(input: {
+  entries?: readonly ProjectExplorerFileNode[]
+  save?: (path: string) => Response | Promise<Response>
+}) {
+  const writes: { path: string; directory: string | null; body: unknown }[] = []
+  const listings: string[] = []
+  globalThis.fetch = withFetchPreconnect(async (request) => {
+    const url = requestURL(request)
+    if (!(request instanceof Request)) throw new Error("Expected an SDK request")
+    if (url.pathname === "/api/file") {
+      listings.push(url.searchParams.get("path") ?? "missing")
+      return Response.json(input.entries ?? [])
+    }
+    if (url.pathname === "/api/file/edit" && request.method === "PUT") {
+      const path = url.searchParams.get("path") ?? ""
+      writes.push({
+        path,
+        directory: request.headers.get("x-buddy-directory"),
+        body: await request.json(),
+      })
+      return input.save?.(path) ?? Response.json({ path, content: "", version: "created" })
+    }
+    if (url.pathname === "/api/find/notebook-file-index") {
+      return Response.json({ paths: [], partial: false })
+    }
+    if (url.pathname === "/api/notes") return Response.json({ directory: DIRECTORY, notes: [] })
+    if (url.pathname === "/api/session") return Response.json([])
+    if (url.pathname === "/api/objects/resource") return Response.json({ resources: [] })
+    throw new Error(`Unexpected request: ${request.method} ${url}`)
+  }, originalFetch)
+  return { writes, listings }
+}
+
+function notebookEntry(name: string, type: "file" | "directory"): ProjectExplorerFileNode {
+  return { name, path: name, absolute: `${DIRECTORY}/${name}`, type, ignored: false }
 }
 
 describe("empty Bench", () => {
@@ -589,6 +628,153 @@ describe("empty Bench", () => {
     )
     return input
   }
+
+  function newDocumentButton() {
+    const button = Array.from(container.querySelectorAll("button")).find(
+      (candidate) => candidate.textContent === "New document",
+    )
+    if (!button) throw new Error("Expected New document")
+    return button
+  }
+
+  test.each([
+    { label: "an empty root", entries: [], expected: "Untitled.md" },
+    {
+      label: "a file occupying Untitled.md",
+      entries: [notebookEntry("Untitled.md", "file")],
+      expected: "Untitled 2.md",
+    },
+    {
+      label: "a folder occupying Untitled.md",
+      entries: [notebookEntry("Untitled.md", "directory")],
+      expected: "Untitled 2.md",
+    },
+    {
+      label: "a folder named untitled.md",
+      entries: [notebookEntry("untitled.md", "directory")],
+      expected: "Untitled 2.md",
+    },
+    {
+      label: "100 occupied names",
+      entries: Array.from({ length: 100 }, (_, index) =>
+        notebookEntry(index === 0 ? "Untitled.md" : `Untitled ${index + 1}.md`, "file"),
+      ),
+      expected: "Untitled 101.md",
+    },
+  ])("creates an editable Markdown document with $label", async ({ entries, expected }) => {
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const { writes, listings } = mockDocumentNotebook({ entries })
+    const opened: unknown[] = []
+    await renderBench(opened)
+    await act(async () => newDocumentButton().click())
+    await until(() => opened.length > 0, "new document open")
+    expect(listings).toEqual([""])
+    expect(writes).toEqual([
+      { path: expected, directory: DIRECTORY, body: { content: "", expectedVersion: null } },
+    ])
+    expect(opened).toEqual([
+      {
+        type: "object",
+        directory: DIRECTORY,
+        target: {
+          type: "workspace-file",
+          root: "notebook",
+          path: expected,
+          viewer: "markdown",
+          editOnOpen: true,
+        },
+      },
+    ])
+  })
+
+  test.each([
+    ["file", "Untitled.md"],
+    ["directory", "Untitled.md"],
+    ["directory", "untitled.md"],
+  ] as const)(
+    "advances when a %s named %s takes the name during conditional creation",
+    async (type, name) => {
+      setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+      const entries: ProjectExplorerFileNode[] = []
+      const { writes } = mockDocumentNotebook({
+        entries,
+        save: (path) => {
+          if (path !== "Untitled.md") return Response.json({ path, content: "", version: "new" })
+          entries.push(notebookEntry(name, type))
+          return Response.json(
+            { error: type === "file" ? "File changed on disk" : "File not found" },
+            { status: type === "file" ? 409 : 404 },
+          )
+        },
+      })
+      const opened: unknown[] = []
+      await renderBench(opened)
+      await act(async () => newDocumentButton().click())
+      await until(() => opened.length > 0, "document after concurrent collision")
+      expect(writes.map((write) => write.path)).toEqual(["Untitled.md", "Untitled 2.md"])
+      expect(opened).toEqual([
+        {
+          type: "object",
+          directory: DIRECTORY,
+          target: {
+            type: "workspace-file",
+            root: "notebook",
+            path: "Untitled 2.md",
+            viewer: "markdown",
+            editOnOpen: true,
+          },
+        },
+      ])
+    },
+  )
+
+  test("refreshes files without opening after the empty page leaves during creation", async () => {
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const save = Promise.withResolvers<Response>()
+    const { writes } = mockDocumentNotebook({ save: () => save.promise })
+    const opened: unknown[] = []
+    let refreshed = false
+    const unsubscribe = subscribeNotebookFilesChanged(DIRECTORY, () => {
+      refreshed = true
+    })
+    try {
+      await renderBench(opened)
+      await act(async () => {
+        newDocumentButton().click()
+        newDocumentButton().click()
+      })
+      await until(() => writes.length > 0, "pending document save")
+      await act(async () => root.render(null))
+      await act(async () => {
+        save.resolve(Response.json({ path: "Untitled.md", content: "", version: "created" }))
+      })
+      await until(() => refreshed, "file list refresh after leaving")
+      expect(writes).toHaveLength(1)
+      expect(opened).toEqual([])
+    } finally {
+      save.resolve(Response.json({ path: "Untitled.md", content: "", version: "created" }))
+      unsubscribe()
+    }
+  })
+
+  test("reports a refused create without opening or trying more names", async () => {
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const { writes } = mockDocumentNotebook({
+      save: () => Response.json({ error: "Access denied" }, { status: 403 }),
+    })
+    const errorToast = spyOn(toast, "error").mockImplementation(() => "test-toast")
+    const opened: unknown[] = []
+    try {
+      await renderBench(opened)
+      await act(async () => newDocumentButton().click())
+      await until(() => errorToast.mock.calls.length > 0, "create error")
+      expect(writes).toHaveLength(1)
+      expect(opened).toEqual([])
+      expect(errorToast).toHaveBeenCalledWith("Access denied")
+    } finally {
+      errorToast.mockRestore()
+    }
+  })
 
   function resultTitles(selector: string): Array<string | null | undefined> {
     return Array.from(container.querySelectorAll(selector)).map(

@@ -15,6 +15,13 @@ import { pickResourceFilePath } from "@/lib/resource-file-picker"
 import { addResource } from "@/state/resource-actions"
 import { invalidateResourcesQueries } from "@/state/resources-query"
 import { stringifyError } from "@/lib/api-client"
+import { BENCH_WORKSPACE_ROOT_NOTEBOOK } from "@/lib/bench-targets"
+import {
+  listProjectExplorerDirectory,
+  ProjectExplorerFileVersionConflictError,
+  saveProjectExplorerEditableFile,
+} from "@/state/chat-actions"
+import { notifyNotebookFilesChanged } from "@/state/notebook-files-changed"
 import { useBenchEmptyTabDrafts } from "@/state/bench-empty-tab-drafts"
 import { ResourceCover } from "@/components/resources/resource-cover"
 import type { SessionInfo } from "@/state/chat-types"
@@ -24,6 +31,7 @@ import {
   BENCH_BROWSER_ART,
   BENCH_FILES_ART,
   BENCH_NEW_NOTE_ART,
+  BENCH_NOTE_ART,
   BENCH_NOTES_ART,
   BENCH_RESOURCE_ART,
 } from "./bench-action-art"
@@ -51,6 +59,30 @@ const SHELF_CAPTION_CLASS = "mt-2 line-clamp-2 break-words text-xs leading-4"
 /** Three books and the Add slot keep the shelf to one row of four. */
 const SHELF_BOOK_LIMIT = 3
 const SHELF_GHOST_SLOTS = ["ghost-1", "ghost-2", "ghost-3"] as const
+
+async function createUntitledDocument(directory: string): Promise<string> {
+  const entries = await listProjectExplorerDirectory({ directory, path: "" })
+  const occupiedNames = new Set(entries.map((entry) => entry.name.toLowerCase()))
+  for (let number = 1; ; number += 1) {
+    const path = number === 1 ? "Untitled.md" : `Untitled ${number}.md`
+    const normalizedName = path.toLowerCase()
+    if (occupiedNames.has(normalizedName)) continue
+    try {
+      await saveProjectExplorerEditableFile({
+        directory,
+        path,
+        content: "",
+        expectedVersion: null,
+      })
+      return path
+    } catch (error) {
+      if (error instanceof ProjectExplorerFileVersionConflictError) continue
+      const latestEntries = await listProjectExplorerDirectory({ directory, path: "" })
+      if (latestEntries.some((entry) => entry.name.toLowerCase() === normalizedName)) continue
+      throw error
+    }
+  }
+}
 
 /** Search, creation shortcuts, and recents for a Bench with no open surface. */
 export function BenchEmptyState(props: BenchEmptyStateProps) {
@@ -84,7 +116,35 @@ export function BenchEmptyState(props: BenchEmptyStateProps) {
       .setDraft(props.emptyTabID, { query, filter, selectedIdentity })
   }, [filter, props.emptyTabID, query, selectedIdentity])
   const [addingResource, setAddingResource] = useState(false)
+  const creatingDocument = useRef(false)
   const queryClient = useQueryClient()
+
+  async function createDocument() {
+    if (creatingDocument.current) return
+    creatingDocument.current = true
+    try {
+      const path = await createUntitledDocument(props.directory)
+      void notifyNotebookFilesChanged(queryClient, props.directory, { resources: false }).catch(
+        () => undefined,
+      )
+      if (!pageMounted.current) return
+      await props.onOpen({
+        type: "object",
+        directory: props.directory,
+        target: {
+          type: "workspace-file",
+          root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+          path,
+          viewer: "markdown",
+          editOnOpen: true,
+        },
+      })
+    } catch (error) {
+      toast.error(stringifyError(error))
+    } finally {
+      creatingDocument.current = false
+    }
+  }
 
   async function addResourceFromPicker() {
     if (addingResource) return
@@ -136,6 +196,19 @@ export function BenchEmptyState(props: BenchEmptyStateProps) {
                   aria-hidden
                 />
                 <span className="truncate">New note</span>
+              </button>
+              <button
+                type="button"
+                className={SHORTCUT_CLASS}
+                onClick={() => void createDocument()}
+              >
+                <img
+                  src={BENCH_NOTE_ART}
+                  alt=""
+                  className="size-6 shrink-0 object-contain"
+                  aria-hidden
+                />
+                <span className="truncate">New document</span>
               </button>
               {search.browserAvailable ? (
                 // The tile opens the default profile; its menu opens any profile, Incognito included.

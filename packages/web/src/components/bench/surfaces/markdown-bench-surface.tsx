@@ -53,6 +53,7 @@ export function MarkdownBenchSurface(props: {
   directory: string
   path: string
   fragment?: string
+  editOnOpen?: boolean
 }) {
   const fileQuery = useQuery(
     markdownBenchFileQueryOptions({ directory: props.directory, path: props.path }),
@@ -68,6 +69,7 @@ export function MarkdownBenchSurface(props: {
       key={workspaceFileInstanceKey({ directory: props.directory, path: props.path })}
       directory={props.directory}
       fragment={props.fragment}
+      editOnOpen={props.editOnOpen}
       path={props.path}
       fileData={fileQuery.data}
     />
@@ -77,6 +79,7 @@ export function MarkdownBenchSurface(props: {
 function LargeMarkdownBenchGate(props: {
   directory: string
   fragment: string | undefined
+  editOnOpen: boolean | undefined
   path: string
   fileData: MarkdownBenchFileData
 }) {
@@ -91,6 +94,7 @@ function LargeMarkdownBenchGate(props: {
       <MarkdownBenchPage
         directory={props.directory}
         fragment={props.fragment}
+        editOnOpen={props.editOnOpen}
         document={{
           storageDirectory: props.directory,
           path: props.path,
@@ -126,6 +130,7 @@ function LargeMarkdownBenchGate(props: {
     <ApprovedMarkdownBenchLoader
       directory={props.directory}
       fragment={props.fragment}
+      editOnOpen={props.editOnOpen}
       path={props.path}
     />
   )
@@ -134,6 +139,7 @@ function LargeMarkdownBenchGate(props: {
 function ApprovedMarkdownBenchLoader(props: {
   directory: string
   fragment: string | undefined
+  editOnOpen: boolean | undefined
   path: string
 }) {
   const approvedFileQuery = useQuery(
@@ -150,6 +156,7 @@ function ApprovedMarkdownBenchLoader(props: {
     <MarkdownBenchPage
       directory={props.directory}
       fragment={props.fragment}
+      editOnOpen={props.editOnOpen}
       document={{
         storageDirectory: props.directory,
         path: props.path,
