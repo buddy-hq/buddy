@@ -5,6 +5,7 @@ import type {
   SessionAccess,
   TextVerbosity,
 } from "@buddy/agent-runtime/extension"
+import { chatAccessHookEffect } from "../learning/agent-execution/permissions/access-mode"
 import { PRODUCTION_PERSONAS } from "../learning/shared/teaching-vocabulary"
 import { captureSessionSystemPrompt } from "./system-prompt-capture"
 import { readTeachingSessionState } from "../learning/agent-execution/state/session-state"
@@ -96,5 +97,6 @@ export function createBuddyHooks(
     ...createBuddySubagentHooks(location.directory, sessions),
     context: (event) =>
       transformSessionContext(location.directory, event, imageGenerationUnavailable),
+    permission: (input) => chatAccessHookEffect(sessions, location.directory, input),
   }
 }

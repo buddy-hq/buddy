@@ -41,11 +41,17 @@ import {
 } from "../session"
 import { getTeachingState } from "../learning/adapters/http/session/state-actions"
 import {
+  getSessionAccess,
+  sessionAccessSchema,
+  setSessionAccess,
+} from "../session/orchestration/access-actions"
+import {
   postSessionSmartNote,
   sessionSmartNoteBodyOpenApiSchema,
   sessionSmartNoteBodySchema,
   sessionSmartNoteResponseSchema,
 } from "../session/orchestration/smart-note-actions"
+import { CHAT_ACCESS_MODES } from "../learning/agent-execution/permissions/access-mode"
 import {
   SVG_RENDER_MAX_SOURCE_BYTES,
   SVG_REPORTED_FENCE_MAX_BYTES,
@@ -85,6 +91,7 @@ const [getSessionMermaidRepairStatusHandler] = sessionRouteFactory.createHandler
   getSessionMermaidRepairStatus,
 )
 const [getTeachingStateHandler] = sessionRouteFactory.createHandlers(getTeachingState)
+const [getSessionAccessHandler] = sessionRouteFactory.createHandlers(getSessionAccess)
 const [abortSessionHandler] = sessionRouteFactory.createHandlers(abortSessionRun)
 const [backgroundSessionHandler] = sessionRouteFactory.createHandlers(backgroundSessionRun)
 const [forkSessionHandler] = sessionRouteFactory.createHandlers(forkSessionById)
@@ -296,6 +303,15 @@ const sessionForkBodyOpenApiSchema = {
   additionalProperties: false,
   properties: {
     messageID: { type: "string" as const },
+  },
+}
+
+const sessionAccessBodyOpenApiSchema = {
+  type: "object" as const,
+  required: ["mode"],
+  additionalProperties: false,
+  properties: {
+    mode: { type: "string" as const, enum: [...CHAT_ACCESS_MODES] },
   },
 }
 
@@ -728,6 +744,51 @@ export const SessionRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
     getTeachingStateHandler,
+  )
+  .get(
+    "/:sessionID/access",
+    describeRoute({
+      operationId: "session.access",
+      summary: "Get the chat access mode",
+      responses: {
+        200: {
+          description: "Chat access mode",
+          content: {
+            "application/json": { schema: resolver(sessionAccessSchema) },
+          },
+        },
+        ...routeErrors(403, 404),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    getSessionAccessHandler,
+  )
+  .put(
+    "/:sessionID/access",
+    describeRoute({
+      operationId: "session.setAccess",
+      summary: "Set the chat access mode",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: sessionAccessBodyOpenApiSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Updated chat access mode",
+          content: {
+            "application/json": { schema: resolver(sessionAccessSchema) },
+          },
+        },
+        ...routeErrors(400, 403, 404),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    validator("json", sessionAccessSchema),
+    (c) => setSessionAccess(c, c.req.valid("json").mode),
   )
   .post(
     "/:sessionID/fork",

@@ -55,6 +55,7 @@ import {
 import type { TeachingPromptContext } from "./teaching-runtime"
 import { stringifyError } from "../lib/api-client"
 import { getPlatform } from "../context/platform"
+import { language } from "../context/language"
 import { OPENAI_PROVIDER_ID } from "../lib/provider-ids"
 import { canonicalProjectDirectory } from "../lib/project-directory"
 import { sessionFamilyIDs } from "../lib/session-family"
@@ -89,6 +90,11 @@ import {
   type PermissionRequest,
 } from "./permission-types"
 import { appQueryClient } from "./query-client"
+import {
+  useChatAccessModeStore,
+  waitForChatAccessModeHydration,
+} from "./chat-access-mode-store"
+import { chatAccessQueryKeys, setChatAccessMode } from "../lib/directory-chat/chat-access-query"
 import { v1ImportMayBeIncomplete, v1ImportQueryOptions } from "./v1-import-query"
 import {
   invalidateObsidianFileCaches,
@@ -1583,7 +1589,14 @@ async function createSession(directory: string) {
   }
 
   const createPromise = (async () => {
+    const hydrated = await waitForChatAccessModeHydration()
+    if (!hydrated || !useChatAccessModeStore.persist.hasHydrated()) {
+      throw new Error(language.t("prompt.accessMode.loadFailed"))
+    }
+    const mode = useChatAccessModeStore.getState().lastModeByDirectory[directory] ?? "default"
     const info = requireBuddyData(await getBuddyClient(directory).session.create())
+    const access = mode === "default" ? { mode } : await setChatAccessMode(directory, info.id, mode)
+    appQueryClient.setQueryData(chatAccessQueryKeys.session(directory, info.id), access)
     selectCanonicalSession(directory, info)
     setTranscriptSessionEmpty(directory, info.id)
     useModelSelectionStore.getState().migrateWorkspaceSelection(directory, info.id)

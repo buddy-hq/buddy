@@ -54,6 +54,9 @@ test("model aliases inherit their target's configured limits", async () => {
         async compaction() {},
         async prompt() {},
         async beforeTool() {},
+        async permission(input) {
+          return input.effect
+        },
         async context(input) {
           return { system: input.system, textVerbosity: input.textVerbosity }
         },

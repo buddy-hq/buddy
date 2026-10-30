@@ -67,6 +67,9 @@ test.each([false, true])(
           async compaction() {},
           async prompt() {},
           async beforeTool() {},
+          async permission(input) {
+            return input.effect
+          },
           async context(input) {
             contextTools.push([...input.tools])
             return {

@@ -680,6 +680,17 @@ export const dict = {
   "prompt.slash.flashcard.title": "Create flashcards",
   "prompt.toolbar.aria.model": "Model",
   "prompt.toolbar.aria.persona": "Persona",
+  "prompt.accessMode.trigger": "Access: {{mode}}",
+  "prompt.accessMode.loadFailed":
+    "The notebook's access mode could not be loaded. Try sending again.",
+  "prompt.accessMode.supervised.label": "Supervised",
+  "prompt.accessMode.supervised.description": "Asks before commands, file changes and web access.",
+  "prompt.accessMode.default.label": "Default",
+  "prompt.accessMode.default.description":
+    "Works freely in this notebook and asks before going outside it.",
+  "prompt.accessMode.full.label": "Full access",
+  "prompt.accessMode.full.description":
+    "Never asks. Buddy can read and change any file and run any command on this computer.",
   "prompt.toolbar.aria.thinking": "Thinking",
   "prompt.toolbar.aria.fastMode": "Fast mode",
   "prompt.toolbar.fastMode.label": "Fast",

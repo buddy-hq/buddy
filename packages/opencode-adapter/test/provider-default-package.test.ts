@@ -50,6 +50,9 @@ test("custom providers without a package default to the OpenAI-compatible transp
         async compaction() {},
         async prompt() {},
         async beforeTool() {},
+        async permission(input) {
+          return input.effect
+        },
         async context(input) {
           return { system: input.system, textVerbosity: input.textVerbosity }
         },

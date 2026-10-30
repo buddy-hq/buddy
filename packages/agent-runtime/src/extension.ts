@@ -104,12 +104,22 @@ export type ToolCallStart = {
   readonly input: JsonValue
 }
 
+export type PermissionHookEffect = "allow" | "ask"
+
+export type PermissionHookInput = {
+  readonly sessionID: string
+  readonly action: string
+  readonly resources: readonly string[]
+  readonly effect: PermissionHookEffect
+}
+
 export interface ExtensionHooks {
   hydrate(sessionID: string): Promise<void>
   compaction(sessionID: string): Promise<void>
   prompt(sessionID: string): Promise<void>
   context(input: ModelContext): Promise<ModelContextUpdate>
   beforeTool(input: ToolCallStart): Promise<void>
+  permission(input: PermissionHookInput): Promise<PermissionHookEffect>
 }
 
 export interface RuntimeExtension {

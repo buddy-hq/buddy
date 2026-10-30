@@ -122,8 +122,14 @@ async function runHook<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
+type ExtensionHookContext = {
+  readonly session: Pick<PluginContext["session"], "hook" | "context">
+  readonly tool: Pick<PluginContext["tool"], "hook">
+  readonly permission: Pick<PluginContext["permission"], "hook">
+}
+
 export async function registerExtensionHooks(
-  ctx: PluginContext,
+  ctx: ExtensionHookContext,
   hooks: ExtensionHooks,
   getClient: () => Promise<Pick<OpenCodeHost, "message">>,
 ): Promise<void> {
@@ -167,5 +173,18 @@ export async function registerExtensionHooks(
       const text = update.system[index] ?? part.text
       return text === "" ? [] : [{ ...part, text }]
     })
+  })
+  await ctx.permission.hook("evaluate", async (event) => {
+    if (event.effect === "deny") return
+    try {
+      event.effect = await hooks.permission({
+        sessionID: event.sessionID,
+        action: event.action,
+        resources: event.resources,
+        effect: event.effect,
+      })
+    } catch (cause) {
+      console.error("Chat access permission hook failed", cause)
+    }
   })
 }

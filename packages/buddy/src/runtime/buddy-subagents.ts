@@ -13,7 +13,6 @@ import { buildDelegatedChildSessionPermissions } from "../learning/agent-executi
 import {
   buddyTeachingPolicyRevision,
   hydrateBuddyTeachingState,
-  persistBuddyTeachingSnapshot,
   publishBuddyDelegationSource,
   readBuddyTeachingSnapshot,
   withBuddyTeachingSessionUpdate,
@@ -44,7 +43,7 @@ const internal = (agent: string | undefined) =>
 export function createBuddySubagentHooks(
   directory: string,
   sessions: SessionAccess,
-): Omit<ExtensionHooks, "context"> {
+): Omit<ExtensionHooks, "context" | "permission"> {
   const hydrate = async (sessionID: string) => {
     const current = await sessions.get(sessionID)
     if (internal(current.agent)) return
@@ -73,6 +72,13 @@ export function createBuddySubagentHooks(
   const prompt = async (sessionID: string) => {
     await withBuddyTeachingSessionUpdate(sessionID, async () => {
       const current = await sessions.get(sessionID)
+      if (
+        current.parentID !== undefined &&
+        current.metadata !== undefined &&
+        Object.hasOwn(current.metadata, "buddyAccess")
+      ) {
+        await sessions.patchMetadata(current.id, { buddyAccess: undefined })
+      }
       if (internal(current.agent)) return
       if (isPersona(current.agent ?? "")) {
         await publishBuddyDelegationSource({ sessions, directory, sessionID: current.id })
@@ -203,7 +209,9 @@ export function createBuddySubagentHooks(
         },
         source: childSource,
       }
-      await persistBuddyTeachingSnapshot({ sessions, sessionID: current.id, snapshot })
+      await sessions.patchMetadata(current.id, {
+        buddyTeaching: snapshot,
+      })
     })
   }
   const beforeTool: ExtensionHooks["beforeTool"] = async (event) => {

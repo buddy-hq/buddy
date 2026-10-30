@@ -108,6 +108,8 @@ import {
   PromptComposerToolbar,
   type PromptFastModeControl,
 } from "./components/prompt-composer-toolbar"
+import { PromptAccessModeSelect } from "./components/prompt-access-mode-select"
+import { useChatAccessMode } from "@/lib/directory-chat/use-chat-access-mode"
 import {
   PROMPT_PART_TYPE_TEXT,
   READING_SELECTION_PART_TYPE,
@@ -456,6 +458,7 @@ export function PromptComposer(props: PromptComposerProps) {
     () => getPromptScopeKey(props.directory, props.sessionID),
     [props.directory, props.sessionID],
   )
+  const accessMode = useChatAccessMode({ directory: props.directory, sessionID: props.sessionID })
   const activePromptKeyRef = useRef(promptKey)
   activePromptKeyRef.current = promptKey
   const smartNoteAbortRef = useRef<AbortController | undefined>(undefined)
@@ -2461,6 +2464,14 @@ export function PromptComposer(props: PromptComposerProps) {
           </div>
           {props.sessionContextUsage ? (
             <div className="flex shrink-0 items-center gap-1.5">
+              {accessMode.showSelector ? (
+                <PromptAccessModeSelect
+                  mode={accessMode.mode}
+                  options={accessMode.options}
+                  onModeChange={accessMode.onModeChange}
+                  selectorMode={props.selectorMode}
+                />
+              ) : null}
               {hasTodos ? (
                 <button
                   type="button"

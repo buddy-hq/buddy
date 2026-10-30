@@ -162,6 +162,8 @@ import {
   Redo03Icon as Redo03IconData,
   SearchIcon as SearchIconData,
   SettingsIcon as SettingsIconData,
+  SecurityCheckIcon as SecurityCheckIconData,
+  Shield01Icon as Shield01IconData,
   Shield02Icon as Shield02IconData,
   Undo03Icon as Undo03IconData,
   ScanImageIcon as ScanImageIconData,
@@ -452,6 +454,8 @@ export const Settings05Icon = createIcon(Settings05IconData, "Settings05Icon")
 export const FigureGlyphIcon = createIcon(Geometry01IconData, "FigureGlyphIcon")
 export { FigureGlyphIcon as "ShapesIcon" }
 export const ShieldAlert = createIcon(Shield02IconData, "ShieldAlert")
+export const ShieldIcon = createIcon(Shield01IconData, "ShieldIcon")
+export const ShieldCheckIcon = createIcon(SecurityCheckIconData, "ShieldCheckIcon")
 export const Sigma = createIcon(Summation01IconData, "Sigma")
 export const SlidersHorizontalIcon = createIcon(SlidersHorizontalIconData, "SlidersHorizontalIcon")
 export const Sparkles = createIcon(SparklesIconData, "Sparkles")
