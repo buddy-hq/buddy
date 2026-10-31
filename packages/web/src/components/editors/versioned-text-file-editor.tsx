@@ -702,7 +702,7 @@ export const VersionedTextFileEditor = forwardRef<
             if (!open) setError(undefined)
           }}
         >
-          <DialogContent>
+          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{language.t("markdownEditor.saveError")}</DialogTitle>
               <DialogDescription>{error}</DialogDescription>

@@ -27,7 +27,7 @@ export function ExternalFileOpenDialog() {
       }}
     >
       <AlertDialogContent>
-        <AlertDialogHeader className="grid-cols-[minmax(0,1fr)]">
+        <AlertDialogHeader>
           <AlertDialogTitle>
             {missing
               ? request.outsideNotebook
@@ -41,7 +41,7 @@ export function ExternalFileOpenDialog() {
               : "Buddy will show it read-only."}
           </AlertDialogDescription>
           {request ? (
-            <p className="min-w-0 break-all rounded-md bg-surface-weak p-3 font-mono text-xs text-text-base">
+            <p className="min-w-0 max-h-40 overflow-y-auto break-all rounded-md bg-surface-weak p-3 font-mono text-xs text-text-base">
               {request.path}
             </p>
           ) : null}

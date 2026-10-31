@@ -276,14 +276,14 @@ export function QuestionSetInlineView(props: {
             showCloseButton
           >
             <DialogHeader className="border-b border-border-base/30 px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-wrap items-center justify-between">
+                <div className="min-w-0 flex-1">
                   <DialogTitle className="text-base font-medium">
                     {props.questionSet.title}
                   </DialogTitle>
                   <DialogDescription className="sr-only">Question set review</DialogDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <Button
                     variant={viewMode === "wizard" ? "default" : "outline"}
                     size="sm"

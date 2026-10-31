@@ -1993,7 +1993,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
             <DialogTitle>Password required</DialogTitle>
             <DialogDescription>
               {passwordPrompt?.reason === PasswordResponses.INCORRECT_PASSWORD
-                ? "That password was not accepted. Try again."
+                ? "Incorrect password. Try again."
                 : "Enter the password for this PDF."}
             </DialogDescription>
           </DialogHeader>

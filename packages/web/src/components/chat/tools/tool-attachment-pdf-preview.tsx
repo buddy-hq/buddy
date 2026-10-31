@@ -68,7 +68,7 @@ export function ToolAttachmentPdfPreview(props: ToolAttachmentPdfPreviewProps) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-start gap-3 p-6 text-sm text-text-weak">
+      <div className="flex min-h-0 min-w-0 flex-col items-start gap-3 overflow-y-auto p-6 text-sm text-text-weak [overflow-wrap:anywhere] *:min-w-0 *:max-w-full *:shrink-0">
         <p>{`Buddy couldn't preview this PDF. ${error}`}</p>
         {props.fallback}
       </div>

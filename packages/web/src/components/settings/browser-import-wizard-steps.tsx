@@ -31,9 +31,7 @@ export function QuitStep(props: { sourceName: string; onCancel: () => void; onQu
     <>
       <DialogHeader>
         <DialogTitle>Quit {props.sourceName} to import</DialogTitle>
-        <DialogDescription>
-          {props.sourceName} is open, so its cookies can’t be read yet. Quit it, then continue.
-        </DialogDescription>
+        <DialogDescription>Its cookies can’t be read while it’s open.</DialogDescription>
       </DialogHeader>
       <DialogFooter>
         <Button variant="outline" onClick={props.onCancel}>
@@ -100,9 +98,8 @@ export function FullDiskAccessStep(props: {
       <DialogHeader>
         <DialogTitle>Let Buddy read {props.sourceName}’s cookies</DialogTitle>
         <DialogDescription>
-          To import cookies from {props.sourceName}, Buddy needs Full Disk Access. Turn it on in
-          System Settings, then come back to finish the import. You can revoke it again once the
-          import is done.
+          Buddy needs Full Disk Access. Enable it in System Settings, then return here. You can
+          revoke access after the import.
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-3">
@@ -208,7 +205,7 @@ export function ConfigureStep(props: {
         <DialogDescription>Choose which cookies to import.</DialogDescription>
       </DialogHeader>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-        <section className="flex-1 space-y-2">
+        <section className="min-w-0 flex-1 space-y-2">
           <TileGroupLabel>From</TileGroupLabel>
           {props.source.profiles.map((profile) => (
             <SelectableTile
@@ -228,7 +225,7 @@ export function ConfigureStep(props: {
           <ArrowDownIcon className="size-4 sm:hidden" />
           <ArrowRightIcon className="hidden size-4 sm:block" />
         </div>
-        <section className="flex-1 space-y-2">
+        <section className="min-w-0 flex-1 space-y-2">
           <TileGroupLabel>Into</TileGroupLabel>
           {props.canCreateProfile ? (
             <SelectableTile

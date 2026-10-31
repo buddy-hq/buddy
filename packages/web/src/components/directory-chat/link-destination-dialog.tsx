@@ -30,7 +30,7 @@ export function LinkDestinationDialog() {
         <AlertDialogHeader>
           <AlertDialogTitle>Open links in Buddy?</AlertDialogTitle>
           <AlertDialogDescription>
-            {`Buddy has its own browser, so ${destination} can open right here instead of in your default browser. You can change this anytime in Settings → Browser.`}
+            {`Open ${destination} and future links in Buddy? Change this in Settings → Browser.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

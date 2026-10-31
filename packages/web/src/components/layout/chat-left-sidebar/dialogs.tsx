@@ -174,7 +174,7 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
             <div className="flex size-12 items-center justify-center rounded-full border border-border-weak bg-surface-weak/50 text-icon-base shadow-xs">
               <ArchiveIcon className="size-5.5" />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 max-w-full space-y-1">
               <DialogTitle className="text-lg font-semibold">
                 {language.t("sidebar.archiveThreadTitle")}
               </DialogTitle>
@@ -327,7 +327,7 @@ function SettingsItemRow({ title, description, control, badge, disabled }: Setti
     >
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[13px] font-semibold text-text-strong tracking-[-0.01em]">
+          <span className="min-w-0 max-w-full [overflow-wrap:anywhere] text-[13px] font-semibold text-text-strong tracking-[-0.01em]">
             {title}
           </span>
           {badge}
@@ -539,7 +539,7 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
   return (
     <>
       <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader className="flex flex-col items-start space-y-3.5">
             <div className="flex items-center gap-3 w-full">
               <div className="flex size-10 items-center justify-center rounded-xl border border-border-weak bg-surface-weak/50 text-icon-brand-base shrink-0">
@@ -786,12 +786,12 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
             </div>
 
             {notebookMcpQueryError ? (
-              <p className="text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
+              <p className="[overflow-wrap:anywhere] text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
                 {formatMcpError(notebookMcpQueryError)}
               </p>
             ) : null}
             {settingsError ? (
-              <p className="text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
+              <p className="[overflow-wrap:anywhere] text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
                 {settingsError}
               </p>
             ) : null}
@@ -865,7 +865,7 @@ export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
         data-component="left-sidebar-create-notebook-dialog"
         aria-describedby={undefined}
         showCloseButton={false}
-        className="gap-0 p-6 sm:max-w-[440px]"
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto gap-0 p-6 sm:max-w-[440px]"
       >
         {/* The close X sits in the header row so it centres against the title,
             rather than on the card corner where `p-6` leaves it stranded. */}
@@ -909,7 +909,7 @@ export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
             id={CREATE_NOTEBOOK_ERROR_ID}
             data-action="left-sidebar-create-notebook-error"
             role="alert"
-            className="text-text-critical-base bg-surface-critical-weak/10 border-border-critical-weak/30 mt-4 rounded-lg border p-2.5 text-sm"
+            className="[overflow-wrap:anywhere] text-text-critical-base bg-surface-critical-weak/10 border-border-critical-weak/30 mt-4 rounded-lg border p-2.5 text-sm"
           >
             {props.error}
           </p>
@@ -1033,7 +1033,7 @@ export function ObsidianVaultConnectionDialog(props: ObsidianVaultConnectionDial
       <DialogContent
         data-component="obsidian-vault-connection-dialog"
         showCloseButton={false}
-        className="gap-0 p-6 sm:max-w-[440px]"
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto gap-0 p-6 sm:max-w-[440px]"
       >
         <DialogHeader className="gap-0">
           <div className="flex items-start justify-between gap-3 pb-4">
@@ -1069,7 +1069,7 @@ export function ObsidianVaultConnectionDialog(props: ObsidianVaultConnectionDial
         </DialogHeader>
 
         {props.error ? (
-          <p className="text-text-critical-base bg-surface-critical-weak/10 border-border-critical-weak/30 mt-4 rounded-lg border p-2.5 text-sm">
+          <p className="[overflow-wrap:anywhere] text-text-critical-base bg-surface-critical-weak/10 border-border-critical-weak/30 mt-4 rounded-lg border p-2.5 text-sm">
             {props.error}
           </p>
         ) : null}

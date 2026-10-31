@@ -475,7 +475,7 @@ export const dict = {
   "mcp.settings.emptyDescription":
     "No global MCPs configured yet. Add one here to make it available to notebooks.",
   "mcp.localFields.commandHelp":
-    "Use a JSON array to preserve exact argv values, especially when arguments contain spaces. Plain text still works for simple commands.",
+    "Use a JSON array for exact arguments, including spaces. Plain text works for simple commands.",
   "mcp.localFields.commandLabel": "Local command",
   "mcp.localFields.commandPlaceholder":
     '[\n  "npx",\n  "-y",\n  "@modelcontextprotocol/server-filesystem",\n  "/path with spaces"\n]',
@@ -553,7 +553,7 @@ export const dict = {
   "onboardingFlow.startFlowFailed": "Buddy could not start the ChatGPT sign-in flow.",
   "onboardingSetup.chatGptModal.cancelButton": "Cancel Sign-in",
   "onboardingSetup.chatGptModal.description":
-    "We've opened a browser window for you to sign in. Please complete authorization to continue.",
+    "Finish signing in in your browser to connect ChatGPT.",
   "onboardingSetup.chatGptModal.title": "Connecting ChatGPT",
   "onboardingSetup.chatGptModal.waitingLabel": "Waiting for browser...",
   "onboardingSetup.engineSelection.chatGpt.description": "Use models from your ChatGPT plan.",
@@ -595,7 +595,7 @@ export const dict = {
   "onboardingPrimaryUse.teach.title": "Teach with Buddy",
   "onboardingPrimaryUse.title": "How would you like to use Buddy?",
   "pickers.absoluteDirectoryRequired": "Please enter an absolute directory path",
-  "pickers.enterAbsoluteNotebookPath": "Enter the absolute notebook directory path",
+  "pickers.enterAbsoluteNotebookPath": "Enter the notebook’s full folder path",
   "pickers.filePickerUnavailable": "File picker is unavailable in this runtime.",
   "pickers.openDirectoryPickerFailed": "Failed to open native directory picker",
   "pickers.openNotebookTitle": "Open notebook",
@@ -825,7 +825,7 @@ export const dict = {
   "settings.advanced.on": "On",
   "settings.advanced.remove": "Remove",
   "settings.advanced.removeAdvancedMathDescription":
-    "This will remove the optional advanced math runtime from this device. You can reinstall it at any time.",
+    "Removes it from this device. You can reinstall it anytime.",
   "settings.advanced.removeAdvancedMathTitle": "Remove advanced math runtime?",
   "settings.advanced.requestFailed": "Request failed",
   "settings.appearance.advancedMathDescription":
@@ -911,7 +911,7 @@ export const dict = {
   "updates.button.install": "Install",
   "updates.confirm.action": "Restart now",
   "updates.confirm.description":
-    "Buddy will close and reopen. Anything running right now, including chats that are still replying, will be stopped.",
+    "Buddy will restart and stop all running work, including chat replies.",
   "updates.confirm.title": "Restart to install Buddy {{version}}?",
   "updates.failure.notConfigured": "Beta updates are not configured",
   "updates.failure.notConfiguredDetail":
@@ -1225,7 +1225,7 @@ export const dict = {
   "settings.tools.overrideNotebookAria": "Override {{tool}} for the selected notebook",
   "settings.tools.overriddenForNotebook": "Overridden for the selected notebook: {{state}}",
   "settings.tools.removeStandardsDescription":
-    "This will remove the optional standards package from this device. You can reinstall it at any time.",
+    "Removes it from this device. You can reinstall it anytime.",
   "settings.tools.removeStandardsTitle": "Remove standards package?",
   "settings.packages.activityDownloading": "Downloading\u2026",
   "settings.packages.activityFailed": "Install failed",
@@ -1252,7 +1252,7 @@ export const dict = {
   "sidebar.addNotebook": "Add notebook",
   "sidebar.archive": "Archive",
   "sidebar.archiveThreadAction": "Archive chat",
-  "sidebar.archiveThreadFallback": "Archive this chat and remove it from the active chat list?",
+  "sidebar.archiveThreadFallback": "Remove this chat from the active chat list?",
   "sidebar.archiveThreadTitle": "Archive chat?",
   "sidebar.archiving": "Archiving...",
   "sidebar.create": "Create",
@@ -1263,9 +1263,9 @@ export const dict = {
   "sidebar.delete": "Delete",
   "sidebar.deleteThreadAction": "Delete chat",
   "sidebar.deleteThreadFallback":
-    "Permanently delete this chat, all its messages, and any subagent chats? This can't be undone.",
+    "Delete this chat, its messages, and any subagent chats? This can't be undone.",
   "sidebar.deleteThreadQuestion":
-    'Permanently delete "{{title}}", all its messages, and any subagent chats? This can\'t be undone.',
+    'Delete "{{title}}", its messages, and any subagent chats? This can\'t be undone.',
   "sidebar.deleteThreadTitle": "Delete chat?",
   "sidebar.deleting": "Deleting...",
   "sidebar.disconnectObsidian": "Disconnect Obsidian",
@@ -1639,21 +1639,19 @@ export const dict = {
   "workspaceQuestionSet.title": "Question Sets",
   "connectProviderDialog.apiKeyPlaceholder": "Enter your {{providerName}} API key",
   "resourcesPanel.optionsForResource": "Options for {{alias}}",
-  "resourcesPanel.removeResourceQuestion":
-    'Remove "{{alias}}" and delete its files from notebook resources?',
+  "resourcesPanel.removeResourceQuestion": 'Remove "{{alias}}" and its notebook resource files?',
   "resourcesPanel.repairedTimesLabel.one": "time",
   "resourcesPanel.repairedTimesLabel.other": "times",
   "settings.mcps.description":
     "{{enabledCount}} of {{totalCount}} enabled. MCP definitions saved here override or extend this notebook's config.",
-  "sidebar.archiveThreadQuestion": 'Archive "{{title}}" and remove it from the active chat list?',
+  "sidebar.archiveThreadQuestion": 'Remove "{{title}}" from the active chat list?',
   "sidebar.optionsForDirectory": "Options for {{directoryLabel}}",
   "sidebar.startNewThreadIn": "Start new chat in {{directoryLabel}}",
   "sidebar.notebookSettingsStandardsSectionTitle": "Standards",
   "sidebar.notebookSettingsMcpSectionTitle": "MCP servers",
-  "sidebar.notebookSettingsMcpEmpty":
-    "No MCPs are configured yet. Add one in global Settings to make it available here.",
+  "sidebar.notebookSettingsMcpEmpty": "No MCP servers yet. Add one in global Settings.",
   "sidebar.notebookSettingsMcpEditorDescription":
-    "Update this notebook's MCP details, then connect it again.",
+    "Edit this notebook's MCP details, then reconnect.",
   "sidebar.notebookSettingsLearnerMemorySectionTitle": "Memory",
   "sidebar.notebookSettings": "Notebook settings",
   "chat.permissionDock.pendingRequests.one": "+{{count}} more pending request",

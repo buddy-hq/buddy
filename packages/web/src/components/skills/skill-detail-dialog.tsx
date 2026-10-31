@@ -103,8 +103,13 @@ function SkillDetailFields(props: { fields: readonly SkillDetailField[] }) {
             {field.kind === SKILL_DETAIL_FIELD_CHIPS ? (
               <div className="flex flex-wrap gap-1.5">
                 {field.values.map((value) => (
-                  <Badge key={value} variant="outline" className="font-normal text-text-weak">
-                    {value}
+                  <Badge
+                    key={value}
+                    variant="outline"
+                    className="max-w-full font-normal text-text-weak"
+                    title={value}
+                  >
+                    <span className="truncate">{value}</span>
                   </Badge>
                 ))}
               </div>
@@ -128,7 +133,7 @@ export function SkillDetailDialog(props: {
 
   return (
     <Dialog open={detail !== undefined} onOpenChange={props.onOpenChange}>
-      <DialogContent className="gap-5 sm:max-w-md">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto gap-5 sm:max-w-md">
         {detail ? (
           <>
             {/* The close button sits at the top right, so the header keeps its

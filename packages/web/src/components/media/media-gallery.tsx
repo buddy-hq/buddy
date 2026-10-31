@@ -209,7 +209,7 @@ export function ToolImageGallery({
                       loadingClassName="max-h-[28rem]"
                     />
                     {item.caption ? (
-                      <p className="absolute bottom-4 max-w-xl rounded-full border border-border-base/10 bg-background-base/75 px-4 py-1.5 text-center text-xs font-medium text-text-base shadow-lg backdrop-blur-sm">
+                      <p className="absolute bottom-4 max-w-[min(36rem,calc(100%-2rem))] max-h-[calc(100%-2rem)] overflow-y-auto [overflow-wrap:anywhere] rounded-full border border-border-base/10 bg-background-base/75 px-4 py-1.5 text-center text-xs font-medium text-text-base shadow-lg backdrop-blur-sm">
                         {item.caption}
                       </p>
                     ) : null}

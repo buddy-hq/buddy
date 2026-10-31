@@ -32,7 +32,7 @@ export function WorkspaceFileOpenDialog() {
           <DialogTitle>Open large file?</DialogTitle>
           <DialogDescription>
             {request
-              ? `${fileNameFromPath(request.path) || request.path} is ${formatFileSize(request.sizeBytes)}. Opening it in Buddy may use significant memory.`
+              ? `${fileNameFromPath(request.path) || request.path} is ${formatFileSize(request.sizeBytes)}. May use significant memory.`
               : "This file may use significant memory."}
           </DialogDescription>
         </DialogHeader>

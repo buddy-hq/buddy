@@ -2,6 +2,14 @@ import "../happydom"
 import { afterEach, beforeEach, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import {
+  AlertDialog,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Dialog,
+  DialogTitle,
+} from "@buddy/ui"
 import { ChatGptConnectionWaitingDialog } from "../src/components/usage/chatgpt-connection-waiting-dialog"
 
 let container: HTMLDivElement
@@ -43,4 +51,38 @@ test("shows the ChatGPT connection modal with a working cancel action", async ()
   if (!cancel) throw new Error("Expected Cancel Sign-in button")
   await act(async () => cancel.click())
   expect(cancelled).toBe(true)
+})
+
+test("shared modal headers constrain their tracks and wrap long text", async () => {
+  await act(async () => {
+    root.render(
+      <>
+        <AlertDialog>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove item?</AlertDialogTitle>
+            <AlertDialogDescription>Remove this item.</AlertDialogDescription>
+          </AlertDialogHeader>
+        </AlertDialog>
+        <Dialog>
+          <DialogTitle>Details</DialogTitle>
+        </Dialog>
+      </>,
+    )
+  })
+
+  const header = container.querySelector('[data-slot="alert-dialog-header"]')
+  expect(header?.classList.contains("grid-cols-[minmax(0,1fr)]")).toBe(true)
+  expect(
+    header?.classList.contains(
+      "sm:group-data-[size=default]/alert-dialog-content:has-data-[slot=alert-dialog-media]:grid-cols-[auto_minmax(0,1fr)]",
+    ),
+  ).toBe(true)
+  for (const slot of ["alert-dialog-title", "alert-dialog-description", "dialog-title"]) {
+    const item = container.querySelector(`[data-slot="${slot}"]`)
+    expect(item?.classList.contains("[overflow-wrap:anywhere]")).toBe(true)
+    if (slot !== "dialog-title") {
+      expect(item?.classList.contains("w-full")).toBe(true)
+      expect(item?.classList.contains("min-w-0")).toBe(true)
+    }
+  }
 })

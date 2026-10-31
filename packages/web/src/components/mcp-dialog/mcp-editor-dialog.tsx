@@ -54,7 +54,7 @@ type McpEditorDialogProps = {
 export function McpEditorDialog(props: McpEditorDialogProps) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
         <DialogHeader className="flex flex-col items-start space-y-3.5">
           <div className="flex items-center gap-3 w-full">
             <div className="flex size-10 items-center justify-center rounded-xl border border-border-weak bg-surface-weak/50 text-icon-brand-base shrink-0">
@@ -62,7 +62,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
             </div>
             <div className="min-w-0 text-left w-full">
               <DialogTitle className="text-lg font-semibold flex items-center gap-2">
-                <span>
+                <span className="min-w-0 [overflow-wrap:anywhere]">
                   {props.mode === "create"
                     ? language.t("mcp.editorDialog.addTitle")
                     : language.t("mcp.editorDialog.editTitle", { name: props.draft.name })}
@@ -78,13 +78,13 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
           </div>
         </DialogHeader>
 
-        <div className="grid gap-4 py-1.5">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 py-1.5">
           {props.draft.clientSecret === "[REDACTED]" ||
           props.draft.headersText.includes("[REDACTED]") ||
           props.draft.environmentText.includes("[REDACTED]") ? (
             <p className="text-xs text-text-weak">
-              Stored secrets are marked [REDACTED]. Leave the marker to keep a secret, replace it to
-              change the value, or remove the field to clear it.
+              Keep [REDACTED] to preserve a stored secret, replace it to change it, or remove the
+              field to clear it.
             </p>
           ) : null}
           <Field className="space-y-1.5">
@@ -215,7 +215,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
         </div>
 
         {props.editorError ? (
-          <p className="text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
+          <p className="[overflow-wrap:anywhere] text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
             {props.editorError}
           </p>
         ) : null}

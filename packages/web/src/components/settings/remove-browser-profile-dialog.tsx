@@ -29,8 +29,7 @@ export function RemoveBrowserProfileDialog(props: {
         <AlertDialogHeader>
           <AlertDialogTitle>Remove “{profile?.name}”?</AlertDialogTitle>
           <AlertDialogDescription>
-            Its cookies and logins are deleted. Tabs already open in this profile stay open until
-            you close them.
+            Deletes this profile’s cookies and logins. Existing tabs stay open until closed.
           </AlertDialogDescription>
           {props.error ? (
             <p aria-live="polite" className="text-sm text-icon-critical-base">

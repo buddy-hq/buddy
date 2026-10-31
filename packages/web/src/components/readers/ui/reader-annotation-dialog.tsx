@@ -48,14 +48,10 @@ export function ReaderAnnotationDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{dialog.mode === "edit" ? "Edit annotation" : "New annotation"}</DialogTitle>
-          <DialogDescription>
-            {dialog.mode === "edit"
-              ? "Adjust the annotation style or personal note."
-              : "Choose a style and optionally add a personal note."}
-          </DialogDescription>
+          <DialogDescription>A note is optional.</DialogDescription>
         </DialogHeader>
 
         <blockquote className="max-h-24 overflow-y-auto rounded-md border-l-2 bg-surface-base px-3 py-2 text-sm italic text-text-weak">
@@ -119,7 +115,7 @@ export function ReaderAnnotationDialog({
               onChange={(event) => onChangeNote(event.target.value)}
               placeholder="Write a note (optional)"
               rows={3}
-              className="resize-none"
+              className="max-h-48 overflow-y-auto resize-none"
             />
           </Field>
         </FieldGroup>

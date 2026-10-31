@@ -447,7 +447,12 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       <FieldGroup>
         {prompts.map((prompt) => (
           <Field key={prompt.key} data-disabled={busy || cancellingOAuth}>
-            <FieldLabel htmlFor={`${formID}-${prompt.key}`}>{prompt.message}</FieldLabel>
+            <FieldLabel
+              className="min-w-0 max-w-full [overflow-wrap:anywhere]"
+              htmlFor={`${formID}-${prompt.key}`}
+            >
+              {prompt.message}
+            </FieldLabel>
             {prompt.type === "select" ? (
               <NativeSelect
                 id={`${formID}-${prompt.key}`}
@@ -540,7 +545,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                 key={`${method.type}:${method.label}`}
                 type="button"
                 variant="outline"
-                className="w-full justify-start"
+                className="h-auto w-full justify-start whitespace-normal"
                 disabled={busy || cancellingOAuth}
                 onClick={() => {
                   setFormAnswers({})
@@ -553,7 +558,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                   }
                 }}
               >
-                {method.label}
+                <span className="min-w-0 [overflow-wrap:anywhere]">{method.label}</span>
               </Button>
             ))}
           </div>
@@ -645,7 +650,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                       onClick={() => void handleCopyCode(confirmationCode)}
                       className="flex w-full items-center justify-between gap-2 rounded-lg border border-border-base bg-surface-base px-3 py-2 text-left font-mono text-sm transition-colors hover:bg-surface-raised-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base cursor-pointer"
                     >
-                      <span className="select-all tracking-wider text-text-strong">
+                      <span className="min-w-0 [overflow-wrap:anywhere] select-all tracking-wider text-text-strong">
                         {confirmationCode}
                       </span>
                       {copiedCode ? (
@@ -693,7 +698,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="overflow-hidden sm:max-w-sm">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-sm">
         <DialogHeader className="pb-1">
           <div className="flex items-center gap-1">
             {backTarget ? (
@@ -708,7 +713,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                 <ChevronLeftIcon />
               </Button>
             ) : null}
-            <DialogTitle>{props.provider.name}</DialogTitle>
+            <DialogTitle className="min-w-0 flex-1">{props.provider.name}</DialogTitle>
           </div>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
@@ -716,7 +721,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
         <div className="space-y-4 py-1">
           {renderBody()}
           {error ? (
-            <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-sm text-icon-critical-base">
+            <p className="[overflow-wrap:anywhere] rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-sm text-icon-critical-base">
               {error}
             </p>
           ) : null}
