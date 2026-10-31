@@ -1,4 +1,10 @@
-import type { HTMLAttributes, PointerEvent as ReactPointerEvent } from "react"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type HTMLAttributes,
+  type PointerEvent as ReactPointerEvent,
+} from "react"
 import { hasFunctionValue } from "@buddy/ui/lib/parse-values"
 
 const NOOP = () => undefined
@@ -38,6 +44,14 @@ export function ResizeHandle(props: ResizeHandleProps) {
     style,
     ...domProps
   } = props
+  const latestCallbacks = useRef({ onResize, onResizeIntent, onCollapse })
+  const releaseActiveResize = useRef<(() => void) | undefined>(undefined)
+
+  useLayoutEffect(() => {
+    latestCallbacks.current = { onResize, onResizeIntent, onCollapse }
+  })
+
+  useEffect(() => () => releaseActiveResize.current?.(), [])
 
   function startResize(
     start: number,
@@ -46,7 +60,7 @@ export function ResizeHandle(props: ResizeHandleProps) {
     const edge = edgeProp ?? (direction === "vertical" ? "start" : "end")
     const startSize = size
     let current = startSize
-    let finished = false
+    let released = false
     let pendingIntent: ResizeHandleIntent | undefined
     let resizeFrameID: number | undefined
     const previousUserSelect = document.body.style.userSelect
@@ -62,8 +76,8 @@ export function ResizeHandle(props: ResizeHandleProps) {
       const intent = pendingIntent
       pendingIntent = undefined
       if (!intent) return
-      onResize(intent.clampedSize)
-      onResizeIntent?.(intent)
+      latestCallbacks.current.onResize(intent.clampedSize)
+      latestCallbacks.current.onResizeIntent?.(intent)
     }
 
     const scheduleResize = (intent: ResizeHandleIntent) => {
@@ -76,22 +90,37 @@ export function ResizeHandle(props: ResizeHandleProps) {
       resizeFrameID = globalThis.requestAnimationFrame(flushPendingResize)
     }
 
-    const finishResize = () => {
-      if (finished) return
-      finished = true
+    const cancelScheduledResize = () => {
       if (resizeFrameID !== undefined && hasFunctionValue(globalThis.cancelAnimationFrame)) {
         globalThis.cancelAnimationFrame(resizeFrameID)
       }
-      flushPendingResize()
+      resizeFrameID = undefined
+    }
+
+    const releaseResize = () => {
+      if (released) return
+      released = true
+      releaseActiveResize.current = undefined
+      cancelScheduledResize()
       document.body.style.userSelect = previousUserSelect
       document.body.style.overflow = previousOverflow
       unsubscribe()
+    }
+
+    const finishResize = () => {
+      if (released) return
+      cancelScheduledResize()
+      flushPendingResize()
+      releaseResize()
 
       const threshold = collapseThreshold ?? 0
-      if (onCollapse && threshold > 0 && current < threshold) {
-        onCollapse()
+      const collapse = latestCallbacks.current.onCollapse
+      if (collapse && threshold > 0 && current < threshold) {
+        collapse()
       }
     }
+
+    releaseActiveResize.current = releaseResize
 
     unsubscribe = subscribe((position: number) => {
       const delta =

@@ -12,6 +12,14 @@ let container: HTMLDivElement | undefined
 const originalRequestAnimationFrame = globalThis.requestAnimationFrame
 const originalCancelAnimationFrame = globalThis.cancelAnimationFrame
 
+function stubPointerCapture(handle: HTMLElement) {
+  Object.defineProperties(handle, {
+    setPointerCapture: { configurable: true, value() {} },
+    hasPointerCapture: { configurable: true, value: () => false },
+    releasePointerCapture: { configurable: true, value() {} },
+  })
+}
+
 function dispatchPointerEvent(
   target: Element,
   type: "pointerdown" | "pointermove" | "pointerup",
@@ -88,11 +96,7 @@ describe("ResizeHandle", () => {
 
     const handle = container.querySelector<HTMLElement>("div")
     if (!handle) throw new Error("Expected resize handle")
-    Object.defineProperties(handle, {
-      setPointerCapture: { configurable: true, value() {} },
-      hasPointerCapture: { configurable: true, value: () => false },
-      releasePointerCapture: { configurable: true, value() {} },
-    })
+    stubPointerCapture(handle)
 
     dispatchPointerEvent(handle, "pointerdown", TEST_START_X_PX)
     dispatchPointerEvent(handle, "pointermove", TEST_START_X_PX + 10)
@@ -111,5 +115,105 @@ describe("ResizeHandle", () => {
     dispatchPointerEvent(handle, "pointerup", TEST_START_X_PX + 30)
     expect(sizes).toEqual([TEST_START_SIZE_PX + 20, TEST_START_SIZE_PX + 30])
     expect(frameCallbacks.size).toBe(0)
+  })
+
+  test("a drag in progress reports to the callbacks from the latest render", async () => {
+    Reflect.deleteProperty(globalThis, "requestAnimationFrame")
+    const received: string[] = []
+    const renderHandle = (label: string) =>
+      root?.render(
+        <ResizeHandle
+          direction="horizontal"
+          size={TEST_START_SIZE_PX}
+          min={200}
+          max={500}
+          collapseThreshold={TEST_START_SIZE_PX}
+          onResize={() => received.push(`${label} resize`)}
+          onResizeIntent={() => received.push(`${label} intent`)}
+          onCollapse={() => received.push(`${label} collapse`)}
+        />,
+      )
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await act(async () => {
+      renderHandle("first")
+    })
+    const handle = container.querySelector<HTMLElement>("div")
+    if (!handle) throw new Error("Expected resize handle")
+    stubPointerCapture(handle)
+
+    dispatchPointerEvent(handle, "pointerdown", TEST_START_X_PX)
+    dispatchPointerEvent(handle, "pointermove", TEST_START_X_PX + 10)
+    await act(async () => {
+      renderHandle("second")
+    })
+    dispatchPointerEvent(handle, "pointermove", TEST_START_X_PX - 10)
+    dispatchPointerEvent(handle, "pointerup", TEST_START_X_PX - 10)
+
+    expect(received).toEqual([
+      "first resize",
+      "first intent",
+      "second resize",
+      "second intent",
+      "second collapse",
+    ])
+  })
+
+  test("unmounting during a drag restores the page and drops the unsent resize", async () => {
+    const frameCallbacks = new Map<number, FrameRequestCallback>()
+    let nextFrameID = 0
+    globalThis.requestAnimationFrame = (callback) => {
+      nextFrameID += 1
+      frameCallbacks.set(nextFrameID, callback)
+      return nextFrameID
+    }
+    globalThis.cancelAnimationFrame = (frameID) => {
+      frameCallbacks.delete(frameID)
+    }
+    const sizes: number[] = []
+    let collapsed = false
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await act(async () => {
+      root?.render(
+        <ResizeHandle
+          direction="horizontal"
+          size={TEST_START_SIZE_PX}
+          min={200}
+          max={500}
+          collapseThreshold={TEST_START_SIZE_PX}
+          onResize={(size) => sizes.push(size)}
+          onCollapse={() => {
+            collapsed = true
+          }}
+        />,
+      )
+    })
+    const handle = container.querySelector<HTMLElement>("div")
+    if (!handle) throw new Error("Expected resize handle")
+    stubPointerCapture(handle)
+    document.body.style.userSelect = "text"
+    document.body.style.overflow = "auto"
+
+    dispatchPointerEvent(handle, "pointerdown", TEST_START_X_PX)
+    dispatchPointerEvent(handle, "pointermove", TEST_START_X_PX - 10)
+    expect(document.body.style.userSelect).toBe("none")
+    expect(document.body.style.overflow).toBe("hidden")
+
+    await act(async () => {
+      root?.render(<div />)
+    })
+
+    expect(document.body.style.userSelect).toBe("text")
+    expect(document.body.style.overflow).toBe("auto")
+    expect(frameCallbacks.size).toBe(0)
+    dispatchPointerEvent(handle, "pointerup", TEST_START_X_PX - 10)
+    window.dispatchEvent(new Event("blur"))
+    expect(sizes).toEqual([])
+    expect(collapsed).toBe(false)
+    document.body.style.userSelect = ""
+    document.body.style.overflow = ""
   })
 })
