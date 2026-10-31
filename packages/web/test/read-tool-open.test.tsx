@@ -8,9 +8,15 @@ import type { MessagePart } from "../src/state/chat-types"
 import { activityPresentation, presentationMetadata } from "./tool-presentation-fixtures"
 
 const openBench = mock(async () => ({ outcome: "committed" }))
+const openMarkdownFile = mock(async (_path: string) => undefined)
 
 mock.module("@/lib/use-open-bench", () => ({
   useOpenBench: () => openBench,
+}))
+
+mock.module("@/components/markdown/use-markdown-file-link-open", () => ({
+  useMarkdownFileOpen: () => openMarkdownFile,
+  useMarkdownFileLinkOpen: () => openMarkdownFile,
 }))
 
 const [
@@ -117,6 +123,7 @@ describe("opening a file from a Read step", () => {
   beforeEach(() => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     openBench.mockClear()
+    openMarkdownFile.mockClear()
     container = document.createElement("div")
     document.body.append(container)
     root = createQueryTestRoot(container)
@@ -134,17 +141,14 @@ describe("opening a file from a Read step", () => {
     )
   }
 
-  function textNode(tag: "button" | "span", text: string) {
-    return Array.from(container.querySelectorAll<HTMLElement>(tag)).find(
-      (element) => element.textContent === text,
-    )
-  }
-
-  async function renderExpandedRow(part: MessagePart, notebookDirectory: string | undefined) {
+  async function renderExpandedRow(
+    part: MessagePart | MessagePart[],
+    notebookDirectory: string | undefined,
+  ) {
     await act(async () =>
       root.render(
         <ActivityRow
-          parts={[part]}
+          parts={Array.isArray(part) ? part : [part]}
           seed="activity:turn:0"
           zeroEntryLabel="Thinking"
           directory={notebookDirectory}
@@ -208,27 +212,43 @@ describe("opening a file from a Read step", () => {
     },
   )
 
-  test.each([
-    "../secret.md",
-    "notes/../../secret.md",
-    "..\\secret.md",
-    "C:..\\secret.md",
-    "C:secret.md",
-  ])("leaves a Read plain when dot segments resolve outside the notebook: %s", async (filePath) => {
-    await renderExpandedRow(readPart({ filePath, detail: "secret.md" }), directory)
+  test.each(["../secret.md", "notes/../../secret.md", "..\\secret.md"])(
+    "opens a Read whose dot segments resolve outside the notebook: %s",
+    async (filePath) => {
+      await renderExpandedRow(readPart({ filePath, detail: "secret.md" }), directory)
 
-    expect(container.textContent).toContain("Read secret.md")
-    expect(buttonNamed("Open secret.md on Bench")).toBeUndefined()
-    expect(openBench).not.toHaveBeenCalled()
-  })
+      const link = buttonNamed("Open secret.md on Bench")
+      expect(link?.textContent).toBe("secret.md")
+      await act(async () => link?.click())
+
+      expect(openMarkdownFile).toHaveBeenCalledTimes(1)
+      expect(openMarkdownFile).toHaveBeenCalledWith(filePath)
+      expect(openBench).not.toHaveBeenCalled()
+    },
+  )
+
+  test.each(["C:..\\secret.md", "C:secret.md"])(
+    "leaves a Read plain when dot segments resolve outside the notebook: %s",
+    async (filePath) => {
+      await renderExpandedRow(readPart({ filePath, detail: "secret.md" }), directory)
+
+      expect(container.textContent).toContain("Read secret.md")
+      expect(buttonNamed("Open secret.md on Bench")).toBeUndefined()
+      expect(openBench).not.toHaveBeenCalled()
+    },
+  )
 
   test.each(["~/notes/tracker.md", "~\\notes\\tracker.md"])(
-    "leaves a home-relative Read plain: %s",
+    "opens a home-relative Read through the markdown opener: %s",
     async (filePath) => {
       await renderExpandedRow(readPart({ filePath, detail: "tracker.md" }), directory)
 
-      expect(container.textContent).toContain("Read tracker.md")
-      expect(buttonNamed("Open tracker.md on Bench")).toBeUndefined()
+      const link = buttonNamed("Open tracker.md on Bench")
+      expect(link?.textContent).toBe("tracker.md")
+      await act(async () => link?.click())
+
+      expect(openMarkdownFile).toHaveBeenCalledTimes(1)
+      expect(openMarkdownFile).toHaveBeenCalledWith(filePath)
       expect(openBench).not.toHaveBeenCalled()
     },
   )
@@ -244,14 +264,62 @@ describe("opening a file from a Read step", () => {
     expect(openBench).toHaveBeenCalledWith(benchTarget("photos/photo.png", "file"))
   })
 
-  test("leaves the step name plain for a file outside the notebook", async () => {
-    await renderExpandedRow(
-      readPart({ filePath: "/tmp/tracker.md", detail: "tracker.md" }),
-      directory,
-    )
+  test.each(["/tmp/tracker.md", "C:\\tmp\\tracker.md"])(
+    "opens an outside-notebook Read step through the markdown opener: %s",
+    async (filePath) => {
+      await renderExpandedRow(readPart({ filePath, detail: "tracker.md" }), directory)
 
-    expect(container.textContent).toContain("Read tracker.md")
-    expect(buttonNamed("Open tracker.md on Bench")).toBeUndefined()
+      const link = buttonNamed("Open tracker.md on Bench")
+      expect(link?.textContent).toBe("tracker.md")
+      await act(async () => link?.click())
+
+      expect(openMarkdownFile).toHaveBeenCalledTimes(1)
+      expect(openMarkdownFile).toHaveBeenCalledWith(filePath)
+      expect(openBench).not.toHaveBeenCalled()
+    },
+  )
+
+  test("opens an outside Read while keeping a Wrote row for the same path plain", async () => {
+    const filePath = "/tmp/tracker.md"
+    const wrote: MessagePart = {
+      id: "part_write",
+      sessionID: "ses_read",
+      messageID: "msg_read",
+      type: "tool",
+      tool: "write",
+      callID: "call_write",
+      metadata: presentationMetadata(
+        activityPresentation({
+          phase: "completed",
+          action: "Wrote",
+          detail: "tracker.md",
+          category: "edit-files",
+          summary: "Edited files",
+          renderer: "edit",
+        }),
+      ),
+      state: {
+        status: "completed",
+        input: {},
+        metadata: {},
+        output: "written",
+        title: "tracker.md",
+        time: { start: 1, end: 2 },
+        summary: { kind: "write-file", subject: filePath },
+        fileChanges: [{ path: filePath, content: "contents" }],
+      },
+    }
+    await renderExpandedRow([readPart({ filePath, detail: "tracker.md" }), wrote], directory)
+
+    const wroteRow = container.querySelector('[data-part-id="part_write"]')
+    expect(wroteRow?.textContent).toContain("Wrote tracker.md")
+    expect(wroteRow?.querySelector('[aria-label="Open tracker.md on Bench"]')).toBeNull()
+    const link = buttonNamed("Open tracker.md on Bench")
+    expect(link?.textContent).toBe("tracker.md")
+    await act(async () => link?.click())
+
+    expect(openMarkdownFile).toHaveBeenCalledTimes(1)
+    expect(openMarkdownFile).toHaveBeenCalledWith(filePath)
     expect(openBench).not.toHaveBeenCalled()
   })
 
@@ -289,14 +357,19 @@ describe("opening a file from a Read step", () => {
     expect(openBench).toHaveBeenCalledWith(benchTarget("notes/tracker.md", "markdown"))
   })
 
-  test("keeps an outside-notebook read card subject as plain text", async () => {
+  test("opens an outside-notebook read card subject through the markdown opener", async () => {
     await renderCard(readPart({ filePath: "/tmp/tracker.md", detail: "tracker.md" }), directory)
 
-    expect(textNode("span", "tracker.md")).toBeDefined()
-    expect(buttonNamed("Open tracker.md on Bench")).toBeUndefined()
+    const subject = buttonNamed("Open tracker.md on Bench")
+    expect(subject?.textContent).toBe("tracker.md")
+    await act(async () => subject?.click())
+
+    expect(openMarkdownFile).toHaveBeenCalledTimes(1)
+    expect(openMarkdownFile).toHaveBeenCalledWith("/tmp/tracker.md")
+    expect(openBench).not.toHaveBeenCalled()
   })
 
-  test("keeps a skill reference read as a plain label", async () => {
+  test("opens a notebook skill reference using its display name", async () => {
     await renderCard(
       readPart({
         filePath: `${directory}/skills/writing/SKILL.md`,
@@ -306,9 +379,27 @@ describe("opening a file from a Read step", () => {
     )
 
     expect(container.textContent).toContain("Referred:")
-    expect(textNode("span", "Writing")).toBeDefined()
-    expect(buttonNamed("Open Writing on Bench")).toBeUndefined()
+    const subject = buttonNamed("Open Writing on Bench")
+    expect(subject?.textContent).toBe("Writing")
+    await act(async () => subject?.click())
+
+    expect(openBench).toHaveBeenCalledTimes(1)
+    expect(openBench).toHaveBeenCalledWith(benchTarget("skills/writing/SKILL.md", "markdown"))
     expect(buttonNamed("Open SKILL.md on Bench")).toBeUndefined()
+  })
+
+  test("opens an outside skill reference using its display name", async () => {
+    const filePath = "/app/skills/buddy-help/references/handy-voice.md"
+    await renderCard(readPart({ filePath, detail: "handy-voice.md" }), directory)
+
+    expect(container.textContent).toContain("Referred:")
+    const subject = buttonNamed("Open Handy Voice on Bench")
+    expect(subject?.textContent).toBe("Handy Voice")
+    await act(async () => subject?.click())
+
+    expect(openMarkdownFile).toHaveBeenCalledTimes(1)
+    expect(openMarkdownFile).toHaveBeenCalledWith(filePath)
+    expect(openBench).not.toHaveBeenCalled()
   })
 
   test("keeps an image preview as a picture without an open control", async () => {

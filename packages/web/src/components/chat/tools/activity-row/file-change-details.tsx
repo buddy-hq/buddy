@@ -11,6 +11,7 @@ import {
 } from "@buddy/ui"
 import { FileText } from "@/icons/app-icons"
 
+import { useMarkdownFileOpen } from "@/components/markdown/use-markdown-file-link-open"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useWorkspaceFileOpen, type WorkspaceFileActionInput } from "@/lib/use-workspace-file-open"
@@ -198,18 +199,25 @@ function benchRelativePath(directory: string, filePath: string): string | undefi
   return resolvedNotebookRelativePath(filePath)
 }
 
-// Opens a changed file on the Bench. Undefined when the file is outside the notebook or the Bench
-// can't show it, so callers render a plain name instead of a link.
 export function useBenchFileOpener(
   directory: string | undefined,
   filePath: string | undefined,
+  outsideNotebook: "open" | "plain" = "plain",
 ): (() => void) | undefined {
   const platform = usePlatform()
   const { resolvePlan, executePrimary } = useWorkspaceFileOpen(directory)
+  const openMarkdownFile = useMarkdownFileOpen(directory)
   if (!directory || !filePath) return undefined
 
   const path = benchRelativePath(directory, filePath)
-  if (!path) return undefined
+  if (!path) {
+    if (outsideNotebook === "plain" || /^[A-Za-z]:(?![\\/])/u.test(filePath.trim())) {
+      return undefined
+    }
+    return () => {
+      void openMarkdownFile(filePath)
+    }
+  }
 
   const absolutePath = isAbsoluteFilePath(filePath)
     ? filePath

@@ -249,6 +249,7 @@ function ActivityItemRow(props: ActivityItemProps) {
   const openFile = useBenchFileOpener(
     props.directory,
     entry.kind === "tool" ? activityEntryFilePath(entry) : undefined,
+    entry.kind === "tool" && entry.presentation.renderer === "read" ? "open" : "plain",
   )
   const fileName = entry.kind === "tool" ? entry.presentation.detail : undefined
   const setIsOpen = (value: boolean) => {

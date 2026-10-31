@@ -20,10 +20,10 @@ function ReadTool({ state, info, icon, directory }: ToolPartProps) {
   const action = skillReference ? `${getSkillReferenceRowAction(active)}:` : "read"
   const subject = skillReference?.displayName ?? info.subtitle
   const openPath =
-    skillReference || isImageRead || state.status !== "completed"
+    isImageRead || state.status !== "completed"
       ? undefined
       : readNonEmptyString(state.summary?.subject)
-  const openFile = useBenchFileOpener(directory, openPath)
+  const openFile = useBenchFileOpener(directory, openPath, "open")
 
   return (
     <div className="flex flex-col gap-1.5">
