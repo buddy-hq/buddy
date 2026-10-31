@@ -11,7 +11,6 @@ import {
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useExternalFileOpenDialogStore } from "@/state/external-file-open-dialog-store"
-import { fileNameFromPath } from "@/lib/workspace-file-paths"
 
 export function ExternalFileOpenDialog() {
   const platform = usePlatform()
@@ -28,7 +27,7 @@ export function ExternalFileOpenDialog() {
       }}
     >
       <AlertDialogContent>
-        <AlertDialogHeader>
+        <AlertDialogHeader className="grid-cols-[minmax(0,1fr)]">
           <AlertDialogTitle>
             {missing
               ? request.outsideNotebook
@@ -39,11 +38,9 @@ export function ExternalFileOpenDialog() {
           <AlertDialogDescription className="min-w-0 break-words">
             {missing
               ? "Buddy couldn't find the linked file at this path:"
-              : request
-                ? `${fileNameFromPath(request.path) || request.path} is at ${request.path}. Buddy will show it read-only.`
-                : "Buddy will show this file read-only."}
+              : "Buddy will show it read-only."}
           </AlertDialogDescription>
-          {missing ? (
+          {request ? (
             <p className="min-w-0 break-all rounded-md bg-surface-weak p-3 font-mono text-xs text-text-base">
               {request.path}
             </p>
