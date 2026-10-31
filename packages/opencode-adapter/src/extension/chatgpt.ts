@@ -16,6 +16,9 @@ import { Model, Provider, registerProviderCatalog } from "../gateway/provider"
 
 const OPENAI_PROVIDER_ID = "openai"
 const CHATGPT_CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex"
+const FAST_MODE_MODEL_SUFFIX = "-fast"
+const FAST_MODE_MODEL_SLUG = /^gpt-\d+(?:\.\d+)*(?:-(?:sol|terra|luna|astra))?$/u
+const FAST_MODE_REQUEST_BODY = { service_tier: "priority" }
 const rejectedAccessTokenDigests = new Map<string, string>()
 
 export async function returnChatGPTError<Output, Failure>(
@@ -149,48 +152,73 @@ async function rejectCredentials(ctx: PluginContext, auth: ChatGPTAuth): Promise
   })
 }
 
-function applyAccountModels(
+function accountModelInfo(
+  models: ReadonlyMap<string, Model.Info>,
+  accountModel: ChatGPTAccountModel,
+): Model.Info {
+  const existing = models.get(accountModel.id)
+  const effectiveContext = accountModel.contextWindow ?? existing?.limit.context ?? 128_000
+  return {
+    ...existing,
+    id: Model.ID.make(accountModel.id),
+    modelID: Model.ID.make(accountModel.id),
+    providerID: Provider.ID.make("openai"),
+    name: accountModel.name ?? existing?.name ?? accountModel.id,
+    capabilities: {
+      tools: existing?.capabilities.tools ?? true,
+      input: accountModel.inputModalities
+        ? [...accountModel.inputModalities]
+        : (existing?.capabilities.input ?? ["text", "image"]),
+      output: existing?.capabilities.output ?? ["text"],
+    },
+    variants:
+      accountModel.reasoningEfforts?.map((effort) => ({
+        id: Model.VariantID.make(effort),
+        settings: { reasoningEffort: effort },
+      })) ??
+      existing?.variants ??
+      [],
+    time: existing?.time ?? { released: 0 },
+    cost: [],
+    status: "active",
+    enabled: true,
+    settings: {
+      ...existing?.settings,
+      include: ["reasoning.encrypted_content"],
+      reasoningSummary: accountModel.reasoningSummary === false ? null : "auto",
+    },
+    limit: {
+      context: effectiveContext,
+      input: effectiveContext,
+      output: accountModel.maxOutputTokens ?? existing?.limit.output ?? 32_000,
+    },
+  }
+}
+
+export function applyAccountModels(
   models: ReadonlyMap<string, Model.Info>,
   accountModels: readonly ChatGPTAccountModel[],
 ): Model.Info[] {
-  return accountModels.map((accountModel) => {
-    const existing = models.get(accountModel.id)
-    const effectiveContext = accountModel.contextWindow ?? existing?.limit.context ?? 128_000
-    return {
-      ...existing,
-      id: Model.ID.make(accountModel.id),
-      modelID: Model.ID.make(accountModel.id),
-      providerID: Provider.ID.make("openai"),
-      name: accountModel.name ?? existing?.name ?? accountModel.id,
-      capabilities: {
-        tools: existing?.capabilities.tools ?? true,
-        input: accountModel.inputModalities
-          ? [...accountModel.inputModalities]
-          : (existing?.capabilities.input ?? ["text", "image"]),
-        output: existing?.capabilities.output ?? ["text"],
-      },
-      variants:
-        accountModel.reasoningEfforts?.map((effort) => ({
-          id: Model.VariantID.make(effort),
-          settings: { reasoningEffort: effort },
-        })) ??
-        existing?.variants ??
-        [],
-      time: existing?.time ?? { released: 0 },
-      cost: [],
-      status: "active",
-      enabled: true,
-      settings: {
-        ...existing?.settings,
-        include: ["reasoning.encrypted_content"],
-        reasoningSummary: accountModel.reasoningSummary === false ? null : "auto",
-      },
-      limit: {
-        context: effectiveContext,
-        input: effectiveContext,
-        output: accountModel.maxOutputTokens ?? existing?.limit.output ?? 32_000,
-      },
+  const accountModelIDs = new Set(accountModels.map((accountModel) => accountModel.id))
+  return accountModels.flatMap((accountModel) => {
+    const base = accountModelInfo(models, accountModel)
+    const fastID = `${accountModel.id}${FAST_MODE_MODEL_SUFFIX}`
+    const catalogFast = models.get(fastID)
+    if (
+      accountModelIDs.has(fastID) ||
+      (!catalogFast && !FAST_MODE_MODEL_SLUG.test(accountModel.id))
+    ) {
+      return [base]
     }
+    return [
+      base,
+      {
+        ...base,
+        id: Model.ID.make(fastID),
+        name: catalogFast?.name ?? `${base.name} Fast`,
+        body: { ...base.body, ...catalogFast?.body, ...FAST_MODE_REQUEST_BODY },
+      },
+    ]
   })
 }
 
