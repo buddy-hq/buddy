@@ -974,8 +974,8 @@ async function assertResourceRoutes(input: {
 }
 
 function temporaryResourcePath(directory: string, resourcePath: string): string {
-  const root = realpathSync(directory)
-  const resolved = realpathSync(path.resolve(directory, resourcePath))
+  const root = realpathSync.native(directory)
+  const resolved = realpathSync.native(path.resolve(directory, resourcePath))
   const relative = path.relative(root, resolved)
   if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) {
     throw new Error(`Resource smoke output is outside its temporary notebook: ${resourcePath}`)
