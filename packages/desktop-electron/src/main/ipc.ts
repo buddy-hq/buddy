@@ -69,7 +69,7 @@ const pickerFilters = (extensions?: string[]) => {
 const FILE_ICON_SIZE = "normal" as const
 
 type Deps = {
-  killBackendUtility: () => Promise<void> | void
+  killBackend: () => Promise<void> | void
   installCli: () => Promise<string>
   awaitInitialization: (sendStep: (step: InitStep) => void) => Promise<ServerReadyData>
   getDefaultServerUrl: () => Promise<string | null> | string | null
@@ -121,7 +121,7 @@ type Deps = {
 }
 
 export function registerIpcHandlers(deps: Deps) {
-  ipcMain.handle("kill-backend-utility", () => deps.killBackendUtility())
+  ipcMain.handle("kill-backend", () => deps.killBackend())
   ipcMain.handle("install-cli", () => deps.installCli())
   ipcMain.handle("await-initialization", (event: IpcMainInvokeEvent) => {
     const send = (step: InitStep) => event.sender.send("init-step", step)

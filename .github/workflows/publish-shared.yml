@@ -318,10 +318,14 @@ jobs:
   validate-backend:
     needs: preflight
     if: needs.preflight.outputs.frozen != 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    name: Compiled backend (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-26-intel, windows-2025-vs2026]
     env:
-      # This smoke has always run without a release channel; keep it independent of the stream.
       BUDDY_CHANNEL: ""
     steps:
       - uses: actions/checkout@v6
@@ -333,8 +337,16 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - run: bun run --cwd packages/buddy build:node
-      - run: bun run --cwd packages/buddy smoke:node
+      - name: Set up Node for database upgrade fixture
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Build compiled backend
+        run: bun run --cwd packages/buddy build:backend
+
+      - name: Smoke compiled backend
+        run: bun run --cwd packages/desktop-electron smoke:backend
 
   build-electron:
     needs:
@@ -354,8 +366,8 @@ jobs:
       matrix: ${{ fromJSON(needs.preflight.outputs.electron_matrix) }}
     env:
       BUDDY_CHANNEL: ${{ inputs.channel }}
-      BUDDY_NODE_ARTIFACT_TARGET_ARCH: ${{ matrix.architecture }}
-      BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: ${{ matrix.platform }}
+      BUDDY_BACKEND_TARGET_ARCH: ${{ matrix.architecture }}
+      BUDDY_BACKEND_TARGET_PLATFORM: ${{ matrix.platform }}
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
     steps:
@@ -368,6 +380,11 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
           install: "false"
+
+      - name: Set up Node for database upgrade fixture
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
 
       - id: cache-versions
         run: bun ./script/release-cache-versions.ts

@@ -1,13 +1,7 @@
-import { PDF_VALIDATION_WORKER_BUNDLED_FILENAME } from "@buddy/script/backend-node-runtime"
 import { parseTJsonObject, parseTNumber, parseTString } from "../resource-packs/json-value"
 
-export { PDF_VALIDATION_WORKER_BUNDLED_FILENAME }
-
-export const PDF_VALIDATION_WORKER_SOURCE_FILENAME = "pdf-validation-worker.ts" as const
 export const PDF_VALIDATION_WORKER_NAME = "buddy-pdf-validation" as const
 export const PDF_VALIDATION_WORKER_TIMEOUT_MS = 15_000
-export const PDF_VALIDATION_WORKER_MAX_OLD_GENERATION_SIZE_MB = 192
-export const PDF_VALIDATION_WORKER_MAX_YOUNG_GENERATION_SIZE_MB = 32
 
 export const PDF_VALIDATION_STATUS_VALID = "valid" as const
 export const PDF_VALIDATION_STATUS_INVALID = "invalid" as const

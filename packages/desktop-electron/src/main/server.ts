@@ -1,10 +1,10 @@
 import { Buffer } from "node:buffer"
-import { EventEmitter } from "node:events"
-import { dirname, join } from "node:path"
+import { spawn } from "node:child_process"
+import type { ChildProcess } from "node:child_process"
+import type { EventEmitter } from "node:events"
+import { join } from "node:path"
 import readline from "node:readline"
-import { fileURLToPath } from "node:url"
-import { app, utilityProcess } from "electron"
-import type { Details, Event } from "electron"
+import { app } from "electron"
 import treeKill from "tree-kill"
 import {
   API_HEALTH_PATH,
@@ -32,27 +32,13 @@ export type CommandChild = {
 
 export type TerminatedPayload = {
   code: number | null
-  signal: number | null
+  signal: NodeJS.Signals | null
 }
 
-type Deferred<T> = {
-  promise: Promise<T>
-  resolve: (value: T) => void
-  reject: (error: Error) => void
-}
-
-type UtilityMessage =
-  | { type: "ready" }
-  | { type: "stopped" }
-  | { type: "error"; error: { message: string; stack?: string } }
-
-type UtilityCommand = { type: "start"; hostname: string; port: number } | { type: "stop" }
-
-const BACKEND_UTILITY_SERVICE_NAME = "Buddy backend"
-const BACKEND_UTILITY_STOP_TIMEOUT_MS = 6_000
-const BACKEND_UTILITY_FORCE_KILL_TIMEOUT_MS = 2_000
-const BACKEND_UTILITY_TERMINATION_SIGNAL: NodeJS.Signals = "SIGTERM"
-const BACKEND_UTILITY_FORCE_KILL_SIGNAL: NodeJS.Signals = "SIGKILL"
+const BACKEND_STOP_TIMEOUT_MS = 6_000
+const BACKEND_FORCE_KILL_TIMEOUT_MS = 2_000
+const BACKEND_TERMINATION_SIGNAL: NodeJS.Signals = "SIGTERM"
+const BACKEND_FORCE_KILL_SIGNAL: NodeJS.Signals = "SIGKILL"
 
 export function getDefaultServerUrl(): string | null {
   return parseTString(store.get(DEFAULT_SERVER_URL_KEY)) ?? null
@@ -80,42 +66,50 @@ export async function spawnLocalServer(
   port: number,
   password: string,
   environment: Readonly<Record<string, string>>,
+  events: EventEmitter,
 ) {
-  const utilityPath = join(dirname(fileURLToPath(import.meta.url)), "backend-utility.js")
-  const events = new EventEmitter()
-  const child = utilityProcess.fork(utilityPath, [], {
-    cwd: process.cwd(),
-    env: createUtilityEnv(environment),
-    serviceName: BACKEND_UTILITY_SERVICE_NAME,
-    stdio: "pipe",
+  const backendRoot = join(app.getAppPath(), "..", "buddy")
+  const command = app.isPackaged
+    ? join(
+        process.resourcesPath,
+        process.platform === "win32" ? "buddy-backend.exe" : "buddy-backend",
+      )
+    : "bun"
+  const serverArgs = ["serve", "--hostname", hostname, "--port", String(port)]
+  const args = app.isPackaged
+    ? serverArgs
+    : [
+        "run",
+        "--preload",
+        join(backendRoot, "src/dev/opencode-branding-preload.ts"),
+        join(backendRoot, "src/index.ts"),
+        ...serverArgs,
+      ]
+  const child = spawn(command, args, {
+    cwd: app.isPackaged ? process.cwd() : backendRoot,
+    env: createBackendEnv(environment),
+    stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
   })
 
-  let exited = false
+  let closed = false
+  let killRequested = false
+  let startupError: Error | undefined
   let stopping: NodeJS.Timeout | undefined
-  const exit = defer<TerminatedPayload>()
-
-  const onProcessGone = (_event: Event, details: Details) => {
-    if (details.type !== "Utility" || details.name !== BACKEND_UTILITY_SERVICE_NAME) return
-    events.emit(
-      "stderr",
-      `utility process gone reason=${details.reason} exitCode=${details.exitCode}\n`,
-    )
-  }
-
-  app.on("child-process-gone", onProcessGone)
-
-  child.once("exit", (code) => {
-    exited = true
-    if (stopping) {
-      clearTimeout(stopping)
-      stopping = undefined
-    }
-    app.off("child-process-gone", onProcessGone)
-    const payload = { code: code ?? null, signal: null } satisfies TerminatedPayload
-    events.emit("terminated", payload)
-    exit.resolve(payload)
+  const exit = new Promise<TerminatedPayload>((resolve) => {
+    child.once("close", (code, signal) => {
+      closed = true
+      if (stopping) {
+        clearTimeout(stopping)
+        stopping = undefined
+      }
+      const payload = { code, signal } satisfies TerminatedPayload
+      events.emit("terminated", payload)
+      resolve(payload)
+    })
   })
   child.on("error", (error) => {
+    startupError = error
     events.emit("error", String(error))
   })
 
@@ -131,53 +125,57 @@ export async function spawnLocalServer(
     })
   }
 
-  await waitForUtilityReady({
-    child,
-    exit,
-    hostname,
-    port,
-    utilityPath,
-  }).catch((error) => {
-    if (!exited) killUtilityProcessTree(child, BACKEND_UTILITY_FORCE_KILL_SIGNAL)
-    throw error
-  })
+  const killBackendProcessTree = (signal: NodeJS.Signals) => {
+    if (closed) return
+    const reportFailure = (error?: Error) => {
+      if (error && !closed) events.emit("error", `Failed to stop backend: ${error.message}`)
+    }
+    if (child.pid) {
+      treeKill(child.pid, signal, reportFailure)
+    } else {
+      child.kill(signal)
+    }
+  }
 
-  let killRequested = false
+  const terminateBackendProcessTree = () => {
+    if (closed) return
+    killBackendProcessTree(BACKEND_TERMINATION_SIGNAL)
+    stopping = setTimeout(() => {
+      stopping = undefined
+      killBackendProcessTree(BACKEND_FORCE_KILL_SIGNAL)
+    }, BACKEND_FORCE_KILL_TIMEOUT_MS)
+  }
+
   const wrappedChild: CommandChild = {
     pid: child.pid,
     kill: () => {
-      if (exited || killRequested) return exit.promise
+      if (closed || killRequested) return exit
       killRequested = true
 
-      try {
-        postUtilityCommand(child, { type: "stop" })
+      if (process.platform === "win32") {
+        terminateBackendProcessTree()
+      } else if (signalBackend(child, events)) {
         stopping = setTimeout(() => {
           stopping = undefined
-          terminateUtilityProcessTree()
-        }, BACKEND_UTILITY_STOP_TIMEOUT_MS)
-      } catch {
-        terminateUtilityProcessTree()
+          terminateBackendProcessTree()
+        }, BACKEND_STOP_TIMEOUT_MS)
+      } else {
+        terminateBackendProcessTree()
       }
 
-      return exit.promise
+      return exit
     },
-  }
-
-  const terminateUtilityProcessTree = () => {
-    if (exited) return
-    killUtilityProcessTree(child, BACKEND_UTILITY_TERMINATION_SIGNAL)
-    stopping = setTimeout(() => {
-      stopping = undefined
-      if (!exited) killUtilityProcessTree(child, BACKEND_UTILITY_FORCE_KILL_SIGNAL)
-    }, BACKEND_UTILITY_FORCE_KILL_TIMEOUT_MS)
   }
 
   const wait = (async () => {
     const targetUrl = `http://${hostname}:${port}`
+    let checking = true
+    let healthTimeout: NodeJS.Timeout | undefined
 
     const ready = async () => {
       while (true) {
         await delay(100)
+        if (!checking) return
         const healthy = await checkHealth(targetUrl, BACKEND_SERVER_USERNAME, password)
         if (healthy) {
           return
@@ -186,19 +184,26 @@ export async function spawnLocalServer(
     }
 
     const terminated = async () => {
-      const result = await exit.promise
+      const result = await exit
       throw new Error(
-        `Backend utility terminated before health check passed (code=${result.code ?? "unknown"} signal=${result.signal ?? "unknown"})`,
+        `Backend terminated before health check passed (command=${command} code=${result.code ?? "unknown"} signal=${result.signal ?? "unknown"})${startupError ? `: ${startupError.message}` : ""}`,
       )
     }
 
-    await Promise.race([
-      ready(),
-      terminated(),
-      delay(BACKEND_HEALTH_TIMEOUT_MS).then(() => {
-        throw new Error("Backend health check timed out")
-      }),
-    ])
+    try {
+      await Promise.race([
+        ready(),
+        terminated(),
+        new Promise<never>((_resolve, reject) => {
+          healthTimeout = setTimeout(() => {
+            reject(new Error("Backend health check timed out"))
+          }, BACKEND_HEALTH_TIMEOUT_MS)
+        }),
+      ])
+    } finally {
+      checking = false
+      if (healthTimeout) clearTimeout(healthTimeout)
+    }
   })()
 
   return {
@@ -206,72 +211,6 @@ export async function spawnLocalServer(
     events,
     health: { wait } satisfies HealthCheck,
   }
-}
-
-async function waitForUtilityReady(input: {
-  child: Electron.UtilityProcess
-  exit: Deferred<TerminatedPayload>
-  hostname: string
-  port: number
-  utilityPath: string
-}) {
-  await new Promise<void>((resolve, reject) => {
-    let done = false
-    let timeout: NodeJS.Timeout
-    let exitHandled = false
-
-    const fail = (error: Error) => {
-      if (done) return
-      done = true
-      cleanup()
-      reject(error)
-    }
-
-    const onMessage = (message: UtilityMessage) => {
-      if (message.type === "ready") {
-        if (done) return
-        done = true
-        cleanup()
-        resolve()
-        return
-      }
-      if (message.type === "error") {
-        fail(Object.assign(new Error(message.error.message), { stack: message.error.stack }))
-      }
-    }
-
-    const onExit = (payload: TerminatedPayload) => {
-      fail(new Error(`Backend utility exited before ready with code ${payload.code ?? "unknown"}`))
-    }
-
-    const cleanup = () => {
-      clearTimeout(timeout)
-      input.child.off("message", onMessage)
-    }
-
-    input.child.on("message", onMessage)
-    input.exit.promise
-      .then((payload) => {
-        if (exitHandled) return
-        exitHandled = true
-        onExit(payload)
-      })
-      .catch((error) => {
-        fail(error instanceof Error ? error : new Error(String(error)))
-      })
-    timeout = setTimeout(() => {
-      fail(
-        new Error(
-          `Backend utility did not become ready within ${BACKEND_HEALTH_TIMEOUT_MS}ms: ${input.utilityPath}`,
-        ),
-      )
-    }, BACKEND_HEALTH_TIMEOUT_MS)
-    postUtilityCommand(input.child, {
-      type: "start",
-      hostname: input.hostname,
-      port: input.port,
-    })
-  })
 }
 
 export async function checkHealth(url: string, username: string, password: string) {
@@ -310,34 +249,18 @@ function delay(ms: number) {
   })
 }
 
-function defer<T>(): Deferred<T> {
-  let resolve!: (value: T) => void
-  let reject!: (error: Error) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
-  })
-  return { promise, resolve, reject }
-}
-
-function postUtilityCommand(child: Electron.UtilityProcess, command: UtilityCommand) {
-  // oxlint-disable-next-line unicorn/require-post-message-target-origin -- Electron utility process messages do not accept a targetOrigin.
-  child.postMessage(command)
-}
-
-function killUtilityProcessTree(child: Electron.UtilityProcess, signal: NodeJS.Signals) {
-  const pid = child.pid
-  if (!pid) {
-    child.kill()
-    return
+function signalBackend(child: ChildProcess, events: EventEmitter): boolean {
+  try {
+    return child.kill(BACKEND_TERMINATION_SIGNAL)
+  } catch (error) {
+    events.emit("error", `Failed to signal backend: ${String(error)}`)
+    return false
   }
-
-  treeKill(pid, signal, () => undefined)
 }
 
-function createUtilityEnv(env: Readonly<Record<string, string>>) {
+function createBackendEnv(env: Readonly<Record<string, string>>) {
   const next = { ...env }
   delete next.DEBUG
   if (process.platform === "linux") delete next.LD_PRELOAD
-  return next
+  return { ...next, BUDDY_EXIT_WITH_PARENT: "1" }
 }

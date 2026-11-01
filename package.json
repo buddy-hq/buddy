@@ -105,7 +105,6 @@
     "type": "bun run --cwd packages/videos type-prompt",
     "dev": "bun --env-file=.env run --cwd packages/buddy dev",
     "smoke": "bun run --cwd packages/buddy smoke",
-    "smoke:node-backend": "bun ./script/node-backend-smoke.ts",
     "dev:site": "bun run --cwd packages/site dev",
     "dev:web": "bun run --cwd packages/web dev",
     "dev:desktop": "bun run --cwd packages/desktop-electron dev",

@@ -14,11 +14,3 @@ declare module "node:tls" {
   export function getCACertificates(type: "default" | "system"): string[]
   export function setDefaultCACertificates(certificates: string[]): void
 }
-
-declare module "virtual:buddy-server" {
-  type Listener = {
-    stop: (close?: boolean) => Promise<void>
-  }
-
-  export function listen(config: { hostname: string; port: number }): Listener | Promise<Listener>
-}

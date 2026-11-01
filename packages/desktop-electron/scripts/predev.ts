@@ -1,7 +1,7 @@
 import { $ } from "bun"
 import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
-import { BUDDY_CHANNEL_ENV, readBuddyReleaseChannel } from "@buddy/script/channel"
+import { readBuddyReleaseChannel } from "@buddy/script/channel"
 import { ensureGeneratedSdk, generatedSdkFreshnessInput } from "./dev-sdk"
 import { applyDesktopDevTerminalTitle } from "./dev-terminal-title"
 import { backendDevelopmentWatchRoots } from "./electron-vite-build-policy"
@@ -61,9 +61,5 @@ async function prepareGeneratedSdk(): Promise<void> {
 await Promise.all([
   $`bun ./scripts/copy-icons.ts ${desktopChannel}`,
   $`bun run --cwd ${backendDir} ensure:advanced-math-runtime`,
-  $`bun run --cwd ${backendDir} build:node`.env({
-    ...process.env,
-    [BUDDY_CHANNEL_ENV]: desktopChannel,
-  }),
   prepareGeneratedSdk(),
 ])

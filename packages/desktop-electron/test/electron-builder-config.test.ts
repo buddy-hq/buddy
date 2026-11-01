@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
+import os from "node:os"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { createElectronBuilderConfiguration } from "../electron-builder-config"
 import { resolveMacOsReleaseArtifactPattern } from "../src/shared/release-asset-names"
@@ -61,7 +63,6 @@ describe("electron-builder config", () => {
   test("preserves Stable macOS packaging identity and ad-hoc signing", () => {
     expect(config.forceCodeSigning).toBeUndefined()
     expect(config.mac).toEqual({
-      // The artifact label follows the configured or host target arch.
       artifactName: resolveMacOsReleaseArtifactPattern(),
       category: "public.app-category.developer-tools",
       forceCodeSigning: true,
@@ -71,6 +72,7 @@ describe("electron-builder config", () => {
       gatekeeperAssess: false,
       entitlements: "resources/entitlements.plist",
       entitlementsInherit: "resources/entitlements.plist",
+      sign: expect.any(Function),
       notarize: false,
       target: ["dmg", "zip"],
     })
@@ -90,6 +92,49 @@ describe("electron-builder config", () => {
 
   test("unpacks native credential bindings from the application archive", () => {
     expect(config.asarUnpack).toContain("out/main/node_modules/@napi-rs/keyring/**/*")
-    expect(config.asarUnpack).toContain("out/main/chunks/node_modules/@primno/dpapi/prebuilds/**/*")
+    expect(config.asarUnpack).toContain("out/main/node_modules/@primno/dpapi/prebuilds/**/*")
+  })
+
+  test("packages the compiled backend beside its runtime resource directories", () => {
+    expect(config.extraResources).toEqual(
+      expect.arrayContaining([
+        { from: "resources", to: "", filter: ["buddy-backend", "buddy-backend.exe"] },
+        { from: "resources/chemfig-runtime", to: "chemfig-runtime", filter: ["**/*"] },
+      ]),
+    )
+    expect(config.asarUnpack).toEqual([
+      "out/main/node_modules/@napi-rs/keyring/**/*",
+      "out/main/node_modules/@primno/dpapi/prebuilds/**/*",
+    ])
+  })
+
+  test.each([
+    { platform: "darwin", filename: "buddy-backend" },
+    { platform: "win32", filename: "buddy-backend.exe" },
+  ])("requires a nonempty $platform backend after packaging", async ({ platform, filename }) => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "buddy-packaged-backend-test-"))
+    try {
+      const resources = path.join(directory, "resources")
+      await mkdir(resources)
+      const context = {
+        appOutDir: directory,
+        electronPlatformName: platform,
+        packager: { getResourcesDir: (appOutDir: string) => path.join(appOutDir, "resources") },
+      }
+      const backend = path.join(resources, filename)
+      const otherFilename = platform === "win32" ? "buddy-backend" : "buddy-backend.exe"
+      await writeFile(path.join(resources, otherFilename), "wrong-platform binary")
+      await expect(config.afterPack(context)).rejects.toThrow()
+      await writeFile(backend, "")
+      await expect(config.afterPack(context)).rejects.toThrow("must be a non-empty file")
+      await rm(backend)
+      await mkdir(backend)
+      await expect(config.afterPack(context)).rejects.toThrow("must be a non-empty file")
+      await rm(backend, { recursive: true })
+      await writeFile(backend, "compiled backend fixture")
+      await expect(config.afterPack(context)).resolves.toBeUndefined()
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 })

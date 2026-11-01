@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./host": "./src/host.ts",
+    "./request-identity": "./src/request-identity.ts",
     "./plugin": "./src/plugin.ts",
     "./gateway/provider": "./src/gateway/provider.ts",
     "./gateway/integration": "./src/gateway/integration.ts",
@@ -21,6 +22,7 @@
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
     "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit",
+    "test:file": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts",
     "test": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts test"
   },
   "dependencies": {

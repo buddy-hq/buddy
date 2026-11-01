@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs"
+import { existsSync, statSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { readBuddyReleaseChannel } from "@buddy/script/channel"
@@ -9,6 +9,17 @@ import {
 
 const PACKAGE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url))
 const REPOSITORY_ROOT = path.resolve(PACKAGE_DIRECTORY, "../..")
+const backendExecutable = path.resolve(
+  PACKAGE_DIRECTORY,
+  "resources",
+  process.platform === "win32" ? "buddy-backend.exe" : "buddy-backend",
+)
+const backendFile = statSync(backendExecutable, { throwIfNoEntry: false })
+if (!backendFile?.isFile() || backendFile.size === 0) {
+  throw new Error(
+    `Required compiled Buddy backend missing or empty: ${backendExecutable}. Run the desktop prebuild or prepare:release script before packaging.`,
+  )
+}
 
 for (const name of ELECTRON_BUILDER_RESOURCE_NAMES.runtime) {
   const resourceDirectory = path.resolve(PACKAGE_DIRECTORY, "resources", name)

@@ -6,43 +6,15 @@ import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import { BUDDY_CHANNEL_ENV, readBuddyReleaseChannel } from "@buddy/script/channel"
-import {
-  CHEMFIG_RUNTIME_DIRECTORY_NAME,
-  ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS,
-} from "@buddy/script/chemfig-runtime"
-import { BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES } from "@buddy/script/backend-node-runtime"
-import {
-  KEYRING_PACKAGE_NAME,
-  LITEPARSE_PACKAGE_NAME,
-  NATIVE_ADDON_LOADER_PACKAGE_NAME,
-  TYPESCRIPT_RUNTIME_PACKAGE_NAME,
-  WINDOWS_DPAPI_PACKAGE_NAME,
-  currentBackendNodeArtifactTarget,
-  keyringNativePackageName,
-  liteParseNativePackageName,
-  nodePtyNativePackageName,
-  parcelWatcherNativePackageName,
-} from "../../script/backend-node-artifact"
 import buddyWebVitePlugin from "../web/vite"
 import { createElectronPreloadViteBuild } from "./scripts/in-app-browser-preload-artifact"
-import {
-  resolveExternalDevelopmentBackend,
-  shouldCopyPackagedRuntimeAssets,
-} from "./scripts/electron-vite-build-policy"
 
 const webDir = path.resolve(__dirname, "../web")
-const buddyDir = path.resolve(__dirname, "../buddy")
-const BUDDY_SERVER_DIST = path.resolve(__dirname, "../buddy/dist/node")
-const BUDDY_SERVER_ENTRY = path.resolve(BUDDY_SERVER_DIST, "node.js")
 const MAIN_OUTPUT_DIR = path.resolve(__dirname, "out/main")
-const MAIN_CHUNKS_DIR = path.resolve(__dirname, "out/main/chunks")
-const nativeTarget = currentBackendNodeArtifactTarget()
-const keyringNativePkg = keyringNativePackageName(nativeTarget)
-const liteParseNativePkg = liteParseNativePackageName(nativeTarget)
-const nodePtyPkg = nodePtyNativePackageName(nativeTarget)
-const parcelWatcherPkg = parcelWatcherNativePackageName(nativeTarget)
-const optionalRuntimeExternalPackages = ["@chonkiejs/token"] as const
-const liteParseWrapperRuntimeEntries = ["dist", "package.json", "README.md", "LICENSE"] as const
+const KEYRING_PACKAGE_NAME = "@napi-rs/keyring"
+const WINDOWS_DPAPI_PACKAGE_NAME = "@primno/dpapi"
+const NATIVE_ADDON_LOADER_PACKAGE_NAME = "node-gyp-build"
+const keyringNativePkg = keyringNativePackageName()
 const ELECTRON_MAIN_ESM_SHIM = `
 // -- CommonJS Shims --
 import __cjs_mod__ from 'node:module';
@@ -51,11 +23,7 @@ const __dirname = import.meta.dirname;
 const require = __cjs_mod__.createRequire(import.meta.url);
 `
 const runtimePackages = [
-  LITEPARSE_PACKAGE_NAME,
-  liteParseNativePkg,
-  nodePtyPkg,
-  parcelWatcherPkg,
-  TYPESCRIPT_RUNTIME_PACKAGE_NAME,
+  KEYRING_PACKAGE_NAME,
   WINDOWS_DPAPI_PACKAGE_NAME,
   NATIVE_ADDON_LOADER_PACKAGE_NAME,
 ] as const
@@ -70,19 +38,6 @@ const windowsDpapiRequire = createRequire(
     paths: [__dirname],
   }),
 )
-const liteParseRequire = createRequire(
-  require.resolve(`${LITEPARSE_PACKAGE_NAME}/package.json`, {
-    paths: [buddyDir],
-  }),
-)
-
-function isMainExternal(id: string) {
-  return (
-    optionalRuntimeExternalPackages.some((packageName) => packageName === id) ||
-    id.startsWith("cloudflare:")
-  )
-}
-
 const channel = readBuddyReleaseChannel()
 
 export default defineConfig(({ command }) => ({
@@ -94,15 +49,8 @@ export default defineConfig(({ command }) => ({
       rollupOptions: {
         input: {
           index: "src/main/index.ts",
-          "backend-utility": "src/main/backend-utility.ts",
         },
       },
-      // zod must be bundled, not externalized. backend-utility.ts parses its runtime boundaries
-      // with it, and that entry is forked on its own -- the smoke harness copies out/main to a
-      // temp directory with no node_modules beside it, so a bare `import { z } from "zod"` fails
-      // to resolve and the utility exits before it can report ready. Everything in
-      // runtimePackages is native, supports native loading, or is too heavy to inline and stays
-      // external.
       externalizeDeps: { include: [...runtimePackages], exclude: ["zod"] },
     },
     plugins: [
@@ -118,39 +66,10 @@ export default defineConfig(({ command }) => ({
         },
       },
       {
-        name: "buddy:runtime-externals",
-        enforce: "pre",
-        resolveId(id) {
-          if (isMainExternal(id)) return { id, external: true }
-        },
-      },
-      {
-        name: "buddy:node-pty-narrower",
-        enforce: "pre",
-        resolveId(id) {
-          if (id === "@lydell/node-pty") return nodePtyPkg
-        },
-      },
-      {
-        name: "buddy:virtual-server-module",
-        enforce: "pre",
-        resolveId(id) {
-          if (id !== "virtual:buddy-server") return
-          return (
-            resolveExternalDevelopmentBackend(command, BUDDY_SERVER_ENTRY) ??
-            this.resolve(BUDDY_SERVER_ENTRY)
-          )
-        },
-      },
-      {
-        name: "buddy:copy-server-assets",
+        name: "buddy:copy-credential-assets",
         async writeBundle() {
-          if (!shouldCopyPackagedRuntimeAssets(command)) return
-          await copyWasmAssets(BUDDY_SERVER_DIST, MAIN_CHUNKS_DIR)
-          await copyBackendRuntimeSidecars()
-          await copyChemfigRuntime()
-          await copyRuntimePackages()
-          await copyKeyringRuntimePackage()
+          if (command !== "build") return
+          await copyCredentialRuntimePackages()
         },
       },
     ],
@@ -186,79 +105,34 @@ export default defineConfig(({ command }) => ({
   },
 }))
 
-async function copyWasmAssets(sourceDir: string, destinationDir: string) {
-  const entries = await fs.readdir(sourceDir, { withFileTypes: true })
-  await fs.mkdir(destinationDir, { recursive: true })
-
-  for (const entry of entries) {
-    const source = path.join(sourceDir, entry.name)
-    const destination = path.join(destinationDir, entry.name)
-
-    if (entry.isDirectory()) {
-      await copyWasmAssets(source, destination)
-      continue
-    }
-
-    if (entry.isFile() && entry.name.endsWith(".wasm")) {
-      await fs.copyFile(source, destination)
-    }
+function keyringNativePackageName(): string {
+  if (process.platform === "darwin") {
+    return `${KEYRING_PACKAGE_NAME}-darwin-${process.arch}`
   }
+  if (process.platform === "win32") {
+    return `${KEYRING_PACKAGE_NAME}-win32-${process.arch}-msvc`
+  }
+  if (process.platform === "linux") {
+    const abi = process.arch === "arm" ? "gnueabihf" : "gnu"
+    return `${KEYRING_PACKAGE_NAME}-linux-${process.arch}-${abi}`
+  }
+  if (process.platform === "freebsd" && process.arch === "x64") {
+    return `${KEYRING_PACKAGE_NAME}-freebsd-x64`
+  }
+  throw new Error(`Unsupported Keyring platform: ${process.platform}-${process.arch}`)
 }
 
-async function copyBackendRuntimeSidecars() {
-  await fs.mkdir(MAIN_CHUNKS_DIR, { recursive: true })
-  for (const filename of BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES) {
-    const source = path.join(BUDDY_SERVER_DIST, filename)
-    if (!(await fileExists(source))) {
-      throw new Error(`Buddy backend runtime sidecar not found at ${source}`)
-    }
-    await fs.copyFile(source, path.join(MAIN_CHUNKS_DIR, filename))
-  }
-}
-
-async function copyChemfigRuntime() {
-  const source = path.join(BUDDY_SERVER_DIST, CHEMFIG_RUNTIME_DIRECTORY_NAME)
-  const destination = path.join(MAIN_OUTPUT_DIR, ...ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS)
-  if (!(await fileExists(source))) {
-    throw new Error(`Buddy chemfig runtime not found at ${source}`)
-  }
-  await fs.rm(destination, { recursive: true, force: true })
-  await fs.cp(source, destination, { recursive: true, dereference: false })
-}
-
-async function copyRuntimePackages() {
+async function copyCredentialRuntimePackages() {
   for (const packageName of runtimePackages) {
     const source = await resolveNativePackageDirectory(packageName)
-    const destination = path.join(MAIN_CHUNKS_DIR, "node_modules", ...packageName.split("/"))
+    const destination = path.join(MAIN_OUTPUT_DIR, "node_modules", ...packageName.split("/"))
     await fs.rm(destination, { recursive: true, force: true })
     await fs.mkdir(path.dirname(destination), { recursive: true })
-    if (packageName === LITEPARSE_PACKAGE_NAME) {
-      await copyLiteParseWrapperPackage(source, destination)
-      continue
-    }
     await fs.cp(source, destination, { recursive: true, dereference: false })
-  }
-}
-
-async function copyKeyringRuntimePackage() {
-  const wrapperSource = await resolveNativePackageDirectory(KEYRING_PACKAGE_NAME)
-  const nativeEntry = resolvePackageEntryPath(keyringNativePkg)
-  const destination = path.join(MAIN_OUTPUT_DIR, "node_modules", "@napi-rs", "keyring")
-  await fs.rm(destination, { recursive: true, force: true })
-  await fs.mkdir(path.dirname(destination), { recursive: true })
-  await fs.cp(wrapperSource, destination, { recursive: true, dereference: false })
-  await fs.copyFile(nativeEntry, path.join(destination, path.basename(nativeEntry)))
-}
-
-async function copyLiteParseWrapperPackage(source: string, destination: string) {
-  await fs.mkdir(destination, { recursive: true })
-  for (const entry of liteParseWrapperRuntimeEntries) {
-    const sourceEntry = path.join(source, entry)
-    if (!(await fileExists(sourceEntry))) continue
-    await fs.cp(sourceEntry, path.join(destination, entry), {
-      recursive: true,
-      dereference: false,
-    })
+    if (packageName === KEYRING_PACKAGE_NAME) {
+      const nativeEntry = keyringRequire.resolve(keyringNativePkg)
+      await fs.copyFile(nativeEntry, path.join(destination, path.basename(nativeEntry)))
+    }
   }
 }
 
@@ -284,18 +158,7 @@ function resolvePackageEntryPath(packageName: string): string {
   if (packageName === NATIVE_ADDON_LOADER_PACKAGE_NAME) {
     return windowsDpapiRequire.resolve(`${packageName}/package.json`)
   }
-  if (packageName.startsWith(`${KEYRING_PACKAGE_NAME}-`)) {
-    return keyringRequire.resolve(packageName)
-  }
-  if (packageName.startsWith(`${LITEPARSE_PACKAGE_NAME}-`)) {
-    try {
-      return liteParseRequire.resolve(`${packageName}/package.json`)
-    } catch {
-      return liteParseRequire.resolve(packageName)
-    }
-  }
-
-  const resolveOptions = { paths: [__dirname, buddyDir] }
+  const resolveOptions = { paths: [__dirname] }
   try {
     return require.resolve(`${packageName}/package.json`, resolveOptions)
   } catch {

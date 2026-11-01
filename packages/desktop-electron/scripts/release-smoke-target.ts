@@ -10,8 +10,8 @@ type ReleaseSmokeTarget = {
 }
 
 export type ReleaseTargetEnvironment = {
-  BUDDY_NODE_ARTIFACT_TARGET_ARCH: ReleaseSmokeTarget["architecture"]
-  BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: ReleaseSmokeTarget["platform"]
+  BUDDY_BACKEND_TARGET_ARCH: ReleaseSmokeTarget["architecture"]
+  BUDDY_BACKEND_TARGET_PLATFORM: ReleaseSmokeTarget["platform"]
 }
 
 export type ReleaseTargetSelectionEnvironment = {
@@ -61,8 +61,8 @@ export function releaseTargetEnvironment(
 ): ReleaseTargetEnvironment {
   const target = RELEASE_SMOKE_TARGETS[targetName]
   return {
-    BUDDY_NODE_ARTIFACT_TARGET_ARCH: target.architecture,
-    BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: target.platform,
+    BUDDY_BACKEND_TARGET_ARCH: target.architecture,
+    BUDDY_BACKEND_TARGET_PLATFORM: target.platform,
   }
 }
 

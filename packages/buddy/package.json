@@ -6,18 +6,16 @@
   "imports": {
     "#sqlite": {
       "bun": "./src/sqlite/database.bun.ts",
-      "node": "./src/sqlite/database.node.ts",
-      "default": "./src/sqlite/database.node.ts"
+      "default": "./src/sqlite/database.bun.ts"
     }
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./node": "./src/node.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "dev": "bun run ensure:advanced-math-runtime && bun --env-file=../../.env run src/dev/start-with-safe-env.ts --watch",
-    "build": "bun run build:node",
-    "build:node": "bun ./script/build-node.ts",
+    "build": "bun run build:backend",
+    "build:backend": "bun ./script/build-compiled-backend.ts",
     "prove:pdf-liteparse-findings": "bun ./script/prove-pdf-liteparse-findings.ts",
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
     "build:knowledge-graph": "bun ./script/update-knowledge-graph.ts",
@@ -45,8 +43,6 @@
     "test:parity": "bun ../../script/run-test-command.ts -- bun test --preload ./test/preload.ts test/parity",
     "learner-memory:evaluate": "bun ./script/learner-memory-evaluation.ts",
     "smoke": "bun ./script/smoke.ts",
-    "smoke:node": "bun ./script/smoke-node.ts",
-    "measure:node-memory": "bun ./script/measure-node-memory.ts",
     "db": "bun drizzle-kit"
   },
   "dependencies": {
@@ -95,12 +91,6 @@
     "typescript": "^5.0.0"
   },
   "optionalDependencies": {
-    "@lydell/node-pty-darwin-arm64": "1.2.0-beta.12",
-    "@lydell/node-pty-darwin-x64": "1.2.0-beta.12",
-    "@lydell/node-pty-linux-arm64": "1.2.0-beta.12",
-    "@lydell/node-pty-linux-x64": "1.2.0-beta.12",
-    "@lydell/node-pty-win32-arm64": "1.2.0-beta.12",
-    "@lydell/node-pty-win32-x64": "1.2.0-beta.12",
     "@parcel/watcher-darwin-arm64": "2.5.1",
     "@parcel/watcher-darwin-x64": "2.5.1",
     "@parcel/watcher-linux-arm64-glibc": "2.5.1",

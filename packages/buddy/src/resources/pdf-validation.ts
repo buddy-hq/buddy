@@ -1,24 +1,17 @@
-import { Worker } from "node:worker_threads"
+import { Worker, type WorkerOptions } from "node:worker_threads"
+import { isCompiledBackend } from "../compiled-backend"
 import {
   parsePdfValidationWorkerOutput,
   PDF_VALIDATION_STATUS_ERROR,
   PDF_VALIDATION_STATUS_INVALID,
   PDF_VALIDATION_STATUS_VALID,
-  PDF_VALIDATION_WORKER_BUNDLED_FILENAME,
-  PDF_VALIDATION_WORKER_MAX_OLD_GENERATION_SIZE_MB,
-  PDF_VALIDATION_WORKER_MAX_YOUNG_GENERATION_SIZE_MB,
   PDF_VALIDATION_WORKER_NAME,
-  PDF_VALIDATION_WORKER_SOURCE_FILENAME,
   PDF_VALIDATION_WORKER_TIMEOUT_MS,
 } from "./pdf-validation-worker-protocol"
 
-const TYPESCRIPT_MODULE_SUFFIX = ".ts" as const
-
 function pdfValidationWorkerUrl(): URL {
-  const filename = import.meta.url.endsWith(TYPESCRIPT_MODULE_SUFFIX)
-    ? PDF_VALIDATION_WORKER_SOURCE_FILENAME
-    : PDF_VALIDATION_WORKER_BUNDLED_FILENAME
-  return new URL(filename, import.meta.url)
+  if (isCompiledBackend) return new URL("./resources/pdf-validation-worker.js", import.meta.url)
+  return new URL("./pdf-validation-worker.ts", import.meta.url)
 }
 
 function errorFromUnknown<TValue>(value: TValue): Error {
@@ -29,14 +22,12 @@ export function validatePdfDocumentInWorker(sourcePath: string): Promise<boolean
   return new Promise((resolve, reject) => {
     let worker: Worker
     try {
-      worker = new Worker(pdfValidationWorkerUrl(), {
+      const options = {
         name: PDF_VALIDATION_WORKER_NAME,
         workerData: sourcePath,
-        resourceLimits: {
-          maxOldGenerationSizeMb: PDF_VALIDATION_WORKER_MAX_OLD_GENERATION_SIZE_MB,
-          maxYoungGenerationSizeMb: PDF_VALIDATION_WORKER_MAX_YOUNG_GENERATION_SIZE_MB,
-        },
-      })
+        smol: true,
+      } satisfies WorkerOptions & Bun.WorkerOptions
+      worker = new Worker(pdfValidationWorkerUrl(), options)
     } catch (error) {
       reject(errorFromUnknown(error))
       return

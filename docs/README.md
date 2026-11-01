@@ -20,6 +20,7 @@ docs/
       opencode-subagent-runtime-semantics.md
       permission-v2.md
       settings-scope-architecture.md
+      bun-sidecar-backend.md
       utility-process-backend.md
     decoupling/
       about.md

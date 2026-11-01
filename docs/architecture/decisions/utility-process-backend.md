@@ -1,10 +1,10 @@
 # ADR: Electron Utility Process Backend Architecture
 
-Status: Accepted
+Status: Superseded by [Bun sidecar backend](bun-sidecar-backend.md) on 2026-11-01
 Date: 2026-06-26
 Deciders: Buddy Desktop Architecture
 
-**Canonical current desktop backend packaging and process-model decision.**
+**Historical decision. The current process model is the [Bun sidecar backend](bun-sidecar-backend.md).**
 
 ## Context
 

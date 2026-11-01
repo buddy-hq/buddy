@@ -10,7 +10,7 @@ if (!version) {
   throw new Error("BUDDY_VERSION is required for release preparation")
 }
 
-await $`bun run --cwd ../buddy build:node`
+await $`bun run --cwd ../buddy build:backend`
 
 updateDesktopPackageVersion(version)
 

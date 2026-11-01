@@ -1,5 +1,7 @@
 # Web Deployment Implementation Plan
 
+> Backend host update (2026-11-01): Buddy now uses the [Bun sidecar](../../../architecture/decisions/bun-sidecar-backend.md). This backlog plan predates that decision. Its utility-process start-message proposal is not available in the current launcher and must be revisited before implementing this plan.
+
 Status: proposed; implementation has not started.
 
 This plan turns [the web-deployment design brief](./design.md) into an

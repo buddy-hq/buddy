@@ -1,7 +1,8 @@
 import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises"
 import { availableParallelism, tmpdir, totalmem } from "node:os"
 import path from "node:path"
-import { Worker } from "node:worker_threads"
+import { Worker, type WorkerOptions } from "node:worker_threads"
+import { isCompiledBackend } from "../compiled-backend"
 import {
   isNativeSpreadsheetFormat,
   type NativeSpreadsheetFormat,
@@ -10,20 +11,15 @@ import type { ResourceExtractionResult, ResourceTextArtifact } from "./contracts
 import {
   parseTSpreadsheetParserWorkerOutput,
   spreadsheetParserStagedArtifactFilename,
-  SPREADSHEET_PARSER_MAX_OLD_GENERATION_SIZE_MB,
-  SPREADSHEET_PARSER_MAX_YOUNG_GENERATION_SIZE_MB,
   SPREADSHEET_PARSER_STAGED_ARTIFACTS_DIRECTORY,
   SPREADSHEET_PARSER_STAGED_DIRECTORY_PREFIX,
   SPREADSHEET_PARSER_STAGED_FULL_TEXT_FILENAME,
   SPREADSHEET_PARSER_TIMEOUT_MS,
-  SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME,
   SPREADSHEET_PARSER_WORKER_NAME,
-  SPREADSHEET_PARSER_WORKER_SOURCE_FILENAME,
   type TSpreadsheetParserWorkerInput,
   type TSpreadsheetParserWorkerOutput,
 } from "./spreadsheet-parser-worker-protocol"
 
-const TYPESCRIPT_MODULE_SUFFIX = ".ts"
 const SPREADSHEET_PARSER_MIN_CONCURRENCY = 1
 const SPREADSHEET_PARSER_MAX_CONCURRENCY = 2
 const SPREADSHEET_PARSER_RESERVED_PARALLELISM = 1
@@ -49,10 +45,9 @@ let activeWorkerCount = 0
 let staleDirectoryCleanupTask: Promise<void> | undefined
 
 function spreadsheetParserWorkerUrl(): URL {
-  const filename = import.meta.url.endsWith(TYPESCRIPT_MODULE_SUFFIX)
-    ? SPREADSHEET_PARSER_WORKER_SOURCE_FILENAME
-    : SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME
-  return new URL(filename, import.meta.url)
+  if (isCompiledBackend)
+    return new URL("./resource-packs/spreadsheet-parser-worker.js", import.meta.url)
+  return new URL("./spreadsheet-parser-worker.ts", import.meta.url)
 }
 
 function spreadsheetParserError(format: NativeSpreadsheetFormat, cause: Error): Error {
@@ -128,14 +123,12 @@ function runSpreadsheetParserWorker(
   return new Promise((resolve, reject) => {
     let worker: Worker
     try {
-      worker = new Worker(spreadsheetParserWorkerUrl(), {
+      const options = {
         name: SPREADSHEET_PARSER_WORKER_NAME,
         workerData: input,
-        resourceLimits: {
-          maxOldGenerationSizeMb: SPREADSHEET_PARSER_MAX_OLD_GENERATION_SIZE_MB,
-          maxYoungGenerationSizeMb: SPREADSHEET_PARSER_MAX_YOUNG_GENERATION_SIZE_MB,
-        },
-      })
+        smol: true,
+      } satisfies WorkerOptions & Bun.WorkerOptions
+      worker = new Worker(spreadsheetParserWorkerUrl(), options)
     } catch (error) {
       reject(errorFromUnknown(error))
       return

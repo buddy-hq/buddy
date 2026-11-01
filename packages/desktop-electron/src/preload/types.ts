@@ -65,7 +65,7 @@ export type BenchCaptureRectangle = {
 }
 
 export type ElectronAPI = {
-  killBackendUtility: () => Promise<void>
+  killBackend: () => Promise<void>
   installCli: () => Promise<string>
   awaitInitialization: (onStep: (step: InitStep) => void) => Promise<ServerReadyData>
   getDefaultServerUrl: () => Promise<string | null>

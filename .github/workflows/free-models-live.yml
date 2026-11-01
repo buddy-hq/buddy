@@ -1,0 +1,73 @@
+name: Free models live smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: OpenCode free model ID
+        type: string
+        default: beam-free
+  schedule:
+    - cron: "23 5 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-models-live-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "1.3.13"
+  INSTALL_MAX_ATTEMPTS: "3"
+  INSTALL_TIMEOUT_SECONDS: "600"
+  INSTALL_RETRY_DELAY_SECONDS: "10"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  smoke:
+    name: Native backend (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - os: macos-latest
+            binary: packages/buddy/dist/backend/buddy-backend
+          - os: windows-latest
+            binary: packages/buddy/dist/backend/buddy-backend.exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
+
+      - name: Build native backend
+        run: bun run --cwd packages/buddy build:backend
+
+      - name: Smoke anonymous free model
+        env:
+          FREE_MODEL: ${{ inputs.model || 'beam-free' }}
+          BACKEND_BINARY: ${{ matrix.binary }}
+        run: |
+          set +e
+          bun packages/desktop-electron/scripts/smoke-free-models.ts --binary "$BACKEND_BINARY" --model "$FREE_MODEL"
+          status=$?
+          set -e
+          case "$status" in
+            0) echo "Buddy free-model smoke passed" ;;
+            1) echo "::error::Buddy failed while the direct Bun control passed"; exit 1 ;;
+            2) echo "::warning::INCONCLUSIVE: Buddy and its direct control could not complete" ;;
+            *) echo "::warning::INCONCLUSIVE: smoke runner exited with $status" ;;
+          esac

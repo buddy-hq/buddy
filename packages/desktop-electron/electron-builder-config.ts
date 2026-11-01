@@ -1,9 +1,11 @@
 import path from "node:path"
+import { stat } from "node:fs/promises"
+import type { CustomMacSignOptions } from "app-builder-lib"
 import type { Configuration } from "electron-builder"
 import { BUDDY_BRANDING, formatCopyrightNotice } from "@buddy/script/branding"
 import type { BuddyReleaseChannel } from "@buddy/script/channel"
 import { BUDDY_DISTRIBUTIONS } from "@buddy/script/distribution"
-import { ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS } from "@buddy/script/chemfig-runtime"
+import { CHEMFIG_RUNTIME_DIRECTORY_NAME } from "@buddy/script/chemfig-runtime"
 import {
   WINDOWS_RELEASE_ARCHS,
   resolveMacOsReleaseArtifactPattern,
@@ -11,15 +13,57 @@ import {
 } from "./src/shared/release-asset-names"
 
 const WINDOWS_RELEASE_TARGET_ARCH = WINDOWS_RELEASE_ARCHS[0]
-const RUNTIME_RESOURCE_NAMES = ["backend", "knowledge-graph", "migrations", "tessdata"]
+const RUNTIME_RESOURCE_NAMES = [
+  "backend",
+  "knowledge-graph",
+  "migrations",
+  "tessdata",
+  CHEMFIG_RUNTIME_DIRECTORY_NAME,
+]
 const LEGAL_RESOURCE_NAMES = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 const DEV_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Dev`
 const MACOS_AD_HOC_SIGNING_IDENTITY = "-"
-const CHEMFIG_RUNTIME_ASAR_PATTERN = path.posix.join(
-  "out/main",
-  ...ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS,
-  "**/*",
-)
+type BackendPackContext = {
+  readonly appOutDir: string
+  readonly electronPlatformName: string
+  readonly packager: {
+    getResourcesDir(appOutDir: string): string
+  }
+}
+
+type ElectronBuilderConfiguration = Configuration & {
+  afterPack: (context: BackendPackContext) => Promise<void>
+}
+
+async function assertPackagedBackend(context: BackendPackContext): Promise<void> {
+  const backend = path.join(
+    context.packager.getResourcesDir(context.appOutDir),
+    context.electronPlatformName === "win32" ? "buddy-backend.exe" : "buddy-backend",
+  )
+  const file = await stat(backend)
+  if (!file.isFile() || file.size === 0) {
+    throw new Error(`Bundled Buddy backend must be a non-empty file: ${backend}`)
+  }
+}
+
+function macSignOptions(
+  options: CustomMacSignOptions,
+  packageDirectory: string,
+): CustomMacSignOptions {
+  return {
+    ...options,
+    optionsForFile: (file) => {
+      const defaults = options.optionsForFile?.(file)
+      if (file !== path.join(options.app, "Contents/Resources/buddy-backend")) {
+        return defaults ?? {}
+      }
+      return {
+        ...defaults,
+        entitlements: path.join(packageDirectory, "resources/entitlements.cli.plist"),
+      }
+    },
+  }
+}
 
 export type ElectronBuilderConfigurationInput = {
   channel: BuddyReleaseChannel
@@ -28,8 +72,9 @@ export type ElectronBuilderConfigurationInput = {
 
 export function createElectronBuilderConfiguration(
   input: ElectronBuilderConfigurationInput,
-): Configuration {
-  const baseConfiguration: Configuration = {
+): ElectronBuilderConfiguration {
+  const packageDirectory = path.resolve(input.repositoryRoot, "packages/desktop-electron")
+  const baseConfiguration: ElectronBuilderConfiguration = {
     copyright: formatCopyrightNotice(),
     directories: {
       output: "dist",
@@ -39,15 +84,17 @@ export function createElectronBuilderConfiguration(
       description: BUDDY_BRANDING.desktopPackageDescription,
     },
     asarUnpack: [
-      CHEMFIG_RUNTIME_ASAR_PATTERN,
-      "out/main/chunks/node_modules/@llamaindex/liteparse-*/**/*",
-      "out/main/chunks/node_modules/@lydell/node-pty-*/**/*",
       "out/main/node_modules/@napi-rs/keyring/**/*",
-      "out/main/chunks/node_modules/@primno/dpapi/prebuilds/**/*",
-      "out/main/chunks/node_modules/@parcel/watcher-*/**/*",
+      "out/main/node_modules/@primno/dpapi/prebuilds/**/*",
     ],
     files: ["out/**/*"],
+    afterPack: assertPackagedBackend,
     extraResources: [
+      {
+        from: "resources",
+        to: "",
+        filter: ["buddy-backend", "buddy-backend.exe"],
+      },
       ...RUNTIME_RESOURCE_NAMES.map((name) => ({
         from: `resources/${name}`,
         to: name,
@@ -77,6 +124,10 @@ export function createElectronBuilderConfiguration(
       gatekeeperAssess: false,
       entitlements: "resources/entitlements.plist",
       entitlementsInherit: "resources/entitlements.plist",
+      sign: async (options) => {
+        const { sign } = await import("app-builder-lib/out/codeSign/macCodeSign")
+        await sign(macSignOptions(options, packageDirectory))
+      },
       notarize: false,
       target: ["dmg", "zip"],
     },
@@ -106,7 +157,7 @@ export function createElectronBuilderConfiguration(
   }
 
   const distribution = BUDDY_DISTRIBUTIONS[input.channel]
-  const configuration: Configuration = {
+  const configuration: ElectronBuilderConfiguration = {
     ...baseConfiguration,
     appId: distribution.appId,
     productName: distribution.productName,

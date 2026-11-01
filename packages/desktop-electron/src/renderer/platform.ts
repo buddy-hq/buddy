@@ -220,7 +220,7 @@ export function createDesktopPlatform(): Platform {
     },
     async restart() {
       await flushAll()
-      await window.api.killBackendUtility().catch(() => undefined)
+      await window.api.killBackend().catch(() => undefined)
       window.api.relaunch()
     },
     getUpdateState() {

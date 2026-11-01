@@ -23,12 +23,12 @@ describe("release smoke target", () => {
 
   test("provides target-native build environment", () => {
     expect(releaseTargetEnvironment("macos-arm64")).toEqual({
-      BUDDY_NODE_ARTIFACT_TARGET_ARCH: "arm64",
-      BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: "darwin",
+      BUDDY_BACKEND_TARGET_ARCH: "arm64",
+      BUDDY_BACKEND_TARGET_PLATFORM: "darwin",
     })
     expect(releaseTargetEnvironment("windows-x64")).toEqual({
-      BUDDY_NODE_ARTIFACT_TARGET_ARCH: "x64",
-      BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: "win32",
+      BUDDY_BACKEND_TARGET_ARCH: "x64",
+      BUDDY_BACKEND_TARGET_PLATFORM: "win32",
     })
   })
 

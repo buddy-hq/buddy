@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  resolveConfiguredDesktopReleaseTargetArch,
   resolveMacOsUpdateManifestFilename,
   resolveWindowsUpdateManifestFilename,
 } from "../src/shared/release-asset-names"
@@ -17,6 +18,15 @@ import {
 } from "../src/shared/release-asset-names"
 
 describe("release asset names", () => {
+  test("uses compiled backend target hints for desktop release names", () => {
+    expect(resolveConfiguredDesktopReleaseTargetArch({ BUDDY_BACKEND_TARGET_ARCH: "arm64" })).toBe(
+      "arm64",
+    )
+    expect(resolveConfiguredDesktopReleaseTargetArch({ BUDDY_BACKEND_TARGET_ARCH: "x64" })).toBe(
+      "x64",
+    )
+  })
+
   test("resolves target-specific updater manifests", () => {
     expect(resolveMacOsUpdateManifestFilename("arm64")).toBe("latest-macos-arm64.json")
     expect(resolveMacOsUpdateManifestFilename("x64")).toBe("latest-macos-x64.json")

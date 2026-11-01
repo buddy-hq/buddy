@@ -43,7 +43,6 @@ async function newestSource(directory: string): Promise<number> {
 async function ensureBuilt(env: NodeJS.ProcessEnv) {
   const artifacts = [
     "main/index.js",
-    "main/backend-utility.js",
     "preload/index.cjs",
     "renderer/index.html",
     "renderer/loading.html",
@@ -123,6 +122,7 @@ function isolatedEnvironment(root: string, userData: string, home: string) {
     [OPENCODE_ENV.CLIENT]: "web",
     OPENCODE_TEST_HOME: home,
     NODE_OPTIONS: "",
+    BUN_OPTIONS: "",
     BUDDY_E2E_ROOT: root,
     BUDDY_E2E_NETWORK_GUARD: "",
     BUDDY_E2E_NETWORK_LOG: "",
@@ -209,6 +209,8 @@ async function createApp(options: AppOptions) {
   const networkLog = path.join(root, "blocked-network.txt")
   const guard = path.join(root, "network-guard.cjs")
   const preload = path.join(root, "launch-preload.cjs")
+  const backendPreload = path.join(root, "backend-preload.cjs")
+  const backendProcessPath = path.join(root, "backend-process.json")
   const applications = new Set<ElectronApplication>()
   const consoleLines: string[] = []
   let current: { electron: ElectronApplication; page: Page } | undefined
@@ -218,6 +220,7 @@ async function createApp(options: AppOptions) {
   let model: Awaited<ReturnType<typeof createModelServer>> | undefined
 
   async function launch(ready?: (page: Page) => Promise<void>) {
+    await fs.rm(backendProcessPath, { force: true })
     const electron = await _electron.launch({
       executablePath: resolveElectronBin(desktopDirectory),
       args: buildElectronLaunchArgs(preload, desktopDirectory),
@@ -266,20 +269,16 @@ async function createApp(options: AppOptions) {
     current = { electron, page }
     if (ready) await ready(page)
     else await expect(page.getByRole("button", { name: "New notebook", exact: true })).toBeVisible()
-    const guardedProcesses = await electron.evaluate(({ app }) => {
-      const backend = app
-        .getAppMetrics()
-        .find(
-          (metric) =>
-            metric.type === "Utility" &&
-            (metric.name === "Buddy backend" || metric.serviceName === "Buddy backend"),
-        )
-      if (!backend)
-        throw new Error(
-          "The isolated Buddy backend utility is missing from Electron's process metrics",
-        )
-      return [process.pid, backend.pid]
-    })
+    const mainPid = await electron.evaluate(() => process.pid)
+    const backend = z
+      .object({
+        pid: z.number().int().positive(),
+        parentPid: z.number().int().positive(),
+        runtime: z.string().min(1),
+      })
+      .parse(JSON.parse(await fs.readFile(backendProcessPath, "utf8")))
+    expect(backend.parentPid, "The Bun backend must be a child of Electron main").toBe(mainPid)
+    const guardedProcesses = [mainPid, backend.pid]
     const guarded = (await fs.readFile(`${networkLog}.loaded`, "utf8"))
       .trim()
       .split("\n")
@@ -334,6 +333,16 @@ async function createApp(options: AppOptions) {
     )
     env.BUDDY_E2E_NETWORK_GUARD = guard
     env.BUDDY_E2E_NETWORK_LOG = networkLog
+    await fs.writeFile(
+      backendPreload,
+      [
+        `require(${JSON.stringify(guard)})`,
+        'if (process.env.BUDDY_EXIT_WITH_PARENT === "1" && process.argv.includes("serve")) {',
+        `  require("node:fs").writeFileSync(${JSON.stringify(backendProcessPath)}, JSON.stringify({ pid: process.pid, parentPid: process.ppid, runtime: process.versions.bun }))`,
+        "}",
+      ].join("\n"),
+    )
+    env.BUN_OPTIONS = `--preload=${JSON.stringify(backendPreload)}`
     model = await createModelServer()
     const notebook = await createNotebook(notebooks, model.baseURL)
     const seedNotebook = await createNotebook(notebooks, model.baseURL, "Seed notebook")

@@ -128,14 +128,14 @@ jobs:
       - name: Run selected test shard
         run: bun ./script/run-tests.ts
 
-  node-smoke:
-    name: Node backend smoke (${{ matrix.os }})
+  backend-smoke:
+    name: Compiled backend smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-26, macos-26-intel, windows-2025-vs2026]
     defaults:
       run:
         shell: bash
@@ -148,18 +148,19 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - uses: actions/setup-node@v6
+      - name: Set up Node for database upgrade fixture
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
 
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
 
-      - name: Build Node backend
-        run: bun run --cwd packages/buddy build:node
+      - name: Build compiled backend
+        run: bun run --cwd packages/buddy build:backend
 
-      - name: Smoke Node backend
-        run: bun run smoke:node-backend
+      - name: Smoke compiled backend
+        run: bun run --cwd packages/desktop-electron smoke:backend
 
   vendor_guard:
     name: vendor-guard
@@ -232,7 +233,7 @@ jobs:
     needs:
       - static
       - tests
-      - node-smoke
+      - backend-smoke
       - vendor_guard
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -241,15 +242,15 @@ jobs:
         env:
           STATIC_RESULT: ${{ needs.static.result }}
           TESTS_RESULT: ${{ needs.tests.result }}
-          NODE_SMOKE_RESULT: ${{ needs.node-smoke.result }}
+          BACKEND_SMOKE_RESULT: ${{ needs.backend-smoke.result }}
           VENDOR_GUARD_RESULT: ${{ needs.vendor_guard.result }}
         run: |
-          if [ "$STATIC_RESULT" = "success" ] && [ "$TESTS_RESULT" = "success" ] && [ "$NODE_SMOKE_RESULT" = "success" ] && [ "$VENDOR_GUARD_RESULT" = "success" ]; then
+          if [ "$STATIC_RESULT" = "success" ] && [ "$TESTS_RESULT" = "success" ] && [ "$BACKEND_SMOKE_RESULT" = "success" ] && [ "$VENDOR_GUARD_RESULT" = "success" ]; then
             exit 0
           fi
 
           echo "Static analysis: $STATIC_RESULT"
           echo "Tests: $TESTS_RESULT"
-          echo "Node smoke: $NODE_SMOKE_RESULT"
+          echo "Compiled backend smoke: $BACKEND_SMOKE_RESULT"
           echo "Vendor guard: $VENDOR_GUARD_RESULT"
           exit 1

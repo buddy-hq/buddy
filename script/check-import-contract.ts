@@ -17,6 +17,7 @@ const BUDDY_OPENCODE_ADAPTER_ALLOWED_PREFIXES = [
   "packages/buddy/src/runtime/runtime-info.ts",
   "packages/buddy/src/runtime/runtime-paths.ts",
   "packages/buddy/test/opencode-runtime/buddy-runtime-plugin.test.ts",
+  "packages/buddy/test/opencode-runtime/free-model-request-contract.test.ts",
   "packages/buddy/test/opencode-runtime/buddy-subagents.test.ts",
   "packages/buddy/test/opencode-runtime/openai-codex-auth.test.ts",
   "packages/buddy/test/opencode-runtime/openai-codex-provider.test.ts",

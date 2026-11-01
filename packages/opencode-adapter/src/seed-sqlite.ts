@@ -164,10 +164,9 @@ async function openNodeSeedSqlite(file: string, readOnly: boolean): Promise<Seed
 
 function openBunSeedSqlite(file: string, readOnly: boolean): SeedSqlite {
   const { Database }: typeof import("bun:sqlite") = require(BUN_SQLITE_MODULE)
-  const db = readOnly
-    ? new Database(file, { readonly: true })
-    : new Database(file, { create: false, readwrite: true })
+  const db = new Database(file, { create: false, readwrite: true })
   db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`)
+  if (readOnly) db.exec("PRAGMA query_only = ON")
   const attempt = async <TResult>(run: () => TResult): Promise<TResult> => {
     try {
       return run()
@@ -187,7 +186,12 @@ function openBunSeedSqlite(file: string, readOnly: boolean): SeedSqlite {
     run: (sql, parameters = []) => attempt(() => db.query(sql).run(...parameters).changes),
     copyTo: (target) =>
       attempt(() => {
-        db.query("VACUUM INTO ?").run(target)
+        if (readOnly) db.exec("PRAGMA query_only = OFF")
+        try {
+          db.query("VACUUM INTO ?").run(target)
+        } finally {
+          if (readOnly) db.exec("PRAGMA query_only = ON")
+        }
       }),
     close: () =>
       attempt(() => {

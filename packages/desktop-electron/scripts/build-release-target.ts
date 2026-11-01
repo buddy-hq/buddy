@@ -68,7 +68,7 @@ try {
   await $`bun run sdk:generate`.cwd(repositoryRoot).env(environment)
   await $`bun run prepare:release`.cwd(packageDirectory).env(environment)
   await $`bun run build`.cwd(packageDirectory).env(environment)
-  await $`bun run smoke:backend-utility`.cwd(packageDirectory).env(environment)
+  await $`bun run smoke:backend`.cwd(packageDirectory).env(environment)
   await buildElectronPackageAndSmoke({
     electronBuilderArguments: [...target.electronBuilderArguments, "--publish", "never"],
     environment,

@@ -78,7 +78,7 @@ throw new Error("Unexpected GitHub command")
         BUDDY_RELEASE_REPO: "prashantbhudwal/buddy-releases",
         GH_REPO: "prashantbhudwal/buddy-releases",
         BUDDY_VERSION: "0.1.0",
-        BUDDY_NODE_ARTIFACT_TARGET_ARCH: "arm64",
+        BUDDY_BACKEND_TARGET_ARCH: "arm64",
         ELECTRON_DIST_DIR: directory,
         LATEST_YML_DIR: directory,
         BUDDY_UPDATE_ASSET_BASE_URL: "",

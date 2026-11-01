@@ -128,7 +128,7 @@ flowchart TD
   O --> P["Start background pack preparation"]
   P --> Q{"Extractor"}
   Q -- "Spreadsheet" --> R["Bounded SheetJS worker"]
-  Q -- "PDF / Office / EPUB / text" --> S["Shared backend utility process"]
+  Q -- "PDF / Office / EPUB / text" --> S["Shared Bun backend sidecar"]
   R --> T["Write generation-specific staged pack"]
   S --> T
   T --> U["Promote pack and finalize object manifest"]
@@ -262,12 +262,12 @@ agent-owned.
 | --- | --- | --- |
 | Renderer | Composer state, desktop drop, model attachment decoding | Native resources avoid renderer base64 loading |
 | Electron main process | Desktop bridge and backend lifecycle | Separate from backend parsing |
-| Backend utility process | Upload API, object registry, most extraction, pack writes, sessions | A crash does not directly crash the renderer, but all local APIs stop |
+| Bun backend sidecar | Upload API, object registry, most extraction, pack writes, sessions | A crash does not directly crash the renderer, but all local APIs stop |
 | SheetJS worker thread | Spreadsheet archive validation, parsing, CSV/full-text staging | Bounded concurrency, active timeout, V8 heap limits; not an OS memory boundary |
 | LiteParse/Tesseract | PDF native extraction, complexity analysis, selective OCR | Runs under the shared backend path; no Buddy cancellation or wall-clock execution timeout |
 | PDF fallback commands | `pdftotext`, `mutool`, `pdftoppm` | Child processes have output-buffer limits but no execution timeout |
 
-Electron logs backend utility termination but does not currently restart it. A shared-backend crash
+Electron logs backend sidecar termination but does not currently restart it. A shared-backend crash
 therefore affects every session, upload, and preparation until Buddy is relaunched.
 
 ## Current Hard Limits
@@ -366,6 +366,6 @@ The weakest containment is orchestration and shared execution:
 - non-spreadsheet preparations have no global scheduler;
 - pack writes can fan out to thousands of concurrent filesystem promises;
 - there is no aggregate derived-pack size, notebook quota, or storage lifecycle;
-- backend utility death is not recovered automatically.
+- backend sidecar death is not recovered automatically.
 
 The prioritized remediation is defined in [the minimal hardening plan](./minimal-hardening-plan.md).

@@ -18,7 +18,7 @@ export function isWindowsReleaseArch(value: string): value is WindowsReleaseArch
 export function resolveConfiguredDesktopReleaseTargetArch(
   environment: NodeJS.ProcessEnv = process.env,
 ): MacOsReleaseArch | WindowsReleaseArch {
-  const configured = environment.BUDDY_NODE_ARTIFACT_TARGET_ARCH?.trim()
+  const configured = environment.BUDDY_BACKEND_TARGET_ARCH?.trim()
   if (configured && (isMacOsReleaseArch(configured) || isWindowsReleaseArch(configured))) {
     return configured
   }

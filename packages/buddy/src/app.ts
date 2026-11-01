@@ -148,7 +148,15 @@ app.onError(async (error) => {
   return routeErrorResponse(error)
 })
 app.notFound(() => Response.json(routeErrorBody(404, "404 Not Found"), { status: 404 }))
-app.get("/api/healthz", (c) => c.json({ healthy: true }))
+app.get("/api/healthz", (c) =>
+  c.json({
+    healthy: true,
+    runtime: {
+      runtime: process.versions.bun ? "bun" : "node",
+      version: process.versions.bun ?? process.version,
+    },
+  }),
+)
 app.route("/api", api)
 
 const generatedOpenApiHandler = openAPIRouteHandler(app, {

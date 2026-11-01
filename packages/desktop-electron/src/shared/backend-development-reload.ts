@@ -9,9 +9,9 @@ export const BACKEND_DEVELOPMENT_RELOAD_ACKNOWLEDGEMENT_ENV =
 const DEVELOPMENT_GENERATION_DEBOUNCE_MS = 50
 
 type TDevelopmentGenerationWatcherInput = {
-  generationPath: string
-  onError: <TError>(error: TError) => void
-  onGeneration: (generation: string) => Promise<void>
+  readonly generationPath: string
+  readonly onError: (error: Error) => void
+  readonly onGeneration: (generation: string) => Promise<void>
 }
 
 export function watchDevelopmentGenerationFile(
@@ -22,10 +22,14 @@ export function watchDevelopmentGenerationFile(
   let generationQueue = Promise.resolve()
   let generationTimer: ReturnType<typeof setTimeout> | undefined
 
+  const reportReloadError = <TError>(error: TError) => {
+    input.onError(error instanceof Error ? error : new Error(String(error)))
+  }
+
   try {
     lastGeneration = readFileSync(input.generationPath, "utf8")
   } catch (error) {
-    input.onError(error)
+    reportReloadError(error)
     return () => undefined
   }
 
@@ -33,18 +37,21 @@ export function watchDevelopmentGenerationFile(
     try {
       return await readFile(input.generationPath, "utf8")
     } catch (error) {
-      input.onError(error)
+      if (!closed) reportReloadError(error)
       return undefined
     }
   }
 
   const queueGeneration = async () => {
+    if (closed) return
     const generation = await readGeneration()
     if (closed || generation === undefined || generation === lastGeneration) return
     lastGeneration = generation
     generationQueue = generationQueue
-      .then(() => input.onGeneration(generation))
-      .catch(input.onError)
+      .then(async () => {
+        if (!closed) await input.onGeneration(generation)
+      })
+      .catch(reportReloadError)
   }
 
   const scheduleGeneration = () => {
@@ -56,10 +63,14 @@ export function watchDevelopmentGenerationFile(
     }, DEVELOPMENT_GENERATION_DEBOUNCE_MS)
   }
 
-  const watcher = watch(input.generationPath, { persistent: false }, scheduleGeneration)
+  let watcher: ReturnType<typeof watch>
+  try {
+    watcher = watch(input.generationPath, { persistent: false }, scheduleGeneration)
+  } catch (error) {
+    reportReloadError(error)
+    return () => undefined
+  }
   watcher.on("error", input.onError)
-  // Re-read after subscribing so a write that lands between the initial read
-  // and watcher registration cannot be missed.
   void queueGeneration()
 
   return () => {

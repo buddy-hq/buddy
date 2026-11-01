@@ -103,9 +103,9 @@ Inside `$TMP_WORKTREE`:
    bun lint
    bun run --cwd packages/buddy test:contracts
    bun run --cwd packages/web test:contracts
-   bun run --cwd packages/buddy build:node
+   bun run --cwd packages/buddy build:backend
    bun run --cwd packages/desktop-electron build
-   bun run --cwd packages/desktop-electron smoke:backend-utility
+   bun run --cwd packages/desktop-electron smoke:backend
    ```
 4. Audit key Buddy compatibility hotspots:
    - Promise vs. Effect return styles in `plugin-ask-compat.ts` and `buddy-tool-shim.ts`.
@@ -145,9 +145,9 @@ bun typecheck
 bun lint
 bun run --cwd packages/buddy test:contracts
 bun run --cwd packages/web test:contracts
-bun run --cwd packages/buddy build:node
+bun run --cwd packages/buddy build:backend
 bun run --cwd packages/desktop-electron build
-bun run --cwd packages/desktop-electron smoke:backend-utility
+bun run --cwd packages/desktop-electron smoke:backend
 ```
 
 Also run focused Buddy regressions for the sync-risk surfaces: missing-session prompt/command rejection before state mutation, nested-session false-404 prevention, `BUDDY_RUNTIME_ROOT`/XDG bootstrap, overlay isolation, SSE `toolUi` decoration, and agent lookup without hand-built `Agent.Info` values. Keep deleted regression tests for route envelopes, overlay isolation, and desktop assets; restore or extend them when a sync touches those surfaces.

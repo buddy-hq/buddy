@@ -1,5 +1,7 @@
 # Desktop import of v1 chats: design
 
+> Historical Node utility backend account. Since 2026-11-01, the [Bun sidecar ADR](../decisions/bun-sidecar-backend.md) defines the shipped process model. The real Bun v1 importer is compiled directly; Node importer rewrites and Node smoke commands below are obsolete.
+
 Opus design, 2026-10-22, revision 4. Revision 2 answered the first Opus critique. This revision answers the Opus re-review and GPT-6 Astra's review; each hole below was checked against the code. Built by Opus only; several Sols review the implementation. No owner sign-off step.
 
 ## The problem

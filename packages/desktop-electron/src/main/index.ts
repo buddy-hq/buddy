@@ -169,7 +169,7 @@ const initEmitter = new EventEmitter()
 
 let initStep: InitStep = { phase: "server_waiting" }
 let mainWindow: BrowserWindow | null = null
-let backendUtility: CommandChild | null = null
+let backend: CommandChild | null = null
 let embeddedBackendConfig: EmbeddedBackendConfig | undefined
 let applicationQuitting = false
 let stopBackendDevelopmentReloadWatcher: (() => void) | undefined
@@ -273,7 +273,7 @@ function setupApplication() {
   let backendShutdownComplete = false
   const stopBackendForQuit = () => {
     beginApplicationShutdown()
-    backendShutdownTask ??= killBackendUtility().catch((error) => {
+    backendShutdownTask ??= killBackend().catch((error) => {
       logger.error("backend shutdown failed during quit", error)
     })
     return backendShutdownTask
@@ -316,7 +316,7 @@ function setupApplication() {
         appRootPath: app.getAppPath(),
         resourcesPath: process.resourcesPath,
         logger,
-        stopBackend: () => killBackendUtility(),
+        stopBackend: () => killBackend(),
         quit: () => app.quit(),
         isVersionBlocked: (version) => isUpdateVersionBlocked(version),
         ...resolveCustomMacUpdaterOptions(),
@@ -367,7 +367,7 @@ async function initialize() {
       password,
       port,
     }
-    const health = await startBackendUtility(embeddedBackendConfig)
+    const health = await startBackend(embeddedBackendConfig)
 
     serverReady.resolve({
       isEmbeddedBackend: true,
@@ -443,7 +443,7 @@ async function handleInitializationFailure<TError>(error: TError, overlay: Brows
     overlay.close()
   }
 
-  await killBackendUtility()
+  await killBackend()
 
   if (await offerStartupFailureUpdateRecovery(error)) {
     return
@@ -705,7 +705,7 @@ function wireMenu() {
       mainWindow?.reload()
     },
     relaunch: () => {
-      void killBackendUtility().finally(() => {
+      void killBackend().finally(() => {
         app.relaunch()
         app.exit(0)
       })
@@ -714,7 +714,7 @@ function wireMenu() {
 }
 
 registerIpcHandlers({
-  killBackendUtility: () => killBackendUtility(),
+  killBackend: () => killBackend(),
   installCli: async () => installCli(),
   awaitInitialization: async (sendStep) => {
     sendStep(initStep)
@@ -786,23 +786,25 @@ registerIpcHandlers({
   openFullDiskAccessSettings,
 })
 
-async function killBackendUtility() {
-  if (!backendUtility) return
+async function killBackend() {
+  const current = backend
+  if (!current) return
 
-  const current = backendUtility
-  backendUtility = null
   await current.kill()
+  if (backend === current) backend = null
 }
 
-async function startBackendUtility(config: EmbeddedBackendConfig) {
-  const { child, health, events } = await spawnLocalServer(
+async function startBackend(config: EmbeddedBackendConfig) {
+  const events = new EventEmitter()
+  wireBackendLogs(events)
+  const { child, health } = await spawnLocalServer(
     config.hostname,
     config.port,
     config.password,
     config.environment,
+    events,
   )
-  backendUtility = child
-  wireBackendUtilityLogs(events)
+  backend = child
   return health
 }
 
@@ -818,7 +820,7 @@ function startBackendDevelopmentReloadWatcher() {
     },
     onReload: async (generation) => {
       try {
-        await restartBackendUtilityForDevelopment()
+        await restartBackendForDevelopment()
       } finally {
         if (acknowledgementPath) {
           await writeFile(acknowledgementPath, generation).catch((error) => {
@@ -831,21 +833,21 @@ function startBackendDevelopmentReloadWatcher() {
   logger.log("backend development reload is active")
 }
 
-async function restartBackendUtilityForDevelopment() {
+async function restartBackendForDevelopment() {
   const config = embeddedBackendConfig
   if (applicationQuitting || !config) return
 
   const startedAt = performance.now()
-  logger.log("reloading backend utility after development build")
-  await killBackendUtility()
+  logger.log("reloading backend after source change")
+  await killBackend()
   if (applicationQuitting) return
 
   try {
-    const health = await startBackendUtility(config)
+    const health = await startBackend(config)
     await health.wait
-    logger.log(`backend utility reloaded in ${Math.round(performance.now() - startedAt)}ms`)
+    logger.log(`backend reloaded in ${Math.round(performance.now() - startedAt)}ms`)
   } catch (error) {
-    await killBackendUtility()
+    await killBackend()
     throw error
   }
 }
@@ -860,7 +862,7 @@ function beginApplicationShutdown() {
   stopBackendDevelopmentReloadWatcher = undefined
 }
 
-function wireBackendUtilityLogs(events: EventEmitter) {
+function wireBackendLogs(events: EventEmitter) {
   const mirrorToStdIo = !app.isPackaged && process.env.BUDDY_ELECTRON_DEV_BACKEND_LOGS !== "0"
 
   events.on("stdout", (line: string) => {
@@ -888,14 +890,14 @@ function wireBackendUtilityLogs(events: EventEmitter) {
   })
 
   events.on("error", (message: string) => {
-    logger.error("backend utility spawn error", message)
+    logger.error("backend spawn error", message)
     if (mirrorToStdIo) {
       safelyWriteToStandardStream(process.stderr, `[backend:error] ${message}\n`)
     }
   })
 
   events.on("terminated", (payload: TerminatedPayload) => {
-    logger.warn("backend utility terminated", payload)
+    logger.warn("backend terminated", payload)
     if (mirrorToStdIo) {
       safelyWriteToStandardStream(
         process.stderr,
@@ -1337,7 +1339,7 @@ async function installReadyUpdate(version: string): Promise<UpdateInstallOutcome
       return { kind: "started" }
     }
 
-    await killBackendUtility()
+    await killBackend()
     autoUpdater.quitAndInstall()
     return { kind: "started" }
   } catch (error) {

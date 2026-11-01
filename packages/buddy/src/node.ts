@@ -111,14 +111,14 @@ export function isMainModule(entrypoint = process.argv[1]) {
   return isEntrypoint(import.meta.url, entrypoint)
 }
 
-async function stopActiveListener(exitCode: number) {
+export async function stopEntrypointServer(exitCode: number) {
   if (stopping) return
   stopping = true
   try {
     await activeListener?.stop(true)
     process.exit(exitCode)
   } catch (error) {
-    console.error("Failed to stop Buddy Node backend", error)
+    console.error("Failed to stop Buddy backend", error)
     process.exit(1)
   }
 }
@@ -127,19 +127,14 @@ function installSignalHandlers() {
   if (signalHandlersInstalled) return
   signalHandlersInstalled = true
   process.on("SIGINT", () => {
-    void stopActiveListener(0)
+    void stopEntrypointServer(0)
   })
   process.on("SIGTERM", () => {
-    void stopActiveListener(0)
+    void stopEntrypointServer(0)
   })
-}
-
-if (isEntrypoint(import.meta.url)) {
-  startEntrypointServer(process.argv.slice(2))
 }
 
 export { app }
-export { runNodeArtifactResourcePackSmoke } from "./node-artifact-smoke"
 
 function resolveEntrypointPath(value: string) {
   const resolved = path.resolve(value)

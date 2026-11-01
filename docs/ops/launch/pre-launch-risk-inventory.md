@@ -74,7 +74,7 @@ Every former unit appears once; no former unit was dropped.
 - `.github/workflows/publish-shared.yml`
 - `packages/desktop-electron/electron-builder.config.ts`
 - `packages/desktop-electron/src/main/index.ts`
-- `packages/desktop-electron/src/main/backend-utility.ts`
+- `packages/desktop-electron/src/main/server.ts` (Bun sidecar lifecycle)
 - `packages/desktop-electron/src/main/cli.ts`
 - `packages/desktop-electron/src/main/storage-paths.ts`
 - `packages/desktop-electron/test/release-smoke-target.test.ts`

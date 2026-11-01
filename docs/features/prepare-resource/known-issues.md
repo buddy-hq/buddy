@@ -38,7 +38,7 @@ is much smaller than a rewrite.
 | PR-005 | Upload publication requires hard-link support | Conditional compatibility |
 | PR-006 | Upload copy lacks a backend deadline and byte-counted cancellation | Post-launch hardening, elevated for cloud files |
 | PR-007 | Only spreadsheet preparation has a bounded scheduler | Post-launch hardening |
-| PR-008 | Backend utility death is not restarted | Post-launch resilience |
+| PR-008 | Backend sidecar death is not restarted | Post-launch resilience |
 | PR-009 | Rebuild promotion removes the old pack before new rename | Post-launch recovery hardening |
 | PR-010 | Page/chunk/artifact writes use unbounded `Promise.all` fan-out | Post-launch load hardening |
 | PR-011 | No aggregate pack/notebook byte quota or complete garbage collection | Post-launch storage hardening |
@@ -54,12 +54,12 @@ is much smaller than a rewrite.
 | SheetJS worker throw, protocol failure, or five-minute timeout | One spreadsheet resource | Worker termination, staged output, per-resource error handling |
 | Spreadsheet queue full | The newly submitted spreadsheet job | Queue rejects after 32 waiting jobs; other formats continue |
 | One OCR call never returns | At least one resource indefinitely; CPU/native memory can affect the shared backend | Automatic OCR is limited to at most 10 selected pages, but there is no wall-clock stop |
-| Native parser crash or host OOM | Entire backend utility process | Renderer/main process remain separate, but every local API/session stops |
+| Native parser crash or host OOM | Entire Bun backend sidecar | Renderer/main process remain separate, but every local API/session stops |
 | Disk full during upload | One upload initially; the full notebook or host may then be unable to write | Partial cleanup is attempted; 64 MiB source cap exists |
 | Disk full or file lock during pack finalization | Usually one resource, potentially stuck `preparing` | Generation staging exists; outer failure is currently swallowed |
 | Hard links unsupported in notebook filesystem | Every native upload in that notebook | None; no publish fallback |
 | Repeated agent call | Duplicate objects, copies, extraction, aliases, and disk use | Deduplication applies only to the same object ID in one process |
-| Backend utility exits | All uploads, sessions, tools, and preparation in the app | Exit is logged; app relaunch is required |
+| Backend sidecar exits | All uploads, sessions, tools, and preparation in the app | Exit is logged; app relaunch is required |
 | Thousands of page/chunk writes | Shared disk/descriptor pressure and delayed unrelated work | Counts are bounded, but write concurrency is not |
 
 ## PR-001: Outer Preparation Failure Can Remain `preparing`
@@ -268,7 +268,7 @@ Post-launch load hardening.
 
 SheetJS has its own one-or-two-worker lane. PDF, EPUB, DOCX, PPTX, HTML, and text extraction do not
 share a global preparation budget. Distinct objects can begin those preparations concurrently in
-the backend utility process.
+the Bun backend sidecar.
 
 ### Failure mode
 
@@ -289,7 +289,7 @@ Post-launch resilience hardening unless stress tests demonstrate ordinary docume
 
 ### Current behavior
 
-Electron observes and logs utility-process termination but does not restart the backend. The main and
+Electron observes and logs backend sidecar termination but does not restart the backend. The main and
 renderer processes may survive, yet all sessions, APIs, uploads, and preparation stop.
 
 ### Intended fix
@@ -435,7 +435,7 @@ resolve those server-side instead of accepting client-supplied absolute paths.
 
 The following work is already present and should not be listed as open SheetJS regressions:
 
-- SheetJS parsing moved off the backend event loop into a bundled worker sidecar.
+- SheetJS parsing moved off the backend event loop into a worker embedded in the compiled backend.
 - Spreadsheet archive validation runs in the worker and reuses the loaded bytes.
 - Worker concurrency is bounded to one or two active jobs with 32 waiting jobs.
 - Active spreadsheet execution has a five-minute timeout and V8 generation limits.

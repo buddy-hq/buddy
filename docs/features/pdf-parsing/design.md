@@ -206,7 +206,7 @@ Current decisions:
 - Preparation must not depend on a first-use network download.
 - OCR concurrency is intentionally low to keep CPU and memory usage predictable in the desktop
   app.
-- OCR runs in Buddy's existing backend utility process. It does not require a separate sidecar
+- OCR runs in Buddy's Bun backend sidecar. It does not require a separate sidecar
   process.
 
 The OCR engine decision is separate from the selective page-routing decision. A future OCR engine
@@ -214,7 +214,7 @@ can replace Tesseract without changing the resource-pack boundary.
 
 ## LiteParse Output Contract
 
-Buddy uses LiteParse's structured Node output.
+Buddy uses LiteParse's structured output.
 
 Important semantics:
 
@@ -272,7 +272,7 @@ is not yet part of the persisted contract and is tracked as a known issue.
 
 ## Desktop Packaging
 
-LiteParse is a native Node dependency and must be packaged as such.
+LiteParse uses a native binding and PDFium library, embedded by the Bun backend build.
 
 The desktop contract is:
 

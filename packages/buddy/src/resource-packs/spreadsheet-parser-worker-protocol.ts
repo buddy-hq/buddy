@@ -12,14 +12,10 @@ import {
   parseTString,
   type TJsonValue,
 } from "./json-value"
-export { SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME } from "@buddy/script/backend-node-runtime"
 
-export const SPREADSHEET_PARSER_WORKER_SOURCE_FILENAME = "spreadsheet-parser-worker.ts"
 export const SPREADSHEET_PARSER_WORKER_NAME = "buddy-spreadsheet-parser"
 export const SPREADSHEET_PARSER_EXTRACTOR_NAME = "sheetjs"
 export const SPREADSHEET_PARSER_TIMEOUT_MS = 300_000
-export const SPREADSHEET_PARSER_MAX_OLD_GENERATION_SIZE_MB = 512
-export const SPREADSHEET_PARSER_MAX_YOUNG_GENERATION_SIZE_MB = 64
 export const SPREADSHEET_PARSER_STAGED_DIRECTORY_PREFIX = "buddy-spreadsheet-parser-"
 export const SPREADSHEET_PARSER_STAGED_FULL_TEXT_FILENAME = "full-text.txt"
 export const SPREADSHEET_PARSER_STAGED_ARTIFACTS_DIRECTORY = "artifacts"

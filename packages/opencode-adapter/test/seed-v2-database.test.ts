@@ -121,6 +121,51 @@ describe("seeding the v2 database", () => {
     expect(await seedV2Database(place)).toEqual({ kind: "present" })
   })
 
+  test("a v1 source left in WAL mode by a clean shutdown is copied and left unchanged", async () => {
+    const place = workspace("v1-clean-wal")
+    fs.copyFileSync(FIXTURE, place.v1Database)
+    const source = new Database(place.v1Database)
+    source.exec("PRAGMA journal_mode = WAL")
+    source.exec("PRAGMA wal_checkpoint(TRUNCATE)")
+    source.close(false)
+    fs.rmSync(`${place.v1Database}-wal`, { force: true })
+    fs.rmSync(`${place.v1Database}-shm`, { force: true })
+    const before = sha(place.v1Database)
+
+    expectSeeded(await seedV2Database(place), "v1")
+
+    expect(sha(place.v1Database)).toBe(before)
+    expect(count(place.v2Database, "SELECT COUNT(*) AS value FROM session")).toBe(3)
+    expect(count(place.v2Database, "SELECT COUNT(*) AS value FROM message")).toBe(22)
+  })
+
+  test("a v1 source with committed rows still in its WAL keeps them in the copy", async () => {
+    const place = workspace("v1-open-wal")
+    fs.copyFileSync(FIXTURE, place.v1Database)
+    const setup = new Database(place.v1Database)
+    setup.exec("PRAGMA journal_mode = WAL")
+    const writer = new Database(place.v1Database)
+    writer.exec("PRAGMA wal_autocheckpoint = 0")
+    writer.exec(
+      "UPDATE session SET title = 'kept from the WAL' WHERE id = (SELECT id FROM session LIMIT 1)",
+    )
+    expect(fs.statSync(`${place.v1Database}-wal`).size).toBeGreaterThan(0)
+
+    try {
+      expectSeeded(await seedV2Database(place), "v1")
+    } finally {
+      writer.close(false)
+      setup.close(false)
+    }
+
+    expect(
+      count(
+        place.v2Database,
+        "SELECT COUNT(*) AS value FROM session WHERE title = 'kept from the WAL'",
+      ),
+    ).toBe(1)
+  })
+
   test("a stale temporary copy, its side files and a stale private copy folder are removed and the copy is redone", async () => {
     const place = workspace("stale")
     fs.copyFileSync(FIXTURE, place.v1Database)

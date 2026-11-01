@@ -119,7 +119,7 @@ if (addDropListener) {
 }
 
 const api: ElectronAPI = {
-  killBackendUtility: () => ipcRenderer.invoke("kill-backend-utility"),
+  killBackend: () => ipcRenderer.invoke("kill-backend"),
   installCli: () => ipcRenderer.invoke("install-cli"),
   awaitInitialization: (onStep) => {
     const handler = (_: IpcRendererEvent, step: InitStep) => onStep(step)

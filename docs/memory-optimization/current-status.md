@@ -1,5 +1,7 @@
 # Memory Optimization Current Status
 
+> Historical Node utility backend account. Since 2026-11-01, the [Bun sidecar ADR](../architecture/decisions/bun-sidecar-backend.md) defines the shipped process model. The real Bun v1 importer is compiled directly; Node importer rewrites and Node smoke commands below are obsolete.
+
 > **Dated foundation notes (2026-06-25).** Canonical packaging contracts, Failure Rule, target-native `out/main`, and next-map: [utility-process-backend.md](../architecture/decisions/utility-process-backend.md).
 
 Created: 2026-06-25

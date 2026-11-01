@@ -75,7 +75,7 @@ describe("CI workflow", () => {
       const environment = objectValue(document.env, "CI environment")
       const jobs = workflowJobs(document)
 
-      for (const jobName of ["static", "tests", "node-smoke"]) {
+      for (const jobName of ["static", "tests", "backend-smoke"]) {
         const installStep = workflowStep(workflowJob(jobs, jobName), "Install dependencies")
         expect(installStep.uses).toBe("./.github/actions/install-dependencies")
       }
@@ -136,7 +136,7 @@ describe("CI workflow", () => {
     },
   )
 
-  test("runs static analysis, tests, Node smoke, and the vendor guard behind one final gate", async () => {
+  test("runs static analysis, tests, compiled backend smoke, and the vendor guard behind one final gate", async () => {
     const document = await ciWorkflow()
     const jobs = workflowJobs(document)
     const staticJob = workflowJob(jobs, "static")
@@ -144,7 +144,7 @@ describe("CI workflow", () => {
     const vendorGuardJob = workflowJob(jobs, "vendor_guard")
     const checkJob = workflowJob(jobs, "check")
 
-    expect(Object.keys(jobs)).toEqual(["static", "tests", "node-smoke", "vendor_guard", "check"])
+    expect(Object.keys(jobs)).toEqual(["static", "tests", "backend-smoke", "vendor_guard", "check"])
     expect(staticJob.needs).toBeUndefined()
     expect(testsJob.needs).toBeUndefined()
     expect(vendorGuardJob.needs).toBeUndefined()
@@ -154,18 +154,18 @@ describe("CI workflow", () => {
     expect(arrayValue(checkJob.needs, "check.needs")).toEqual([
       "static",
       "tests",
-      "node-smoke",
+      "backend-smoke",
       "vendor_guard",
     ])
   })
 
   test.skipIf(process.platform === "win32")(
-    "requires successful Node smoke results before Check passes",
+    "requires successful compiled backend smoke results before Check passes",
     async () => {
       const checkJob = workflowJob(workflowJobs(await ciWorkflow()), "check")
       const verification = workflowStep(checkJob, "Verify required jobs")
       const environment = objectValue(verification.env, "required jobs verification environment")
-      expect(environment.NODE_SMOKE_RESULT).toBe("${{ needs.node-smoke.result }}")
+      expect(environment.BACKEND_SMOKE_RESULT).toBe("${{ needs.backend-smoke.result }}")
       const script = stringValue(verification.run, "required jobs verification script")
       for (const result of ["success", "failure", "cancelled", "skipped"]) {
         const child = Bun.spawn(["bash", "-e", "-c", script], {
@@ -173,7 +173,7 @@ describe("CI workflow", () => {
             ...process.env,
             STATIC_RESULT: "success",
             TESTS_RESULT: "success",
-            NODE_SMOKE_RESULT: result,
+            BACKEND_SMOKE_RESULT: result,
             VENDOR_GUARD_RESULT: "success",
           },
           stdout: "ignore",

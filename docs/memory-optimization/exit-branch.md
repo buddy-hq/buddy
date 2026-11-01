@@ -1,5 +1,7 @@
 # Memory Optimization Branch Exit
 
+> Historical Node utility backend account. Since 2026-11-01, the [Bun sidecar ADR](../architecture/decisions/bun-sidecar-backend.md) defines the shipped process model. The real Bun v1 importer is compiled directly; Node importer rewrites and Node smoke commands below are obsolete.
+
 > **Dated branch exit (2026-06-26).** Canonical architecture: [utility-process-backend.md](../architecture/decisions/utility-process-backend.md). This file keeps the negative catalog, Windows measurement table, and six-item next map.
 
 Created: 2026-06-26

@@ -11,17 +11,17 @@ bun install
 bun run dev:desktop
 ```
 
-`dev:desktop` watches the backend's bundled workspace dependencies, rebuilds the external backend
-artifact, refreshes the generated SDK when its inputs change, and reloads only the embedded backend
-utility. Electron and the renderer stay running. Rebuilds wait for the prior utility reload before
-replacing the artifact again. For frontend-only work, use the lower-overhead build-once path:
+`dev:desktop` launches the backend source with Bun and the branding preload. It watches the backend
+and its workspace dependencies, refreshes the generated SDK when its inputs change, and restarts the
+Bun child after source changes. Electron and the renderer stay running. Restarts wait for the prior
+child to stop. For frontend-only work, disable backend watching:
 
 ```bash
 bun run dev:desktop:fast
 ```
 
-The fast path still starts the real Electron utility-process backend, but backend source edits do
-not take effect until the command is restarted.
+The fast path starts the same Bun source child with backend watching disabled. Backend source edits
+take effect when the command is restarted.
 
 ## Build
 

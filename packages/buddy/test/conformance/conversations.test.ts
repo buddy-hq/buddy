@@ -3,6 +3,7 @@ import { Schema } from "effect"
 import { MessageWithParts } from "@buddy/transcript-contract/message"
 import { Session } from "@buddy/transcript-contract/session"
 import { createRuntimeHarness, messageText, scenario } from "./harness"
+import { freeModelPrompt } from "../../../desktop-electron/scripts/smoke-free-models"
 
 let api: Awaited<ReturnType<typeof createRuntimeHarness>>
 beforeAll(async () => {
@@ -13,6 +14,18 @@ afterAll(async () => {
 })
 
 describe("Conversations port", () => {
+  test("admits the live free-model smoke payload through the Buddy HTTP prompt route", async () => {
+    const session = await api.create({ title: "Free model smoke request contract" })
+    const response = await api.request(`/session/${session.id}/prompt_async`, {
+      method: "POST",
+      body: JSON.stringify(freeModelPrompt("beam-free")),
+    })
+    expect(response.status).toBe(204)
+    const user = (await api.messages(session.id)).find((message) => message.info.role === "user")
+    if (!user) throw new Error("The smoke prompt was admitted without a stored user message")
+    expect(messageText(user)).toContain("Reply with just: ok")
+  })
+
   test("created conversations retain metadata, expose their family, and removal deletes the family", async () => {
     const parent = await api.create({ title: "Family", metadata: { purpose: "conformance" } })
     const child = await api.create({ parentID: parent.id, title: "Child" })

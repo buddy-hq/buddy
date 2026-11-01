@@ -6,7 +6,6 @@ import { createRequire } from "node:module"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import {
-  CHEMFIG_CHILD_FILENAME,
   CHEMFIG_RUNTIME_DIRECTORY_NAME,
   CHEMFIG_TEX_ASSET_FILENAMES,
   CHEMFIG_TEX_DIRECTORY_NAME,
@@ -15,6 +14,7 @@ import { BUDDY_ENV } from "@buddy/script/storage-env"
 import z from "zod"
 import { BUDDY_DIRECTORY_NAME, isNodeErrorCode, readJsonFile } from "../objects"
 import { writeJsonFileAtomic } from "../storage/atomic-file"
+import { isCompiledBackend } from "../compiled-backend"
 import { ChemistryRenderError } from "./errors"
 import {
   CHEMFIG_CHILD_FAILURE_STAGES,
@@ -41,10 +41,6 @@ const CHEMFIG_RENDER_CACHE_MAX_BYTES = 64 * 1024 * 1024
 const CHEMISTRY_CACHE_DIRECTORY_NAME = "cache"
 const CHEMISTRY_CACHE_NAMESPACE = "chemistry"
 const CHEMFIG_RENDER_CACHE_DIRECTORY_NAME = "chemfig-renders"
-const ELECTRON_RUN_AS_NODE_ENV = "ELECTRON_RUN_AS_NODE"
-const ELECTRON_RUN_AS_NODE_VALUE = "1"
-const APP_ASAR_DIRECTORY_NAME = "app.asar"
-const APP_ASAR_UNPACKED_DIRECTORY_NAME = "app.asar.unpacked"
 const SOURCE_TIKZJAX_PACKAGE_MANIFEST_SPECIFIER = ["node-tikzjax", "package.json"].join("/")
 const CHEMFIG_DOCUMENT_PREFIX = String.raw`\begin{document}
 \begingroup
@@ -484,24 +480,10 @@ function runInSerializedRenderQueue<T>(input: {
   })
 }
 
-function runtimeAt(runtimeDirectory: string): ChemfigChildRuntime | undefined {
-  const childPath = path.join(runtimeDirectory, CHEMFIG_CHILD_FILENAME)
-  const texDirectory = path.join(runtimeDirectory, CHEMFIG_TEX_DIRECTORY_NAME)
-  if (!existsSync(childPath)) return undefined
-  if (!hasChemfigTexAssets(texDirectory)) return undefined
-  return { childPath, texDirectory }
-}
-
 function hasChemfigTexAssets(texDirectory: string): boolean {
   return CHEMFIG_TEX_ASSET_FILENAMES.every((assetFilename) =>
     existsSync(path.join(texDirectory, assetFilename)),
   )
-}
-
-function asarUnpackedDirectory(directory: string): string | undefined {
-  const asarSegment = `${path.sep}${APP_ASAR_DIRECTORY_NAME}${path.sep}`
-  if (!directory.includes(asarSegment)) return undefined
-  return directory.replace(asarSegment, `${path.sep}${APP_ASAR_UNPACKED_DIRECTORY_NAME}${path.sep}`)
 }
 
 function sourceChildRuntime(): ChemfigChildRuntime | undefined {
@@ -518,18 +500,17 @@ function sourceChildRuntime(): ChemfigChildRuntime | undefined {
 }
 
 function resolveChemfigChildRuntime(): ChemfigChildRuntime {
-  const moduleDirectory = path.dirname(fileURLToPath(import.meta.url))
-  const unpackedModuleDirectory = asarUnpackedDirectory(moduleDirectory)
-  if (unpackedModuleDirectory) {
-    const unpackedRuntime = runtimeAt(
-      path.join(unpackedModuleDirectory, CHEMFIG_RUNTIME_DIRECTORY_NAME),
-    )
-    if (unpackedRuntime) return unpackedRuntime
+  if (isCompiledBackend) {
+    const texDirectory =
+      process.env[BUDDY_ENV.CHEMFIG_TEX_DIR] ??
+      path.join(
+        path.dirname(process.execPath),
+        CHEMFIG_RUNTIME_DIRECTORY_NAME,
+        CHEMFIG_TEX_DIRECTORY_NAME,
+      )
+    if (!hasChemfigTexAssets(texDirectory)) throw chemistryRuntimeUnavailable()
+    return { childPath: process.execPath, texDirectory }
   }
-
-  const adjacentRuntime = runtimeAt(path.join(moduleDirectory, CHEMFIG_RUNTIME_DIRECTORY_NAME))
-  if (adjacentRuntime) return adjacentRuntime
-
   const sourceRuntime = sourceChildRuntime()
   if (sourceRuntime) return sourceRuntime
 
@@ -610,16 +591,21 @@ async function compileChemfigDocument(input: {
   return new Promise<string>((resolve, reject) => {
     const childEnvironment: NodeJS.ProcessEnv = {
       ...process.env,
-      [ELECTRON_RUN_AS_NODE_ENV]: ELECTRON_RUN_AS_NODE_VALUE,
     }
+    delete childEnvironment.ELECTRON_RUN_AS_NODE
+    delete childEnvironment.BUDDY_EXIT_WITH_PARENT
     childEnvironment[BUDDY_ENV.CHEMFIG_TEX_DIR] = runtime.texDirectory
 
-    const child = spawn(process.execPath, [runtime.childPath], {
-      env: childEnvironment,
-      shell: false,
-      stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true,
-    })
+    const child = spawn(
+      process.execPath,
+      isCompiledBackend ? ["__chemfig-child"] : [runtime.childPath],
+      {
+        env: childEnvironment,
+        shell: false,
+        stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
+      },
+    )
     const stdoutChunks: Buffer[] = []
     const stderrChunks: Buffer[] = []
     let stdoutBytes = 0

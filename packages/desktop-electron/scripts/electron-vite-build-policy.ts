@@ -1,16 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
 import { parseTJsonObject, parseTString } from "../src/shared/parse-external"
-
-export type ElectronViteCommand = "build" | "serve"
-
-export type ExternalBackendModule = {
-  external: true
-  id: string
-}
-
-export type BackendDevelopmentRebuildCompletion = "failed" | "rebuild" | "reload"
 
 type WorkspacePackage = {
   dependencies: string[]
@@ -102,29 +92,4 @@ export function backendDevelopmentWatchRoots(repositoryRoot: string): string[] {
   }
 
   return [...roots].toSorted()
-}
-
-export function resolveBackendDevelopmentRebuildCompletion(input: {
-  backendBuildSucceeded: boolean
-  rebuildQueued: boolean
-  sdkRefreshSucceeded: boolean
-}): BackendDevelopmentRebuildCompletion {
-  if (input.rebuildQueued) return "rebuild"
-  return input.backendBuildSucceeded && input.sdkRefreshSucceeded ? "reload" : "failed"
-}
-
-export function resolveExternalDevelopmentBackend(
-  command: ElectronViteCommand,
-  backendEntry: string,
-): ExternalBackendModule | undefined {
-  if (command !== "serve") return undefined
-
-  return {
-    external: true,
-    id: pathToFileURL(backendEntry).href,
-  }
-}
-
-export function shouldCopyPackagedRuntimeAssets(command: ElectronViteCommand): boolean {
-  return command === "build"
 }
