@@ -34,6 +34,20 @@ class SmokeFailure extends Error {
 const repository = path.resolve(import.meta.dir, "../../..")
 const backendPackage = path.join(repository, "packages/buddy")
 const prompt = "Reply with just: ok"
+const allowancePattern = /FreeUsageLimitError|free usage limit/i
+
+export function freeModelVerdict(input: {
+  readonly buddyFailure: string
+  readonly controlPassed: boolean
+  readonly controlFailure?: string
+}): "buddy-broken" | "inconclusive" {
+  if (input.controlPassed) return "buddy-broken"
+  const allowanceExhausted = allowancePattern.test(input.controlFailure ?? "")
+  return allowanceExhausted && !allowancePattern.test(input.buddyFailure)
+    ? "buddy-broken"
+    : "inconclusive"
+}
+
 export function freeModelPrompt(modelID: string) {
   return { content: prompt, agent: "buddy", model: { providerID: "opencode", modelID } }
 }
@@ -185,7 +199,6 @@ async function isolatedEnvironment(root: string): Promise<Record<string, string>
     OPENCODE_CONFIG_DIR: config,
     OPENCODE_DISABLE_EXTERNAL_SKILLS: "1",
     OPENCODE_DISABLE_DEFAULT_PLUGINS: "1",
-    OPENCODE_DISABLE_MODELS_FETCH: "1",
     OPENCODE_SERVER_USERNAME: username,
     OPENCODE_SERVER_PASSWORD: password,
     OPENCODE_CLIENT: "desktop",
@@ -541,6 +554,15 @@ async function reportBackendLogs(root: string): Promise<void> {
   }
 }
 
+async function readBackendLogs(root: string): Promise<string> {
+  const logs = await Promise.all(
+    ["backend.stdout", "backend.stderr"].map((filename) =>
+      readFile(path.join(root, filename), "utf8").catch(() => ""),
+    ),
+  )
+  return logs.join("\n")
+}
+
 async function main(): Promise<number> {
   const parsed = parseOptions(process.argv.slice(2))
   if (!parsed.ok) {
@@ -569,6 +591,17 @@ async function main(): Promise<number> {
     if (control.ok) {
       console.error(
         `FAIL: Buddy failed while the direct control passed: ${JSON.stringify(control.value.text)}`,
+      )
+      return 1
+    }
+    const verdict = freeModelVerdict({
+      buddyFailure: `${buddy.result.error.message} ${await readBackendLogs(root)}`,
+      controlPassed: false,
+      controlFailure: control.error.message,
+    })
+    if (verdict === "buddy-broken") {
+      console.error(
+        `FAIL: Buddy failed for a reason other than the free allowance: ${buddy.result.error.message}`,
       )
       return 1
     }
