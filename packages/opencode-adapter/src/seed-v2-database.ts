@@ -126,13 +126,20 @@ export class V2DatabaseSeedError extends Error {
   }
 }
 
+export function reportedFreeBytes(stats: {
+  readonly bavail: number | bigint
+  readonly bsize: number | bigint
+}): number | undefined {
+  const blockSize = Number(stats.bsize)
+  return blockSize > 0 ? Number(stats.bavail) * blockSize : undefined
+}
+
 async function requireFreeSpace(v1Database: string, directory: string) {
   const [main, wal] = await Promise.all([fileSize(v1Database), fileSize(`${v1Database}-wal`)])
   const sourceBytes = (main ?? 0) + (wal ?? 0)
   const needed = sourceBytes * FREE_SPACE_MULTIPLE
-  const stats = await fs.statfs(directory)
-  const available = Number(stats.bavail) * Number(stats.bsize)
-  if (available < needed) {
+  const available = reportedFreeBytes(await fs.statfs(directory))
+  if (available !== undefined && available < needed) {
     throw new V2DatabaseSeedError(
       `Not enough disk space to upgrade your chats: need ${formatBytes(needed)}, have ${formatBytes(available)}`,
     )

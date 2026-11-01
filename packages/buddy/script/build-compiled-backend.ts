@@ -201,6 +201,7 @@ const result = await Bun.build({
   bytecode: true,
   sourcemap: "none",
   splitting: true,
+  naming: { entry: "[name].[ext]" },
   loader: { ".md": "text", ".wasm": "file" },
   compile,
   define: {

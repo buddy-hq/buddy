@@ -45,8 +45,7 @@ let activeWorkerCount = 0
 let staleDirectoryCleanupTask: Promise<void> | undefined
 
 function spreadsheetParserWorkerUrl(): URL {
-  if (isCompiledBackend)
-    return new URL("./resource-packs/spreadsheet-parser-worker.js", import.meta.url)
+  if (isCompiledBackend) return new URL("./spreadsheet-parser-worker.js", import.meta.url)
   return new URL("./spreadsheet-parser-worker.ts", import.meta.url)
 }
 

@@ -8,6 +8,7 @@ import { TEST_SANDBOX } from "../../../script/test-preload"
 import { configureOpenCodeGlobalPaths, createOpenCodeHost } from "../src/host"
 import {
   ensureV2DatabaseSeeded,
+  reportedFreeBytes,
   seedV2Database,
   type V2DatabaseSeedResult,
 } from "../src/seed-v2-database"
@@ -164,6 +165,12 @@ describe("seeding the v2 database", () => {
         "SELECT COUNT(*) AS value FROM session WHERE title = 'kept from the WAL'",
       ),
     ).toBe(1)
+  })
+
+  test("a block size of zero from statfs means free space is unknown, not zero", () => {
+    expect(reportedFreeBytes({ bsize: 0, bavail: 120699413 })).toBeUndefined()
+    expect(reportedFreeBytes({ bsize: 4096, bavail: 0 })).toBe(0)
+    expect(reportedFreeBytes({ bsize: 4096, bavail: 10 })).toBe(40960)
   })
 
   test("a stale temporary copy, its side files and a stale private copy folder are removed and the copy is redone", async () => {

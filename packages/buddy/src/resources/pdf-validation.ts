@@ -10,7 +10,7 @@ import {
 } from "./pdf-validation-worker-protocol"
 
 function pdfValidationWorkerUrl(): URL {
-  if (isCompiledBackend) return new URL("./resources/pdf-validation-worker.js", import.meta.url)
+  if (isCompiledBackend) return new URL("./pdf-validation-worker.js", import.meta.url)
   return new URL("./pdf-validation-worker.ts", import.meta.url)
 }
 
