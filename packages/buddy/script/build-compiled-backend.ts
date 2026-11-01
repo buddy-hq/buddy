@@ -4,11 +4,13 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
   statSync,
 } from "node:fs"
 import { createRequire } from "node:module"
+import os from "node:os"
 import path from "node:path"
 import type { BunPlugin } from "bun"
 import {
@@ -26,7 +28,7 @@ import {
   BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE,
   computeAdvancedMathRuntimeVersion,
 } from "../src/local-runtimes/advanced-math/version"
-import { resolveCompiledBackendTarget } from "./compiled-backend-target"
+import { baselineRuntimeArchive, resolveCompiledBackendTarget } from "./compiled-backend-target"
 import { opencodeBrandingPlugin } from "./opencode-branding"
 
 const backendDirectory = path.resolve(import.meta.dir, "..")
@@ -134,9 +136,56 @@ export const native = createRequire(import.meta.url)(bindingPath);`,
   },
 }
 
+async function downloadBaselineRuntime(directory: string): Promise<string | undefined> {
+  const archive = baselineRuntimeArchive(target, Bun.version)
+  if (!archive) return undefined
+  const [download, checksums] = await Promise.all([
+    fetch(archive.archiveURL),
+    fetch(archive.checksumsURL),
+  ])
+  if (!download.ok) throw new Error(`Could not download ${archive.name}: ${download.status}`)
+  if (!checksums.ok) throw new Error(`Could not download Bun checksums: ${checksums.status}`)
+  const expected = (await checksums.text())
+    .split("\n")
+    .find((line) => line.trimEnd().endsWith(`  ${archive.name}.zip`))
+    ?.split(/\s+/u)[0]
+  if (!expected) throw new Error(`Bun checksums do not list ${archive.name}.zip`)
+  const bytes = new Uint8Array(await download.arrayBuffer())
+  if (createHash("sha256").update(bytes).digest("hex") !== expected)
+    throw new Error(`Checksum mismatch for ${archive.name}.zip`)
+  const zip = path.join(directory, `${archive.name}.zip`)
+  await Bun.write(zip, bytes)
+  const extract =
+    process.platform === "win32"
+      ? [
+          "powershell.exe",
+          "-NoProfile",
+          "-Command",
+          `Expand-Archive -Force -LiteralPath '${zip}' -DestinationPath '${directory}'`,
+        ]
+      : ["unzip", "-oq", zip, "-d", directory]
+  const extraction = Bun.spawnSync(extract, { stdout: "inherit", stderr: "inherit" })
+  if (!extraction.success) throw new Error(`Could not extract ${archive.name}.zip`)
+  return path.join(directory, archive.executable)
+}
+
 process.chdir(backendDirectory)
 rmSync(outputDirectory, { recursive: true, force: true })
 mkdirSync(outputDirectory, { recursive: true })
+const runtimeDirectory = mkdtempSync(path.join(os.tmpdir(), "buddy-bun-runtime-"))
+const executablePath = await downloadBaselineRuntime(runtimeDirectory)
+
+const compile: Bun.CompileBuildOptions = {
+  target,
+  outfile: executable,
+  autoloadBunfig: false,
+  autoloadDotenv: false,
+  autoloadTsconfig: true,
+  autoloadPackageJson: true,
+  execArgv: ["--smol", "--use-system-ca", "--no-warnings", "--"],
+  windows: {},
+}
+if (executablePath) compile.executablePath = executablePath
 
 const result = await Bun.build({
   entrypoints: [
@@ -153,16 +202,7 @@ const result = await Bun.build({
   sourcemap: "none",
   splitting: true,
   loader: { ".md": "text", ".wasm": "file" },
-  compile: {
-    target,
-    outfile: executable,
-    autoloadBunfig: false,
-    autoloadDotenv: false,
-    autoloadTsconfig: true,
-    autoloadPackageJson: true,
-    execArgv: ["--smol", "--use-system-ca", "--no-warnings", "--"],
-    windows: {},
-  },
+  compile,
   define: {
     BUDDY_COMPILED_BACKEND: "true",
     [BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE]: JSON.stringify(advancedMathVersion),
@@ -172,6 +212,7 @@ const result = await Bun.build({
     FFF_LIBC: process.platform === "linux" ? '"gnu"' : "undefined",
   },
 })
+rmSync(runtimeDirectory, { recursive: true, force: true })
 if (!result.success)
   throw new Error(
     result.logs.map((entry) => entry.message).join("\n") || "Backend compilation failed",

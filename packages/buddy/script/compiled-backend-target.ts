@@ -17,3 +17,14 @@ export function resolveCompiledBackendTarget(input: {
   if (platform === "linux" && arch === "x64") return "bun-linux-x64"
   throw new Error(`Unsupported backend build host: ${platform}-${arch}`)
 }
+
+export function baselineRuntimeArchive(target: Bun.Build.CompileTarget, bunVersion: string) {
+  if (!target.endsWith("-baseline")) return undefined
+  const release = `https://github.com/oven-sh/bun/releases/download/bun-v${bunVersion}`
+  return {
+    name: target,
+    archiveURL: `${release}/${target}.zip`,
+    checksumsURL: `${release}/SHASUMS256.txt`,
+    executable: `${target}/${target.includes("-windows-") ? "bun.exe" : "bun"}`,
+  }
+}

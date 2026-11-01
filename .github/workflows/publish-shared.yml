@@ -345,6 +345,9 @@ jobs:
       - name: Build compiled backend
         run: bun run --cwd packages/buddy build:backend
 
+      - name: Generate SDK for the smoke client
+        run: bun run sdk:generate
+
       - name: Smoke compiled backend
         run: bun run --cwd packages/desktop-electron smoke:backend
 

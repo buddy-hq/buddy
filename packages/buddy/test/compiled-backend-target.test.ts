@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test"
-import { resolveCompiledBackendTarget } from "../script/compiled-backend-target"
+import {
+  baselineRuntimeArchive,
+  resolveCompiledBackendTarget,
+} from "../script/compiled-backend-target"
 
 test.each([
   ["darwin", "arm64", "bun-darwin-arm64"],
@@ -28,4 +31,21 @@ test("rejects an unsupported host", () => {
   expect(() =>
     resolveCompiledBackendTarget({ host: { platform: "aix", arch: "ppc64" }, requested: {} }),
   ).toThrow("Unsupported backend build host")
+})
+
+test("baseline targets name the matching Bun release archive and executable", () => {
+  expect(baselineRuntimeArchive("bun-windows-x64-baseline", "1.3.13")).toEqual({
+    name: "bun-windows-x64-baseline",
+    archiveURL:
+      "https://github.com/oven-sh/bun/releases/download/bun-v1.3.13/bun-windows-x64-baseline.zip",
+    checksumsURL: "https://github.com/oven-sh/bun/releases/download/bun-v1.3.13/SHASUMS256.txt",
+    executable: "bun-windows-x64-baseline/bun.exe",
+  })
+  expect(baselineRuntimeArchive("bun-darwin-x64-baseline", "1.3.13")?.executable).toBe(
+    "bun-darwin-x64-baseline/bun",
+  )
+})
+
+test("host-native targets use the running Bun", () => {
+  expect(baselineRuntimeArchive("bun-darwin-arm64", "1.3.13")).toBeUndefined()
 })
