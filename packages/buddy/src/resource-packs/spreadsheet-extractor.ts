@@ -2,7 +2,7 @@ import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises"
 import { availableParallelism, tmpdir, totalmem } from "node:os"
 import path from "node:path"
 import { Worker, type WorkerOptions } from "node:worker_threads"
-import { isCompiledBackend } from "../compiled-backend"
+import { compiledWorkerPath, isCompiledBackend } from "../compiled-backend"
 import {
   isNativeSpreadsheetFormat,
   type NativeSpreadsheetFormat,
@@ -44,8 +44,8 @@ const waitingWorkerSlots: Array<() => void> = []
 let activeWorkerCount = 0
 let staleDirectoryCleanupTask: Promise<void> | undefined
 
-function spreadsheetParserWorkerUrl(): URL {
-  if (isCompiledBackend) return new URL("./spreadsheet-parser-worker.js", import.meta.url)
+function spreadsheetParserWorkerLocation(): string | URL {
+  if (isCompiledBackend) return compiledWorkerPath("spreadsheet-parser-worker.js", import.meta.url)
   return new URL("./spreadsheet-parser-worker.ts", import.meta.url)
 }
 
@@ -127,7 +127,7 @@ function runSpreadsheetParserWorker(
         workerData: input,
         smol: true,
       } satisfies WorkerOptions & Bun.WorkerOptions
-      worker = new Worker(spreadsheetParserWorkerUrl(), options)
+      worker = new Worker(spreadsheetParserWorkerLocation(), options)
     } catch (error) {
       reject(errorFromUnknown(error))
       return

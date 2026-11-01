@@ -1,5 +1,5 @@
 import { Worker, type WorkerOptions } from "node:worker_threads"
-import { isCompiledBackend } from "../compiled-backend"
+import { compiledWorkerPath, isCompiledBackend } from "../compiled-backend"
 import {
   parsePdfValidationWorkerOutput,
   PDF_VALIDATION_STATUS_ERROR,
@@ -9,8 +9,8 @@ import {
   PDF_VALIDATION_WORKER_TIMEOUT_MS,
 } from "./pdf-validation-worker-protocol"
 
-function pdfValidationWorkerUrl(): URL {
-  if (isCompiledBackend) return new URL("./pdf-validation-worker.js", import.meta.url)
+function pdfValidationWorkerLocation(): string | URL {
+  if (isCompiledBackend) return compiledWorkerPath("pdf-validation-worker.js", import.meta.url)
   return new URL("./pdf-validation-worker.ts", import.meta.url)
 }
 
@@ -27,7 +27,7 @@ export function validatePdfDocumentInWorker(sourcePath: string): Promise<boolean
         workerData: sourcePath,
         smol: true,
       } satisfies WorkerOptions & Bun.WorkerOptions
-      worker = new Worker(pdfValidationWorkerUrl(), options)
+      worker = new Worker(pdfValidationWorkerLocation(), options)
     } catch (error) {
       reject(errorFromUnknown(error))
       return

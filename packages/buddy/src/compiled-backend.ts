@@ -9,3 +9,8 @@ function readCompiledBackend(): boolean {
 }
 
 export const isCompiledBackend = readCompiledBackend()
+
+export function compiledWorkerPath(filename: string, importerURL: string): string {
+  const { pathname } = new URL(`./${filename}`, importerURL)
+  return decodeURIComponent(pathname).replace(/^\/([A-Za-z]:)/u, "$1")
+}
